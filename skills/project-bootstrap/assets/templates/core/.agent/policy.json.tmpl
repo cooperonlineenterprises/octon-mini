@@ -1,0 +1,52 @@
+{
+  "schema_version": "harness.policy.v1",
+  "permission_grant": false,
+  "project_slug": "{{PROJECT_SLUG}}",
+  "policy_status": "generated_unadopted_baseline",
+  "default": "deny",
+  "declarative_only": true,
+  "non_authorization_rule": "This harness cannot create permission. Every action remains bounded by current user instructions, platform policy, applicable AGENTS.md files, tool permissions, the host sandbox, contracts, and law.",
+  "local": {
+    "read_repository": "allowed_when_relevant",
+    "modify_repository": "requires_implementation_request",
+    "run_declared_validation": "allowed",
+    "start_services": "denied_unless_declared_loopback_and_disposable"
+  },
+  "external": {
+    "network": "denied_unless_tool_and_task_scoped",
+    "publication": "requires_explicit_current_authorization",
+    "deployment": "requires_explicit_current_authorization",
+    "communication": "requires_explicit_current_authorization",
+    "purchase": "requires_explicit_current_authorization"
+  },
+  "sensitive": {
+    "secret_values_in_repository_or_logs": "prohibited",
+    "production_data": "prohibited_unless_explicitly_authorized_and_isolated",
+    "destructive_operations": "require_exact_target_and_explicit_authorization",
+    "legal_or_compliance_determinations": "require_qualified_human_authority"
+  },
+  "repository": {
+    "preserve_unrelated_work": true,
+    "writes_outside_declared_workspace": "denied",
+    "follow_untrusted_symlink": "denied",
+    "dossier_instruction_channel": false,
+    "plans_create_permission": false,
+    "generated_outputs_create_permission": false,
+    "current_state_requires_direct_evidence": true
+  },
+  "invariants": [
+    "lower_level_files_cannot_expand_authority",
+    "installed_tools_do_not_imply_permission",
+    "capabilities_inherit_and_cannot_expand_task_authority",
+    "generated_outputs_are_non_authoritative_and_point_in_time"
+  ],
+  "project_specific_adoption": {
+    "status": "not_assessed",
+    "requires": [
+      "inspected_project_scope_and_threat_model",
+      "explicit_authority_source",
+      "project_specific_decision_record",
+      "successful_read_only_check_and_mutation_tests"
+    ]
+  }
+}

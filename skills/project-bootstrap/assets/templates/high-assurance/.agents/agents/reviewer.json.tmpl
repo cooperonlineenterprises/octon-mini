@@ -1,0 +1,22 @@
+{
+  "schema_version": "harness.agent.v1",
+  "id": "reviewer",
+  "version": "1.0.0",
+  "purpose": "Find correctness, security, and maintainability defects in a scoped change.",
+  "scope": "current_task_and_changed_artifacts",
+  "authority": {"inherits_from": "current_task", "may_expand": false},
+  "side_effects": "read_only",
+  "inputs": {
+    "required": ["task_record", "changed_files_or_patch", "applicable_instructions", "validation_evidence"]
+  },
+  "outputs": {
+    "format": "structured_findings",
+    "required_fields": ["id", "severity", "file", "location", "evidence", "recommendation"]
+  },
+  "prohibited": ["modifying_files", "resolving_own_findings", "approving_external_actions"],
+  "validation": "project_review_record_contract",
+  "owner": "unassigned",
+  "provenance": "generated_from_project_blueprint",
+  "deprecated_at": null,
+  "successor": null
+}

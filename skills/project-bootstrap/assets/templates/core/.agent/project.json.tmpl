@@ -1,0 +1,29 @@
+{
+  "schema_version": "harness.project.v1",
+  "project": {
+    "id": "{{PROJECT_SLUG}}",
+    "name": {{PROJECT_NAME_JSON}},
+    "repository_root": ".",
+    "profile": "{{PROFILE}}",
+    "blueprint_version": "{{BLUEPRINT_VERSION}}",
+    "adoption_status": "not_assessed"
+  },
+  "paths": {
+    "source": [],
+    "tests": [],
+    "generated": [".agent/generated"],
+    "instruction_roots": ["AGENTS.md"],
+    "fingerprint_exclusions": []
+  },
+  "commands": {
+    "project_test": {"status": "not_assessed", "run": null},
+    "project_lint": {"status": "not_assessed", "run": null},
+    "project_build": {"status": "not_assessed", "run": null},
+    "project_closure": {"status": "not_assessed", "run": null}
+  },
+  "extensions": {
+    "registry": ".agent/extensions/registry.json",
+    "registry_required_in_profile": "standard_or_higher"
+  },
+  "mutable_work_status": "prohibited_here"
+}

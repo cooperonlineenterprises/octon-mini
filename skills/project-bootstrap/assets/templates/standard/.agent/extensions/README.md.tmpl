@@ -1,0 +1,9 @@
+# Project Extensions
+
+Extensions own domain registries, build or release rules, and project-specific
+validators. The governance kernel stays domain-neutral.
+
+Each extension declares compatibility, config, validator, owner, provenance,
+side effects, deprecation, and `authority_effect: restrictions_only`. It may
+add restrictions and checks but cannot grant permission or weaken the kernel.
+Disabling it must leave the kernel valid.

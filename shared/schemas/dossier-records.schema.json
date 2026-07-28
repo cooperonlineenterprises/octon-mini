@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://project-blueprint.local/schemas/dossier-records.schema.json",
+  "title": "Project Dossier Structured Record Stores",
+  "description": "Stable field contracts for dossier traceability stores. Empty stores are valid unadopted baselines.",
+  "$defs": {
+    "id4": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9]*-[0-9]{4}$"
+    },
+    "refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/id4"}
+    },
+    "requirement": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "title", "statement", "status", "owner_role", "basis", "source_refs", "validation"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^REQ-[0-9]{4}$"},
+        "title": {"type": "string", "minLength": 1},
+        "statement": {"type": "string", "minLength": 1},
+        "status": {"enum": ["active", "proposed", "gated", "deferred", "superseded"]},
+        "owner_role": {"type": "string", "minLength": 1},
+        "basis": {"type": "string", "minLength": 1},
+        "source_refs": {"$ref": "#/$defs/refs"},
+        "validation": {"type": "object"}
+      }
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "title", "requirement_refs", "status", "assessed_on", "subject_version", "inspected_evidence", "rationale", "owner_role"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^FIND-[0-9]{4}$"},
+        "requirement_refs": {"$ref": "#/$defs/refs"},
+        "status": {"enum": ["conformant", "compatible", "transitional", "nonconformant", "absent", "not_assessed", "not_applicable"]},
+        "inspected_evidence": {"$ref": "#/$defs/refs"}
+      }
+    },
+    "plan_item": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "title", "objective", "status", "owner_role", "depends_on", "requirement_refs", "finding_refs", "gate_refs", "acceptance_criteria", "evidence_expected"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^PLAN-[0-9]{4}$"},
+        "status": {"enum": ["planned", "in_progress", "blocked", "completed", "deferred", "cancelled"]},
+        "depends_on": {"$ref": "#/$defs/refs"},
+        "requirement_refs": {"$ref": "#/$defs/refs"},
+        "finding_refs": {"$ref": "#/$defs/refs"},
+        "gate_refs": {"$ref": "#/$defs/refs"}
+      }
+    },
+    "raidq_item": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "type", "title", "status", "owner_role", "description", "impact", "blocking"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^(?:RISK|ASM|ISSUE|DEP|OQ)-[0-9]{4}$"},
+        "type": {"enum": ["risk", "assumption", "issue", "dependency", "open_question"]},
+        "status": {"enum": ["open", "monitoring", "resolved", "accepted", "invalidated", "closed"]}
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "name", "location", "classification", "observed_on", "intended_use", "limitations", "sensitivity", "accepted_as_project_authority"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^SRC-[0-9]{4}$"},
+        "accepted_as_project_authority": {"type": "boolean"}
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "title", "type", "subject_version", "produced_at", "method", "scope", "result", "artifact_path", "requirement_refs", "finding_refs", "limitations"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^EVD-[0-9]{4}$"},
+        "requirement_refs": {"$ref": "#/$defs/refs"},
+        "finding_refs": {"$ref": "#/$defs/refs"}
+      }
+    }
+  }
+}

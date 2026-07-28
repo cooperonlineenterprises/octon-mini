@@ -1,0 +1,47 @@
+{
+  "schema_version": "project-blueprint.v1",
+  "blueprint_version_source": "VERSION",
+  "minimum_python": "3.11",
+  "modules": {
+    "dossier": {
+      "definition": "dossier/BLUEPRINT.md",
+      "artifact_type_source": "dossier/artifact-types.json",
+      "reference_evidence": "dossier/references/REFERENCE_EVIDENCE.md",
+      "generated_root": "project-dossier"
+    },
+    "harness": {
+      "definition": "harness/BLUEPRINT.md",
+      "reference_evidence": "harness/references/REFERENCE_EVIDENCE.md",
+      "generated_roots": [
+        "AGENTS.md",
+        ".agent",
+        ".agents"
+      ],
+      "kernel_version": "1.0.0",
+      "kernel_files": [
+        ".agent/policy.json",
+        ".agent/context.json",
+        ".agent/schema.json",
+        ".agent/lifecycle.json",
+        ".agent/tools.json",
+        ".agent/validators.json",
+        ".agent/project.json"
+      ],
+      "extension_api": "harness.extension.v1",
+      "canonical_structured_format": "strict_json"
+    }
+  },
+  "shared_schema_root": "shared/schemas",
+  "skill": "skills/project-bootstrap/SKILL.md",
+  "new_project_generator": "skills/project-bootstrap/scripts/scaffold_project.py",
+  "existing_project_planner": "skills/project-bootstrap/scripts/plan_adoption.py",
+  "profiles": [
+    "minimal",
+    "standard",
+    "high-assurance"
+  ],
+  "generation_contract": "shared/GENERATION_CONTRACT.md",
+  "overwrite_existing_paths": false,
+  "new_generation_requires_empty_target": true,
+  "generated_snapshot_is_independent": true
+}

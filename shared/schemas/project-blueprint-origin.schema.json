@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://project-blueprint.local/schemas/project-blueprint-origin.schema.json",
+  "title": "Project Blueprint Generation Origin",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "blueprint",
+    "blueprint_version",
+    "generator_version",
+    "generation_id",
+    "profile",
+    "generated_on",
+    "project_name",
+    "project_slug",
+    "harness_kernel_version",
+    "authority",
+    "generated_paths"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "project-blueprint.origin.v1"
+    },
+    "blueprint": {
+      "const": "project-blueprint"
+    },
+    "blueprint_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "generator_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "generation_id": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{32}$"
+    },
+    "profile": {
+      "enum": [
+        "minimal",
+        "standard",
+        "high-assurance"
+      ]
+    },
+    "generated_on": {
+      "type": "string",
+      "format": "date"
+    },
+    "project_name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "project_slug": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "harness_kernel_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "authority": {
+      "type": "string",
+      "minLength": 1
+    },
+    "generated_paths": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  }
+}

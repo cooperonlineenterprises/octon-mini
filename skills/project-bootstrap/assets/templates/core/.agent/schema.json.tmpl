@@ -1,0 +1,36 @@
+{
+  "schema_version": "harness.schema.v1",
+  "kernel_version": "1.0.0",
+  "compatibility": {
+    "extension_api": "harness.extension.v1",
+    "unknown_safety_values": "reject"
+  },
+  "record_versions": {
+    "decision": "harness.decision.v1",
+    "task": "harness.task.v1",
+    "evidence": "harness.evidence.v1",
+    "review": "harness.review.v1",
+    "event": "harness.event.v1",
+    "checkpoint": "harness.checkpoint.v1",
+    "artifact": "harness.artifact.v1"
+  },
+  "id_patterns": {
+    "decision": "^DEC-[0-9]{4}$",
+    "task": "^TASK-[0-9]{4}$",
+    "evidence": "^EVD-[0-9]{4}$",
+    "review": "^REV-[0-9]{4}$",
+    "event": "^EVT-[0-9]{4}$",
+    "checkpoint": "^CHK-[0-9]{4}$",
+    "artifact": "^ART-[0-9]{4}$"
+  },
+  "statuses": {
+    "decision": ["proposed", "accepted", "rejected", "superseded", "deprecated"],
+    "task": ["proposed", "ready", "in_progress", "validating", "review", "blocked", "completed", "cancelled", "reopened"],
+    "artifact": ["scratch", "draft", "reviewed", "approved", "final", "archived"]
+  },
+  "evolution": {
+    "breaking_change_requires_major_version": true,
+    "migration_must_be_idempotent_and_fixture_tested": true,
+    "accepted_decision_changes_require_successor": true
+  }
+}

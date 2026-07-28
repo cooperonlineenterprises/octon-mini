@@ -1,0 +1,9 @@
+[project]
+name = "project-blueprint"
+version = "1.0.0"
+description = "Domain-neutral project dossier and agent harness blueprint"
+requires-python = ">=3.11"
+
+[tool.project-blueprint]
+runtime-dependencies = []
+canonical-structured-format = "strict-json"

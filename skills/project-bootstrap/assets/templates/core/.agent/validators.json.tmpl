@@ -1,0 +1,34 @@
+{
+  "schema_version": "harness.validators.v1",
+  "validator_version": "1.0.0",
+  "runtime": {
+    "executable": "python3",
+    "minimum_version": "3.11",
+    "dependencies": "standard_library_only",
+    "bytecode_and_cache_writes": "prohibited_for_check"
+  },
+  "commands": {
+    "bootstrap": {"run": "python3 --version", "writes": []},
+    "check": {"run": "python3 -B .agent/scripts/validate.py --check", "writes": []},
+    "test": {"run": "python3 -B -m unittest discover -s .agent/tests -p 'test_*.py'", "writes": []},
+    "refresh": {"run": "{{HARNESS_REFRESH_COMMAND}}", "writes": {{HARNESS_REFRESH_WRITES}}},
+    "closure": {"run": "configure_during_project_adoption", "writes": "not_assessed"}
+  },
+  "required_core_checks": [
+    "python_runtime_floor",
+    "strict_json_and_duplicate_keys",
+    "schemas_and_versions",
+    "authority_and_nested_instruction_invariants",
+    "identifiers_references_and_lifecycles",
+    "dossier_catalog_path_authority_and_traceability",
+    "extension_compatibility_confinement_and_validator_protocol",
+    "unresolved_generation_placeholders",
+    "redacted_secret_detection",
+    "repository_symlinks_and_host_metadata",
+    "generated_integrity_freshness_when_present"
+  ],
+  "limitations": [
+    "structural_checks_do_not_prove_project_readiness",
+    "repository_policy_is_not_runtime_sandbox_enforcement"
+  ]
+}

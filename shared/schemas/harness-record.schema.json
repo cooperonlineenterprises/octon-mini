@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://project-blueprint.local/schemas/harness-record.schema.json",
+  "title": "Project Harness Record Header",
+  "description": "Common machine-readable header for durable harness records. A conforming record does not imply authority, approval, or readiness.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "id"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^harness\\.[a-z][a-z0-9-]*\\.v[1-9][0-9]*$"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^(DEC|TASK|EVD|REV|EVT|CHK|ART)-[0-9]{4}$"
+    },
+    "status": {
+      "type": "string",
+      "minLength": 1
+    },
+    "previous_status": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "authority_source": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "owner": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "created_at": {
+      "type": "string"
+    },
+    "updated_at": {
+      "type": "string"
+    },
+    "supersedes": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "successor": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": true
+}

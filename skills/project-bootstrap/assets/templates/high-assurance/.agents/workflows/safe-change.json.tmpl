@@ -1,0 +1,29 @@
+{
+  "schema_version": "harness.workflow.v1",
+  "id": "safe-change",
+  "version": "1.0.0",
+  "purpose": "Deliver one authorized repository-local change with reviewable evidence.",
+  "scope": "current_task",
+  "authority": {"inherits_from": "current_task", "may_expand": false},
+  "side_effects": "repository_local_as_authorized_by_current_task",
+  "initial_state": "intake",
+  "states": {
+    "intake": {"requires": ["current_request", "applicable_instructions"], "next": "scope"},
+    "scope": {"actions": ["inspect_repository", "classify_side_effects", "create_or_select_task"], "gate": "authority_confirmed", "next": "implement"},
+    "implement": {"actions": ["make_bounded_changes", "update_tests"], "next": "validate"},
+    "validate": {"actions": ["run_scoped_checks", "run_harness_check"], "on_failure": "implement", "next": "review"},
+    "review": {"agent": "reviewer", "on_actionable_findings": "implement", "next": "close"},
+    "close": {"actions": ["record_evidence", "update_current_state", "close_task"], "gate": "acceptance_criteria_met"}
+  },
+  "terminal_states": ["close", "cancelled", "blocked"],
+  "invariants": [
+    "authority_never_expands_across_transition",
+    "read_only_validation_never_writes",
+    "external_effect_requires_explicit_gate"
+  ],
+  "validation": "harness_and_project_closure_commands",
+  "owner": "unassigned",
+  "provenance": "generated_from_project_blueprint",
+  "deprecated_at": null,
+  "successor": null
+}

@@ -1,0 +1,47 @@
+{
+  "schema_version": "harness.lifecycle.v1",
+  "task": {
+    "initial": "proposed",
+    "terminal": ["completed", "cancelled"],
+    "transitions": {
+      "proposed": ["ready", "cancelled"],
+      "ready": ["in_progress", "cancelled"],
+      "in_progress": ["validating", "blocked", "cancelled"],
+      "validating": ["in_progress", "review", "blocked"],
+      "review": ["in_progress", "completed", "blocked"],
+      "blocked": ["in_progress", "cancelled"],
+      "completed": ["reopened"],
+      "reopened": ["in_progress", "cancelled"],
+      "cancelled": []
+    },
+    "gates": {
+      "ready": ["scope", "authority_basis", "acceptance_criteria", "validation_plan"],
+      "completed": ["acceptance_criteria_met", "closure_evidence", "limitations_recorded", "external_effects_disclosed"]
+    }
+  },
+  "decision": {
+    "initial": "proposed",
+    "terminal": ["rejected", "superseded", "deprecated"],
+    "transitions": {
+      "proposed": ["accepted", "rejected"],
+      "accepted": ["superseded", "deprecated"],
+      "rejected": [],
+      "superseded": [],
+      "deprecated": []
+    },
+    "immutable_meaning_after": "accepted",
+    "successor_required_for": ["superseded", "materially_changed_accepted_decision"]
+  },
+  "artifact": {
+    "initial": "scratch",
+    "terminal": ["archived"],
+    "transitions": {
+      "scratch": ["draft", "archived"],
+      "draft": ["reviewed", "archived"],
+      "reviewed": ["draft", "approved", "archived"],
+      "approved": ["final", "archived"],
+      "final": ["archived"],
+      "archived": []
+    }
+  }
+}

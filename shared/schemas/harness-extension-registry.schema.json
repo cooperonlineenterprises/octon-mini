@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://project-blueprint.local/schemas/harness-extension-registry.schema.json",
+  "title": "Project Harness Extension Registry",
+  "description": "Strict registry contract for restrictions-only project extensions.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "core_version",
+    "extension_api",
+    "permission_grant",
+    "extensions"
+  ],
+  "properties": {
+    "schema_version": {"const": "harness.extension-registry.v1"},
+    "core_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "extension_api": {"const": "harness.extension.v1"},
+    "permission_grant": {"const": false},
+    "extensions": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "enabled",
+          "version",
+          "path",
+          "requires_core",
+          "config",
+          "validator",
+          "owner",
+          "provenance",
+          "side_effects",
+          "authority_effect",
+          "deprecated_at",
+          "successor"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          },
+          "enabled": {"type": "boolean"},
+          "version": {
+            "type": "string",
+            "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+          },
+          "path": {
+            "type": "string",
+            "pattern": "^\\.agent/extensions/[a-z0-9]+(?:-[a-z0-9]+)*$"
+          },
+          "requires_core": {
+            "type": "string",
+            "pattern": "^\\^1\\.[0-9]+\\.[0-9]+$"
+          },
+          "config": {
+            "type": "string",
+            "pattern": "^\\.agent/extensions/[a-z0-9]+(?:-[a-z0-9]+)*/[^\\\\]+\\.json$"
+          },
+          "validator": {
+            "type": "string",
+            "pattern": "^\\.agent/extensions/[a-z0-9]+(?:-[a-z0-9]+)*/[^\\\\]+\\.py$"
+          },
+          "owner": {"type": "string", "minLength": 1},
+          "provenance": {"type": "string", "minLength": 1},
+          "side_effects": {
+            "enum": [
+              "none",
+              "read_only",
+              "repository_local_restriction_checks"
+            ]
+          },
+          "authority_effect": {"const": "restrictions_only"},
+          "deprecated_at": {"type": ["string", "null"]},
+          "successor": {"type": ["string", "null"]}
+        }
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "items": {"type": "string"}
+    }
+  }
+}

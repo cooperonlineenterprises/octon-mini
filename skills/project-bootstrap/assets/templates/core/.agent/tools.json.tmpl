@@ -1,0 +1,34 @@
+{
+  "schema_version": "harness.tools.v1",
+  "permission_grant": false,
+  "declarative_only": true,
+  "real_enforcement_boundary": [
+    "platform_and_sandbox_permissions",
+    "operating_system_and_workspace_access",
+    "credential_scope",
+    "protected_remote_controls"
+  ],
+  "tools": {
+    "filesystem": {
+      "availability": "required",
+      "allowed": ["read_relevant", "write_requested_repository_paths"],
+      "denied": ["write_outside_declared_workspace", "follow_untrusted_symlink"]
+    },
+    "shell": {
+      "availability": "required",
+      "allowed": ["declared_validation", "scoped_local_commands"],
+      "denied": ["undeclared_external_effect", "secret_in_command"]
+    },
+    "git": {
+      "availability": "optional",
+      "allowed": ["status", "diff"],
+      "task_scoped": ["add", "commit", "branch"],
+      "explicit_current_authorization": ["push", "force_push", "remote_mutation"]
+    }
+  },
+  "evidence": {
+    "record_material_commands": true,
+    "redact_secret_values": true,
+    "tool_availability_implies_permission": false
+  }
+}

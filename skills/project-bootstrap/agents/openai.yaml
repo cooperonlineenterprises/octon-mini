@@ -1,0 +1,4 @@
+interface:
+  display_name: "Project Bootstrap"
+  short_description: "Generate governed project dossiers and harnesses"
+  default_prompt: "Use $project-bootstrap to create a project-specific dossier and agent harness for this repository."
