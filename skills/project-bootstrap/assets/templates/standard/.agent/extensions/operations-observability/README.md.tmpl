@@ -1,0 +1,48 @@
+# Operations and Observability Extension
+
+This optional extension validates project-owned operations and observability
+declarations. It does not deploy, promote, roll back, monitor, page, restore,
+retire, or contact an external system. A valid record proves only that the
+declaration is structurally coherent and that its cited project evidence is
+present and current for the extension's bounded checks.
+
+The generated package starts disabled in `.agent/extensions/registry.json`
+and `not_assessed` in `config.json`. Generation supplies no environment,
+provider, release, reliability, incident, recovery, ownership, evidence, or
+readiness fact. Deliberate adoption requires an accepted project trust
+decision, assigned ownership, assessment of every control area, and the
+registry's restrictions-only contract.
+If its validator is enabled while package adoption remains `not_assessed` or
+`not_applicable`, it fails closed; an inapplicable package stays disabled.
+
+The extension covers:
+
+- environments and promotion paths;
+- deployment, release evidence, stop conditions, and rollback;
+- service-level indicators, service-level objectives, and error budgets;
+- telemetry, logging, alert ownership, and escalation;
+- incident-response and provider-outage procedures;
+- backup, restore, failover, RTO, and RPO declarations;
+- dated operational exercises;
+- retirement and deactivation; and
+- scoped exceptions, limitations, evidence, and review cadence.
+
+`validate.py` accepts only `--config`, reads the configured records and the
+project's existing evidence stores, and emits
+`harness.extension-findings.v1`. It uses Python 3.11+ standard-library code,
+performs no network access, and writes no files. The kernel still performs its
+own before/after mutation detection; that detects writes and is not a sandbox.
+
+Registry integration must declare:
+
+- `id: operations-observability` and `version: 1.0.0`;
+- `requires_core: ^2.0.0` and the confined paths in this directory;
+- generated provenance, unassigned ownership, unassessed trust, and
+  `enabled: false` initially;
+- `side_effects: none`, `network_access: denied`,
+  `filesystem_writes: prohibited`, and
+  `authority_effect: restrictions_only`; and
+- explicit deprecation, removal, and successor fields, initially null.
+
+Disabling or assessing the extension as not applicable requires no kernel
+edit. Enabling it cannot grant permission or certify production readiness.

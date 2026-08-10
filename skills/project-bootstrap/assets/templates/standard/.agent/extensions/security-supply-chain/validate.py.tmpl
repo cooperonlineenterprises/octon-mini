@@ -1,0 +1,668 @@
+#!/usr/bin/env python3
+"""Read-only validator for security and supply-chain declarations."""
+
+from __future__ import annotations
+
+import argparse
+import datetime as dt
+import json
+import re
+import sys
+from pathlib import Path, PurePosixPath
+from typing import Any
+
+
+EXTENSION_ID = "security-supply-chain"
+SCHEMA_VERSION = "harness.extension-findings.v1"
+PLACEHOLDER_VALUES = {"", "unassigned", "unknown", "not_assessed", "not_recorded"}
+
+KIND_PREFIX = {
+    "asset": "ASSET",
+    "data_class": "DCLASS",
+    "trust_boundary": "TRUST",
+    "threat": "THREAT",
+    "control": "SECCTRL",
+    "security_check": "SECCHECK",
+    "dependency": "DEPEND",
+    "vendor": "VENDOR",
+    "sbom": "SBOM",
+    "vulnerability": "VULN",
+    "artifact_provenance": "APROV",
+    "rights_review": "RIGHTS",
+    "exception": "SECEXC",
+}
+
+KIND_ASSESSMENT = {
+    "asset": "assets_data_and_trust",
+    "data_class": "assets_data_and_trust",
+    "trust_boundary": "assets_data_and_trust",
+    "threat": "threat_modeling",
+    "control": "security_controls",
+    "security_check": "security_checks",
+    "dependency": "dependency_and_vendor_inventory",
+    "vendor": "dependency_and_vendor_inventory",
+    "sbom": "sbom_provenance",
+    "vulnerability": "vulnerability_management",
+    "artifact_provenance": "artifact_provenance_signing_and_verification",
+    "rights_review": "license_and_rights",
+}
+
+ASSESSMENT_KINDS = {
+    "assets_data_and_trust": {"asset", "data_class", "trust_boundary"},
+    "threat_modeling": {"threat"},
+    "security_controls": {"control"},
+    "security_checks": {"security_check"},
+    "dependency_and_vendor_inventory": {"dependency", "vendor"},
+    "sbom_provenance": {"sbom"},
+    "vulnerability_management": {"vulnerability"},
+    "artifact_provenance_signing_and_verification": {"artifact_provenance"},
+    "license_and_rights": {"rights_review"},
+}
+
+DETAIL_FIELDS = {
+    "asset": {
+        "name", "asset_type", "criticality", "data_class_refs",
+        "trust_boundary_refs", "custodian_role",
+    },
+    "data_class": {
+        "name", "classification", "handling_requirements", "retention",
+        "deletion", "minimization", "rights_basis",
+    },
+    "trust_boundary": {
+        "name", "from_scope", "to_scope", "allowed_flows",
+        "authentication_expectation", "enforcement_ref",
+    },
+    "threat": {
+        "asset_refs", "boundary_refs", "scenario", "likelihood", "impact",
+        "control_refs", "residual_risk",
+    },
+    "control": {
+        "control_type", "requirement", "implementation_status", "asset_refs",
+        "threat_refs", "verification_method", "qualified_review_required",
+    },
+    "security_check": {
+        "check_type", "tool_ref", "command_ref", "execution_owner",
+        "check_scope", "frequency", "expected_result", "last_evidence_ref",
+    },
+    "dependency": {
+        "name", "version_or_constraint", "source_ref", "directness",
+        "runtime_scope", "license_id", "update_policy", "vendor_ref",
+        "sbom_refs",
+    },
+    "vendor": {
+        "name", "service_scope", "data_access", "criticality", "exit_plan",
+        "contract_or_terms_ref", "review_status",
+    },
+    "sbom": {
+        "format", "artifact_path", "subject_revision_or_fingerprint",
+        "generated_by", "generated_at", "source_inventory_refs",
+        "provenance_ref", "completeness_scope",
+    },
+    "vulnerability": {
+        "identifier", "affected_refs", "severity", "vulnerability_status",
+        "discovered_at", "remediation_due", "exception_ref",
+        "handling_owner", "disclosure_constraints",
+    },
+    "artifact_provenance": {
+        "subject", "fingerprint", "provenance_source", "build_environment",
+        "signing_status", "signer_identity_ref", "verification_method",
+        "sbom_refs", "release_ref",
+    },
+    "rights_review": {
+        "subject_refs", "review_scope", "license_or_rights",
+        "reviewer_qualification", "rights_status", "reviewed_on",
+        "next_review_on", "source_refs",
+    },
+    "exception": {
+        "applies_to_refs", "reason", "risk", "accepted_by_role",
+        "authority_ref", "expires_on", "exception_status",
+        "compensating_controls",
+    },
+}
+
+KIND_STATUSES = {
+    "asset": {"proposed", "active", "retired"},
+    "data_class": {"proposed", "active", "retired"},
+    "trust_boundary": {"proposed", "active", "verified", "retired"},
+    "threat": {"proposed", "active", "mitigated", "accepted", "closed"},
+    "control": {"proposed", "implemented", "verified", "retired", "not_applicable"},
+    "security_check": {"proposed", "active", "implemented", "verified", "failed", "retired"},
+    "dependency": {"proposed", "active", "retired"},
+    "vendor": {"proposed", "active", "accepted", "rejected", "retired", "not_applicable"},
+    "sbom": {"proposed", "verified", "failed", "retired"},
+    "vulnerability": {"proposed", "active", "mitigated", "accepted", "closed"},
+    "artifact_provenance": {"proposed", "implemented", "verified", "failed", "retired", "not_applicable"},
+    "rights_review": {"proposed", "accepted", "rejected", "verified", "retired", "not_applicable"},
+    "exception": {"proposed", "active", "retired"},
+}
+
+EVIDENCE_REQUIRED_STATUSES = {
+    "active", "implemented", "verified", "mitigated", "accepted",
+    "rejected", "closed", "retired", "failed",
+}
+
+INTERNAL_REFERENCE_FIELDS = {
+    "data_class_refs", "trust_boundary_refs", "asset_refs", "boundary_refs",
+    "control_refs", "threat_refs", "vendor_ref", "sbom_refs",
+    "source_inventory_refs", "affected_refs", "exception_ref",
+    "subject_refs", "applies_to_refs",
+}
+
+
+class DuplicateKeyError(ValueError):
+    """Raised when strict JSON contains a duplicate object key."""
+
+
+def loads_json(raw: str) -> Any:
+    def reject_duplicates(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+        result: dict[str, Any] = {}
+        for key, value in pairs:
+            if key in result:
+                raise DuplicateKeyError(f"duplicate JSON key: {key}")
+            result[key] = value
+        return result
+
+    return json.loads(
+        raw,
+        object_pairs_hook=reject_duplicates,
+        parse_constant=lambda value: (_ for _ in ()).throw(
+            ValueError(f"non-finite JSON number: {value}")
+        ),
+    )
+
+
+def load_json(path: Path) -> Any:
+    return loads_json(path.read_text(encoding="utf-8"))
+
+
+def parse_date(value: str) -> dt.date:
+    if not re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", value):
+        raise ValueError("date must use YYYY-MM-DD")
+    return dt.date.fromisoformat(value)
+
+
+def parse_datetime(value: str) -> dt.datetime:
+    if not isinstance(value, str) or "T" not in value:
+        raise ValueError("date-time must be an ISO 8601 timestamp")
+    parsed = dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
+    if parsed.tzinfo is None:
+        raise ValueError("date-time must include a UTC offset")
+    return parsed.astimezone(dt.timezone.utc)
+
+
+def schema_type_matches(value: Any, expected: str) -> bool:
+    return {
+        "object": isinstance(value, dict),
+        "array": isinstance(value, list),
+        "string": isinstance(value, str),
+        "null": value is None,
+        "boolean": isinstance(value, bool),
+        "integer": isinstance(value, int) and not isinstance(value, bool),
+        "number": isinstance(value, (int, float)) and not isinstance(value, bool),
+    }.get(expected, False)
+
+
+def resolve_ref(root_schema: dict[str, Any], reference: str) -> dict[str, Any]:
+    if not reference.startswith("#/"):
+        raise ValueError(f"unsupported schema reference: {reference}")
+    current: Any = root_schema
+    for component in reference[2:].split("/"):
+        current = current[component.replace("~1", "/").replace("~0", "~")]
+    if not isinstance(current, dict):
+        raise ValueError(f"schema reference is not an object: {reference}")
+    return current
+
+
+def validate_schema(
+    value: Any,
+    schema: dict[str, Any],
+    *,
+    root_schema: dict[str, Any] | None = None,
+    path: str = "$",
+) -> list[str]:
+    root_schema = root_schema or schema
+    if "$ref" in schema:
+        return validate_schema(
+            value,
+            resolve_ref(root_schema, schema["$ref"]),
+            root_schema=root_schema,
+            path=path,
+        )
+    errors: list[str] = []
+    expected = schema.get("type")
+    if expected is not None:
+        choices = expected if isinstance(expected, list) else [expected]
+        if not any(schema_type_matches(value, item) for item in choices):
+            return [f"{path}: expected {' or '.join(choices)}"]
+    if "const" in schema and value != schema["const"]:
+        errors.append(f"{path}: value must equal {schema['const']!r}")
+    if "enum" in schema and value not in schema["enum"]:
+        errors.append(f"{path}: unknown or disallowed value {value!r}")
+    if isinstance(value, dict):
+        properties = schema.get("properties", {})
+        for name in schema.get("required", []):
+            if name not in value:
+                errors.append(f"{path}: missing required property {name!r}")
+        if schema.get("additionalProperties") is False:
+            for name in value:
+                if name not in properties:
+                    errors.append(f"{path}: unknown property {name!r}")
+        for name, child in value.items():
+            if name in properties:
+                errors.extend(validate_schema(child, properties[name], root_schema=root_schema, path=f"{path}.{name}"))
+    if isinstance(value, list):
+        if len(value) < schema.get("minItems", 0):
+            errors.append(f"{path}: too few items")
+        if schema.get("uniqueItems"):
+            encoded = [json.dumps(item, sort_keys=True) for item in value]
+            if len(encoded) != len(set(encoded)):
+                errors.append(f"{path}: items must be unique")
+        item_schema = schema.get("items")
+        if isinstance(item_schema, dict):
+            for index, child in enumerate(value):
+                errors.extend(validate_schema(child, item_schema, root_schema=root_schema, path=f"{path}[{index}]"))
+    if isinstance(value, str):
+        if len(value) < schema.get("minLength", 0):
+            errors.append(f"{path}: string is too short")
+        pattern = schema.get("pattern")
+        if isinstance(pattern, str) and re.search(pattern, value) is None:
+            errors.append(f"{path}: value does not match required pattern")
+        try:
+            if schema.get("format") == "date":
+                parse_date(value)
+            elif schema.get("format") == "date-time":
+                parse_datetime(value)
+        except ValueError as error:
+            errors.append(f"{path}: {error}")
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        if "minimum" in schema and value < schema["minimum"]:
+            errors.append(f"{path}: value is below the minimum")
+        if "maximum" in schema and value > schema["maximum"]:
+            errors.append(f"{path}: value exceeds the maximum")
+    return errors
+
+
+class FindingSet:
+    def __init__(self) -> None:
+        self._items: dict[tuple[str, str | None], dict[str, str]] = {}
+
+    def add(self, code: str, message: str, path: str | None = None, record_id: str | None = None) -> None:
+        key = (code, path)
+        if key in self._items:
+            if message not in self._items[key]["message"]:
+                self._items[key]["message"] += "; " + message
+            return
+        finding = {"code": code, "severity": "error", "message": message}
+        if path is not None:
+            finding["path"] = path
+        if record_id is not None:
+            finding["record_id"] = record_id
+        self._items[key] = finding
+
+    def values(self) -> list[dict[str, str]]:
+        return [self._items[key] for key in sorted(self._items)]
+
+
+def relative(path: Path, root: Path) -> str:
+    try:
+        return path.relative_to(root).as_posix()
+    except ValueError:
+        return path.as_posix()
+
+
+def project_root(config_path: Path) -> tuple[Path, Path]:
+    config_path = config_path.resolve(strict=True)
+    extension_root = config_path.parent
+    if extension_root.name != EXTENSION_ID:
+        raise ValueError("config must be inside the security-supply-chain extension root")
+    if extension_root.parent.name != "extensions" or extension_root.parent.parent.name != ".agent":
+        raise ValueError("extension root must be .agent/extensions/security-supply-chain")
+    return extension_root.parent.parent.parent, extension_root
+
+
+def confined_project_path(root: Path, extension_root: Path, value: str) -> Path:
+    pure = PurePosixPath(value)
+    if pure.is_absolute() or ".." in pure.parts or "\\" in value:
+        raise ValueError("path must be a confined repository-relative POSIX path")
+    candidate = (root / pure).resolve(strict=False)
+    if candidate != extension_root / pure.name:
+        raise ValueError("path must resolve directly inside the registered extension root")
+    return candidate
+
+
+def parse_markdown_header(path: Path) -> dict[str, Any]:
+    raw = path.read_text(encoding="utf-8")
+    if not raw.startswith("---\n"):
+        raise ValueError("missing JSON frontmatter")
+    end = raw.find("\n---", 4)
+    if end < 0:
+        raise ValueError("unterminated JSON frontmatter")
+    value = loads_json(raw[4:end])
+    if not isinstance(value, dict):
+        raise ValueError("JSON frontmatter must be an object")
+    return value
+
+
+def collect_evidence(root: Path, config: dict[str, Any], findings: FindingSet) -> dict[str, dict[str, Any]]:
+    evidence: dict[str, dict[str, Any]] = {}
+    sources = config["evidence_sources"]
+    directory = root / sources["harness_directory"]
+    index_path = root / sources["dossier_index"]
+    candidates: list[tuple[dict[str, Any], str]] = []
+    if directory.is_dir():
+        for path in sorted(directory.glob("EVD-*.md")):
+            try:
+                candidates.append((parse_markdown_header(path), relative(path, root)))
+            except (OSError, UnicodeDecodeError, ValueError, json.JSONDecodeError) as error:
+                findings.add("SEC-EVIDENCE", str(error), relative(path, root))
+    if index_path.is_file():
+        try:
+            index = load_json(index_path)
+            entries = index.get("evidence") if isinstance(index, dict) else None
+            if not isinstance(entries, list):
+                raise ValueError("evidence index must contain an evidence array")
+            for offset, item in enumerate(entries):
+                if not isinstance(item, dict):
+                    findings.add("SEC-EVIDENCE", "evidence entry must be an object", f"{relative(index_path, root)}:evidence[{offset}]")
+                    continue
+                candidates.append((item, f"{relative(index_path, root)}:evidence[{offset}]"))
+        except (OSError, UnicodeDecodeError, ValueError, json.JSONDecodeError) as error:
+            findings.add("SEC-EVIDENCE", str(error), relative(index_path, root))
+    for item, location in candidates:
+        evidence_id = item.get("id")
+        if not isinstance(evidence_id, str) or re.fullmatch(r"EVD-[0-9]{4}", evidence_id) is None:
+            findings.add("SEC-EVIDENCE", "invalid evidence ID", location)
+            continue
+        if evidence_id in evidence:
+            findings.add("SEC-EVIDENCE", f"duplicate evidence ID {evidence_id}", location)
+            continue
+        result = item.get("result")
+        fresh_until = item.get("fresh_until")
+        if result not in {"pass", "fail", "mixed", "not_run", "not_assessed"}:
+            findings.add("SEC-EVIDENCE", "unknown evidence result", location, evidence_id)
+            continue
+        if fresh_until is not None:
+            try:
+                if "T" in fresh_until:
+                    parse_datetime(fresh_until)
+                else:
+                    parse_date(fresh_until)
+            except (TypeError, ValueError) as error:
+                findings.add("SEC-EVIDENCE", f"invalid freshness: {error}", location, evidence_id)
+                continue
+        evidence[evidence_id] = {"result": result, "fresh_until": fresh_until, "location": location}
+    return evidence
+
+
+def evidence_is_current(item: dict[str, Any], today: dt.date, now: dt.datetime) -> bool:
+    fresh_until = item.get("fresh_until")
+    if not isinstance(fresh_until, str):
+        return False
+    if "T" in fresh_until:
+        return parse_datetime(fresh_until) >= now
+    return parse_date(fresh_until) >= today
+
+
+def check_evidence_refs(
+    refs: list[str],
+    evidence: dict[str, dict[str, Any]],
+    findings: FindingSet,
+    path: str,
+    *,
+    require_positive: bool = False,
+    record_id: str | None = None,
+) -> None:
+    now = dt.datetime.now(dt.timezone.utc)
+    today = now.date()
+    positive = False
+    for reference in refs:
+        item = evidence.get(reference)
+        if item is None:
+            findings.add("SEC-BROKEN-REFERENCE", f"unresolved evidence reference {reference}", path, record_id)
+            continue
+        try:
+            current = evidence_is_current(item, today, now)
+        except ValueError:
+            current = False
+        if not current:
+            findings.add("SEC-STALE-EVIDENCE", f"evidence {reference} is stale or lacks a freshness limit", path, record_id)
+        if item["result"] in {"not_run", "not_assessed"}:
+            findings.add("SEC-EVIDENCE", f"evidence {reference} does not record an executed or observed result", path, record_id)
+        if current and item["result"] == "pass":
+            positive = True
+    if require_positive and not positive:
+        findings.add("SEC-EVIDENCE", "asserted status requires at least one current passing evidence record", path, record_id)
+
+
+def check_adoption(config: dict[str, Any], records: dict[str, Any], findings: FindingSet) -> None:
+    adoption = config["adoption"]
+    status = adoption["status"]
+    owner = adoption["owner"]
+    decision = adoption["decision_ref"]
+    assessed_on = adoption["assessed_on"]
+    rationale = adoption["rationale"]
+    if status != "adopted":
+        findings.add(
+            "SEC-ADOPTION",
+            "extension validation may be enabled only after deliberate project adoption",
+            "config.json:adoption",
+        )
+    if status == "not_assessed":
+        if owner is not None or decision is not None or assessed_on is not None:
+            findings.add("SEC-ADOPTION", "not_assessed adoption must not claim owner, decision, or assessment date", "config.json:adoption")
+        if records["document_role"] != "unadopted_authoritative_store_candidate":
+            findings.add("SEC-ADOPTION", "unassessed configuration requires an unadopted record-store role", "records.json:document_role")
+        return
+    if (
+        not isinstance(owner, str)
+        or owner.strip().lower() in PLACEHOLDER_VALUES
+        or not isinstance(decision, str)
+        or not isinstance(assessed_on, str)
+        or rationale.lower().startswith("generated")
+    ):
+        findings.add("SEC-ADOPTION", "assessed adoption requires assigned ownership, date, accepted decision reference, and project rationale", "config.json:adoption")
+    if records["document_role"] != "project_maintained_authoritative_store":
+        findings.add("SEC-ADOPTION", "assessed adoption requires the project-maintained record-store role", "records.json:document_role")
+    assessments = records["control_assessments"]
+    if status == "adopted" and any(item["status"] == "not_assessed" for item in assessments.values()):
+        findings.add("SEC-ADOPTION", "adopted extension cannot retain an unassessed control area", "records.json:control_assessments")
+    if status == "not_applicable":
+        if any(item["status"] != "not_applicable" for item in assessments.values()):
+            findings.add("SEC-ADOPTION", "not-applicable extension requires every control area to be assessed not applicable", "records.json:control_assessments")
+        if records["records"]:
+            findings.add("SEC-ADOPTION", "not-applicable extension cannot retain active control records", "records.json:records")
+
+
+def check_records(
+    records: dict[str, Any],
+    evidence: dict[str, dict[str, Any]],
+    findings: FindingSet,
+    adopted: bool,
+) -> None:
+    assessments = records["control_assessments"]
+    for name, assessment in assessments.items():
+        path = f"records.json:control_assessments.{name}"
+        if assessment["status"] == "not_assessed":
+            if assessment["owner"] is not None or assessment["assessed_on"] is not None or assessment["evidence_refs"]:
+                findings.add("SEC-ASSESSMENT", "not_assessed control area must not claim owner, date, or evidence", path)
+        else:
+            owner = assessment["owner"]
+            if not isinstance(owner, str) or owner.strip().lower() in PLACEHOLDER_VALUES:
+                findings.add("SEC-ASSESSMENT", "assessed control area requires an assigned owner", path)
+            if assessment["assessed_on"] is None or not assessment["evidence_refs"]:
+                findings.add("SEC-ASSESSMENT", "assessed control area requires a date and evidence", path)
+            check_evidence_refs(assessment["evidence_refs"], evidence, findings, path)
+
+    ids: dict[str, dict[str, Any]] = {}
+    kinds_present: dict[str, set[str]] = {name: set() for name in ASSESSMENT_KINDS}
+    for index, record in enumerate(records["records"]):
+        path = f"records.json:records[{index}]"
+        record_id = record["id"]
+        kind = record["kind"]
+        if record_id in ids:
+            findings.add("SEC-DUPLICATE-ID", f"duplicate record ID {record_id}", path, record_id)
+        else:
+            ids[record_id] = record
+        expected_prefix = KIND_PREFIX[kind]
+        if not record_id.startswith(expected_prefix + "-"):
+            findings.add("SEC-RECORD", f"{kind} record must use the {expected_prefix}-#### namespace", path, record_id)
+        if record["status"] not in KIND_STATUSES[kind]:
+            findings.add("SEC-RECORD", f"status {record['status']!r} is invalid for {kind}", path, record_id)
+        if record["owner"].strip().lower() in PLACEHOLDER_VALUES:
+            findings.add("SEC-RECORD", "record owner must be assigned", path, record_id)
+        detail_keys = set(record["details"])
+        if detail_keys != DETAIL_FIELDS[kind]:
+            missing = sorted(DETAIL_FIELDS[kind] - detail_keys)
+            extra = sorted(detail_keys - DETAIL_FIELDS[kind])
+            findings.add("SEC-RECORD", f"detail contract mismatch; missing={missing}, extra={extra}", path, record_id)
+        assessment_name = KIND_ASSESSMENT.get(kind)
+        if assessment_name is not None:
+            kinds_present[assessment_name].add(kind)
+            if assessments[assessment_name]["status"] != "applicable":
+                findings.add("SEC-ASSESSMENT", f"{kind} record requires applicable {assessment_name} assessment", path, record_id)
+        review = record["review"]
+        if record["status"] in EVIDENCE_REQUIRED_STATUSES:
+            check_evidence_refs(record["evidence_refs"], evidence, findings, path, require_positive=True, record_id=record_id)
+            if review["status"] != "current" or review["last_reviewed_on"] is None or review["next_review_on"] is None:
+                findings.add("SEC-REVIEW", "asserted status requires a current dated review", path, record_id)
+            elif parse_date(review["next_review_on"]) < dt.datetime.now(dt.timezone.utc).date():
+                findings.add("SEC-STALE-REVIEW", "record review is stale", path, record_id)
+        else:
+            check_evidence_refs(record["evidence_refs"], evidence, findings, path, record_id=record_id)
+
+    for assessment_name, required_kinds in ASSESSMENT_KINDS.items():
+        if assessments[assessment_name]["status"] == "applicable":
+            missing = required_kinds - kinds_present[assessment_name]
+            if adopted and missing:
+                findings.add("SEC-ASSESSMENT", f"applicable control area lacks required record kinds: {sorted(missing)}", f"records.json:control_assessments.{assessment_name}")
+
+    for record_id, record in ids.items():
+        path = f"records.json:{record_id}"
+        details = record["details"]
+        for field in INTERNAL_REFERENCE_FIELDS:
+            value = details.get(field)
+            references = value if isinstance(value, list) else ([] if value is None else [value])
+            for reference in references:
+                if reference not in ids:
+                    findings.add("SEC-BROKEN-REFERENCE", f"unresolved internal reference {reference}", path, record_id)
+        for reference in record["exception_refs"]:
+            if reference not in ids or ids[reference]["kind"] != "exception":
+                findings.add("SEC-BROKEN-REFERENCE", f"unresolved exception reference {reference}", path, record_id)
+        if record["kind"] == "security_check":
+            last_evidence = details["last_evidence_ref"]
+            if last_evidence is not None and last_evidence not in record["evidence_refs"]:
+                findings.add("SEC-BROKEN-REFERENCE", "last_evidence_ref must also appear in evidence_refs", path, record_id)
+        if record["kind"] == "sbom" and details["provenance_ref"].startswith("EVD-"):
+            if details["provenance_ref"] not in record["evidence_refs"]:
+                findings.add("SEC-BROKEN-REFERENCE", "SBOM provenance evidence must also appear in evidence_refs", path, record_id)
+        if record["kind"] == "vulnerability":
+            expected = {
+                "open": "active", "mitigated": "mitigated",
+                "accepted_exception": "accepted", "false_positive": "closed",
+                "closed": "closed",
+            }[details["vulnerability_status"]]
+            if record["status"] != expected:
+                findings.add("SEC-RECORD", f"vulnerability status requires record status {expected}", path, record_id)
+            if details["vulnerability_status"] == "accepted_exception":
+                exception_ref = details["exception_ref"]
+                if exception_ref is None or exception_ref not in ids or ids[exception_ref]["kind"] != "exception":
+                    findings.add("SEC-BROKEN-REFERENCE", "accepted vulnerability requires a live exception record", path, record_id)
+        if record["kind"] == "control":
+            expected = {
+                "planned": "proposed", "implemented": "implemented",
+                "verified": "verified", "not_applicable": "not_applicable",
+            }[details["implementation_status"]]
+            if record["status"] != expected:
+                findings.add("SEC-RECORD", f"control implementation status requires record status {expected}", path, record_id)
+        if record["kind"] == "artifact_provenance":
+            expected = {
+                "planned": "proposed", "signed": "implemented",
+                "verified": "verified", "failed": "failed",
+                "not_applicable": "not_applicable",
+            }[details["signing_status"]]
+            if record["status"] != expected:
+                findings.add("SEC-RECORD", f"signing status requires record status {expected}", path, record_id)
+        if record["kind"] == "rights_review":
+            expected = {
+                "pending": "proposed", "accepted": "accepted",
+                "accepted_with_limitations": "accepted", "rejected": "rejected",
+                "not_applicable": "not_applicable",
+            }[details["rights_status"]]
+            if record["status"] != expected:
+                findings.add("SEC-RECORD", f"rights status requires record status {expected}", path, record_id)
+            if details["rights_status"] in {"accepted", "accepted_with_limitations"}:
+                if details["reviewed_on"] is None or details["next_review_on"] is None:
+                    findings.add("SEC-REVIEW", "accepted rights review requires dated review and next review", path, record_id)
+                elif parse_date(details["next_review_on"]) < dt.datetime.now(dt.timezone.utc).date():
+                    findings.add("SEC-STALE-REVIEW", "rights review is stale", path, record_id)
+        if record["kind"] == "exception":
+            expected = {"proposed": "proposed", "accepted": "active", "expired": "retired", "revoked": "retired"}[details["exception_status"]]
+            if record["status"] != expected:
+                findings.add("SEC-RECORD", f"exception status requires record status {expected}", path, record_id)
+            if details["exception_status"] == "accepted" and parse_date(details["expires_on"]) < dt.datetime.now(dt.timezone.utc).date():
+                findings.add("SEC-STALE-REVIEW", "accepted exception is expired", path, record_id)
+
+
+def validate(config_argument: Path) -> list[dict[str, str]]:
+    findings = FindingSet()
+    try:
+        root, extension_root = project_root(config_argument)
+    except (OSError, ValueError) as error:
+        findings.add("SEC-CONFIG", str(error), str(config_argument))
+        return findings.values()
+    config_path = extension_root / "config.json"
+    config_schema_path = extension_root / "config.schema.json"
+    try:
+        config = load_json(config_path)
+        config_schema = load_json(config_schema_path)
+    except (OSError, UnicodeDecodeError, ValueError, json.JSONDecodeError) as error:
+        findings.add("SEC-CONFIG", str(error), relative(config_path, root))
+        return findings.values()
+    if isinstance(config, dict):
+        if config.get("permission_grant") is not False or config.get("authority_effect") != "restrictions_only":
+            findings.add("SEC-AUTHORITY", "extension configuration cannot grant or expand authority", relative(config_path, root))
+    schema_errors = validate_schema(config, config_schema)
+    for error in schema_errors:
+        findings.add("SEC-CONFIG-SCHEMA", error, relative(config_path, root))
+    if schema_errors or not isinstance(config, dict):
+        return findings.values()
+    try:
+        records_path = confined_project_path(root, extension_root, config["records_path"])
+        records_schema_path = confined_project_path(root, extension_root, config["records_schema_path"])
+        records = load_json(records_path)
+        records_schema = load_json(records_schema_path)
+    except (OSError, UnicodeDecodeError, ValueError, json.JSONDecodeError) as error:
+        findings.add("SEC-RECORDS", str(error), relative(extension_root, root))
+        return findings.values()
+    if isinstance(records, dict):
+        if records.get("permission_grant") is not False or records.get("authority_effect") != "restrictions_only":
+            findings.add("SEC-AUTHORITY", "extension records cannot grant or expand authority", relative(records_path, root))
+    record_schema_errors = validate_schema(records, records_schema)
+    for error in record_schema_errors:
+        findings.add("SEC-RECORDS-SCHEMA", error, relative(records_path, root))
+    if record_schema_errors or not isinstance(records, dict):
+        return findings.values()
+    evidence = collect_evidence(root, config, findings)
+    check_adoption(config, records, findings)
+    check_records(records, evidence, findings, config["adoption"]["status"] == "adopted")
+    return findings.values()
+
+
+def main() -> int:
+    if sys.version_info < (3, 11):
+        print("Python 3.11+ is required.", file=sys.stderr)
+        return 2
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--config", required=True, type=Path)
+    args = parser.parse_args()
+    findings = validate(args.config)
+    print(json.dumps({
+        "schema_version": SCHEMA_VERSION,
+        "extension_id": EXTENSION_ID,
+        "findings": findings,
+    }, sort_keys=True))
+    return 1 if findings else 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import re
 import subprocess
 import sys
@@ -65,6 +66,7 @@ REQUIRED_PATHS = (
     "harness/references/REFERENCE_EVIDENCE.md",
     "migrations/0.2.0-to-1.0.0.md",
     "migrations/1.0.0-to-1.0.1.md",
+    "migrations/1.0.1-to-2.0.0.md",
     "pyproject.toml",
     "shared/GENERATION_CONTRACT.md",
     "shared/reference-evidence.json",
@@ -78,6 +80,7 @@ REQUIRED_PATHS = (
     "shared/schemas/harness-current-state.schema.json",
     "shared/schemas/harness-extension-registry.schema.json",
     "shared/schemas/harness-kernel.schema.json",
+    "shared/schemas/harness-project-check-evidence.schema.json",
     "shared/schemas/harness-record.schema.json",
     "shared/schemas/project-blueprint-origin.schema.json",
     "shared/schemas/reference-evidence.schema.json",
@@ -88,12 +91,30 @@ REQUIRED_PATHS = (
     "skills/project-bootstrap/references/harness-model.md",
     "skills/project-bootstrap/references/profile-selection.md",
     "skills/project-bootstrap/scripts/install_skill.py",
+    "skills/project-bootstrap/scripts/migrate_1_0_1_to_2_0_0.py",
     "skills/project-bootstrap/scripts/plan_adoption.py",
     "skills/project-bootstrap/scripts/scaffold_project.py",
     "skills/project-bootstrap/scripts/test_acceptance.py",
+    "skills/project-bootstrap/scripts/test_migration_1_0_1_to_2_0_0.py",
     "skills/project-bootstrap/scripts/validate_blueprint.py",
     "skills/project-bootstrap/scripts/validate_skill_package.py",
     "skills/project-bootstrap/scripts/verify_reference_evidence.py",
+    "skills/project-bootstrap/fixtures/migrations/1.0.1-to-2.0.0/README.md",
+    "skills/project-bootstrap/fixtures/migrations/1.0.1-to-2.0.0/valid/v1-standard.json",
+    "skills/project-bootstrap/fixtures/migrations/1.0.1-to-2.0.0/valid/expectations.json",
+    "skills/project-bootstrap/fixtures/migrations/1.0.1-to-2.0.0/invalid/adopted-without-v2-evidence.json",
+    "skills/project-bootstrap/fixtures/migrations/1.0.1-to-2.0.0/invalid/ambiguous-dependency.json",
+    "skills/project-bootstrap/fixtures/migrations/1.0.1-to-2.0.0/invalid/configured-legacy-command.json",
+    "skills/project-bootstrap/fixtures/migrations/1.0.1-to-2.0.0/invalid/hard-advisory-confusion.json",
+    "skills/project-bootstrap/fixtures/migrations/1.0.1-to-2.0.0/invalid/legacy-blocked-direct-to-execution.json",
+    "skills/project-bootstrap/fixtures/migrations/1.0.1-to-2.0.0/invalid/mixed-live-authority.json",
+    "skills/project-bootstrap/fixtures/migrations/1.0.1-to-2.0.0/invalid/mixed-live-project-authority.json",
+    "skills/project-bootstrap/fixtures/migrations/1.0.1-to-2.0.0/invalid/mixed-live-validator-authority.json",
+    "skills/project-bootstrap/fixtures/migrations/1.0.1-to-2.0.0/invalid/mismatched-version-executable.json",
+    "skills/project-bootstrap/fixtures/migrations/1.0.1-to-2.0.0/invalid/nonexternal-migration-authority.json",
+    "skills/project-bootstrap/fixtures/migrations/1.0.1-to-2.0.0/invalid/nonreciprocal-plan-task-link.json",
+    "skills/project-bootstrap/fixtures/migrations/1.0.1-to-2.0.0/invalid/task-cycle.json",
+    "skills/project-bootstrap/fixtures/migrations/1.0.1-to-2.0.0/invalid/unsafe-explicit-command.json",
 )
 DOSSIER_HEADINGS = (
     "## 1. Executive summary",
@@ -119,12 +140,15 @@ REQUIRED_KERNEL = {
     ".agent/tools.json",
     ".agent/validators.json",
     ".agent/project.json",
+    ".agent/project-checks/README.md",
+    ".agent/project-checks/evidence.json",
     ".agent/state/current.json",
     ".agent/state/RESUME.md",
     ".agent/templates/task.md",
     ".agent/templates/decision.md",
     ".agent/scripts/validate.py",
     ".agent/scripts/refresh.py",
+    ".agent/scripts/run_project_checks.py",
     ".agent/tests/test_validate.py",
     "project-dossier/README.md",
     "project-dossier/AUTHORITY.md",
@@ -151,6 +175,8 @@ SUPPORTED_SCHEMA_KEYWORDS = {
     "enum",
     "format",
     "items",
+    "maxItems",
+    "maximum",
     "minItems",
     "minLength",
     "minimum",
@@ -230,7 +256,7 @@ def lint_supported_schema(
     enum = schema.get("enum")
     if enum is not None and (not isinstance(enum, list) or not enum):
         issues.append(f"{location}.enum: expected nonempty array")
-    for field in ("minItems", "minLength"):
+    for field in ("minItems", "maxItems", "minLength"):
         value = schema.get(field)
         if value is not None and (
             not isinstance(value, int) or isinstance(value, bool) or value < 0
@@ -242,6 +268,30 @@ def lint_supported_schema(
         or isinstance(minimum, bool)
     ):
         issues.append(f"{location}.minimum: expected number")
+    maximum = schema.get("maximum")
+    if maximum is not None and (
+        not isinstance(maximum, (int, float))
+        or isinstance(maximum, bool)
+    ):
+        issues.append(f"{location}.maximum: expected number")
+    if (
+        isinstance(minimum, (int, float))
+        and not isinstance(minimum, bool)
+        and isinstance(maximum, (int, float))
+        and not isinstance(maximum, bool)
+        and minimum > maximum
+    ):
+        issues.append(f"{location}: minimum exceeds maximum")
+    min_items = schema.get("minItems")
+    max_items = schema.get("maxItems")
+    if (
+        isinstance(min_items, int)
+        and not isinstance(min_items, bool)
+        and isinstance(max_items, int)
+        and not isinstance(max_items, bool)
+        and min_items > max_items
+    ):
+        issues.append(f"{location}: minItems exceeds maxItems")
     if "uniqueItems" in schema and not isinstance(schema["uniqueItems"], bool):
         issues.append(f"{location}.uniqueItems: expected boolean")
     pattern = schema.get("pattern")
@@ -636,8 +686,8 @@ def validate_skill_and_release(issues: list[str]) -> None:
     if "$project-bootstrap" not in openai:
         issues.append("agents/openai.yaml does not invoke $project-bootstrap")
     version = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
-    if version != "1.0.1":
-        issues.append(f"release VERSION must be 1.0.1, found {version!r}")
+    if version != "2.0.0":
+        issues.append(f"release VERSION must be 2.0.0, found {version!r}")
     for path in ("CHANGELOG.md", "RELEASE.md"):
         if version not in (ROOT / path).read_text(encoding="utf-8"):
             issues.append(f"{path} lacks the {version} release")
@@ -754,6 +804,59 @@ def validate_ci_contract(issues: list[str]) -> None:
             issues.append(f"CI workflow lacks {label}")
 
 
+def validate_executable_contracts(issues: list[str]) -> None:
+    commands = (
+        (
+            [
+                sys.executable,
+                "-B",
+                str(SKILL_ROOT / "scripts/test_migration_1_0_1_to_2_0_0.py"),
+            ],
+            ROOT,
+            "1.0.1 to 2.0.0 migration fixtures",
+        ),
+        (
+            [
+                sys.executable,
+                "-B",
+                str(
+                    SKILL_ROOT
+                    / "assets/templates/standard/.agent/extensions/"
+                    "operations-observability/tests/test_validate.py.tmpl"
+                ),
+            ],
+            ROOT,
+            "operations and observability extension fixtures",
+        ),
+        (
+            [
+                sys.executable,
+                "-B",
+                str(
+                    SKILL_ROOT
+                    / "assets/templates/standard/.agent/extensions/"
+                    "security-supply-chain/tests/test_validate.py.tmpl"
+                ),
+            ],
+            ROOT,
+            "security and supply-chain extension fixtures",
+        ),
+    )
+    for command, cwd, label in commands:
+        result = subprocess.run(
+            command,
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            check=False,
+            env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
+        )
+        if result.returncode:
+            issues.append(
+                f"{label} failed: {result.stderr.strip() or result.stdout.strip()}"
+            )
+
+
 def validate_profile_builds(issues: list[str]) -> None:
     scaffolder = SKILL_ROOT / "scripts/scaffold_project.py"
     with tempfile.TemporaryDirectory(prefix="project-blueprint-source-check-") as temp:
@@ -806,6 +909,7 @@ def main() -> int:
     validate_templates(issues, scaffolder)
     validate_skill_and_release(issues)
     validate_ci_contract(issues)
+    validate_executable_contracts(issues)
     validate_profile_builds(issues)
     if issues:
         print(f"FAIL: {len(issues)} issue(s)")

@@ -52,12 +52,13 @@ intentionally not treated as stable provenance.
 - `minimal` — small, early, or low-risk initiatives needing the complete
   authority, definition, state, plan, validation, and handoff kernel.
 - `standard` — the default for active multi-contributor work; adds structured
-  traceability, evidence, reviews, events, artifacts, and extensions.
+  traceability, evidence, reviews, events, artifacts, extensions, and disabled,
+  unassessed operations/observability and security/supply-chain entry points.
 - `high-assurance` — agent-operable, sensitive, externally effective, or
   audit-oriented work; adds capabilities, reference extension validation,
-  checksums, generated validation evidence, transition, history, and
-  conditional approval, coordination, recovery, evaluation, and metrics
-  contracts.
+  checksums, generated validation evidence, transition, history, mechanically
+  complete trigger assessment before adoption, and conditional approval,
+  coordination, recovery, evaluation, and metrics contracts.
 
 Profiles are cumulative. Larger profiles add controls for named risks; they do
 not create greater authority or stronger readiness claims.
@@ -95,10 +96,54 @@ python -B .agent/scripts/refresh.py --refresh
 python -B .agent/scripts/validate.py --check
 ```
 
+`validate.py --check` is a read-only structural and adoption-conformance check.
+It never runs target-project hooks and never writes evidence. Generation starts
+all test, lint, build, and closure hooks as `not_assessed`; this is structurally
+valid but is not an adopted or ready project.
+
+Planned development is dependency-gated rather than timeline-ordered. The
+read-only frontier command reports plan items and tasks whose hard
+dependencies are completed, gates are passed or validly waived, structured
+blockers are resolved, and reciprocal plan/task links are coherent:
+
+```text
+python -B .agent/scripts/validate.py --ready-frontier
+```
+
+The frontier is eligibility only, never permission or priority. Current
+operator direction or an accepted priority/value/risk decision chooses among
+independent ready items. Arrays use stable identifier order only, not priority;
+dates remain provenance, freshness, expiry, or explicit external constraints.
+
 The project-local artifact registry remains authoritative; refresh derives the
 catalog, path-authority map, and integrity manifest without inventing or
 overwriting source artifacts. High Assurance includes checksums and generated
 validation evidence in the same refresh transaction.
+
+## Adopt and run target-project checks
+
+Each test, lint, build, and closure hook must be deliberately configured with
+shell-free argv, an owner, freshness, a same-executable version probe, and a
+side-effect contract, or marked `not_applicable` with an owner and rationale.
+After confirming that the configured commands and their declared effects are
+authorized, run the separate evidence writer explicitly:
+
+```text
+python -B .agent/scripts/run_project_checks.py --write-evidence
+```
+
+Hooks that may write or cause external effects additionally require
+`--acknowledge-side-effects`. The writer records execution facts and
+limitations in `.agent/project-checks/evidence.json`; it does not provide a
+sandbox or manufacture passing evidence. To write evidence, refresh generated
+integrity, and then apply the read-only adoption check, use
+`--write-evidence --verify-adoption`.
+
+Standard and High Assurance include two optional production-control extension
+packages: operations/observability and security/supply chain. Both start
+disabled and `not_assessed`, validate only project-owned declarations and
+evidence references, and never claim that a deployment, monitor, scanner,
+reviewer, provider, approval, or certification exists.
 
 ## Plan adoption for an existing project
 
@@ -117,6 +162,18 @@ target. A candidate is not accepted as equivalent until its content and
 authority are inspected. Adoption remains a separate, project-aware
 implementation task that preserves existing authority and project-specific
 content.
+
+For the breaking `1.0.1` to `2.0.0` transition, the migration guide is backed
+by executable, idempotent reference fixtures:
+
+```text
+python3 -B skills/project-bootstrap/scripts/test_migration_1_0_1_to_2_0_0.py
+```
+
+The reference reconciler preserves a closed representative bundle and exact
+rollback evidence, rejects ambiguity and mixed authority, and never runs
+project commands. It is not an in-place target-project upgrader; live projects
+still require an authorized, project-specific reconciliation.
 
 ## Use as a Codex skill
 
@@ -144,6 +201,7 @@ cross-project discovery.
 ```text
 python3 skills/project-bootstrap/scripts/validate_skill_package.py
 python3 skills/project-bootstrap/scripts/verify_reference_evidence.py
+python3 -B skills/project-bootstrap/scripts/test_migration_1_0_1_to_2_0_0.py
 python3 skills/project-bootstrap/scripts/validate_blueprint.py
 python3 skills/project-bootstrap/scripts/test_acceptance.py
 ```

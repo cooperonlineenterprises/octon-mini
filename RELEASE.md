@@ -2,13 +2,13 @@
 
 ## Current release
 
-- Blueprint version: `1.0.1`
-- Harness kernel: `1.0.1`
+- Blueprint version: `2.0.0`
+- Harness kernel: `2.0.0`
 - Extension API: `harness.extension.v1`
 - Minimum runtime: Python `3.11`
 - Canonical structured format: strict JSON
 
-Version `1.0.1` is the current stable domain-neutral kernel. Major versions may break
+Version `2.0.0` is the current stable domain-neutral kernel. Major versions may break
 paths, schemas, IDs, lifecycle semantics, extension compatibility, or
 migration behavior. Minor versions add backward-compatible artifacts or
 checks. Patch versions correct behavior without changing accepted contracts.
@@ -22,21 +22,26 @@ Before tagging a release:
    with an explicit `--reference-root ID=/absolute/path` for each registered
    repository and disclose any unavailable checkout;
 2. run `validate_blueprint.py`;
-3. run `test_acceptance.py`;
-4. install the skill into a fresh temporary destination, run the installed
+3. run `test_migration_1_0_1_to_2_0_0.py` and confirm valid transformation,
+   exact idempotence, rollback evidence, and every fail-closed fixture;
+4. run `test_acceptance.py`;
+5. install the skill into a fresh temporary destination, run the installed
    package, blueprint, reference, and acceptance validators from that
    destination, and generate and check all three profiles from the bundled
    source;
-5. when available, run the skill-creator `quick_validate.py` as a compatibility
+6. when available, run the skill-creator `quick_validate.py` as a compatibility
    check against the installed Codex tooling;
-6. confirm CI passes on the declared Python and OS matrix; local success is
+7. confirm CI passes on the declared Python and OS matrix; local success is
    not evidence that hosted CI passed;
-7. review the changelog and every migration from the previous release;
-8. confirm generated Minimal, Standard, and High-Assurance snapshots contain
-   no project facts, secrets, permissions, accepted decisions, or readiness
-   claims;
-9. commit the exact validated source; and
-10. create an annotated `v<version>` tag on that commit.
+8. review the changelog and every migration from the previous release;
+9. inspect generated profile snapshots: Minimal must not inherit production
+   controls, Standard must retain traceability and disabled extension entry
+   points, and High Assurance must add unassessed trigger/control entry points;
+10. confirm no generated profile contains project facts, secrets, permissions,
+    accepted decisions, configured hooks, passing evidence, providers, or
+    readiness claims;
+11. commit the exact validated source; and
+12. create an annotated `v<version>` tag on that commit.
 
 Do not move a published version tag. A correction receives a new patch
 version.
@@ -61,7 +66,8 @@ default; the generator never inserts a license into target projects.
 ## Supported and unsupported claims
 
 Release acceptance supports claims about structure, syntax, traceability,
-portability, mutation resistance, and extension compatibility within the
-declared validator scope. It does not certify a generated project's
-implementation, security, privacy, accessibility, legal compliance,
-operations, organizational approval, or readiness.
+portability, dependency progression, adoption conformance, migration behavior,
+mutation resistance, and extension compatibility within the declared
+validator scope. It does not certify a generated project's implementation,
+security, privacy, accessibility, legal compliance, operations,
+organizational approval, or readiness.

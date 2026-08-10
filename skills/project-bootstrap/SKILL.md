@@ -29,15 +29,31 @@ validation patterns, never facts, permissions, decisions, or readiness claims.
 7. For a new project, generate the independently validated snapshot.
 8. Replace generic placeholders only from inspected evidence or valid
    project-specific decisions.
-9. Configure the target project's threat model, authority posture, project
-   command hooks, and only the extensions justified by actual risks.
-10. Run the generated read-only harness check and mutation tests. In every
-    profile, refresh derived metadata and integrity after adopting or changing
-    source artifacts, then rerun the check. High Assurance additionally
-    refreshes checksums and generated validation evidence.
-11. Validate dossier paths, links, IDs, traceability, and information-state
+9. Configure the target project's threat model and authority posture. Assess
+   every test, lint, build, and closure hook: use an owned shell-free argv
+   contract with a same-executable version probe for applicable checks, or an
+   owned, reasoned `not_applicable` assessment. Adopt only the restrictions-only
+   extensions justified by actual risks; generated production-control entry
+   points start disabled and unassessed.
+10. For planned development, build hard plan/task dependencies, gates,
+    structured blockers, and reciprocal plan/task links. Derive the read-only
+    ready frontier before selecting work; dates never satisfy prerequisites or
+    choose among independent ready items.
+11. Run the generated read-only harness check and mutation tests. The check
+    must not execute project hooks or write evidence. After confirming
+    authority for declared side effects, run configured hooks only through the
+    explicit project-check evidence writer. In every profile, refresh derived
+    metadata and integrity after adopting or changing source artifacts, then
+    rerun the check. High Assurance additionally refreshes checksums and
+    generated validation evidence.
+12. Validate dossier paths, links, IDs, traceability, dependency readiness,
+    and information-state
     boundaries.
-12. Report what remains unknown, unassessed, skipped, stale, or gated.
+13. Before representing High Assurance as adopted, assess every conditional
+    and optional trigger and link applicable controls to owners,
+    representations, and current evidence.
+14. Report what remains unknown, unassessed, skipped, stale, or gated. Keep
+    demonstrated target-project readiness separate from harness adoption.
 
 ## Non-negotiable boundaries
 
@@ -52,7 +68,8 @@ validation patterns, never facts, permissions, decisions, or readiness claims.
 - Keep `.agent/` governance separate from optional `.agents/` capabilities.
 - A capability inherits and may narrow task authority; it cannot expand it.
 - Keep `check` read-only and use `refresh` as the only generated-integrity
-  writer.
+  writer. The separate project-check writer may append only its documented
+  evidence store when explicitly invoked.
 - Keep strict JSON as the kernel format. A non-JSON extension must pin and
   bootstrap its parser independently.
 - Require Python 3.11 or newer.
@@ -99,8 +116,22 @@ Validate a generated target:
 
 ```text
 python -B .agent/scripts/validate.py --check
+python -B .agent/scripts/validate.py --ready-frontier
 python -B -m unittest discover -s .agent/tests -p "test_*.py"
 ```
+
+After project owners have assessed every hook and confirmed current authority
+for its declared effects, explicitly run configured target-project checks and
+write scoped evidence:
+
+```text
+python -B .agent/scripts/run_project_checks.py --write-evidence
+```
+
+Add `--acknowledge-side-effects` only after reviewing hooks that declare
+repository writes or possible external effects. Use `--verify-adoption` only
+when the explicit evidence write, generated-integrity refresh, and final
+read-only adoption check are all intended.
 
 After any legitimate source or dossier-artifact change, update the
 project-local artifact registry when physical dossier paths changed, then run:

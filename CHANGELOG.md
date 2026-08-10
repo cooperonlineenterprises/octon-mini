@@ -3,6 +3,64 @@
 All notable blueprint contract changes are recorded here. Project-specific
 snapshots do not upgrade automatically.
 
+## 2.0.0 — 2026-08-10
+
+Dependency-gated development progression for the domain-neutral kernel.
+
+### Added
+
+- task and plan v2 records with typed hard dependencies, structured gate and
+  blocker references, and reciprocal plan-item/execution-task links;
+- a deterministic, read-only `--ready-frontier` command that reports eligible
+  plan items and tasks without granting authority or assigning priority;
+- task dependency-cycle detection and status checks that reject execution,
+  review, or completion while hard predecessors, gates, blockers, or linked
+  plan conditions are unsatisfied;
+- plan progression checks that require linked tasks and evidence for
+  completion and reject inconsistent reciprocal links or task status;
+- adversarial coverage for cycles, incomplete predecessors, gates, blockers,
+  reciprocal links, reopened dependencies, and ready-frontier derivation; and
+- executable, idempotent `1.0.1` to `2.0.0` migration fixtures that preserve
+  stable IDs and authority, retain exact rollback evidence, and fail closed on
+  ambiguous or mixed live authority;
+- strict three-state target-project test, lint, build, and closure hooks plus
+  an explicit shell-free project-check evidence writer;
+- adoption conformance that requires assessed hooks and current matching
+  evidence, and prevents adopted High-Assurance projects from retaining
+  unresolved conditional or optional triggers; and
+- optional, independently adoptable operations/observability and
+  security/supply-chain extension contracts with strict schemas, validators,
+  freshness/reference checks, and adversarial fixtures.
+
+### Changed
+
+- entering or re-entering execution now passes through `ready`; `blocked` and
+  `reopened` tasks transition to `ready` rather than directly to
+  `in_progress`;
+- the ready gate now requires satisfied dependencies and gates, resolved
+  structured blockers, and coherent plan links in addition to scope,
+  authority, acceptance criteria, and validation planning;
+- planning explicitly treats dependencies as a partial order. Current operator
+  direction or an accepted priority/value/risk decision selects among
+  independent ready items; dates remain provenance, freshness, expiry, or
+  genuine external constraints and never determine readiness or priority; and
+- structural conformance, project-harness adoption, and demonstrated
+  target-project readiness are reported as distinct conclusions; read-only
+  validation never runs target-project hooks or creates execution evidence;
+- Standard and High Assurance contain disabled, unassessed production-control
+  entry points, while Minimal remains free of those controls; and
+- the harness kernel, generator, validator, dossier baseline, task record, plan
+  store, lifecycle, project-command, and validator contracts advance to their
+  2.0.0/v2 forms.
+
+### Migration note
+
+This is a breaking change. Generated `1.0.1` projects remain independent and
+must use a project-specific migration; do not copy v2 kernel, validator, task,
+plan, project-command, or evidence files over live project authority. The
+reference migrator validates a closed representative bundle; it is not an
+in-place target-project upgrader and does not run project commands.
+
 ## 1.0.1 — 2026-07-27
 
 Release-blocker remediation for the stable domain-neutral kernel.

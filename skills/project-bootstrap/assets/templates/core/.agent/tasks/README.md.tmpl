@@ -6,3 +6,15 @@ records scope and execution status; it does not authorize the work.
 Each task identifies authority basis, owner, dependencies, in/out scope,
 acceptance criteria, affected artifacts, side effects, validation, evidence,
 review, rollback, blockers, and next action.
+
+`dependencies` contains only hard `TASK-####` prerequisites. A task may become
+`ready`, resume after `blocked`, or resume after `reopened` only when every
+dependency is `completed`, every referenced gate is `passed` or `waived`, all
+structured blockers are resolved, and reciprocal plan links are consistent.
+Dates record provenance, freshness, expiry, or an external constraint; they do
+not make work ready or choose its sequence.
+
+Run the read-only `ready_frontier` command from `.agent/validators.json` before
+selecting planned work. The frontier identifies eligible work but grants no
+permission. When several tasks are eligible, use current operator direction or
+an accepted priority/value/risk decision rather than a date-based inference.

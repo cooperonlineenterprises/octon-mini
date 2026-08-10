@@ -24,7 +24,12 @@ ROOT = (
 SCAFFOLDER = SKILL_ROOT / "scripts/scaffold_project.py"
 PLANNER = SKILL_ROOT / "scripts/plan_adoption.py"
 INSTALLER = SKILL_ROOT / "scripts/install_skill.py"
+MIGRATION_TEST = SKILL_ROOT / "scripts/test_migration_1_0_1_to_2_0_0.py"
 PROFILES = ("minimal", "standard", "high-assurance")
+PRODUCTION_EXTENSIONS = {
+    "operations-observability",
+    "security-supply-chain",
+}
 ACCEPTANCE_COVERAGE = {
     1: "project_demonstration_required",
     2: "automated_pass",
@@ -108,6 +113,19 @@ def check_project(target: Path) -> subprocess.CompletedProcess[str]:
     )
 
 
+def ready_frontier_project(target: Path) -> subprocess.CompletedProcess[str]:
+    return run(
+        [
+            sys.executable,
+            "-I",
+            "-B",
+            ".agent/scripts/validate.py",
+            "--ready-frontier",
+        ],
+        target,
+    )
+
+
 def refresh(target: Path) -> subprocess.CompletedProcess[str]:
     return run(
         [
@@ -121,9 +139,17 @@ def refresh(target: Path) -> subprocess.CompletedProcess[str]:
     )
 
 
-def write_task(target: Path, task_id: str, status: str, previous: str | None, dependencies: list[str]) -> None:
+def write_task(
+    target: Path,
+    task_id: str,
+    status: str,
+    previous: str | None,
+    dependencies: list[str],
+    *,
+    prepared: bool = False,
+) -> None:
     value = {
-        "schema_version": "harness.task.v1",
+        "schema_version": "harness.task.v2",
         "id": task_id,
         "status": status,
         "previous_status": previous,
@@ -133,9 +159,12 @@ def write_task(target: Path, task_id: str, status: str, previous: str | None, de
         "created_at": "2030-01-02",
         "updated_at": "2030-01-02",
         "dependencies": dependencies,
+        "plan_item_refs": [],
+        "gate_refs": [],
+        "blocking_refs": [],
         "scope": "Synthetic acceptance mutation only.",
-        "acceptance_criteria": [],
-        "validation_plan": [],
+        "acceptance_criteria": ["Synthetic acceptance criterion"] if prepared else [],
+        "validation_plan": ["Synthetic validation plan"] if prepared else [],
         "implementation_result": None,
         "review_evidence": [],
         "blocked_by": [],
@@ -173,11 +202,53 @@ def write_accepted_decision(target: Path, decision_id: str) -> None:
     )
 
 
+def write_passing_evidence(
+    target: Path,
+    evidence_id: str,
+    task_id: str,
+) -> None:
+    value = {
+        "schema_version": "harness.evidence.v1",
+        "id": evidence_id,
+        "title": "Synthetic extension contract evidence",
+        "task": task_id,
+        "recorded_at": "2030-01-02",
+        "authority_source": "authority:synthetic-acceptance",
+        "owner": "acceptance-suite",
+        "scope": "Generated extension integration test only.",
+        "method": "Repository-contained deterministic fixture validation.",
+        "environment": "Temporary acceptance project.",
+        "subject_revision_or_fingerprint": "synthetic-extension-fixture-v1",
+        "result": "pass",
+        "fresh_until": "2099-12-31",
+        "supersedes": None,
+        "limitations": [
+            "Synthetic evidence does not establish an external production control."
+        ],
+    }
+    path = target / ".agent/evidence" / f"{evidence_id}-extension-fixture.md"
+    path.write_text(
+        "---\n" + json.dumps(value, indent=2, sort_keys=True)
+        + "\n---\n\n# Synthetic extension evidence\n",
+        encoding="utf-8",
+    )
+
+
 def main() -> int:
     if sys.version_info < (3, 11):
         print("FAIL: Python 3.11+ is required")
         return 2
     failures: list[str] = []
+    migration_result = run(
+        [sys.executable, "-B", str(MIGRATION_TEST)],
+        ROOT,
+    )
+    require(
+        migration_result.returncode == 0,
+        "executable 1.0.1 to 2.0.0 migration fixtures failed: "
+        f"{migration_result.stderr or migration_result.stdout}",
+        failures,
+    )
     with tempfile.TemporaryDirectory(prefix="project-blueprint-acceptance-") as temp:
         temp_root = Path(temp)
         projects: dict[str, Path] = {}
@@ -205,12 +276,92 @@ def main() -> int:
                 f"{profile} project name was not JSON-safe",
                 failures,
             )
+            require(
+                project_json["project"]["adoption_status"] == "not_assessed"
+                and project_json["project"]["adoption_decision_ref"] is None
+                and all(
+                    command["status"] == "not_assessed"
+                    for command in project_json["commands"].values()
+                ),
+                f"{profile} generation fabricated project adoption or command assessment",
+                failures,
+            )
+            extension_registry_path = target / ".agent/extensions/registry.json"
+            if profile == "minimal":
+                require(
+                    not extension_registry_path.exists()
+                    and not (target / ".agent/extensions/operations-observability").exists()
+                    and not (target / ".agent/extensions/security-supply-chain").exists(),
+                    "minimal inherited production-control extensions",
+                    failures,
+                )
+            else:
+                extension_registry = json.loads(
+                    extension_registry_path.read_text(encoding="utf-8")
+                )
+                extension_by_id = {
+                    item["id"]: item for item in extension_registry["extensions"]
+                }
+                require(
+                    PRODUCTION_EXTENSIONS <= set(extension_by_id),
+                    f"{profile} lacks production-control extension entry points",
+                    failures,
+                )
+                require(
+                    all(
+                        extension_by_id[extension_id]["enabled"] is False
+                        and extension_by_id[extension_id]["trust_class"]
+                        == "unassessed_project_local_code"
+                        and extension_by_id[extension_id]["trust_decision_ref"] is None
+                        for extension_id in PRODUCTION_EXTENSIONS
+                    ),
+                    f"{profile} auto-enabled or trusted a production extension",
+                    failures,
+                )
+                for extension_id in sorted(PRODUCTION_EXTENSIONS):
+                    extension_config = json.loads(
+                        (
+                            target
+                            / ".agent/extensions"
+                            / extension_id
+                            / "config.json"
+                        ).read_text(encoding="utf-8")
+                    )
+                    require(
+                        extension_config["adoption"]["status"] == "not_assessed"
+                        and extension_config["adoption"]["decision_ref"] is None
+                        and extension_config["permission_grant"] is False,
+                        f"{profile} fabricated {extension_id} adoption or authority",
+                        failures,
+                    )
             result = check_project(target)
             require(
                 result.returncode == 0,
                 f"{profile} isolated validation failed: {result.stderr or result.stdout}",
                 failures,
             )
+
+        if "standard" in projects:
+            for extension_id in sorted(PRODUCTION_EXTENSIONS):
+                result = run(
+                    [
+                        sys.executable,
+                        "-B",
+                        str(
+                            projects["standard"]
+                            / ".agent/extensions"
+                            / extension_id
+                            / "tests/test_validate.py"
+                        ),
+                    ],
+                    projects["standard"],
+                )
+                require(
+                    result.returncode == 0,
+                    f"{extension_id} package tests failed: "
+                    f"{result.stderr or result.stdout}",
+                    failures,
+                )
 
         for profile, target in projects.items():
             source_change = target / f"acceptance-refresh-{profile}.txt"
@@ -623,6 +774,102 @@ def main() -> int:
                 failures,
             )
 
+            dependency_cycle = temp_root / "task-dependency-cycle"
+            shutil.copytree(standard, dependency_cycle)
+            write_task(
+                dependency_cycle,
+                "TASK-9020",
+                "proposed",
+                None,
+                ["TASK-9021"],
+            )
+            write_task(
+                dependency_cycle,
+                "TASK-9021",
+                "proposed",
+                None,
+                ["TASK-9020"],
+            )
+            result = check_project(dependency_cycle)
+            require(
+                result.returncode != 0
+                and "task dependency cycle" in result.stderr,
+                "task dependency cycle passed",
+                failures,
+            )
+
+            incomplete_dependency = temp_root / "incomplete-task-dependency"
+            shutil.copytree(standard, incomplete_dependency)
+            write_task(
+                incomplete_dependency,
+                "TASK-9022",
+                "ready",
+                "proposed",
+                [],
+                prepared=True,
+            )
+            write_task(
+                incomplete_dependency,
+                "TASK-9023",
+                "in_progress",
+                "ready",
+                ["TASK-9022"],
+                prepared=True,
+            )
+            result = check_project(incomplete_dependency)
+            require(
+                result.returncode != 0
+                and "dependency:TASK-9022" in result.stderr
+                and "unsatisfied readiness" in result.stderr,
+                "execution against incomplete dependency passed",
+                failures,
+            )
+
+            frontier_target = temp_root / "ready-frontier"
+            shutil.copytree(standard, frontier_target)
+            write_task(
+                frontier_target,
+                "TASK-9024",
+                "proposed",
+                None,
+                [],
+                prepared=True,
+            )
+            write_task(
+                frontier_target,
+                "TASK-9025",
+                "proposed",
+                None,
+                ["TASK-9024"],
+                prepared=True,
+            )
+            before_frontier = snapshot(frontier_target)
+            result = ready_frontier_project(frontier_target)
+            require(
+                result.returncode == 0,
+                f"ready frontier failed: {result.stderr or result.stdout}",
+                failures,
+            )
+            require(
+                snapshot(frontier_target) == before_frontier,
+                "ready frontier command wrote project files",
+                failures,
+            )
+            if result.returncode == 0:
+                frontier = json.loads(result.stdout)
+                require(
+                    frontier.get("tasks") == ["TASK-9024"],
+                    "ready frontier included waiting work or omitted eligible work",
+                    failures,
+                )
+                require(
+                    frontier.get("permission_grant") is False
+                    and frontier.get("priority_ordered") is False
+                    and frontier.get("timeline_fields_determine_readiness") is False,
+                    "ready frontier implied authority, priority, or timeline readiness",
+                    failures,
+                )
+
             dossier_broken = temp_root / "broken-dossier-reference"
             shutil.copytree(standard, dossier_broken)
             findings_path = (
@@ -696,6 +943,11 @@ def main() -> int:
             high = projects["high-assurance"]
             registry_path = high / ".agent/extensions/registry.json"
             registry = json.loads(registry_path.read_text(encoding="utf-8"))
+            sample_extension = next(
+                item
+                for item in registry["extensions"]
+                if item["id"] == "sample-restriction"
+            )
             kernel_before = {
                 path: hashlib.sha256((high / path).read_bytes()).hexdigest()
                 for path in (
@@ -709,11 +961,11 @@ def main() -> int:
                 )
             }
             write_accepted_decision(high, "DEC-9090")
-            registry["extensions"][0]["enabled"] = True
-            registry["extensions"][0]["owner"] = "acceptance-suite"
-            registry["extensions"][0]["provenance"] = "authority:synthetic-acceptance"
-            registry["extensions"][0]["trust_class"] = "trusted_project_local_code"
-            registry["extensions"][0]["trust_decision_ref"] = "DEC-9090"
+            sample_extension["enabled"] = True
+            sample_extension["owner"] = "acceptance-suite"
+            sample_extension["provenance"] = "authority:synthetic-acceptance"
+            sample_extension["trust_class"] = "trusted_project_local_code"
+            sample_extension["trust_decision_ref"] = "DEC-9090"
             write_json(registry_path, registry)
             result = refresh(high)
             require(
@@ -727,9 +979,9 @@ def main() -> int:
                 "trusted sample extension did not validate",
                 failures,
             )
-            registry["extensions"][0]["enabled"] = False
-            registry["extensions"][0]["trust_class"] = "unassessed_project_local_code"
-            registry["extensions"][0]["trust_decision_ref"] = None
+            sample_extension["enabled"] = False
+            sample_extension["trust_class"] = "unassessed_project_local_code"
+            sample_extension["trust_decision_ref"] = None
             registry_path.write_text(
                 json.dumps(registry, indent=2, sort_keys=True) + "\n",
                 encoding="utf-8",
@@ -754,7 +1006,11 @@ def main() -> int:
             invalid_registry = json.loads(
                 invalid_registry_path.read_text(encoding="utf-8")
             )
-            invalid_registry["extensions"][0]["authority_effect"] = "expands_permission"
+            next(
+                item
+                for item in invalid_registry["extensions"]
+                if item["id"] == "sample-restriction"
+            )["authority_effect"] = "expands_permission"
             invalid_registry_path.write_text(
                 json.dumps(invalid_registry, indent=2, sort_keys=True) + "\n",
                 encoding="utf-8",
@@ -766,6 +1022,108 @@ def main() -> int:
                 "authority-expanding extension passed",
                 failures,
             )
+
+            production_fixture_ids = {
+                "operations-observability": "9001",
+                "security-supply-chain": "9101",
+            }
+            production_extension_base = projects.get("standard", high)
+            for extension_id, numeric_id in production_fixture_ids.items():
+                production_target = temp_root / f"enabled-{extension_id}"
+                shutil.copytree(production_extension_base, production_target)
+                extension_root = (
+                    production_target / ".agent/extensions" / extension_id
+                )
+                scenario = json.loads(
+                    (
+                        extension_root / "tests/fixtures/valid.json"
+                    ).read_text(encoding="utf-8")
+                )
+                write_json(extension_root / "config.json", scenario["config"])
+                write_json(extension_root / "records.json", scenario["records"])
+                decision_id = f"DEC-{numeric_id}"
+                task_id = f"TASK-{numeric_id}"
+                evidence_id = f"EVD-{numeric_id}"
+                write_accepted_decision(production_target, decision_id)
+                write_task(
+                    production_target,
+                    task_id,
+                    "proposed",
+                    None,
+                    [],
+                )
+                write_passing_evidence(
+                    production_target,
+                    evidence_id,
+                    task_id,
+                )
+                production_registry_path = (
+                    production_target / ".agent/extensions/registry.json"
+                )
+                production_registry = json.loads(
+                    production_registry_path.read_text(encoding="utf-8")
+                )
+                production_extension = next(
+                    item
+                    for item in production_registry["extensions"]
+                    if item["id"] == extension_id
+                )
+                production_extension["enabled"] = True
+                production_extension["owner"] = "acceptance-suite"
+                production_extension["provenance"] = (
+                    "authority:synthetic-acceptance"
+                )
+                production_extension["trust_class"] = (
+                    "trusted_project_local_code"
+                )
+                production_extension["trust_decision_ref"] = decision_id
+                write_json(production_registry_path, production_registry)
+                production_kernel_before = {
+                    path: hashlib.sha256(
+                        (production_target / path).read_bytes()
+                    ).hexdigest()
+                    for path in kernel_before
+                }
+                result = refresh(production_target)
+                require(
+                    result.returncode == 0,
+                    f"adopted {extension_id} failed: "
+                    f"{result.stderr or result.stdout}",
+                    failures,
+                )
+                result = check_project(production_target)
+                require(
+                    result.returncode == 0,
+                    f"adopted {extension_id} did not validate: "
+                    f"{result.stderr or result.stdout}",
+                    failures,
+                )
+                production_extension["enabled"] = False
+                write_json(production_registry_path, production_registry)
+                result = refresh(production_target)
+                require(
+                    result.returncode == 0,
+                    f"disabled {extension_id} blocked refresh: "
+                    f"{result.stderr or result.stdout}",
+                    failures,
+                )
+                result = check_project(production_target)
+                require(
+                    result.returncode == 0,
+                    f"disabled {extension_id} invalidated the kernel",
+                    failures,
+                )
+                production_kernel_after = {
+                    path: hashlib.sha256(
+                        (production_target / path).read_bytes()
+                    ).hexdigest()
+                    for path in production_kernel_before
+                }
+                require(
+                    production_kernel_before == production_kernel_after,
+                    f"disabling {extension_id} required a kernel edit",
+                    failures,
+                )
 
             interrupted = temp_root / "interrupted-refresh"
             shutil.copytree(high, interrupted)
@@ -798,8 +1156,22 @@ def main() -> int:
         "- maintenance: all-profile refresh plus registered "
         "add, rename, omission, and refusal paths"
     )
-    print("- adoption: read-only planning")
-    print("- validator: adversarial authority, lifecycle, reference, secret, extension, and freshness checks")
+    print(
+        "- migration: executable idempotence, exact rollback evidence, and "
+        "fail-closed ambiguity coverage"
+    )
+    print(
+        "- adoption: read-only planning/checks plus separately explicit, "
+        "fingerprint-bound project-check evidence"
+    )
+    print(
+        "- validator: adversarial authority, dependency readiness/frontier, "
+        "lifecycle, reference, secret, extension, and freshness checks"
+    )
+    print(
+        "- production controls: disabled/unassessed defaults, strict fixture "
+        "suites, and deliberate Standard enable/disable paths"
+    )
     print(
         "ACCEPTANCE_COVERAGE_JSON="
         + json.dumps(

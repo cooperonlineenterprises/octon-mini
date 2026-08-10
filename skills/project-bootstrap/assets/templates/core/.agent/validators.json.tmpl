@@ -1,6 +1,6 @@
 {
-  "schema_version": "harness.validators.v1",
-  "validator_version": "1.0.1",
+  "schema_version": "harness.validators.v2",
+  "validator_version": "2.0.0",
   "runtime": {
     "executable": "python",
     "minimum_version": "3.11",
@@ -10,7 +10,16 @@
   "commands": {
     "bootstrap": {"run": "python --version", "writes": []},
     "check": {"run": "python -B .agent/scripts/validate.py --check", "writes": []},
+    "ready_frontier": {"run": "python -B .agent/scripts/validate.py --ready-frontier", "writes": []},
     "test": {"run": "python -B -m unittest discover -s .agent/tests -p \"test_*.py\"", "writes": []},
+    "project_checks": {
+      "run": "python -B .agent/scripts/run_project_checks.py --write-evidence",
+      "writes": [".agent/project-checks/evidence.json"]
+    },
+    "adoption_verify": {
+      "run": "python -B .agent/scripts/run_project_checks.py --write-evidence --verify-adoption",
+      "writes": "project_check_evidence_and_profile_refresh_outputs"
+    },
     "refresh": {"run": "{{HARNESS_REFRESH_COMMAND}}", "writes": {{HARNESS_REFRESH_WRITES}}},
     "closure": {"run": "configure_during_project_adoption", "writes": "not_assessed"}
   },
@@ -20,6 +29,8 @@
     "schemas_and_versions",
     "authority_and_nested_instruction_invariants",
     "identifiers_references_and_lifecycles",
+    "dependency_readiness_and_ready_frontier",
+    "project_command_assessment_and_current_evidence",
     "dossier_catalog_path_authority_and_traceability",
     "extension_compatibility_confinement_and_validator_protocol",
     "unresolved_generation_placeholders",

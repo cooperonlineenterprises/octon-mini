@@ -1,0 +1,29 @@
+{
+  "schema_version": "project-blueprint.migration-invalid-case.v1",
+  "base": "../valid/v1-standard.json",
+  "operations": [
+    {
+      "op": "replace",
+      "path": [
+        "live",
+        "project",
+        "commands",
+        "project_test",
+        "status"
+      ],
+      "value": "configured"
+    },
+    {
+      "op": "replace",
+      "path": [
+        "live",
+        "project",
+        "commands",
+        "project_test",
+        "run"
+      ],
+      "value": "python -m unittest"
+    }
+  ],
+  "expected_error": "configured legacy hook cannot be migrated"
+}

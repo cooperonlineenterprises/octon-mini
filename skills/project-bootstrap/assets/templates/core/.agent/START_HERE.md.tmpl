@@ -12,9 +12,10 @@
 3. `.agent/policy.json` and `.agent/context.json`.
 4. `.agent/state/current.json`.
 5. Relevant accepted decisions and active task records.
-6. `.agent/project.json`, applicable extensions, and validators.
-7. Direct inspection of the affected implementation.
-8. `project-dossier/README.md` for intended and observed project information.
+6. The read-only `ready_frontier` command before selecting planned work.
+7. `.agent/project.json`, applicable extensions, and validators.
+8. Direct inspection of the affected implementation.
+9. `project-dossier/README.md` for intended and observed project information.
 
 ## Current baseline
 
@@ -28,3 +29,15 @@ Current task status lives only in `.agent/tasks/`. Durable intent lives only in
 accepted `.agent/decisions/`. Generated files are point-in-time derived
 evidence. Inspect the repository and record the first evidence-backed baseline
 before using status or planning claims.
+
+The ready frontier is derived from hard dependencies, passed or waived gates,
+resolved structured blockers, and reciprocal plan/task links. It is not
+permission or priority. Dates remain audit, freshness, expiry, or explicit
+external-constraint data and never select the next task.
+
+`validate.py --check` is read-only and never executes project test, lint,
+build, or closure hooks. Those hooks begin `not_assessed`. Project owners must
+configure safe argv contracts or record an owned `not_applicable` rationale;
+configured hooks run only through the explicit project-check evidence writer
+after authority for declared side effects is confirmed. Structural success,
+harness adoption, and target-project readiness are separate conclusions.

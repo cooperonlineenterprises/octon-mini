@@ -29,6 +29,17 @@ The generated harness is an unadopted baseline. Its policy is deliberately
 non-authorizing, project command hooks are unassessed, and generated reports
 do not claim target-project readiness.
 
+Three states remain distinct throughout generation and validation:
+
+1. structural blueprint conformance means the generated contracts are
+   internally valid;
+2. project-harness adoption means project owners have assessed the hooks,
+   triggers, authority basis, and evidence required by the selected profile;
+3. demonstrated target-project readiness requires current project-specific
+   implementation, operational, specialist, and external evidence.
+
+Neither of the first two states implies the third.
+
 ## Collision and mutation rules
 
 New-project generation accepts only a nonexistent or empty target directory.
@@ -68,6 +79,13 @@ deltas, preserve project-specific content, append a typed migration-history
 record with authority and evidence references, and never replace accepted
 target-project authority silently.
 
+A breaking migration must also ship executable valid and invalid fixtures. Its
+reference transformation or reconciler must preserve stable IDs and accepted
+authority, require explicit classification when a legacy relationship is
+ambiguous, reject mixed live schema authorities, retain the exact pre-migration
+state as rollback evidence, validate the candidate result against the new
+schemas, and produce no further change when applied a second time.
+
 ## Template variables
 
 The initial generator supports:
@@ -89,7 +107,10 @@ Unresolved or unknown template variables are validation failures.
 
 Every profile generates the seven-file governance kernel, compact current
 state, task and decision templates, a read-only validator, and positive and
-negative tests. Larger profiles add operational records, project-extension
+negative tests. It also generates a project-check evidence store and an
+explicit project-check writer. The validator exposes both a full read-only
+check and a read-only ready-frontier derivation; neither command executes
+project hooks. Larger profiles add operational records, project-extension
 contracts, capability packages, and generated-integrity tooling.
 
 The selected profile also defines a closed minimum operational-file
@@ -118,15 +139,57 @@ The scaffold validator must:
 - detect unresolved generation placeholders and redact obvious secret
   assignments;
 - validate strict syntax, schemas, controlled IDs, references, lifecycle
-  transitions, plan acyclicity, dossier traceability, nested instructions,
-  extension compatibility, and path authority; and
+  transitions, plan and task acyclicity, dependency-gated readiness,
+  reciprocal plan/task links, structured blockers, dossier traceability,
+  nested instructions, extension compatibility, and path authority;
+- derive an unordered ready frontier only from completed hard dependencies,
+  passed or validly waived gates, resolved structured blockers, reciprocal
+  links, and populated readiness contracts;
+- keep timeline fields outside the closed readiness contracts and never use
+  dates when deriving or ordering the core ready frontier;
 - enforce the selected profile's minimum governed-file inventory and reject
   unregistered extension or capability roots; and
 - label structural success as distinct from project readiness.
 
 The generator may create initial empty stores and unassessed configuration. It
 must not create an accepted decision, completed task, passing evidence record,
-human approval, or readiness certification.
+human approval, or readiness certification. A generated empty ready frontier
+does not establish project adoption or permission.
+
+## Project-command and adoption evidence rules
+
+Each `project_test`, `project_lint`, `project_build`, and `project_closure`
+hook is deliberately assessed as exactly one of:
+
+- `not_assessed`, allowed only before project-harness adoption;
+- `configured`, with an owner, nonempty argv-style command and version command,
+  both using the same executable, declared side effects and write scope, and
+  an evidence-freshness contract;
+- `not_applicable`, with a named owner and nonempty project-specific rationale.
+
+Commands are represented as argument arrays and executed without implicit
+shell interpretation. Structural `--check` validates configuration and
+existing evidence only. It must never execute a project hook, update evidence,
+or reinterpret a configured command as permission.
+
+The separately invoked project-check writer is an explicit mutating workflow.
+It runs only configured hooks, records unavailable and not-applicable outcomes
+without converting them to passes, and appends closed evidence containing the
+exact argv and tool version, executable fingerprint, source revision or
+fingerprint, environment, dirty/untracked/ignored scope, start and end time,
+outcome, limitations, skipped checks, declared possible external effects,
+explicitly unassessed observed external effects, and repository mutations.
+Output content is hashed rather than retained when it could expose secrets.
+Mutation comparison is detection, not sandbox isolation.
+
+An adopted project requires coherent adoption status, a resolved accepted
+externally grounded adoption decision, no adoption blockers, every command
+hook assessed, and fresh source- and command-bound passing evidence for every
+configured hook. An adopted High-Assurance project additionally requires all
+Conditional and Optional dossier triggers to be assessed and every applicable
+control to retain an active owner, representation, review state, and current
+evidence references. These checks establish adoption conformance only; they
+cannot certify specialist conclusions or production readiness.
 
 ## Derived-file rules
 
@@ -172,3 +235,11 @@ its version, compatible kernel major version, confined config and validator
 paths, owner, provenance, side effects, deprecation path, and
 `authority_effect: restrictions_only`. Enabled validators return structured
 JSON findings. Disabling an extension must require no kernel edit.
+
+Standard and High-Assurance snapshots may include tool-neutral production
+control extensions for operations/observability and security/supply chain.
+They start disabled and unassessed, validate only project-owned declarations
+and evidence references, deny network and filesystem effects, and never claim
+that a deployment, monitor, scanner, review, signing service, or external
+platform exists or ran. Enabling either package before its project-level
+adoption is complete fails closed; a `not_applicable` package remains disabled.

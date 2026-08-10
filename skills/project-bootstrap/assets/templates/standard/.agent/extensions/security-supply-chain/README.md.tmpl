@@ -1,0 +1,50 @@
+# Security and Supply-Chain Extension
+
+This optional extension validates project-owned security and supply-chain
+declarations. It does not run a scanner, inspect a provider, generate an SBOM,
+sign or verify an artifact, accept a vulnerability, perform legal review, or
+contact an external system. Schema conformance never establishes that a
+qualified reviewer, tool, vendor, platform, license right, or production
+control exists.
+
+The generated package starts disabled in `.agent/extensions/registry.json`
+and `not_assessed` in `config.json`. Generation supplies no asset, data,
+threat, control, dependency, vendor, vulnerability, provenance, rights,
+evidence, approval, or readiness fact. Deliberate adoption requires an
+accepted project trust decision, assigned ownership, assessment of every
+control area, and the registry's restrictions-only contract.
+If its validator is enabled while package adoption remains `not_assessed` or
+`not_applicable`, it fails closed; an inapplicable package stays disabled.
+
+The extension covers:
+
+- assets, data classes, trust boundaries, and threat models;
+- project-selected security controls and owners;
+- SAST, SCA, secret scanning, and other declared checks;
+- dependency and vendor inventories;
+- SBOM identity, scope, source, and provenance;
+- vulnerability handling and time-bounded exceptions;
+- artifact provenance, signing, and verification where applicable;
+- license and rights review; and
+- freshness, evidence, review cadence, limitations, and exceptions.
+
+`validate.py` accepts only `--config`, reads the configured records and the
+project's existing evidence stores, and emits
+`harness.extension-findings.v1`. It uses Python 3.11+ standard-library code,
+performs no network access, and writes no files. The kernel still performs its
+own before/after mutation detection; that detects writes and is not a sandbox.
+
+Registry integration must declare:
+
+- `id: security-supply-chain` and `version: 1.0.0`;
+- `requires_core: ^2.0.0` and the confined paths in this directory;
+- generated provenance, unassigned ownership, unassessed trust, and
+  `enabled: false` initially;
+- `side_effects: none`, `network_access: denied`,
+  `filesystem_writes: prohibited`, and
+  `authority_effect: restrictions_only`; and
+- explicit deprecation, removal, and successor fields, initially null.
+
+Disabling or assessing the extension as not applicable requires no kernel
+edit. Enabling it cannot grant permission or certify security, compliance,
+legal rights, supply-chain integrity, or production readiness.

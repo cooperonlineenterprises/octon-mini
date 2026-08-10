@@ -1,0 +1,21 @@
+{
+  "schema_version": "project-blueprint.migration-invalid-case.v1",
+  "base": "../valid/v1-standard.json",
+  "operations": [
+    {
+      "op": "replace",
+      "path": [
+        "classification",
+        "project_commands",
+        "project_test",
+        "assessment",
+        "version_argv"
+      ],
+      "value": [
+        "unrelated-tool",
+        "--version"
+      ]
+    }
+  ],
+  "expected_error": "version probe must use the configured executable"
+}

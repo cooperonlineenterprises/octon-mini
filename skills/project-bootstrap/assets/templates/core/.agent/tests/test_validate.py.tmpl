@@ -42,9 +42,9 @@ def clone() -> tuple[tempfile.TemporaryDirectory[str], Path]:
     return temporary, test_root
 
 
-def write_task(path: Path, value: dict[str, object]) -> None:
+def task_value(value: dict[str, object]) -> dict[str, object]:
     complete = {
-        "schema_version": "harness.task.v1",
+        "schema_version": "harness.task.v2",
         "id": "TASK-9998",
         "status": "proposed",
         "previous_status": None,
@@ -54,6 +54,9 @@ def write_task(path: Path, value: dict[str, object]) -> None:
         "created_at": "2030-01-02",
         "updated_at": "2030-01-02",
         "dependencies": [],
+        "plan_item_refs": [],
+        "gate_refs": [],
+        "blocking_refs": [],
         "scope": "Synthetic validator test only.",
         "acceptance_criteria": [],
         "validation_plan": [],
@@ -67,6 +70,11 @@ def write_task(path: Path, value: dict[str, object]) -> None:
         "limitations": [],
     }
     complete.update(value)
+    return complete
+
+
+def write_task(path: Path, value: dict[str, object]) -> None:
+    complete = task_value(value)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
         "---\n"
@@ -74,6 +82,36 @@ def write_task(path: Path, value: dict[str, object]) -> None:
         + "\n---\n\n# Mutation fixture\n",
         encoding="utf-8",
     )
+
+
+def write_plan_items(test_root: Path, items: list[dict[str, object]]) -> None:
+    path = test_root / "project-dossier/machine-readable/plan.json"
+    store = VALIDATOR.load_json(path)
+    store["plan_items"] = items
+    write_json(path, store)
+
+
+def plan_value(value: dict[str, object]) -> dict[str, object]:
+    complete = {
+        "id": "PLAN-9998",
+        "title": "Mutation fixture plan item",
+        "objective": "Exercise dependency-readiness validation.",
+        "status": "planned",
+        "owner_role": "test",
+        "depends_on": [],
+        "task_refs": [],
+        "requirement_refs": [],
+        "finding_refs": [],
+        "gate_refs": [],
+        "blocking_refs": [],
+        "acceptance_criteria": ["Synthetic criterion"],
+        "evidence_expected": ["Synthetic evidence"],
+        "evidence_refs": [],
+        "blocked_by": [],
+        "limitations": [],
+    }
+    complete.update(value)
+    return complete
 
 
 def write_json(path: Path, value: object) -> None:
@@ -107,13 +145,138 @@ def adopt_sample_extension(test_root: Path) -> dict[str, object]:
     )
     registry_path = test_root / ".agent/extensions/registry.json"
     registry = VALIDATOR.load_json(registry_path)
-    registry["extensions"][0]["enabled"] = True
-    registry["extensions"][0]["owner"] = "test_suite"
-    registry["extensions"][0]["provenance"] = "authority:synthetic-extension-test"
-    registry["extensions"][0]["trust_class"] = "trusted_project_local_code"
-    registry["extensions"][0]["trust_decision_ref"] = "DEC-9090"
+    index = sample_extension_index(registry)
+    registry["extensions"][index]["enabled"] = True
+    registry["extensions"][index]["owner"] = "test_suite"
+    registry["extensions"][index]["provenance"] = "authority:synthetic-extension-test"
+    registry["extensions"][index]["trust_class"] = "trusted_project_local_code"
+    registry["extensions"][index]["trust_decision_ref"] = "DEC-9090"
     write_json(registry_path, registry)
     return registry
+
+
+def sample_extension_index(registry: dict[str, object]) -> int:
+    extensions = registry.get("extensions")
+    if not isinstance(extensions, list):
+        raise ValueError("extension registry lacks an extensions array")
+    for index, extension in enumerate(extensions):
+        if isinstance(extension, dict) and extension.get("id") == "sample-restriction":
+            return index
+    raise ValueError("sample-restriction extension is absent")
+
+
+def has_sample_extension(registry: dict[str, object]) -> bool:
+    try:
+        sample_extension_index(registry)
+    except ValueError:
+        return False
+    return True
+
+
+def not_applicable_command(reason: str = "Not used by this synthetic project.") -> dict[str, object]:
+    return {
+        "status": "not_applicable",
+        "owner": "test_suite",
+        "rationale": reason,
+        "tool_name": None,
+        "argv": None,
+        "version_argv": None,
+        "timeout_seconds": None,
+        "evidence_freshness_days": None,
+        "side_effects": {
+            "classification": "not_applicable",
+            "repository_write_paths": [],
+            "external_effects": [],
+        },
+    }
+
+
+def configured_python_command(argv: list[str] | None = None) -> dict[str, object]:
+    return {
+        "status": "configured",
+        "owner": "test_suite",
+        "rationale": "Synthetic side-effect-free check.",
+        "tool_name": "python",
+        "argv": argv or [sys.executable, "-c", "raise SystemExit(0)"],
+        "version_argv": [sys.executable, "--version"],
+        "timeout_seconds": 30,
+        "evidence_freshness_days": 30,
+        "side_effects": {
+            "classification": "read_only",
+            "repository_write_paths": [],
+            "external_effects": [],
+        },
+    }
+
+
+def adopt_harness(
+    test_root: Path,
+    *,
+    commands: dict[str, dict[str, object]] | None = None,
+) -> None:
+    decision = VALIDATOR.parse_json_header(
+        test_root / ".agent/templates/decision.md"
+    )
+    decision.update(
+        id="DEC-9097",
+        status="accepted",
+        previous_status="proposed",
+        title="Adopt the synthetic project harness",
+        authority_source="authority:synthetic-adoption-test",
+        owner="test_suite",
+        scope="synthetic project-harness adoption",
+    )
+    decision_path = test_root / ".agent/decisions/DEC-9097-adopt-harness.md"
+    decision_path.write_text(
+        "---\n"
+        + json.dumps(decision, indent=2, sort_keys=True)
+        + "\n---\n\n# Synthetic adoption\n",
+        encoding="utf-8",
+    )
+
+    project_path = test_root / ".agent/project.json"
+    project = VALIDATOR.load_json(project_path)
+    project["project"]["adoption_status"] = "adopted"
+    project["project"]["adoption_decision_ref"] = "DEC-9097"
+    if commands is not None:
+        project["commands"] = commands
+    write_json(project_path, project)
+
+    policy_path = test_root / ".agent/policy.json"
+    policy = VALIDATOR.load_json(policy_path)
+    policy["policy_status"] = "adopted"
+    policy["project_specific_adoption"]["status"] = "adopted"
+    write_json(policy_path, policy)
+
+    context_path = test_root / ".agent/context.json"
+    context = VALIDATOR.load_json(context_path)
+    context["context_status"] = "adopted"
+    write_json(context_path, context)
+
+    current_path = test_root / ".agent/state/current.json"
+    current = VALIDATOR.load_json(current_path)
+    current["adoption_status"] = "adopted"
+    current["accepted_decisions"] = ["DEC-9097"]
+    current["blocked_by"] = []
+    write_json(current_path, current)
+
+
+def assess_high_assurance_triggers_not_applicable(test_root: Path) -> None:
+    registry_path = (
+        test_root / "project-dossier/machine-readable/artifact-registry.json"
+    )
+    registry = VALIDATOR.load_json(registry_path)
+    for artifact_type in registry["artifact_types"]:
+        if artifact_type["classification"] not in {"conditional", "optional"}:
+            continue
+        artifact_type["applicability"] = {
+            "status": "not_applicable",
+            "rationale": "Synthetic assessment found no project trigger.",
+            "assessed_on": "2030-01-02",
+            "assessed_by": "test_suite",
+            "evidence_refs": [],
+        }
+    write_json(registry_path, registry)
 
 
 class HarnessValidatorTests(unittest.TestCase):
@@ -579,6 +742,393 @@ class HarnessValidatorTests(unittest.TestCase):
         finally:
             temporary.cleanup()
 
+    def test_project_command_contract_rejects_null_blank_and_shell_shapes(self) -> None:
+        project = VALIDATOR.load_json(ROOT / ".agent/project.json")
+        invalid_values = (
+            ("null argv", {"argv": None}),
+            ("blank argv", {"argv": [" "]}),
+            ("string argv", {"argv": "python --version"}),
+            ("null version argv", {"version_argv": None}),
+            ("inline shell", {"argv": ["sh", "-c", "true"]}),
+            ("unrelated version probe", {"version_argv": ["other-tool", "--version"]}),
+        )
+        for label, mutation in invalid_values:
+            with self.subTest(label=label):
+                candidate = json.loads(json.dumps(project))
+                command = configured_python_command()
+                command.update(mutation)
+                candidate["commands"]["project_test"] = command
+                findings = VALIDATOR.check_project_command_contract(ROOT, candidate)
+                self.assertTrue(
+                    any(
+                        "safe argv array" in item
+                        or "inline shell interpretation" in item
+                        or "version probe must use" in item
+                        for item in findings
+                    ),
+                    findings,
+                )
+
+    def test_justified_not_applicable_project_commands_are_valid(self) -> None:
+        project = VALIDATOR.load_json(ROOT / ".agent/project.json")
+        project["commands"] = {
+            hook: not_applicable_command()
+            for hook in VALIDATOR.PROJECT_COMMAND_HOOKS
+        }
+        self.assertEqual(
+            VALIDATOR.check_project_command_contract(ROOT, project),
+            [],
+        )
+
+    def test_adopted_project_rejects_unassessed_command_hooks(self) -> None:
+        temporary, test_root = clone()
+        try:
+            adopt_harness(test_root)
+            records, record_errors = VALIDATOR.collect_records(test_root)
+            self.assertEqual(record_errors, [])
+            findings = VALIDATOR.check_current_state(test_root, records)
+            self.assertTrue(
+                any("adopted project retains unassessed hook" in item for item in findings),
+                findings,
+            )
+        finally:
+            temporary.cleanup()
+
+    def test_high_assurance_adoption_rejects_unresolved_artifact_triggers(self) -> None:
+        project = VALIDATOR.load_json(ROOT / ".agent/project.json")
+        if project["project"]["profile"] != "high-assurance":
+            self.skipTest("High Assurance trigger contract applies only to that profile")
+        temporary, test_root = clone()
+        try:
+            commands = {
+                hook: not_applicable_command()
+                for hook in VALIDATOR.PROJECT_COMMAND_HOOKS
+            }
+            adopt_harness(test_root, commands=commands)
+            records, record_errors = VALIDATOR.collect_records(test_root)
+            self.assertEqual(record_errors, [])
+            findings = VALIDATOR.check_current_state(test_root, records)
+            self.assertTrue(
+                any("unresolved conditional/optional trigger" in item for item in findings),
+                findings,
+            )
+        finally:
+            temporary.cleanup()
+
+    def test_high_assurance_adoption_accepts_assessed_not_applicable_triggers(self) -> None:
+        project = VALIDATOR.load_json(ROOT / ".agent/project.json")
+        if project["project"]["profile"] != "high-assurance":
+            self.skipTest("High Assurance trigger contract applies only to that profile")
+        temporary, test_root = clone()
+        try:
+            assess_high_assurance_triggers_not_applicable(test_root)
+            commands = {
+                hook: not_applicable_command()
+                for hook in VALIDATOR.PROJECT_COMMAND_HOOKS
+            }
+            adopt_harness(test_root, commands=commands)
+            records, record_errors = VALIDATOR.collect_records(test_root)
+            self.assertEqual(record_errors, [])
+            findings = VALIDATOR.check_current_state(test_root, records)
+            self.assertFalse(
+                any(
+                    "adopted High Assurance" in item
+                    or "applicable High Assurance" in item
+                    for item in findings
+                ),
+                findings,
+            )
+        finally:
+            temporary.cleanup()
+
+    def test_high_assurance_applicable_trigger_requires_owner_representation_and_evidence(
+        self,
+    ) -> None:
+        project = VALIDATOR.load_json(ROOT / ".agent/project.json")
+        if project["project"]["profile"] != "high-assurance":
+            self.skipTest("High Assurance trigger contract applies only to that profile")
+        temporary, test_root = clone()
+        try:
+            assess_high_assurance_triggers_not_applicable(test_root)
+            registry_path = (
+                test_root
+                / "project-dossier/machine-readable/artifact-registry.json"
+            )
+            registry = VALIDATOR.load_json(registry_path)
+            triggered = next(
+                item
+                for item in registry["artifact_types"]
+                if item["classification"] in {"conditional", "optional"}
+            )
+            triggered["applicability"] = {
+                "status": "applicable",
+                "rationale": "Synthetic trigger applies.",
+                "assessed_on": "2030-01-02",
+                "assessed_by": "test_suite",
+                "evidence_refs": [],
+            }
+            write_json(registry_path, registry)
+            commands = {
+                hook: not_applicable_command()
+                for hook in VALIDATOR.PROJECT_COMMAND_HOOKS
+            }
+            adopt_harness(test_root, commands=commands)
+            records, record_errors = VALIDATOR.collect_records(test_root)
+            self.assertEqual(record_errors, [])
+            findings = VALIDATOR.check_current_state(test_root, records)
+            self.assertTrue(
+                any("requires assessment evidence references" in item for item in findings),
+                findings,
+            )
+            self.assertTrue(
+                any("lacks an active assessed representation" in item for item in findings),
+                findings,
+            )
+            self.assertTrue(
+                any("lacks an active reviewed representation" in item for item in findings),
+                findings,
+            )
+        finally:
+            temporary.cleanup()
+
+    def test_configured_project_hook_requires_current_nonstale_evidence(self) -> None:
+        temporary, test_root = clone()
+        try:
+            if (
+                VALIDATOR.load_json(test_root / ".agent/project.json")["project"]["profile"]
+                == "high-assurance"
+            ):
+                assess_high_assurance_triggers_not_applicable(test_root)
+            commands = {
+                hook: not_applicable_command()
+                for hook in VALIDATOR.PROJECT_COMMAND_HOOKS
+            }
+            commands["project_test"] = configured_python_command()
+            adopt_harness(test_root, commands=commands)
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-I",
+                    "-B",
+                    ".agent/scripts/run_project_checks.py",
+                    "--write-evidence",
+                ],
+                cwd=test_root,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr or result.stdout)
+            records, record_errors = VALIDATOR.collect_records(test_root)
+            self.assertEqual(record_errors, [])
+            findings = VALIDATOR.check_current_state(test_root, records)
+            self.assertFalse(
+                any("project_test lacks current passing evidence" in item for item in findings),
+                findings,
+            )
+
+            source_change = test_root / "synthetic-source-change.txt"
+            source_change.write_text("changed after evidence\n", encoding="utf-8")
+            findings = VALIDATOR.check_current_state(test_root, records)
+            self.assertTrue(
+                any("current source fingerprint" in item for item in findings),
+                findings,
+            )
+            source_change.unlink()
+
+            evidence_path = test_root / ".agent/project-checks/evidence.json"
+            evidence = VALIDATOR.load_json(evidence_path)
+            for check_result in evidence["records"][-1]["checks"]:
+                if check_result["hook"] == "project_test":
+                    check_result["fresh_until"] = "2000-01-01T00:00:00Z"
+            write_json(evidence_path, evidence)
+            findings = VALIDATOR.check_current_state(test_root, records)
+            self.assertTrue(
+                any("project_test lacks current passing evidence" in item for item in findings),
+                findings,
+            )
+        finally:
+            temporary.cleanup()
+
+    def test_read_only_check_never_executes_configured_project_hooks(self) -> None:
+        temporary, test_root = clone()
+        try:
+            marker = test_root / "project-hook-executed.txt"
+            version_marker = test_root / "project-version-hook-executed.txt"
+            project_path = test_root / ".agent/project.json"
+            project = VALIDATOR.load_json(project_path)
+            command = configured_python_command(
+                [
+                    sys.executable,
+                    "-c",
+                    (
+                        "from pathlib import Path; "
+                        f"Path({str(marker)!r}).write_text('executed')"
+                    ),
+                ]
+            )
+            command["version_argv"] = [
+                sys.executable,
+                "-c",
+                (
+                    "from pathlib import Path; "
+                    f"Path({str(version_marker)!r}).write_text('executed'); "
+                    "print('synthetic 1.0')"
+                ),
+            ]
+            project["commands"]["project_test"] = command
+            write_json(project_path, project)
+            before = VALIDATOR.snapshot_files(test_root)
+            subprocess.run(
+                [
+                    sys.executable,
+                    "-I",
+                    "-B",
+                    ".agent/scripts/validate.py",
+                    "--check",
+                ],
+                cwd=test_root,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            after = VALIDATOR.snapshot_files(test_root)
+            self.assertEqual(before, after)
+            self.assertFalse(marker.exists())
+            self.assertFalse(version_marker.exists())
+        finally:
+            temporary.cleanup()
+
+    def test_explicit_writer_never_fabricates_pass_or_conflates_unavailable(self) -> None:
+        temporary, test_root = clone()
+        try:
+            project_path = test_root / ".agent/project.json"
+            project = VALIDATOR.load_json(project_path)
+            project["commands"] = {
+                hook: not_applicable_command()
+                for hook in VALIDATOR.PROJECT_COMMAND_HOOKS
+            }
+            project["commands"]["project_test"] = configured_python_command(
+                [sys.executable, "-c", "raise SystemExit(7)"]
+            )
+            write_json(project_path, project)
+            failed = subprocess.run(
+                [
+                    sys.executable,
+                    "-I",
+                    "-B",
+                    ".agent/scripts/run_project_checks.py",
+                    "--write-evidence",
+                ],
+                cwd=test_root,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertNotEqual(failed.returncode, 0)
+            evidence_path = test_root / ".agent/project-checks/evidence.json"
+            evidence = VALIDATOR.load_json(evidence_path)
+            failed_record = evidence["records"][-1]
+            failed_check = next(
+                item for item in failed_record["checks"]
+                if item["hook"] == "project_test"
+            )
+            self.assertEqual(failed_check["outcome"], "fail")
+            self.assertEqual(failed_check["exit_code"], 7)
+            self.assertEqual(failed_record["overall_outcome"], "fail")
+
+            project = VALIDATOR.load_json(project_path)
+            unavailable = configured_python_command()
+            unavailable["argv"] = ["synthetic-command-that-does-not-exist"]
+            unavailable["version_argv"] = [
+                "synthetic-command-that-does-not-exist",
+                "--version",
+            ]
+            project["commands"]["project_test"] = unavailable
+            write_json(project_path, project)
+            missing = subprocess.run(
+                [
+                    sys.executable,
+                    "-I",
+                    "-B",
+                    ".agent/scripts/run_project_checks.py",
+                    "--write-evidence",
+                ],
+                cwd=test_root,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertNotEqual(missing.returncode, 0)
+            evidence = VALIDATOR.load_json(evidence_path)
+            unavailable_record = evidence["records"][-1]
+            unavailable_check = next(
+                item for item in unavailable_record["checks"]
+                if item["hook"] == "project_test"
+            )
+            self.assertEqual(unavailable_check["outcome"], "unavailable")
+            self.assertIsNone(unavailable_check["exit_code"])
+            self.assertEqual(unavailable_record["overall_outcome"], "unavailable")
+            self.assertEqual(
+                VALIDATOR.check_project_check_evidence(test_root),
+                [],
+            )
+        finally:
+            temporary.cleanup()
+
+    def test_explicit_adoption_verification_refreshes_integrity_then_checks(self) -> None:
+        temporary, test_root = clone()
+        try:
+            if (
+                VALIDATOR.load_json(test_root / ".agent/project.json")["project"]["profile"]
+                == "high-assurance"
+            ):
+                assess_high_assurance_triggers_not_applicable(test_root)
+            commands = {
+                hook: not_applicable_command()
+                for hook in VALIDATOR.PROJECT_COMMAND_HOOKS
+            }
+            commands["project_test"] = configured_python_command()
+            adopt_harness(test_root, commands=commands)
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-I",
+                    "-B",
+                    ".agent/scripts/run_project_checks.py",
+                    "--write-evidence",
+                    "--verify-adoption",
+                ],
+                cwd=test_root,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr or result.stdout)
+            self.assertEqual(VALIDATOR.check(test_root), [])
+        finally:
+            temporary.cleanup()
+
+    def test_structural_success_is_not_reported_as_project_readiness(self) -> None:
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-I",
+                "-B",
+                ".agent/scripts/validate.py",
+                "--check",
+            ],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr or result.stdout)
+        self.assertIn(
+            "does not establish target-project readiness",
+            result.stdout,
+        )
+
     def test_unrecognized_record_filename_and_nonobject_controlled_json_fail(self) -> None:
         temporary, test_root = clone()
         try:
@@ -666,7 +1216,7 @@ class HarnessValidatorTests(unittest.TestCase):
             write_task(
                 test_root / ".agent/tasks/TASK-9001-mutation.md",
                 {
-                    "schema_version": "harness.task.v1",
+                    "schema_version": "harness.task.v2",
                     "id": "TASK-9001",
                     "status": "proposed",
                     "previous_status": "completed",
@@ -692,7 +1242,7 @@ class HarnessValidatorTests(unittest.TestCase):
             write_task(
                 test_root / ".agent/tasks/TASK-9002-mutation.md",
                 {
-                    "schema_version": "harness.task.v1",
+                    "schema_version": "harness.task.v2",
                     "id": "TASK-9002",
                     "status": "proposed",
                     "previous_status": None,
@@ -711,6 +1261,292 @@ class HarnessValidatorTests(unittest.TestCase):
             self.assertTrue(any("unresolved reference TASK-9999" in item for item in findings))
         finally:
             temporary.cleanup()
+
+    def test_task_dependency_cycle_is_rejected(self) -> None:
+        temporary, test_root = clone()
+        try:
+            write_task(
+                test_root / ".agent/tasks/TASK-9101-cycle.md",
+                {"id": "TASK-9101", "dependencies": ["TASK-9102"]},
+            )
+            write_task(
+                test_root / ".agent/tasks/TASK-9102-cycle.md",
+                {"id": "TASK-9102", "dependencies": ["TASK-9101"]},
+            )
+            records, errors = VALIDATOR.collect_records(test_root)
+            self.assertEqual(errors, [])
+            findings = VALIDATOR.check_plan_and_traceability(records)
+            self.assertTrue(any("task dependency cycle" in item for item in findings))
+        finally:
+            temporary.cleanup()
+
+    def test_task_execution_requires_completed_hard_dependencies(self) -> None:
+        temporary, test_root = clone()
+        try:
+            write_task(
+                test_root / ".agent/tasks/TASK-9103-predecessor.md",
+                {
+                    "id": "TASK-9103",
+                    "status": "ready",
+                    "previous_status": "proposed",
+                    "acceptance_criteria": ["Synthetic predecessor criterion"],
+                    "validation_plan": ["Synthetic predecessor validation"],
+                },
+            )
+            write_task(
+                test_root / ".agent/tasks/TASK-9104-dependent.md",
+                {
+                    "id": "TASK-9104",
+                    "status": "in_progress",
+                    "previous_status": "ready",
+                    "dependencies": ["TASK-9103"],
+                    "acceptance_criteria": ["Synthetic dependent criterion"],
+                    "validation_plan": ["Synthetic dependent validation"],
+                },
+            )
+            records, errors = VALIDATOR.collect_records(test_root)
+            self.assertEqual(errors, [])
+            findings = VALIDATOR.check_references_and_lifecycle(test_root, records)
+            self.assertTrue(
+                any(
+                    "TASK-9104" in item
+                    and "unsatisfied readiness" in item
+                    and "dependency:TASK-9103" in item
+                    for item in findings
+                )
+            )
+        finally:
+            temporary.cleanup()
+
+    def test_reopened_dependency_removes_downstream_task_from_readiness(self) -> None:
+        reopened = task_value(
+            {
+                "id": "TASK-9108",
+                "status": "reopened",
+                "previous_status": "completed",
+                "acceptance_criteria": ["Synthetic predecessor criterion"],
+                "validation_plan": ["Synthetic predecessor validation"],
+                "reopened_by": "EVD-9108",
+            }
+        )
+        downstream = task_value(
+            {
+                "id": "TASK-9109",
+                "status": "ready",
+                "previous_status": "proposed",
+                "dependencies": ["TASK-9108"],
+                "acceptance_criteria": ["Synthetic downstream criterion"],
+                "validation_plan": ["Synthetic downstream validation"],
+            }
+        )
+        records = {
+            "TASK-9108": (reopened, ".agent/tasks/TASK-9108.md"),
+            "TASK-9109": (downstream, ".agent/tasks/TASK-9109.md"),
+            "EVD-9108": ({"id": "EVD-9108"}, "reopen-evidence"),
+        }
+        findings = VALIDATOR.check_references_and_lifecycle(ROOT, records)
+        self.assertTrue(
+            any(
+                "TASK-9109" in item
+                and "dependency:TASK-9108" in item
+                and "unsatisfied readiness" in item
+                for item in findings
+            )
+        )
+
+    def test_blocked_task_requires_structured_cause_and_ready_reentry(self) -> None:
+        temporary, test_root = clone()
+        try:
+            write_task(
+                test_root / ".agent/tasks/TASK-9105-blocked.md",
+                {
+                    "id": "TASK-9105",
+                    "status": "blocked",
+                    "previous_status": "in_progress",
+                    "blocked_by": ["Synthetic free-text blocker only"],
+                },
+            )
+            write_task(
+                test_root / ".agent/tasks/TASK-9106-invalid-resume.md",
+                {
+                    "id": "TASK-9106",
+                    "status": "in_progress",
+                    "previous_status": "blocked",
+                    "acceptance_criteria": ["Synthetic criterion"],
+                    "validation_plan": ["Synthetic validation"],
+                },
+            )
+            records, errors = VALIDATOR.collect_records(test_root)
+            self.assertEqual(errors, [])
+            findings = VALIDATOR.check_references_and_lifecycle(test_root, records)
+            self.assertTrue(
+                any("blocked task lacks an unresolved structured cause" in item for item in findings)
+            )
+            self.assertTrue(
+                any("illegal task transition 'blocked' -> 'in_progress'" in item for item in findings)
+            )
+        finally:
+            temporary.cleanup()
+
+    def test_ready_task_rejects_unsatisfied_gate_and_structured_blocker(self) -> None:
+        task = task_value(
+            {
+                "id": "TASK-9107",
+                "status": "ready",
+                "previous_status": "proposed",
+                "gate_refs": ["GATE-9101"],
+                "blocking_refs": ["DEP-9101"],
+                "acceptance_criteria": ["Synthetic criterion"],
+                "validation_plan": ["Synthetic validation"],
+            }
+        )
+        records = {
+            "TASK-9107": (task, ".agent/tasks/TASK-9107.md"),
+            "GATE-9101": ({"id": "GATE-9101", "status": "failed"}, "gate"),
+            "DEP-9101": ({"id": "DEP-9101", "status": "open"}, "raidq"),
+        }
+        findings = VALIDATOR.check_references_and_lifecycle(ROOT, records)
+        self.assertTrue(
+            any(
+                "gate:GATE-9101" in item and "blocker:DEP-9101" in item
+                for item in findings
+            )
+        )
+
+    def test_ready_frontier_is_dependency_derived_and_timeline_neutral(self) -> None:
+        completed = task_value(
+            {
+                "id": "TASK-9110",
+                "status": "completed",
+                "previous_status": "review",
+            }
+        )
+        ready_candidate = task_value(
+            {
+                "id": "TASK-9111",
+                "dependencies": ["TASK-9110"],
+                "created_at": "2030-01-02",
+                "updated_at": "2030-01-02",
+                "acceptance_criteria": ["Synthetic criterion"],
+                "validation_plan": ["Synthetic validation"],
+            }
+        )
+        later_dated_independent_candidate = task_value(
+            {
+                "id": "TASK-9109",
+                "created_at": "2099-12-31",
+                "updated_at": "2099-12-31",
+                "acceptance_criteria": ["Synthetic independent criterion"],
+                "validation_plan": ["Synthetic independent validation"],
+            }
+        )
+        waiting_candidate = task_value(
+            {
+                "id": "TASK-9112",
+                "dependencies": ["TASK-9111"],
+                "acceptance_criteria": ["Synthetic criterion"],
+                "validation_plan": ["Synthetic validation"],
+            }
+        )
+        records = {
+            "TASK-9109": (
+                later_dated_independent_candidate,
+                "later-dated-independent-candidate",
+            ),
+            "TASK-9110": (completed, "completed"),
+            "TASK-9111": (ready_candidate, "ready-candidate"),
+            "TASK-9112": (waiting_candidate, "waiting-candidate"),
+        }
+        frontier = VALIDATOR.ready_frontier(records)
+        self.assertEqual(frontier["tasks"], ["TASK-9109", "TASK-9111"])
+        self.assertIs(frontier["permission_grant"], False)
+        self.assertIs(frontier["priority_ordered"], False)
+        self.assertEqual(
+            frontier["display_order"],
+            "stable identifier order only; never priority",
+        )
+        self.assertIs(frontier["timeline_fields_determine_readiness"], False)
+
+        completed_plan = plan_value(
+            {"id": "PLAN-9110", "status": "completed"}
+        )
+        ready_plan = plan_value(
+            {"id": "PLAN-9111", "depends_on": ["PLAN-9110"]}
+        )
+        waiting_plan = plan_value(
+            {"id": "PLAN-9112", "depends_on": ["PLAN-9111"]}
+        )
+        plan_records = {
+            "PLAN-9110": (completed_plan, "completed-plan"),
+            "PLAN-9111": (ready_plan, "ready-plan"),
+            "PLAN-9112": (waiting_plan, "waiting-plan"),
+        }
+        plan_frontier = VALIDATOR.ready_frontier(plan_records)
+        self.assertEqual(plan_frontier["plan_items"], ["PLAN-9111"])
+
+    def test_plan_cycles_reciprocal_links_and_progression_are_enforced(self) -> None:
+        plan_path = ROOT / "project-dossier/machine-readable/plan.json"
+        if not plan_path.exists():
+            self.skipTest("structured plans are standard profile or higher")
+        temporary, test_root = clone()
+        try:
+            write_task(
+                test_root / ".agent/tasks/TASK-9120-plan.md",
+                {
+                    "id": "TASK-9120",
+                    "plan_item_refs": ["PLAN-9120"],
+                },
+            )
+            write_plan_items(
+                test_root,
+                [
+                    plan_value(
+                        {
+                            "id": "PLAN-9120",
+                            "depends_on": ["PLAN-9121"],
+                            "task_refs": [],
+                        }
+                    ),
+                    plan_value(
+                        {
+                            "id": "PLAN-9121",
+                            "depends_on": ["PLAN-9120"],
+                        }
+                    ),
+                ],
+            )
+            records, errors = VALIDATOR.collect_records(test_root)
+            self.assertEqual(errors, [])
+            findings = VALIDATOR.check_plan_and_traceability(records)
+            self.assertTrue(any("plan dependency cycle" in item for item in findings))
+            self.assertTrue(any("lacks reciprocal task_refs" in item for item in findings))
+        finally:
+            temporary.cleanup()
+
+    def test_active_task_requires_linked_plan_to_be_in_progress(self) -> None:
+        task = task_value(
+            {
+                "id": "TASK-9122",
+                "status": "in_progress",
+                "previous_status": "ready",
+                "plan_item_refs": ["PLAN-9122"],
+                "acceptance_criteria": ["Synthetic criterion"],
+                "validation_plan": ["Synthetic validation"],
+            }
+        )
+        plan = plan_value(
+            {
+                "id": "PLAN-9122",
+                "status": "planned",
+                "task_refs": ["TASK-9122"],
+            }
+        )
+        records = {
+            "TASK-9122": (task, "task"),
+            "PLAN-9122": (plan, "plan"),
+        }
+        findings = VALIDATOR.check_references_and_lifecycle(ROOT, records)
+        self.assertTrue(any("plan_status:PLAN-9122" in item for item in findings))
 
     def test_synthetic_secret_is_detected_and_redacted(self) -> None:
         temporary, test_root = clone()
@@ -1735,7 +2571,7 @@ class HarnessValidatorTests(unittest.TestCase):
                 test_root / ".agent/extensions/registry.json"
             )
             if not registry["extensions"]:
-                self.skipTest("active reference extension is high-assurance only")
+                self.skipTest("no registered extension is available")
             registry["extensions"][0]["authority_effect"] = "expands_permission"
             (test_root / ".agent/extensions/registry.json").write_text(
                 json.dumps(registry, indent=2, sort_keys=True) + "\n",
@@ -1766,7 +2602,7 @@ class HarnessValidatorTests(unittest.TestCase):
             registry = VALIDATOR.load_json(
                 test_root / ".agent/extensions/registry.json"
             )
-            if not registry["extensions"]:
+            if not has_sample_extension(registry):
                 self.skipTest("active reference extension is high-assurance only")
             kernel_before = {
                 path: (test_root / path).read_bytes()
@@ -1774,9 +2610,10 @@ class HarnessValidatorTests(unittest.TestCase):
             }
             registry = adopt_sample_extension(test_root)
             self.assertEqual(VALIDATOR.check_extensions(test_root), [])
-            registry["extensions"][0]["enabled"] = False
-            registry["extensions"][0]["trust_class"] = "unassessed_project_local_code"
-            registry["extensions"][0]["trust_decision_ref"] = None
+            sample_index = sample_extension_index(registry)
+            registry["extensions"][sample_index]["enabled"] = False
+            registry["extensions"][sample_index]["trust_class"] = "unassessed_project_local_code"
+            registry["extensions"][sample_index]["trust_decision_ref"] = None
             (test_root / ".agent/extensions/registry.json").write_text(
                 json.dumps(registry, indent=2, sort_keys=True) + "\n",
                 encoding="utf-8",
@@ -1809,7 +2646,7 @@ class HarnessValidatorTests(unittest.TestCase):
             )
 
             mutated = json.loads(json.dumps(original))
-            mutated["extensions"][0]["requires_core"] = "^2.0.0"
+            mutated["extensions"][0]["requires_core"] = "^3.0.0"
             write_json(path, mutated)
             self.assertTrue(
                 any(
@@ -1821,7 +2658,7 @@ class HarnessValidatorTests(unittest.TestCase):
 
             mutated = json.loads(json.dumps(original))
             duplicate = json.loads(json.dumps(mutated["extensions"][0]))
-            duplicate["version"] = "1.0.0"
+            duplicate["owner"] = "synthetic_duplicate_owner"
             mutated["extensions"].append(duplicate)
             write_json(path, mutated)
             findings = VALIDATOR.check_extensions(test_root)
@@ -1860,10 +2697,10 @@ class HarnessValidatorTests(unittest.TestCase):
             registry = VALIDATOR.load_json(
                 test_root / ".agent/extensions/registry.json"
             )
-            if not registry["extensions"]:
+            if not has_sample_extension(registry):
                 self.skipTest("active reference extension is high-assurance only")
             registry = adopt_sample_extension(test_root)
-            extension = registry["extensions"][0]
+            extension = registry["extensions"][sample_extension_index(registry)]
             validator_path = test_root / extension["validator"]
             original_validator = validator_path.read_text(encoding="utf-8")
             leaked_name = "SYNTHETIC_HOST_SECRET_FOR_EXTENSION_TEST"
@@ -1972,6 +2809,30 @@ class HarnessValidatorTests(unittest.TestCase):
         VALIDATOR.check(ROOT)
         after = VALIDATOR.snapshot_files(ROOT)
         self.assertEqual(before, after)
+
+    def test_ready_frontier_command_is_read_only_and_non_authorizing(self) -> None:
+        before = VALIDATOR.snapshot_files(ROOT)
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-I",
+                "-B",
+                ".agent/scripts/validate.py",
+                "--ready-frontier",
+            ],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        after = VALIDATOR.snapshot_files(ROOT)
+        self.assertEqual(result.returncode, 0, result.stderr or result.stdout)
+        self.assertEqual(before, after)
+        frontier = json.loads(result.stdout)
+        self.assertEqual(frontier["schema_version"], "harness.ready-frontier.v1")
+        self.assertIs(frontier["permission_grant"], False)
+        self.assertIs(frontier["priority_ordered"], False)
+        self.assertIs(frontier["timeline_fields_determine_readiness"], False)
 
     def test_git_unavailable_is_reported_without_crashing(self) -> None:
         with mock.patch.object(

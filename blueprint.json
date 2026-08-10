@@ -17,7 +17,7 @@
         ".agent",
         ".agents"
       ],
-      "kernel_version": "1.0.1",
+      "kernel_version": "2.0.0",
       "kernel_files": [
         ".agent/policy.json",
         ".agent/context.json",

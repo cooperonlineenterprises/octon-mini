@@ -19,6 +19,11 @@ removing its physical representation.
 Create exercised runbooks before the project is deployed, published, handed to
 operators, or allowed to create external effects.
 
+The optional `.agent/extensions/operations-observability/` package provides
+strict project-owned declarations and evidence-reference validation for these
+concerns. It starts disabled and unassessed, does not contact or operate an
+external platform, and cannot certify operational readiness.
+
 Conditional runbooks include:
 
 - release and rollback;

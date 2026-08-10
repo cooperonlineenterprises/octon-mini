@@ -11,14 +11,20 @@
       review state were reconciled in the authoritative artifact registry.
 - [ ] Every conditional and optional trigger was assessed as `applicable` or
       `not_applicable` with `assessed_on`, `assessed_by`, and a rationale; none
-      remains silently assumed.
+      remains silently assumed. Applicable High-Assurance controls have owners,
+      active reviewed representations, and current evidence references.
 - [ ] Repository, operational, and external current state was directly
       inspected and dated.
 - [ ] Requirements, findings, plan items, RAIDQ entries, and evidence use
       stable references.
-- [ ] Real project validation commands were configured.
+- [ ] Every project test, lint, build, and closure hook was configured with a
+      safe argv contract or marked `not_applicable` with owner and rationale.
+- [ ] Configured hooks ran only through the explicit evidence writer; current
+      fingerprint-bound results, skips, limitations, dirty scope, and declared
+      effects were recorded.
 - [ ] Needed domain extensions were registered, validated, and assigned.
-- [ ] Read-only validation and mutation tests passed in a clean runtime.
+- [ ] Read-only validation and mutation tests passed in a clean runtime without
+      executing project hooks or creating evidence.
 - [ ] Registry-derived catalog, path authority, manifest, and integrity were
       refreshed and rechecked; High-Assurance checksums were included when
       applicable.

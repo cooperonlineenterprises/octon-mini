@@ -1,0 +1,22 @@
+{
+  "schema_version": "project-blueprint.migration-invalid-case.v1",
+  "base": "../valid/v1-standard.json",
+  "operations": [
+    {
+      "op": "replace",
+      "path": [
+        "classification",
+        "project_commands",
+        "project_test",
+        "assessment",
+        "argv"
+      ],
+      "value": [
+        "sh",
+        "-c",
+        "python -m unittest"
+      ]
+    }
+  ],
+  "expected_error": "inline shell interpretation is prohibited"
+}

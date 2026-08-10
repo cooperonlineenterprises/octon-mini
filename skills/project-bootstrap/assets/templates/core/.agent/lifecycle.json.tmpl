@@ -1,21 +1,30 @@
 {
-  "schema_version": "harness.lifecycle.v1",
+  "schema_version": "harness.lifecycle.v2",
   "task": {
     "initial": "proposed",
     "terminal": ["completed", "cancelled"],
     "transitions": {
       "proposed": ["ready", "cancelled"],
-      "ready": ["in_progress", "cancelled"],
+      "ready": ["in_progress", "blocked", "cancelled"],
       "in_progress": ["validating", "blocked", "cancelled"],
       "validating": ["in_progress", "review", "blocked"],
       "review": ["in_progress", "completed", "blocked"],
-      "blocked": ["in_progress", "cancelled"],
+      "blocked": ["ready", "cancelled"],
       "completed": ["reopened"],
-      "reopened": ["in_progress", "cancelled"],
+      "reopened": ["ready", "cancelled"],
       "cancelled": []
     },
     "gates": {
-      "ready": ["scope", "authority_basis", "acceptance_criteria", "validation_plan"],
+      "ready": [
+        "scope",
+        "authority_basis",
+        "acceptance_criteria",
+        "validation_plan",
+        "dependencies_satisfied",
+        "gates_satisfied",
+        "blocking_refs_resolved",
+        "plan_links_consistent"
+      ],
       "completed": ["acceptance_criteria_met", "closure_evidence", "limitations_recorded", "external_effects_disclosed"]
     }
   },

@@ -307,7 +307,7 @@
           "const": "harness.schema.v1"
         },
         "kernel_version": {
-          "const": "1.0.1"
+          "const": "2.0.0"
         },
         "compatibility": {
           "type": "object"
@@ -337,7 +337,7 @@
       ],
       "properties": {
         "schema_version": {
-          "const": "harness.lifecycle.v1"
+          "const": "harness.lifecycle.v2"
         },
         "task": {
           "type": "object",
@@ -515,7 +515,7 @@
       ],
       "properties": {
         "schema_version": {
-          "const": "harness.validators.v1"
+          "const": "harness.validators.v2"
         },
         "validator_version": {
           "type": "string",
@@ -545,7 +545,10 @@
           "required": [
             "bootstrap",
             "check",
+            "ready_frontier",
             "test",
+            "project_checks",
+            "adoption_verify",
             "refresh",
             "closure"
           ],
@@ -556,7 +559,16 @@
             "check": {
               "$ref": "#/$defs/command"
             },
+            "ready_frontier": {
+              "$ref": "#/$defs/command"
+            },
             "test": {
+              "$ref": "#/$defs/command"
+            },
+            "project_checks": {
+              "$ref": "#/$defs/command"
+            },
+            "adoption_verify": {
               "$ref": "#/$defs/command"
             },
             "refresh": {
@@ -583,12 +595,13 @@
         "project",
         "paths",
         "commands",
+        "project_checks",
         "extensions",
         "mutable_work_status"
       ],
       "properties": {
         "schema_version": {
-          "const": "harness.project.v1"
+          "const": "harness.project.v2"
         },
         "project": {
           "type": "object",
@@ -701,6 +714,48 @@
             "project_closure": {"$ref": "#/$defs/project_command"}
           }
         },
+        "project_checks": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "evidence_schema",
+            "evidence_store",
+            "writer_argv",
+            "adoption_verification_argv",
+            "execution",
+            "shell_interpretation"
+          ],
+          "properties": {
+            "evidence_schema": {
+              "const": ".agent/schemas/harness-project-check-evidence.schema.json"
+            },
+            "evidence_store": {
+              "const": ".agent/project-checks/evidence.json"
+            },
+            "writer_argv": {
+              "type": "array",
+              "minItems": 4,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "adoption_verification_argv": {
+              "type": "array",
+              "minItems": 5,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "execution": {
+              "const": "explicit_writer_only"
+            },
+            "shell_interpretation": {
+              "const": false
+            }
+          }
+        },
         "extensions": {
           "type": "object",
           "additionalProperties": false,
@@ -725,13 +780,85 @@
     "project_command": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["status", "run"],
+      "required": [
+        "status",
+        "owner",
+        "rationale",
+        "tool_name",
+        "argv",
+        "version_argv",
+        "timeout_seconds",
+        "evidence_freshness_days",
+        "side_effects"
+      ],
       "properties": {
         "status": {
-          "enum": ["not_assessed", "configured"]
+          "enum": ["not_assessed", "configured", "not_applicable"]
         },
-        "run": {
+        "owner": {
           "type": ["string", "null"]
+        },
+        "rationale": {
+          "type": ["string", "null"]
+        },
+        "tool_name": {
+          "type": ["string", "null"]
+        },
+        "argv": {
+          "type": ["array", "null"],
+          "minItems": 1,
+          "maxItems": 128,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[^\\u0000-\\u001F\\u007F]+$"
+          }
+        },
+        "version_argv": {
+          "type": ["array", "null"],
+          "minItems": 1,
+          "maxItems": 128,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[^\\u0000-\\u001F\\u007F]+$"
+          }
+        },
+        "timeout_seconds": {
+          "type": ["integer", "null"],
+          "minimum": 1,
+          "maximum": 86400
+        },
+        "evidence_freshness_days": {
+          "type": ["integer", "null"],
+          "minimum": 1,
+          "maximum": 365
+        },
+        "side_effects": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "classification",
+            "repository_write_paths",
+            "external_effects"
+          ],
+          "properties": {
+            "classification": {
+              "enum": [
+                "not_assessed",
+                "read_only",
+                "repository_writes",
+                "external_effects_possible",
+                "not_applicable"
+              ]
+            },
+            "repository_write_paths": {
+              "$ref": "#/$defs/strings"
+            },
+            "external_effects": {
+              "$ref": "#/$defs/strings"
+            }
+          }
         }
       }
     }

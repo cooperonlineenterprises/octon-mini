@@ -1,0 +1,435 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://project-blueprint.local/schemas/harness-project-check-evidence.schema.json",
+  "title": "Project Check Execution Evidence",
+  "description": "Append-only evidence created only by the explicit project-check writer. Conformance does not imply permission, approval, certification, or production readiness.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "document_role",
+    "permission_grant",
+    "records"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "harness.project-check-evidence-store.v1"
+    },
+    "document_role": {
+      "const": "project_owned_execution_evidence"
+    },
+    "permission_grant": {
+      "const": false
+    },
+    "records": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/evidence_record"
+      }
+    }
+  },
+  "$defs": {
+    "strings": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "argv": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 128,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "pattern": "^[^\\u0000-\\u001F\\u007F]+$"
+      }
+    },
+    "git_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "available",
+        "revision",
+        "tracked_modified",
+        "untracked",
+        "ignored"
+      ],
+      "properties": {
+        "available": {
+          "type": "boolean"
+        },
+        "revision": {
+          "type": ["string", "null"]
+        },
+        "tracked_modified": {
+          "$ref": "#/$defs/strings"
+        },
+        "untracked": {
+          "$ref": "#/$defs/strings"
+        },
+        "ignored": {
+          "$ref": "#/$defs/strings"
+        }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fingerprint_algorithm",
+        "fingerprint",
+        "fingerprint_exclusions",
+        "git"
+      ],
+      "properties": {
+        "fingerprint_algorithm": {
+          "const": "sha256"
+        },
+        "fingerprint": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "fingerprint_exclusions": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "git": {
+          "$ref": "#/$defs/git_scope"
+        }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "platform",
+        "python_version",
+        "python_executable",
+        "working_directory",
+        "environment_variable_names"
+      ],
+      "properties": {
+        "platform": {
+          "type": "string",
+          "minLength": 1
+        },
+        "python_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "python_executable": {
+          "type": "string",
+          "minLength": 1
+        },
+        "working_directory": {
+          "const": "."
+        },
+        "environment_variable_names": {
+          "$ref": "#/$defs/strings"
+        }
+      }
+    },
+    "side_effects": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "classification",
+        "repository_write_paths",
+        "external_effects"
+      ],
+      "properties": {
+        "classification": {
+          "enum": [
+            "not_assessed",
+            "read_only",
+            "repository_writes",
+            "external_effects_possible",
+            "not_applicable"
+          ]
+        },
+        "repository_write_paths": {
+          "$ref": "#/$defs/strings"
+        },
+        "external_effects": {
+          "$ref": "#/$defs/strings"
+        }
+      }
+    },
+    "repository_mutation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "detection_only",
+        "changed_paths",
+        "outside_declared_write_scope"
+      ],
+      "properties": {
+        "detection_only": {
+          "const": true
+        },
+        "changed_paths": {
+          "$ref": "#/$defs/strings"
+        },
+        "outside_declared_write_scope": {
+          "$ref": "#/$defs/strings"
+        }
+      }
+    },
+    "check_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "hook",
+        "assessment_status",
+        "owner",
+        "rationale",
+        "tool_name",
+        "argv",
+        "version_argv",
+        "resolved_executable",
+        "executable_sha256",
+        "tool_version",
+        "tool_version_output_sha256",
+        "tool_version_outcome",
+        "started_at",
+        "ended_at",
+        "outcome",
+        "exit_code",
+        "stdout_sha256",
+        "stderr_sha256",
+        "output_capture",
+        "declared_side_effects",
+        "repository_mutation",
+        "fresh_until",
+        "limitations"
+      ],
+      "properties": {
+        "hook": {
+          "enum": [
+            "project_test",
+            "project_lint",
+            "project_build",
+            "project_closure"
+          ]
+        },
+        "assessment_status": {
+          "enum": ["not_assessed", "configured", "not_applicable"]
+        },
+        "owner": {
+          "type": ["string", "null"]
+        },
+        "rationale": {
+          "type": ["string", "null"]
+        },
+        "tool_name": {
+          "type": ["string", "null"]
+        },
+        "argv": {
+          "type": ["array", "null"],
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "version_argv": {
+          "type": ["array", "null"],
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "resolved_executable": {
+          "type": ["string", "null"]
+        },
+        "executable_sha256": {
+          "type": ["string", "null"],
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "tool_version": {
+          "type": ["string", "null"]
+        },
+        "tool_version_output_sha256": {
+          "type": ["string", "null"],
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "tool_version_outcome": {
+          "enum": ["pass", "unavailable", "not_run"]
+        },
+        "started_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "ended_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "outcome": {
+          "enum": [
+            "pass",
+            "fail",
+            "unavailable",
+            "not_applicable",
+            "not_assessed"
+          ]
+        },
+        "exit_code": {
+          "type": ["integer", "null"]
+        },
+        "stdout_sha256": {
+          "type": ["string", "null"],
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "stderr_sha256": {
+          "type": ["string", "null"],
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "output_capture": {
+          "const": "hashes_only_secret_values_not_persisted"
+        },
+        "declared_side_effects": {
+          "$ref": "#/$defs/side_effects"
+        },
+        "repository_mutation": {
+          "$ref": "#/$defs/repository_mutation"
+        },
+        "fresh_until": {
+          "type": ["string", "null"],
+          "format": "date-time"
+        },
+        "limitations": {
+          "$ref": "#/$defs/strings"
+        }
+      }
+    },
+    "skipped_check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["hook", "status", "owner", "reason"],
+      "properties": {
+        "hook": {
+          "enum": [
+            "project_test",
+            "project_lint",
+            "project_build",
+            "project_closure"
+          ]
+        },
+        "status": {
+          "enum": ["not_assessed", "not_applicable", "unavailable"]
+        },
+        "owner": {
+          "type": ["string", "null"]
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "evidence_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "id",
+        "permission_grant",
+        "readiness_claim",
+        "writer_argv",
+        "started_at",
+        "ended_at",
+        "source_before",
+        "source_after",
+        "environment",
+        "checks",
+        "skipped_checks",
+        "overall_outcome",
+        "external_effects",
+        "limitations"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "harness.project-check-evidence.v1"
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^PCE-[a-f0-9]{32}$"
+        },
+        "permission_grant": {
+          "const": false
+        },
+        "readiness_claim": {
+          "const": false
+        },
+        "writer_argv": {
+          "$ref": "#/$defs/argv"
+        },
+        "started_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "ended_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "source_before": {
+          "$ref": "#/$defs/source"
+        },
+        "source_after": {
+          "$ref": "#/$defs/source"
+        },
+        "environment": {
+          "$ref": "#/$defs/environment"
+        },
+        "checks": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "items": {
+            "$ref": "#/$defs/check_result"
+          }
+        },
+        "skipped_checks": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/skipped_check"
+          }
+        },
+        "overall_outcome": {
+          "enum": ["pass", "fail", "unavailable"]
+        },
+        "external_effects": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["declared_possible", "observed"],
+          "properties": {
+            "declared_possible": {
+              "$ref": "#/$defs/strings"
+            },
+            "observed": {
+              "const": "not_assessed"
+            }
+          }
+        },
+        "limitations": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  }
+}

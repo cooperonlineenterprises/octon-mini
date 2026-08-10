@@ -7,3 +7,9 @@ Each extension declares compatibility, config, validator, owner, provenance,
 side effects, deprecation, and `authority_effect: restrictions_only`. It may
 add restrictions and checks but cannot grant permission or weaken the kernel.
 Disabling it must leave the kernel valid.
+
+Standard and High Assurance include `operations-observability/` and
+`security-supply-chain/` as tool-neutral entry points. Both start disabled and
+`not_assessed`; neither supplies a provider, tool, deployment, scan, review,
+evidence, approval, or readiness claim. Deliberate adoption requires project
+ownership, an accepted trust decision, assessed controls, and current evidence.

@@ -1,7 +1,7 @@
 # Universal Project Dossier Blueprint
 
-Blueprint version: 1.0.1
-Reference-analysis date: 2026-07-27
+Blueprint version: 2.0.0
+Reference-analysis date: 2026-08-10
 
 This document defines a domain-neutral project dossier for software, product,
 business, brand, research, operational, and hybrid initiatives. It is complete
@@ -231,6 +231,13 @@ trigger applies. `applicable` and `not_applicable` require `assessed_on`,
 `assessed_by`, and an evidence-based rationale. Only a `not_applicable` type
 may remain in the registry without a physical representation, preserving the
 omission decision after its path is removed.
+
+For an adopted High-Assurance harness, every Conditional and Optional type
+must be assessed. An `applicable` type additionally links current `EVD-####`
+records through `applicability.evidence_refs`, retains a named assessor and
+owner role, and has an active reviewed representation. These links prove only
+that the declared assessment has evidence; they do not certify the control,
+specialist conclusion, or production readiness.
 
 Representation applicability describes physical realization and additionally
 supports `combined`. A combined representation requires at least two
@@ -729,10 +736,10 @@ conceptual type in the v2 machine source. A `CF:` or `COE:` locator is
 - **Category / classification:** planning / core
 - **Minimum profile:** minimal
 - **Type applicability default:** required — Core artifact type for the selected profile. (`assessed_on`: null; `assessed_by`: null)
-- **Purpose:** Define future work, dependencies, gates, ownership, rollback, and closure
-  evidence.
-- **Questions it must answer:** What remains?; In what order?; What proves completion and what
-  stops or rolls back the work?
+- **Purpose:** Define future work as a hard-dependency graph with gates, structured blockers,
+  ownership, reciprocal execution-task links, rollback, and closure evidence.
+- **Questions it must answer:** What remains?; Which work is dependency-ready now?; What proves
+  completion and what stops or rolls back the work?
 - **Intended audience:** executors, owners, reviewers, agents
 - **Expected owner or maintainer:** planning_owner
 - **Required inputs:** findings, requirements, registers, decisions, gates
@@ -745,7 +752,9 @@ conceptual type in the v2 machine source. A `CF:` or `COE:` locator is
 - **Update triggers:** finding_change, dependency_change, gate_change, plan_status_change
 - **Review cadence:** on_dependency_or_status_change
 - **Validation / quality checks:** dependency_graph_acyclic, references_resolve,
-  completion_links_evidence, authority_not_implied
+  readiness_derived_from_completed_predecessors_passed_or_waived_gates_and_resolved_blockers,
+  plan_task_links_reciprocal, completion_links_tasks_and_evidence, authority_not_implied,
+  timeline_not_used_as_readiness_or_priority
 - **Inclusion triggers:** all_projects
 - **Omission or combination:** Never omit the planning entry point; an empty plan is valid and
   generation must not fabricate accepted work.
@@ -1291,9 +1300,12 @@ Adds:
 - authoritative JSON registries for requirements, findings, plans, RAIDQ,
   sources, and evidence;
 - explicit review cadence and owners;
-- traceability and dependency validation;
+- traceability, dependency readiness, and a read-only ready-frontier derivation;
 - evidence and handoff maintenance checks; and
-- project extensions when domain rules are consumed mechanically.
+- project extensions when domain rules are consumed mechanically, including
+  disabled and unassessed operations/observability and security/supply-chain
+  entry points that validate project-owned declarations without supplying
+  operational or assurance facts.
 
 ### High-assurance or agent-operable dossier
 
@@ -1314,7 +1326,12 @@ The scaffold includes trigger-assessment entry points for every conditional
 and optional conceptual type, each initially `not_assessed`. An omitted type
 remains in the registry as a dated, attributed `not_applicable` decision even
 after its physical representation is removed. High Assurance is achieved only
-after applicable triggers are resolved and its acceptance demonstrations pass.
+after applicable triggers are resolved, applicable controls link current
+evidence and reviewed representations, and its project-owned acceptance
+demonstrations pass. The generated read-only check rejects an adopted
+High-Assurance status while these trigger contracts remain unresolved; it
+still cannot make a qualified security, privacy, legal, compliance, or
+production-readiness conclusion.
 
 ## 6. Recommended directory structure
 
@@ -1403,7 +1420,7 @@ Recommended concise outlines:
 | GOV-0001 | constraints; gate catalog; approval sources; readiness criteria; exceptions |
 | CUR-0001 | subject; time/environment; method; present/absent/unknown; evidence; limitations |
 | CNF-0001 | method; classification; findings; coverage; unresolved assessment |
-| PLN-0001 | objective; dependency graph; work items; gates; evidence; stop/rollback |
+| PLN-0001 | objective; hard dependency graph; work items; reciprocal tasks; gates; structured blockers; derived ready frontier; evidence; stop/rollback |
 | REG-0001 | vocabularies; items; owners; impact; review/expiry; resolution |
 | PRV-0001 | source classes; source records; rights/sensitivity; freshness; contradictions |
 | VAL-0001 | commands/methods; evidence schema; results; limitations; freshness |
@@ -1420,12 +1437,12 @@ storage system:
 |---|---|
 | Artifact type | `id`; `recommended_name`; `category`; `classification`; minimum `profile`; durable `applicability` with status/rationale/date/assessor; `purpose`; `questions`; `intended_audiences`; `owner_role`; `required_inputs`; `downstream_consumers`; `recommended_formats`; `source_of_truth_expectations`; `dependencies`; `creation_timing`; `update_triggers`; `review_cadence`; `validation_checks`; `triggers`; `omission_or_combination`; `representative_evidence` |
 | Representation | `id` (`REP-####`); nonempty unique `artifact_type_ids`; confined unique `path`; `profile`; `representation_role`; `information_state`; `authority`; `source_direction`; `generated`; `owner_role`; cadence/triggers; `sensitivity`; `applicability`; `review`; nullable `superseded_by` |
-| Type applicability | Core `required`; Conditional/Optional `not_assessed`, `applicable`, or `not_applicable`; `rationale`; nullable `assessed_on`; nullable `assessed_by`; applied/omitted assessments require non-null date and assessor |
+| Type applicability | Core `required`; Conditional/Optional `not_assessed`, `applicable`, or `not_applicable`; `rationale`; nullable `assessed_on`; nullable `assessed_by`; `evidence_refs`; applied/omitted assessments require non-null date and assessor; adopted High-Assurance applicable types require resolving current evidence |
 | Representation applicability | `required`, `applicable`, `not_applicable`, `not_assessed`, or `combined`; `rationale`; nullable `assessed_on`; `combined` requires multiple type IDs referring only to required/applicable types and explicit section/source-direction rationale |
 | Review | `status` (`not_reviewed`, `reviewed`, `stale`, `not_applicable`); nullable `last_reviewed_on`; `basis`; owner role and cadence supplied by the representation |
 | Requirement | stable record ID; statement; basis/source refs; status; owner; acceptance and validation method; decision, evidence, finding, and plan refs; successor when superseded |
 | Finding | stable record ID; requirement refs; evidence refs; controlled classification; scope; impact; remediation refs; assessor; assessment time; limitations |
-| Plan item | stable record ID; objective; finding/requirement refs; dependencies; owner; status; gates; acceptance criteria; expected and closure evidence; stop/rollback conditions |
+| Plan item | stable record ID; objective; finding/requirement refs; hard `PLAN-####` dependencies; reciprocal `TASK-####` refs; owner; status; gates; structured blocker refs; acceptance criteria; expected and closure evidence; stop/rollback conditions |
 | RAIDQ item | stable record ID; item type; statement; owner; impact/probability as applicable; status; review/expiry; resolution condition; decision/evidence refs |
 | Source | stable source ID; safe locator; source class; version or retrieval/observation date; intended use; sensitivity; rights/license when applicable; limitations; freshness rule; contradiction/successor refs |
 | Evidence | stable evidence ID; exact subject/fingerprint; method/command and validator version; environment/scope; observed time; result; limitations; freshness; requirement/task/gate refs; successor |
@@ -1470,6 +1487,22 @@ assessment, and either satisfying evidence or planned remediation. Every
 completed plan item links closure evidence. Every readiness gate names exact
 requirements and evidence. Every handoff pointer resolves to a current owner.
 
+Plan readiness is derived rather than stored. A `planned` item is on the ready
+frontier only when every hard predecessor is `completed`, every referenced gate
+is `passed` or validly `waived`, every structured blocker is resolved, and its
+acceptance and expected-evidence contracts are populated. `depends_on` contains
+only hard `PLAN-####` precedence edges; advisory relationships do not enter the
+DAG. Execution tasks and plan items link reciprocally. An `in_progress` or
+`completed` plan item is invalid if a hard predecessor ceases to be completed,
+a gate ceases to be satisfied, a blocker becomes active, or linked task status
+contradicts the plan.
+
+Dates record provenance, observation, freshness, expiry, or a genuine external
+constraint. They never satisfy a dependency, place work on the ready frontier,
+or choose among independent ready items. Dependencies create a partial order;
+current operator direction or an accepted priority/value/risk decision chooses
+among multiple eligible items without granting new authority.
+
 Lifecycle:
 
 1. Initialize authority, the project artifact registry, version, definition,
@@ -1479,11 +1512,14 @@ Lifecycle:
    project authority.
 4. Inspect current state independently of target material.
 5. Assess conformance and create traceable plans.
-6. Execute work through harness tasks.
-7. Record evidence only after observation or execution.
-8. Refresh catalog, path authority, manifest, and generated integrity; then
+6. Derive the ready frontier and select only eligible work through current
+   operator direction or an accepted priority/value/risk decision.
+7. Execute selected work through reciprocally linked harness tasks whose own
+   hard dependencies, gates, and blockers satisfy the task readiness contract.
+8. Record evidence only after observation or execution.
+9. Refresh catalog, path authority, manifest, and generated integrity; then
    update handoff pointers without copying mutable facts.
-9. Supersede through successor records; archive immutable history when
+10. Supersede through successor records; archive immutable history when
    triggered.
 
 ## 9. Governance model
@@ -1504,6 +1540,9 @@ dossier maintainable and safe for human/agent handoff.
   history, no silent deletion.
 - Provenance: consequential claims link source IDs and limitations.
 - Traceability: unique IDs and references validated repository-wide.
+- Dependency progression: readiness is a read-only derivation from completed
+  hard predecessors, satisfied gates, resolved structured blockers, and
+  reciprocal plan/task links; dates do not control sequencing.
 - Artifact registry: authoritative project-local metadata; all physical
   artifact additions, removals, path changes, and applicability decisions
   begin here.
@@ -1533,36 +1572,50 @@ Creation sequence:
 3. Generate transactionally into an empty new-project target, or produce a
    read-only adoption crosswalk for an established project.
 4. Confirm artifact registry type/representation coverage, assess every
-   conditional trigger with a date, assessor, and rationale, retain omitted
-   types as `not_applicable`, then refresh and confirm catalog/path-authority
+   conditional trigger with a date, assessor, and rationale, link current
+   evidence for applicable High-Assurance controls, retain omitted types as
+   `not_applicable`, then refresh and confirm catalog/path-authority
    consistency.
 5. Establish project definition, authority posture, source index, and owners.
 6. Convert generated proposed baselines into project-specific records only
    from evidence or valid decisions.
 7. Record current state from direct inspection.
-8. Create requirements, findings, registers, and dependency-aware plan.
-9. Configure project commands and triggered extensions.
-10. Run strict structure, schema, traceability, lifecycle, integrity, and
-    project checks.
-11. Complete a real task through evidence, review, closure, and handoff.
+8. Create requirements, findings, registers, and a hard-dependency plan with
+   reciprocal task links and structured blockers.
+9. Assess every project command and triggered extension. Configure applicable
+   hooks with safe argv, owners, freshness, and declared effects, or record an
+   owned `not_applicable` rationale; generation leaves them unassessed.
+10. Run strict structure, schema, traceability, lifecycle, and integrity checks
+    read-only. After confirming authority for declared effects, run configured
+    project hooks only through their explicit evidence writer.
+11. Derive the ready frontier, select an eligible item through valid direction,
+    and complete a real linked task through evidence, review, closure, and
+    handoff.
 12. Refresh registry-derived views and generated integrity; run final
     read-only validation.
 
 Objective quality gates:
 
 - Completeness: every Core type has an active representation or explicit
-  combination; every conditional/optional trigger is assessed in the registry,
-  and only a durably `not_applicable` type may be unrepresented.
+  combination; every conditional/optional trigger is assessed in an adopted
+  High-Assurance registry, every applicable type has a reviewed representation
+  and current evidence links, and only a durably `not_applicable` type may be
+  unrepresented.
 - Consistency: one authority owner per concern; controlled statuses and schema
   versions; no contradictory mutable facts.
 - Freshness: current evidence and generated reports match exact managed source;
   scaffold dates are not treated as review or observation dates.
 - Traceability: every active requirement and completed plan item closes its
   required links.
+- Dependency readiness: plan and task graphs are acyclic; execution states have
+  completed hard predecessors, satisfied gates, resolved blockers, and
+  reciprocal links; the ready frontier is derived without timeline ordering.
 - Authority: every path is classified; no dossier content grants permission.
 - Navigability: all entry links resolve; High profile directories are listed.
 - Resumability: an unfamiliar maintainer identifies current task, revision,
   evidence, blocker, and next action within ten minutes.
+- Claim boundary: structural conformance, harness adoption, and demonstrated
+  product or production readiness remain separate conclusions.
 - Integrity: manifest/checksums/report share one generation ID and scope.
 - Safety: no secret values, escaping errors, path traversal, or untrusted
   instruction expansion.
@@ -1579,6 +1632,9 @@ The following are **[Recommended]**, not observed universal conventions:
   authority views from it.
 - Validate identifiers and references across dossier and harness as one
   namespace.
+- Derive an unordered ready frontier from hard dependencies and gates. Keep
+  timestamps and external deadlines as constraints or evidence metadata, never
+  as implicit work-selection authority.
 - Treat project-source fingerprinting and dossier checksums as one integrity
   transaction.
 - Use generation IDs to detect partial refreshes.

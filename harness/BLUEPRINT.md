@@ -30,6 +30,8 @@ A working harness enables a newcomer to determine:
 - which checks and approvals apply;
 - what evidence supports a claim;
 - what remains blocked or unknown; and
+- which planned work is dependency-ready without relying on timeline order;
+  and
 - how to resume work safely.
 
 ## 2. Design basis
@@ -128,6 +130,12 @@ Extension code is executable project code, not untrusted data. Enabling it
 requires an accepted trust decision, least-privilege execution, a minimized
 environment, and a read-only enforcement or before/after mutation check.
 
+Standard and High Assurance include disabled, unassessed, tool-neutral
+operations/observability and security/supply-chain packages. They validate
+project-owned declarations and evidence links only. Their presence cannot
+assert a provider, deployment, monitor, scanner, SBOM, signature, qualified
+review, compliance conclusion, or production readiness.
+
 The extension root is closed: only its README, registry, and roots named by
 that registry are valid immediate children. Likewise, the capability root
 contains only its README and the validated agent, workflow, and skill
@@ -137,14 +145,17 @@ namespaces, not through unregistered governance files.
 ### Layer 5: operational records and evidence
 
 Tasks, decisions, evidence, reviews, events, artifacts, state, checkpoints,
-and generated integrity make work resumable and auditable.
+explicit target-project check evidence, and generated integrity make work
+resumable and auditable.
 
 ## 4. Architectural invariants
 
 1. Higher-level instructions cannot be weakened by lower-level files.
 2. A capability or extension cannot grant itself access.
 3. Generated content is labeled derived, non-authoritative, and point-in-time.
-4. `check` is read-only; `refresh` is the explicit writer.
+4. `check` is read-only; `refresh` is the explicit generated-integrity writer,
+   and only the separately invoked project-check writer may execute configured
+   hooks or append its declared evidence store.
 5. The kernel contains no product names, routes, release IDs, or domain
    statuses.
 6. Unknown safety-relevant statuses, IDs, tools, and extension types fail
@@ -159,6 +170,8 @@ and generated integrity make work resumable and auditable.
     discoverable regeneration command in every profile that enforces it.
 12. A declared read-only command must either execute in an enforced no-write
     boundary or detect and report any mutation without claiming prevention.
+13. Hard dependencies, satisfied gates, resolved structured blockers, and
+    reciprocal plan/task links determine work readiness; dates never do.
 
 ## 5. Recommended directory structure
 
@@ -180,10 +193,11 @@ and generated integrity make work resumable and auditable.
 │   ├── decisions/
 │   ├── tasks/
 │   ├── evidence/                     # standard+
+│   ├── project-checks/               # explicit target-check evidence
 │   ├── reviews/                      # standard+
 │   ├── events/                       # standard+
 │   ├── artifacts/                    # standard, when durable outputs matter
-│   ├── extensions/                   # standard+
+│   ├── extensions/                   # standard+; disabled control entry points
 │   ├── evaluations/                  # conditional rubric/fixtures/results
 │   ├── metrics/                      # conditional harness outcome measures
 │   ├── checkpoints/                  # high-assurance
@@ -194,6 +208,7 @@ and generated integrity make work resumable and auditable.
 │   ├── generated/                    # staging in all; HA integrity evidence
 │   ├── scripts/
 │   │   ├── validate.py
+│   │   ├── run_project_checks.py     # explicit evidence writer; may run hooks
 │   │   └── refresh.py                # every profile; writes declared derivatives
 │   └── tests/
 │       └── fixtures/
@@ -219,9 +234,10 @@ For every affected path:
 4. read `AGENTS.md` files from root to leaf;
 5. read the routed kernel files;
 6. load only accepted, in-scope decisions and the active task;
-7. inspect executable/configured reality and fresh evidence;
-8. load intended target and plans only as context; and
-9. record material conflicts instead of choosing silently.
+7. when selecting planned work, derive the read-only ready frontier;
+8. inspect executable/configured reality and fresh evidence;
+9. load intended target and plans only as context; and
+10. record material conflicts instead of choosing silently.
 
 Precedence is:
 
@@ -302,6 +318,12 @@ authority source, owner/maintainer, inputs, outputs or links, side effects,
 status, timestamps as applicable, validation, limitations, provenance, and
 successor/deprecation fields where applicable.
 
+Task `dependencies` are hard `TASK-####` prerequisites. `plan_item_refs` and
+plan-item `task_refs` are reciprocal. `gate_refs` name structured readiness
+gates, while `blocking_refs` name status-bearing task, plan, gate, decision, or
+RAIDQ records. Free-text `blocked_by` explains impact but cannot by itself make
+a blocked state machine-verifiable.
+
 Approval records are evidence of an attestation received through a separately
 authorized channel; they cannot manufacture that authority. They identify the
 principal or role, action, resource/scope, constraints, validity window,
@@ -316,20 +338,39 @@ updates to owning records require a deliberate compaction update.
 
 ```text
 proposed → ready → in_progress → validating → review → completed
-                       ├──────────────→ blocked
-                       └──────────────→ cancelled
-completed → reopened
+             │         ├──────────────→ blocked
+             │         └──────────────→ cancelled
+             └────────────────────────→ blocked
+blocked → ready
+completed → reopened → ready
 ```
 
-- `ready` requires scope, authority basis, acceptance criteria, and validation
-  plan.
+- `ready` requires scope, authority basis, acceptance criteria, a validation
+  plan, completed hard dependencies, passed or validly waived gates, resolved
+  structured blockers, and reciprocal plan links.
 - `in_progress` requires an owner.
 - `validating` requires an implementation or analysis result.
 - `review` requires evidence or an explicit limitation.
 - `completed` requires satisfied criteria, closure evidence, and disclosure of
   external effects and limitations.
-- `blocked` names the missing fact or authority.
+- `blocked` names the missing fact or authority and links at least one
+  unresolved structured dependency, gate, blocker, or plan condition.
 - `reopened` links the evidence that invalidated completion.
+
+Entering or re-entering execution always passes through `ready`. If a completed
+dependency reopens, a gate expires, or a blocker becomes active, affected
+nonterminal downstream tasks move to `blocked`; downstream `completed` claims
+become invalid until reassessed. The validator rejects task cycles and any
+`ready`, execution, review, or completion state whose readiness conditions are
+unsatisfied.
+
+The ready frontier is a read-only derivation of eligible planned items and
+tasks. It is not stored as authority or mutable status. Dependencies define a
+partial order, so current operator direction or an accepted priority/value/risk
+decision selects among multiple ready items. Creation/update dates, evidence
+freshness, gate expiry, and genuine external deadlines remain useful time data
+but never satisfy prerequisites or silently choose work. Frontier arrays use
+stable identifier order only for deterministic display, never as priority.
 
 ### Decision lifecycle
 
@@ -403,6 +444,23 @@ Project-harness adoption uses `not_assessed`, `in_progress`, `adopted`, and
 state. `adopted` and `superseded` retain the resolved accepted external-authority
 decision as provenance; pre-adoption states keep the decision reference null.
 
+Target-project test, lint, build, and closure hooks use a separate closed
+three-state contract. `configured` requires an assigned owner, direct argv and
+version argv using the same executable, timeout, evidence freshness, and
+declared repository/external effects. `not_applicable` requires an owner and
+substantive rationale.
+`not_assessed` is permitted only before harness adoption. String commands and
+shell interpreters with inline command flags are rejected; validation does not
+silently reinterpret them.
+
+An explicit project-check writer is the only generated command allowed to
+execute configured hooks or append `.agent/project-checks/evidence.json`. It
+records command/tool identity, executable fingerprint, exact source and Git
+scope, environment, times, results, skips, limitations, declared effects, and
+detected repository mutations. Mutation comparison is observation after
+execution, not sandbox isolation. The read-only harness check only validates
+this evidence and never executes project hooks or writes evidence.
+
 An agent is a constrained task mode. A skill packages a repeated method and
 selectively loaded references. A workflow is a versioned state machine whose
 transitions invoke policy checks and produce evidence. A tool record separates
@@ -441,7 +499,8 @@ Validation layers are:
 1. bootstrap and runtime availability;
 2. selected-profile operational-file inventory, syntax, and duplicate-key
    rejection;
-3. schema version, ID, path, link, successor, and dependency integrity;
+3. schema version, ID, path, link, successor, dependency integrity, reciprocal
+   plan/task links, and dependency-gated readiness;
 4. instruction scope and authority classification;
 5. policy, secret, network, filesystem, and external-effect rules;
 6. lifecycle and closure evidence;
@@ -459,6 +518,7 @@ The command contract is:
 
 ```text
 python -B .agent/scripts/validate.py --check
+python -B .agent/scripts/validate.py --ready-frontier
 python -B -m unittest discover -s .agent/tests -p "test_*.py"
 python -B .agent/scripts/refresh.py --refresh
 ```
@@ -472,10 +532,24 @@ rather than editing only the displayed strings.
 Projects may expose aliases such as `make harness-check`, but the authoritative
 commands live in `.agent/validators.json`.
 
+After project owners assess every hook and confirm authority for its declared
+effects, configured target-project checks run only through the separately
+explicit writer:
+
+```text
+python -B .agent/scripts/run_project_checks.py --write-evidence
+```
+
+The optional `--verify-adoption` mode also performs the explicit refresh write
+and final read-only check. A configured hook declaring repository writes or
+possible external effects additionally requires `--acknowledge-side-effects`;
+that acknowledgement is not permission.
+
 `check` must not write bytecode, caches, reports, indexes, timestamps, or
-lockfiles. It snapshots repository paths and content before and after
-extension execution and fails if mutation is detected; high-impact projects
-also enforce no-write execution outside the repository trust boundary.
+lockfiles or execute target-project hooks. It snapshots repository paths and
+content before and after extension execution and fails if mutation is detected;
+high-impact projects also enforce no-write execution outside the repository
+trust boundary.
 The source fingerprint excludes `.git`, whose internal metadata is not project
 source. The mutation snapshot separately covers the `.git` pointer plus
 critical HEAD, index, config, packed-ref, loose-ref, and hook paths for normal
@@ -529,6 +603,8 @@ Use for small, early, or low-risk projects. Required:
 - decision and task stores plus templates;
 - compact current state and resumption page;
 - portable read-only validator;
+- unassessed target-project hook contracts and a separately explicit evidence
+  writer;
 - project-local derivative source plus refresh command;
 - valid and invalid fixtures with mutation tests; and
 - dossier minimal profile.
@@ -550,12 +626,15 @@ Use by default for active multi-contributor projects or monorepos. Add:
 - meaningful transition events;
 - optional artifact registry;
 - extension registry and project validator interface;
+- disabled, unassessed operations/observability and security/supply-chain
+  extension packages for deliberate project adoption;
 - task-closure checklist; and
-- structured dossier traceability and evidence.
+- structured dossier traceability, dependency readiness, ready-frontier
+  derivation, and evidence.
 
-The extension registry and Standard operational stores remain required even
-when they are empty or unadopted, so absence cannot silently disable their
-checks.
+The extension registry, both production-control extension entry points, and
+Standard operational stores remain required even when disabled, empty, or
+unadopted, so absence cannot silently disable their assessment.
 
 Exit when an unfamiliar maintainer can execute, validate, review, hand off,
 and resume a real task without undocumented steps.
@@ -573,6 +652,14 @@ possible, external effects exist, or audit/reproducibility matters. Add:
   incident/recovery, evaluation, and metrics contracts;
 - CI/mutation/recovery guidance; and
 - environment-specific approval and enforcement hooks.
+
+Before the profile can be represented as adopted, every conditional and
+optional artifact trigger must be assessed. Applicable controls require an
+owner, active reviewed representation, and current resolving evidence;
+`not_applicable` requires a dated, attributed rationale. The generated
+production-control extensions remain disabled and unassessed until separately
+adopted and trusted, and qualified security, privacy, compliance, legal, and
+production conclusions remain outside automatic validation.
 
 The governed capability and assurance-store entry points remain required.
 Generated capability baselines may be deprecated or superseded through their
@@ -597,12 +684,20 @@ are still required.
    evidence or mark it explicitly not applicable with a reason.
 6. Record the threat model and authority posture as the first project decision;
    never ship the example ID as accepted fact.
-7. Configure project commands and extension ownership.
-8. Assess conditional approval, coordination, data, recovery, evaluation, and
-   metric triggers; record every omission with a reason.
-9. Run check and tests in a disposable clean checkout/worktree.
-10. Complete one real task through closure and handoff.
-11. Enable external or high-impact paths only through trusted current
+7. Assess every project command; configure applicable hooks with direct argv,
+   owners, freshness, version probes, and declared effects, or record an owned
+   `not_applicable` rationale.
+8. Assess extension needs and ownership. Operations/observability and
+   security/supply-chain packages remain disabled until a project trust
+   decision and project-owned records justify deliberate adoption.
+9. Assess conditional approval, coordination, data, recovery, evaluation, and
+   metric triggers; record every omission with a reason and every applicable
+   High-Assurance control with current evidence.
+10. Run the read-only check and mutation tests in a disposable clean
+    checkout/worktree; run configured project hooks only through the explicit
+    evidence writer after confirming authority for declared effects.
+11. Complete one real task through closure and handoff.
+12. Enable external or high-impact paths only through trusted current
     authorization and independent enforcement.
 
 ### Evolution
@@ -655,18 +750,27 @@ A harness is complete only when these demonstrations pass:
    oral context.
 2. A nested-path fixture applies root and child rules and rejects weakening.
 3. Review-only work cannot mutate, and local implementation cannot publish.
-4. Valid task transitions pass and invalid transitions fail clearly.
+4. Valid task transitions and dependency-ready progressions pass; cycles,
+   incomplete predecessor execution, unresolved gates/blockers, broken
+   reciprocal plan links, and invalid transitions fail clearly.
 5. Each critical deny has a failing mutation.
 6. A clean checkout runs the documented runtime and check.
 7. Read-only validation leaves no tracked, untracked, ignored, cache, or
-   timestamp change.
+   timestamp change and never executes a target-project hook; the explicit
+   project-check writer records truthful, fingerprint-bound outcomes and
+   distinguishes failure, unavailable, skipped, and not-applicable states.
 8. Managed-source changes invalidate stale generated evidence.
 9. Synthetic credentials are detected and output is redacted.
-10. A sample extension validates and can be disabled without kernel edits.
+10. A sample extension validates and can be disabled without kernel edits;
+    both production-control extensions reject invalid, stale-evidence,
+    broken-reference, and authority-expansion cases while remaining disabled
+    and unassessed by default.
 11. Another maintainer resumes interrupted work from compact state, task, and
     linked evidence within an agreed time.
 12. Interrupted refresh and corrupted event recovery are exercised.
-13. Harness and real project checks pass on the exact handed-off revision.
+13. Harness and real project checks pass on the exact handed-off revision; an
+    adopted High-Assurance harness has no unresolved conditional or optional
+    trigger assessment.
 14. Final reporting states scope, failures, skipped checks, limitations, dirty
     state, and external effects without overclaiming.
 
@@ -713,11 +817,15 @@ partial matrix as complete acceptance.
 6. Populate intended state, dated current state, findings, plan, risks,
    provenance, evidence, and handoff without collapsing their information
    states.
-7. Register every dossier representation in the project-local artifact source;
+7. Build hard plan/task dependency graphs, reciprocal plan/task links,
+   structured gates and blockers, then derive the ready frontier before
+   selecting planned work. Use valid direction rather than dates to choose
+   among independent ready items.
+8. Register every dossier representation in the project-local artifact source;
    run refresh to derive catalog, path authority, and integrity outputs.
-8. Run the read-only validator and its mutation/recovery tests.
-9. Demonstrate one real task lifecycle and a safe handoff.
-10. Record conditional trigger decisions, remaining unknowns, and limits; do
+9. Run the read-only validator and its mutation/recovery tests.
+10. Demonstrate one real dependency-gated task lifecycle and a safe handoff.
+11. Record conditional trigger decisions, remaining unknowns, and limits; do
     not translate structural success
     into a readiness claim.
 
@@ -725,11 +833,11 @@ partial matrix as complete acceptance.
 
 | Release automation validates | The target project must still decide or prove |
 |---|---|
-| syntax, duplicate keys, kernel/record schemas, schema-kind agreement, IDs, links, and legal transitions for declared stores | actual project facts, owners, requirements, and acceptance criteria |
+| syntax, duplicate keys, kernel/record schemas, schema-kind agreement, IDs, links, legal transitions, dependency cycles/readiness, and reciprocal plan/task links for declared stores | actual project facts, owners, requirements, acceptance criteria, and priority among independent ready items |
 | structured instruction and extension rules cannot declare authority expansion; prohibited mutations fail fixtures | who may authorize specific actions and whether the execution platform actually enforces the boundary |
-| the core check writes nothing; extension mutation is detected, while prevention requires an external no-write boundary | whether configured commands, extension code, credentials, and environments are trustworthy |
+| the core check writes nothing and executes no project hook; explicit project-check evidence is schema-valid, fingerprint-bound, and fresh; extension or hook mutation is detected after execution | whether configured commands and extension code are authorized and trustworthy, and whether an external sandbox or no-write boundary is required |
 | project-local artifact source, derived catalog/path roles, traceability structure, and integrity metadata cohere | whether requirements are correct and evidence is substantively sufficient |
-| extension compatibility, path confinement, typed validator response, unique IDs, trust declaration, and disable behavior | which domain extensions are needed and who maintains or approves them |
+| extension compatibility, path confinement, typed validator response, unique IDs, trust declaration, disable behavior, and strict operations/security production-control record contracts | which domain extensions and controls apply, whether referenced external systems or reviewers actually exist, and who maintains or approves them |
 | generated evidence is fresh for its declared byte scope | implementation quality, safety, compliance, legal rights, or release readiness |
 
 The universal claim ends at this boundary: the kernel, contracts, validators,

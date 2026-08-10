@@ -19,7 +19,7 @@ from typing import Any
 
 sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parents[2]
-KERNEL_VERSION = "1.0.1"
+KERNEL_VERSION = "2.0.0"
 KERNEL_FILES = (
     ".agent/policy.json",
     ".agent/context.json",
@@ -39,8 +39,11 @@ CORE_OPERATIONAL_FILES = {
     ".agent/lifecycle.json",
     ".agent/policy.json",
     ".agent/project.json",
+    ".agent/project-checks/README.md",
+    ".agent/project-checks/evidence.json",
     ".agent/schema.json",
     ".agent/scripts/refresh.py",
+    ".agent/scripts/run_project_checks.py",
     ".agent/scripts/validate.py",
     ".agent/state/RESUME.md",
     ".agent/state/current.json",
@@ -63,7 +66,31 @@ STANDARD_OPERATIONAL_FILES = CORE_OPERATIONAL_FILES | {
     ".agent/events/README.md",
     ".agent/evidence/README.md",
     ".agent/extensions/README.md",
+    ".agent/extensions/operations-observability/README.md",
+    ".agent/extensions/operations-observability/config.json",
+    ".agent/extensions/operations-observability/config.schema.json",
+    ".agent/extensions/operations-observability/records.json",
+    ".agent/extensions/operations-observability/records.schema.json",
+    ".agent/extensions/operations-observability/tests/fixtures/authority-mutation.json",
+    ".agent/extensions/operations-observability/tests/fixtures/broken-reference.json",
+    ".agent/extensions/operations-observability/tests/fixtures/invalid.json",
+    ".agent/extensions/operations-observability/tests/fixtures/stale-evidence.json",
+    ".agent/extensions/operations-observability/tests/fixtures/valid.json",
+    ".agent/extensions/operations-observability/tests/test_validate.py",
+    ".agent/extensions/operations-observability/validate.py",
     ".agent/extensions/registry.json",
+    ".agent/extensions/security-supply-chain/README.md",
+    ".agent/extensions/security-supply-chain/config.json",
+    ".agent/extensions/security-supply-chain/config.schema.json",
+    ".agent/extensions/security-supply-chain/records.json",
+    ".agent/extensions/security-supply-chain/records.schema.json",
+    ".agent/extensions/security-supply-chain/tests/fixtures/authority-mutation.json",
+    ".agent/extensions/security-supply-chain/tests/fixtures/broken-reference.json",
+    ".agent/extensions/security-supply-chain/tests/fixtures/invalid.json",
+    ".agent/extensions/security-supply-chain/tests/fixtures/stale-evidence.json",
+    ".agent/extensions/security-supply-chain/tests/fixtures/valid.json",
+    ".agent/extensions/security-supply-chain/tests/test_validate.py",
+    ".agent/extensions/security-supply-chain/validate.py",
     ".agent/reviews/README.md",
     ".agent/templates/artifact.json",
     ".agent/templates/event.json",
@@ -112,6 +139,7 @@ REQUIRED_SCHEMA_FILES = {
     ".agent/schemas/harness-current-state.schema.json",
     ".agent/schemas/harness-extension-registry.schema.json",
     ".agent/schemas/harness-kernel.schema.json",
+    ".agent/schemas/harness-project-check-evidence.schema.json",
     ".agent/schemas/harness-record.schema.json",
     ".agent/schemas/project-blueprint-origin.schema.json",
     ".agent/schemas/reference-evidence.schema.json",
@@ -122,6 +150,28 @@ DERIVED_EXCLUSIONS = {
     "project-dossier/CHECKSUMS.sha256",
     "project-dossier/machine-readable/path-authority.json",
 }
+PROJECT_CHECK_EVIDENCE_PATH = ".agent/project-checks/evidence.json"
+PROJECT_COMMAND_HOOKS = (
+    "project_test",
+    "project_lint",
+    "project_build",
+    "project_closure",
+)
+SHELL_EXECUTABLES = {
+    "bash",
+    "cmd",
+    "cmd.exe",
+    "dash",
+    "fish",
+    "ksh",
+    "powershell",
+    "powershell.exe",
+    "pwsh",
+    "pwsh.exe",
+    "sh",
+    "zsh",
+}
+INLINE_SHELL_FLAGS = {"-c", "/c", "-command", "-encodedcommand"}
 PLACEHOLDER = re.compile(r"\{\{[A-Z_]+\}\}")
 ID4 = re.compile(r"^[A-Z][A-Z0-9]*-[0-9]{4}$")
 SECRET_ASSIGNMENT = re.compile(
@@ -185,6 +235,8 @@ EXTERNAL_REFERENCE_PREFIXES = (
 REFERENCE_KEYS = {
     "dependencies",
     "depends_on",
+    "plan_item_refs",
+    "blocking_refs",
     "supersedes",
     "superseded_by",
     "successor",
@@ -286,13 +338,22 @@ KERNEL_SCHEMA_DEFS = {
 }
 EXPECTED_RECORD_VERSIONS = {
     "decision": "harness.decision.v1",
-    "task": "harness.task.v1",
+    "task": "harness.task.v2",
     "evidence": "harness.evidence.v1",
     "review": "harness.review.v1",
     "event": "harness.event.v1",
     "checkpoint": "harness.checkpoint.v1",
     "artifact": "harness.artifact.v1",
 }
+DEPENDENCY_GATED_TASK_STATUSES = {
+    "ready",
+    "in_progress",
+    "validating",
+    "review",
+    "completed",
+}
+SATISFIED_GATE_STATUSES = {"passed", "waived"}
+SATISFIED_RAIDQ_STATUSES = {"resolved", "accepted", "invalidated", "closed"}
 EXPECTED_ID_PATTERNS = {
     "decision": "^DEC-[0-9]{4}$",
     "task": "^TASK-[0-9]{4}$",
@@ -308,13 +369,13 @@ EXPECTED_LIFECYCLES = {
         "terminal": ["completed", "cancelled"],
         "transitions": {
             "proposed": ["ready", "cancelled"],
-            "ready": ["in_progress", "cancelled"],
+            "ready": ["in_progress", "blocked", "cancelled"],
             "in_progress": ["validating", "blocked", "cancelled"],
             "validating": ["in_progress", "review", "blocked"],
             "review": ["in_progress", "completed", "blocked"],
-            "blocked": ["in_progress", "cancelled"],
+            "blocked": ["ready", "cancelled"],
             "completed": ["reopened"],
-            "reopened": ["in_progress", "cancelled"],
+            "reopened": ["ready", "cancelled"],
             "cancelled": [],
         },
         "gates": {
@@ -323,6 +384,10 @@ EXPECTED_LIFECYCLES = {
                 "authority_basis",
                 "acceptance_criteria",
                 "validation_plan",
+                "dependencies_satisfied",
+                "gates_satisfied",
+                "blocking_refs_resolved",
+                "plan_links_consistent",
             ],
             "completed": [
                 "acceptance_criteria_met",
@@ -705,6 +770,24 @@ def source_fingerprint(root: Path = ROOT) -> str:
     return digest.hexdigest()
 
 
+def project_check_source_fingerprint(root: Path = ROOT) -> str:
+    """Fingerprint project-check subject source without self-staling evidence."""
+    digest = hashlib.sha256()
+    for path in repository_files(root, source_only=True):
+        rel = relative(path, root)
+        if rel == PROJECT_CHECK_EVIDENCE_PATH or path.name == ".DS_Store":
+            continue
+        digest.update(rel.encode("utf-8", errors="surrogateescape"))
+        digest.update(b"\0")
+        try:
+            identity = bytes.fromhex(hash_path_identity(path))
+        except OSError:
+            identity = hashlib.sha256(b"unreadable").digest()
+        digest.update(identity)
+        digest.update(b"\0")
+    return digest.hexdigest()
+
+
 def schema_type_matches(value: Any, expected: str) -> bool:
     if expected == "object":
         return isinstance(value, dict)
@@ -1033,7 +1116,10 @@ def check_files_and_json(
                 rel.startswith((".agent/", ".agents/", "project-dossier/"))
                 or rel == ".project-blueprint-origin.json"
             )
-            is_schema = rel.startswith(".agent/schemas/")
+            is_schema = rel.startswith(".agent/schemas/") or (
+                rel.startswith(".agent/extensions/")
+                and path.name.endswith(".schema.json")
+            )
             if controlled and not is_schema:
                 if not isinstance(value, dict):
                     errors.append(f"{rel}: controlled JSON must be a top-level object")
@@ -1104,6 +1190,494 @@ def check_jsonl(path: Path, root: Path) -> list[str]:
     return errors
 
 
+def project_argv_is_safe(value: Any) -> bool:
+    return (
+        isinstance(value, list)
+        and 1 <= len(value) <= 128
+        and all(
+            isinstance(item, str)
+            and bool(item.strip())
+            and not any(
+                ord(character) < 32 or ord(character) == 127
+                for character in item
+            )
+            for item in value
+        )
+    )
+
+
+def project_argv_uses_inline_shell(value: list[str]) -> bool:
+    executable = Path(value[0]).name.lower()
+    return executable in SHELL_EXECUTABLES and any(
+        item.lower() in INLINE_SHELL_FLAGS for item in value[1:]
+    )
+
+
+def check_project_command_contract(
+    root: Path,
+    project: dict[str, Any],
+) -> list[str]:
+    errors: list[str] = []
+    commands = project.get("commands")
+    if not isinstance(commands, dict) or set(commands) != set(PROJECT_COMMAND_HOOKS):
+        return [".agent/project.json: project command hook set differs from contract"]
+    required_fields = {
+        "status",
+        "owner",
+        "rationale",
+        "tool_name",
+        "argv",
+        "version_argv",
+        "timeout_seconds",
+        "evidence_freshness_days",
+        "side_effects",
+    }
+    for hook in PROJECT_COMMAND_HOOKS:
+        command = commands.get(hook)
+        location = f".agent/project.json: commands.{hook}"
+        if not isinstance(command, dict) or set(command) != required_fields:
+            errors.append(f"{location} must use the closed assessment contract")
+            continue
+        status = command.get("status")
+        side_effects = command.get("side_effects")
+        if not isinstance(side_effects, dict) or set(side_effects) != {
+            "classification",
+            "repository_write_paths",
+            "external_effects",
+        }:
+            errors.append(f"{location}.side_effects must use the closed contract")
+            continue
+        classification = side_effects.get("classification")
+        writes = side_effects.get("repository_write_paths")
+        external = side_effects.get("external_effects")
+        if not isinstance(writes, list) or not isinstance(external, list):
+            errors.append(f"{location}: side-effect declarations must be arrays")
+            continue
+        if len(writes) != len(set(item for item in writes if isinstance(item, str))):
+            errors.append(f"{location}: repository write declarations must be unique")
+        if len(external) != len(set(item for item in external if isinstance(item, str))):
+            errors.append(f"{location}: external-effect declarations must be unique")
+        if any(not isinstance(item, str) or not item.strip() for item in external):
+            errors.append(f"{location}: external-effect declarations must be nonempty")
+        for index, item in enumerate(writes):
+            normalized, path_error = safe_relative_path(root, item)
+            if path_error or normalized is None:
+                errors.append(f"{location}: unsafe repository write path at index {index}")
+                continue
+            value = normalized.as_posix()
+            if value in {
+                ".git",
+                ".agent",
+                ".agents",
+                "project-dossier",
+                "AGENTS.md",
+                ".project-blueprint-origin.json",
+            } or value.startswith((".git/", ".agent/", ".agents/", "project-dossier/")):
+                errors.append(f"{location}: project checks may not declare governance writes")
+        if status == "configured":
+            if not isinstance(command.get("owner"), str) or not command["owner"].strip():
+                errors.append(f"{location}: configured hook requires an owner")
+            if not isinstance(command.get("tool_name"), str) or not command["tool_name"].strip():
+                errors.append(f"{location}: configured hook requires a tool name")
+            for field in ("argv", "version_argv"):
+                argv = command.get(field)
+                if not project_argv_is_safe(argv):
+                    errors.append(f"{location}: configured {field} must be a safe argv array")
+                elif project_argv_uses_inline_shell(argv):
+                    errors.append(f"{location}: inline shell interpretation is prohibited")
+            if (
+                project_argv_is_safe(command.get("argv"))
+                and project_argv_is_safe(command.get("version_argv"))
+                and command["argv"][0] != command["version_argv"][0]
+            ):
+                errors.append(
+                    f"{location}: version probe must use the configured executable"
+                )
+            timeout = command.get("timeout_seconds")
+            if (
+                not isinstance(timeout, int)
+                or isinstance(timeout, bool)
+                or not 1 <= timeout <= 86400
+            ):
+                errors.append(f"{location}: configured hook requires a bounded timeout")
+            freshness = command.get("evidence_freshness_days")
+            if (
+                not isinstance(freshness, int)
+                or isinstance(freshness, bool)
+                or not 1 <= freshness <= 365
+            ):
+                errors.append(
+                    f"{location}: configured hook requires bounded evidence freshness"
+                )
+            if command.get("rationale") is not None and (
+                not isinstance(command["rationale"], str)
+                or not command["rationale"].strip()
+            ):
+                errors.append(f"{location}: configured rationale must be null or nonempty")
+            if classification == "read_only" and (writes or external):
+                errors.append(f"{location}: read_only hook cannot declare writes/effects")
+            elif classification == "repository_writes" and (not writes or external):
+                errors.append(
+                    f"{location}: repository_writes requires paths and no external effects"
+                )
+            elif classification == "external_effects_possible" and not external:
+                errors.append(
+                    f"{location}: external_effects_possible requires declarations"
+                )
+            elif classification not in {
+                "read_only",
+                "repository_writes",
+                "external_effects_possible",
+            }:
+                errors.append(f"{location}: configured side-effect class is invalid")
+        elif status == "not_applicable":
+            if not isinstance(command.get("owner"), str) or not command["owner"].strip():
+                errors.append(f"{location}: not_applicable requires an owner")
+            if not isinstance(command.get("rationale"), str) or not command["rationale"].strip():
+                errors.append(f"{location}: not_applicable requires a rationale")
+            for field in (
+                "tool_name",
+                "argv",
+                "version_argv",
+                "timeout_seconds",
+                "evidence_freshness_days",
+            ):
+                if command.get(field) is not None:
+                    errors.append(f"{location}: not_applicable requires {field}=null")
+            if classification != "not_applicable" or writes or external:
+                errors.append(f"{location}: not_applicable side effects are incoherent")
+        elif status == "not_assessed":
+            for field in (
+                "owner",
+                "rationale",
+                "tool_name",
+                "argv",
+                "version_argv",
+                "timeout_seconds",
+                "evidence_freshness_days",
+            ):
+                if command.get(field) is not None:
+                    errors.append(f"{location}: not_assessed requires {field}=null")
+            if classification != "not_assessed" or writes or external:
+                errors.append(f"{location}: not_assessed side effects are incoherent")
+        else:
+            errors.append(f"{location}: unknown assessment status")
+
+    expected_project_checks = {
+        "evidence_schema": ".agent/schemas/harness-project-check-evidence.schema.json",
+        "evidence_store": PROJECT_CHECK_EVIDENCE_PATH,
+        "writer_argv": [
+            "python",
+            "-B",
+            ".agent/scripts/run_project_checks.py",
+            "--write-evidence",
+        ],
+        "adoption_verification_argv": [
+            "python",
+            "-B",
+            ".agent/scripts/run_project_checks.py",
+            "--write-evidence",
+            "--verify-adoption",
+        ],
+        "execution": "explicit_writer_only",
+        "shell_interpretation": False,
+    }
+    if project.get("project_checks") != expected_project_checks:
+        errors.append(".agent/project.json: project-check writer contract differs from kernel")
+    return errors
+
+
+def load_project_check_evidence(
+    root: Path,
+) -> tuple[dict[str, Any] | None, list[str]]:
+    path = root / PROJECT_CHECK_EVIDENCE_PATH
+    errors: list[str] = []
+    try:
+        store = load_json(path)
+        schema = load_schema(root, "harness-project-check-evidence.schema.json")
+    except (OSError, ValueError, json.JSONDecodeError) as error:
+        return None, [f"{PROJECT_CHECK_EVIDENCE_PATH}: {error}"]
+    errors.extend(
+        f"{PROJECT_CHECK_EVIDENCE_PATH}: {item}"
+        for item in validate_schema(store, schema)
+    )
+    if not isinstance(store, dict):
+        return None, errors
+    records = store.get("records")
+    if not isinstance(records, list):
+        return store, errors
+    seen_ids: set[str] = set()
+    for record_index, record in enumerate(records):
+        location = f"{PROJECT_CHECK_EVIDENCE_PATH}: records[{record_index}]"
+        if not isinstance(record, dict):
+            continue
+        record_id = record.get("id")
+        if isinstance(record_id, str):
+            if record_id in seen_ids:
+                errors.append(f"{location}: duplicate project-check evidence ID")
+            seen_ids.add(record_id)
+        source_after = record.get("source_after")
+        if isinstance(source_after, dict) and PROJECT_CHECK_EVIDENCE_PATH not in source_after.get(
+            "fingerprint_exclusions", []
+        ):
+            errors.append(
+                f"{location}: evidence store must be excluded from its subject fingerprint"
+            )
+        writer_argv = record.get("writer_argv")
+        if (
+            not project_argv_is_safe(writer_argv)
+            or not any(
+                item == ".agent/scripts/run_project_checks.py"
+                or item.replace("\\", "/").endswith(
+                    "/.agent/scripts/run_project_checks.py"
+                )
+                for item in writer_argv
+            )
+            or "--write-evidence" not in writer_argv
+        ):
+            errors.append(f"{location}: record lacks the explicit writer invocation")
+        checks = record.get("checks")
+        if not isinstance(checks, list):
+            continue
+        hooks = [
+            item.get("hook")
+            for item in checks
+            if isinstance(item, dict)
+        ]
+        if len(hooks) != len(PROJECT_COMMAND_HOOKS) or set(hooks) != set(
+            PROJECT_COMMAND_HOOKS
+        ):
+            errors.append(f"{location}: check results must cover each hook exactly once")
+        for check_index, result in enumerate(checks):
+            if not isinstance(result, dict):
+                continue
+            result_location = f"{location}.checks[{check_index}]"
+            assessment = result.get("assessment_status")
+            outcome = result.get("outcome")
+            if assessment == "not_assessed" and outcome != "not_assessed":
+                errors.append(f"{result_location}: not_assessed outcome is incoherent")
+            if assessment == "not_applicable" and outcome != "not_applicable":
+                errors.append(f"{result_location}: not_applicable outcome is incoherent")
+            if assessment == "configured":
+                if outcome not in {"pass", "fail", "unavailable"}:
+                    errors.append(f"{result_location}: configured outcome is invalid")
+                for field in ("argv", "version_argv"):
+                    argv = result.get(field)
+                    if not project_argv_is_safe(argv) or project_argv_uses_inline_shell(argv):
+                        errors.append(
+                            f"{result_location}: recorded {field} is not argv-safe"
+                        )
+                if outcome == "pass":
+                    deadline = freshness_deadline(result.get("fresh_until"))
+                    if (
+                        result.get("exit_code") != 0
+                        or result.get("tool_version_outcome") != "pass"
+                        or not isinstance(result.get("tool_version"), str)
+                        or not result.get("tool_version", "").strip()
+                        or not isinstance(result.get("tool_version_output_sha256"), str)
+                        or deadline is None
+                    ):
+                        errors.append(
+                            f"{result_location}: passing result lacks execution/version/freshness evidence"
+                        )
+                elif result.get("fresh_until") is not None:
+                    errors.append(
+                        f"{result_location}: non-passing result cannot claim freshness"
+                    )
+            mutation = result.get("repository_mutation")
+            if (
+                outcome == "pass"
+                and isinstance(mutation, dict)
+                and mutation.get("outside_declared_write_scope")
+            ):
+                errors.append(
+                    f"{result_location}: passing result changed paths outside declared scope"
+                )
+        outcomes = {
+            item.get("outcome")
+            for item in checks
+            if isinstance(item, dict)
+        }
+        expected_overall = (
+            "fail"
+            if "fail" in outcomes
+            else "unavailable"
+            if outcomes & {"unavailable", "not_assessed"}
+            else "pass"
+        )
+        if record.get("overall_outcome") != expected_overall:
+            errors.append(f"{location}: overall outcome is inconsistent with checks")
+    return store, errors
+
+
+def check_project_check_evidence(root: Path) -> list[str]:
+    return load_project_check_evidence(root)[1]
+
+
+def fresh_project_evidence_record(
+    root: Path,
+    project: dict[str, Any],
+) -> tuple[dict[str, Any] | None, list[str]]:
+    store, errors = load_project_check_evidence(root)
+    if store is None or not isinstance(store.get("records"), list):
+        return None, errors
+    current_fingerprint = project_check_source_fingerprint(root)
+    candidates = [
+        record
+        for record in store["records"]
+        if isinstance(record, dict)
+        and isinstance(record.get("source_after"), dict)
+        and record["source_after"].get("fingerprint") == current_fingerprint
+    ]
+    candidates.sort(key=lambda item: str(item.get("ended_at", "")))
+    return (candidates[-1] if candidates else None), errors
+
+
+def check_high_assurance_trigger_adoption(
+    root: Path,
+    records: dict[str, tuple[dict[str, Any], str]],
+) -> list[str]:
+    registry, errors = load_dossier_registry(root)
+    if registry is None:
+        return errors
+    artifact_types = _sorted_by_id(registry.get("artifact_types"))
+    representations = _sorted_by_id(registry.get("representations"))
+    now = datetime.now().astimezone()
+    for artifact_type in artifact_types:
+        if artifact_type.get("classification") not in {"conditional", "optional"}:
+            continue
+        artifact_type_id = artifact_type.get("id")
+        applicability = artifact_type.get("applicability", {})
+        status = applicability.get("status") if isinstance(applicability, dict) else None
+        if status == "not_assessed":
+            errors.append(
+                f"artifact type {artifact_type_id}: adopted High Assurance project "
+                "retains an unresolved conditional/optional trigger"
+            )
+            continue
+        if status != "applicable":
+            continue
+        active_representations = [
+            representation
+            for representation in representations
+            if artifact_type_id in representation.get("artifact_type_ids", [])
+            and representation.get("applicability", {}).get("status")
+            in {"required", "applicable", "combined"}
+            and representation.get("superseded_by") is None
+        ]
+        if not active_representations:
+            errors.append(
+                f"artifact type {artifact_type_id}: applicable High Assurance control "
+                "lacks an active assessed representation"
+            )
+        elif any(
+            not isinstance(item.get("owner_role"), str)
+            or not item.get("owner_role", "").strip()
+            for item in active_representations
+        ):
+            errors.append(
+                f"artifact type {artifact_type_id}: applicable High Assurance control "
+                "lacks a representation owner"
+            )
+        if not any(
+            isinstance(item.get("review"), dict)
+            and item["review"].get("status") == "reviewed"
+            and isinstance(item["review"].get("last_reviewed_on"), str)
+            and bool(item["review"]["last_reviewed_on"].strip())
+            for item in active_representations
+        ):
+            errors.append(
+                f"artifact type {artifact_type_id}: applicable High Assurance control "
+                "lacks an active reviewed representation"
+            )
+        evidence_refs = applicability.get("evidence_refs", [])
+        if not isinstance(evidence_refs, list) or not evidence_refs:
+            errors.append(
+                f"artifact type {artifact_type_id}: applicable High Assurance control "
+                "requires assessment evidence references"
+            )
+            continue
+        for evidence_ref in evidence_refs:
+            evidence = records.get(evidence_ref)
+            if evidence is None or not str(evidence_ref).startswith("EVD-"):
+                errors.append(
+                    f"artifact type {artifact_type_id}: unresolved assessment "
+                    f"evidence {evidence_ref}"
+                )
+                continue
+            value = evidence[0]
+            deadline = freshness_deadline(value.get("fresh_until"))
+            if value.get("result") == "not_assessed" or deadline is None or deadline < now:
+                errors.append(
+                    f"artifact type {artifact_type_id}: assessment evidence "
+                    f"{evidence_ref} is unassessed, undated, or stale"
+                )
+    return errors
+
+
+def check_adopted_project_conformance(
+    root: Path,
+    project: dict[str, Any],
+    records: dict[str, tuple[dict[str, Any], str]],
+) -> list[str]:
+    errors: list[str] = []
+    commands = project.get("commands", {})
+    for hook in PROJECT_COMMAND_HOOKS:
+        command = commands.get(hook, {}) if isinstance(commands, dict) else {}
+        if command.get("status") == "not_assessed":
+            errors.append(
+                f".agent/project.json: adopted project retains unassessed hook {hook}"
+            )
+    evidence_record, evidence_errors = fresh_project_evidence_record(root, project)
+    errors.extend(evidence_errors)
+    configured = [
+        hook
+        for hook in PROJECT_COMMAND_HOOKS
+        if isinstance(commands.get(hook), dict)
+        and commands[hook].get("status") == "configured"
+    ] if isinstance(commands, dict) else []
+    if configured:
+        if evidence_record is None:
+            errors.append(
+                ".agent/project-checks/evidence.json: adopted project lacks "
+                "project-check evidence for the current source fingerprint"
+            )
+        else:
+            by_hook = {
+                item.get("hook"): item
+                for item in evidence_record.get("checks", [])
+                if isinstance(item, dict)
+            }
+            if evidence_record.get("overall_outcome") != "pass":
+                errors.append(
+                    ".agent/project-checks/evidence.json: latest current project-check "
+                    "record is not a complete pass"
+                )
+            now = datetime.now().astimezone()
+            for hook in configured:
+                command = commands[hook]
+                result = by_hook.get(hook, {})
+                deadline = freshness_deadline(result.get("fresh_until"))
+                if (
+                    result.get("assessment_status") != "configured"
+                    or result.get("outcome") != "pass"
+                    or result.get("argv") != command.get("argv")
+                    or result.get("version_argv") != command.get("version_argv")
+                    or result.get("tool_name") != command.get("tool_name")
+                    or result.get("exit_code") != 0
+                    or result.get("tool_version_outcome") != "pass"
+                    or deadline is None
+                    or deadline < now
+                ):
+                    errors.append(
+                        f".agent/project-checks/evidence.json: {hook} lacks current "
+                        "passing evidence matching its configured argv/tool contract"
+                    )
+    if project.get("project", {}).get("profile") == "high-assurance":
+        errors.extend(check_high_assurance_trigger_adoption(root, records))
+    return errors
+
+
 def check_kernel(root: Path) -> list[str]:
     errors: list[str] = []
     allowed_agent_entries = {
@@ -1124,6 +1698,7 @@ def check_kernel(root: Path) -> list[str]:
         "metrics",
         "policy.json",
         "project.json",
+        "project-checks",
         "reviews",
         "schema.json",
         "schemas",
@@ -1212,7 +1787,7 @@ def check_kernel(root: Path) -> list[str]:
             "permission": "authorized_channel_only",
             "intended_state": "canonical_target_and_accepted_decisions",
             "current_state": "dated_direct_observation",
-            "planning": "future_sequence_not_permission",
+            "planning": "dependency_partial_order_for_future_work_not_permission",
             "evidence": "bounded_support_for_a_claim",
             "provenance": "source_origin_and_limitations",
             "generated": "point_in_time_non_authoritative_view",
@@ -1340,12 +1915,29 @@ def check_kernel(root: Path) -> list[str]:
             "run": "python -B .agent/scripts/validate.py --check",
             "writes": [],
         },
+        "ready_frontier": {
+            "run": "python -B .agent/scripts/validate.py --ready-frontier",
+            "writes": [],
+        },
         "test": {
             "run": (
                 "python -B -m unittest discover -s .agent/tests "
                 '-p "test_*.py"'
             ),
             "writes": [],
+        },
+        "project_checks": {
+            "run": (
+                "python -B .agent/scripts/run_project_checks.py --write-evidence"
+            ),
+            "writes": [PROJECT_CHECK_EVIDENCE_PATH],
+        },
+        "adoption_verify": {
+            "run": (
+                "python -B .agent/scripts/run_project_checks.py --write-evidence "
+                "--verify-adoption"
+            ),
+            "writes": "project_check_evidence_and_profile_refresh_outputs",
         },
         "refresh": {
             "run": "python -B .agent/scripts/refresh.py --refresh",
@@ -1411,6 +2003,7 @@ def check_kernel(root: Path) -> list[str]:
         or context.get("project_slug") != project_id
     ):
         errors.append(".agent: governance kernel project identity mismatch")
+    errors.extend(check_project_command_contract(root, project))
     for group in ("source", "tests", "generated", "instruction_roots"):
         for index, item in enumerate(project.get("paths", {}).get(group, [])):
             _, path_error = safe_relative_path(root, item)
@@ -1887,6 +2480,151 @@ def iter_references(value: Any, key: str | None = None):
         yield key, value
 
 
+def task_authority_is_valid(
+    record: dict[str, Any],
+    records: dict[str, tuple[dict[str, Any], str]],
+) -> bool:
+    authority_basis = record.get("authority_basis")
+    if isinstance(authority_basis, str) and authority_basis.startswith(
+        ("authority:", "external:")
+    ):
+        return True
+    return bool(
+        isinstance(authority_basis, str)
+        and re.fullmatch(r"DEC-[0-9]{4}", authority_basis)
+        and authority_basis in records
+        and records[authority_basis][0].get("status") == "accepted"
+    )
+
+
+def blocking_reference_is_resolved(
+    reference: str,
+    records: dict[str, tuple[dict[str, Any], str]],
+) -> bool:
+    entry = records.get(reference)
+    if entry is None:
+        return False
+    status = entry[0].get("status")
+    if reference.startswith(("TASK-", "PLAN-")):
+        return status == "completed"
+    if reference.startswith("GATE-"):
+        return status in SATISFIED_GATE_STATUSES
+    if reference.startswith("DEC-"):
+        return status == "accepted"
+    if reference.startswith(("RISK-", "ASM-", "ISSUE-", "DEP-", "OQ-")):
+        return status in SATISFIED_RAIDQ_STATUSES
+    return False
+
+
+def unresolved_structured_blockers(
+    record: dict[str, Any],
+    records: dict[str, tuple[dict[str, Any], str]],
+) -> list[str]:
+    values = record.get("blocking_refs", [])
+    if not isinstance(values, list):
+        return ["blocking_refs_invalid"]
+    return [
+        reference
+        for reference in values
+        if isinstance(reference, str)
+        and not blocking_reference_is_resolved(reference, records)
+    ]
+
+
+def unsatisfied_gate_refs(
+    record: dict[str, Any],
+    records: dict[str, tuple[dict[str, Any], str]],
+) -> list[str]:
+    values = record.get("gate_refs", [])
+    if not isinstance(values, list):
+        return ["gate_refs_invalid"]
+    return [
+        reference
+        for reference in values
+        if isinstance(reference, str)
+        and (
+            reference not in records
+            or records[reference][0].get("status") not in SATISFIED_GATE_STATUSES
+        )
+    ]
+
+
+def unsatisfied_hard_dependencies(
+    record: dict[str, Any],
+    records: dict[str, tuple[dict[str, Any], str]],
+    field: str,
+) -> list[str]:
+    values = record.get(field, [])
+    if not isinstance(values, list):
+        return [f"{field}_invalid"]
+    return [
+        reference
+        for reference in values
+        if isinstance(reference, str)
+        and (
+            reference not in records
+            or records[reference][0].get("status") != "completed"
+        )
+    ]
+
+
+def plan_prerequisite_blockers(
+    record: dict[str, Any],
+    records: dict[str, tuple[dict[str, Any], str]],
+) -> list[str]:
+    blockers = [
+        f"dependency:{reference}"
+        for reference in unsatisfied_hard_dependencies(record, records, "depends_on")
+    ]
+    blockers.extend(
+        f"gate:{reference}" for reference in unsatisfied_gate_refs(record, records)
+    )
+    blockers.extend(
+        f"blocker:{reference}"
+        for reference in unresolved_structured_blockers(record, records)
+    )
+    return blockers
+
+
+def task_prerequisite_blockers(
+    record: dict[str, Any],
+    records: dict[str, tuple[dict[str, Any], str]],
+) -> list[str]:
+    blockers = [
+        f"dependency:{reference}"
+        for reference in unsatisfied_hard_dependencies(record, records, "dependencies")
+    ]
+    blockers.extend(
+        f"gate:{reference}" for reference in unsatisfied_gate_refs(record, records)
+    )
+    blockers.extend(
+        f"blocker:{reference}"
+        for reference in unresolved_structured_blockers(record, records)
+    )
+    plan_refs = record.get("plan_item_refs", [])
+    if not isinstance(plan_refs, list):
+        return blockers + ["plan_item_refs_invalid"]
+    for reference in plan_refs:
+        if not isinstance(reference, str) or reference not in records:
+            blockers.append(f"plan:{reference}")
+            continue
+        plan = records[reference][0]
+        task_status = record.get("status")
+        if task_status == "completed":
+            allowed_statuses = {"in_progress", "completed"}
+        elif task_status in {"in_progress", "validating", "review"}:
+            allowed_statuses = {"in_progress"}
+        else:
+            allowed_statuses = {"planned", "in_progress"}
+        if plan.get("status") not in allowed_statuses:
+            blockers.append(f"plan_status:{reference}")
+        blockers.extend(
+            f"plan:{reference}:{item}"
+            for item in plan_prerequisite_blockers(plan, records)
+        )
+    return blockers
+
+
 def check_references_and_lifecycle(
     root: Path,
     records: dict[str, tuple[dict[str, Any], str]],
@@ -1938,7 +2676,6 @@ def check_references_and_lifecycle(
                 "validating",
                 "review",
                 "completed",
-                "blocked",
                 "reopened",
             }
             if status in ready_or_later:
@@ -1950,22 +2687,17 @@ def check_references_and_lifecycle(
                 ):
                     if not record.get(field):
                         errors.append(f"{location}: {status} task lacks {field}")
-                authority_basis = record.get("authority_basis")
-                if isinstance(authority_basis, str) and authority_basis.startswith(
-                    ("authority:", "external:")
-                ):
-                    pass
-                elif (
-                    isinstance(authority_basis, str)
-                    and re.fullmatch(r"DEC-[0-9]{4}", authority_basis)
-                    and authority_basis in records
-                    and records[authority_basis][0].get("status") == "accepted"
-                ):
-                    pass
-                else:
+                if not task_authority_is_valid(record, records):
                     errors.append(
                         f"{location}: {status} task requires an external authority "
                         "reference or accepted decision basis"
+                    )
+            if status in DEPENDENCY_GATED_TASK_STATUSES:
+                blockers = task_prerequisite_blockers(record, records)
+                if blockers:
+                    errors.append(
+                        f"{location}: {status} task has unsatisfied readiness "
+                        "conditions: " + ", ".join(blockers)
                     )
             if status in {
                 "in_progress",
@@ -2062,8 +2794,13 @@ def check_references_and_lifecycle(
                     )
                 if "limitations" not in record:
                     errors.append(f"{location}: completed task lacks limitations field")
-            if status == "blocked" and not record.get("blocked_by"):
-                errors.append(f"{location}: blocked task lacks blocking condition")
+            if status == "blocked":
+                if not record.get("blocked_by"):
+                    errors.append(f"{location}: blocked task lacks blocking condition")
+                if not task_prerequisite_blockers(record, records):
+                    errors.append(
+                        f"{location}: blocked task lacks an unresolved structured cause"
+                    )
             if status == "reopened" and not record.get("reopened_by"):
                 errors.append(f"{location}: reopened task lacks invalidating evidence")
         if kind == "decision":
@@ -2152,24 +2889,48 @@ def check_plan_and_traceability(
         for record_id, (record, _) in records.items()
         if record_id.startswith("PLAN-")
     }
-    visiting: set[str] = set()
-    visited: set[str] = set()
+    tasks = {
+        record_id: record
+        for record_id, (record, _) in records.items()
+        if record_id.startswith("TASK-")
+    }
 
-    def visit(node: str) -> None:
-        if node in visiting:
-            errors.append(f"plan dependency cycle includes {node}")
-            return
-        if node in visited:
-            return
-        visiting.add(node)
-        for dependency in plans[node].get("depends_on", []):
-            if dependency in plans:
-                visit(dependency)
-        visiting.remove(node)
-        visited.add(node)
+    def check_cycles(
+        nodes: dict[str, dict[str, Any]], field: str, label: str
+    ) -> None:
+        visiting: set[str] = set()
+        visited: set[str] = set()
+        stack: list[str] = []
+        emitted: set[tuple[str, ...]] = set()
 
-    for plan_id in plans:
-        visit(plan_id)
+        def visit(node: str) -> None:
+            if node in visiting:
+                start = stack.index(node)
+                cycle = tuple(stack[start:] + [node])
+                if cycle not in emitted:
+                    errors.append(
+                        f"{label} dependency cycle: " + " -> ".join(cycle)
+                    )
+                    emitted.add(cycle)
+                return
+            if node in visited:
+                return
+            visiting.add(node)
+            stack.append(node)
+            dependencies = nodes[node].get(field, [])
+            if isinstance(dependencies, list):
+                for dependency in dependencies:
+                    if dependency in nodes:
+                        visit(dependency)
+            stack.pop()
+            visiting.remove(node)
+            visited.add(node)
+
+        for node in sorted(nodes):
+            visit(node)
+
+    check_cycles(plans, "depends_on", "plan")
+    check_cycles(tasks, "dependencies", "task")
 
     linked_requirements: set[str] = set()
     for record_id, (record, location) in records.items():
@@ -2184,10 +2945,85 @@ def check_plan_and_traceability(
             "not_applicable",
         } and not record.get("inspected_evidence"):
             errors.append(f"{location}: assessed finding lacks inspected evidence")
-        if record_id.startswith("PLAN-") and record.get("status") == "completed":
-            evidence = record.get("evidence_refs")
+
+    for plan_id, plan in plans.items():
+        location = records[plan_id][1]
+        status = plan.get("status")
+        prerequisite_blockers = plan_prerequisite_blockers(plan, records)
+        if status in {"in_progress", "completed"} and prerequisite_blockers:
+            errors.append(
+                f"{location}: {status} plan item has unsatisfied readiness "
+                "conditions: " + ", ".join(prerequisite_blockers)
+            )
+        if status in {"in_progress", "completed"}:
+            for field in ("acceptance_criteria", "evidence_expected"):
+                if not plan.get(field):
+                    errors.append(f"{location}: {status} plan item lacks {field}")
+            if plan.get("owner_role") in {None, "", "unassigned"}:
+                errors.append(f"{location}: {status} plan item requires an owner")
+        if status == "blocked":
+            if not plan.get("blocked_by"):
+                errors.append(f"{location}: blocked plan item lacks explanation")
+            if not prerequisite_blockers:
+                errors.append(
+                    f"{location}: blocked plan item lacks an unresolved structured cause"
+                )
+
+        task_refs = plan.get("task_refs", [])
+        if not isinstance(task_refs, list):
+            task_refs = []
+        for task_ref in task_refs:
+            task = tasks.get(task_ref)
+            if task is not None and plan_id not in task.get("plan_item_refs", []):
+                errors.append(
+                    f"{location}: task link {task_ref} lacks reciprocal plan_item_refs"
+                )
+        if status in {"in_progress", "completed"} and not task_refs:
+            errors.append(f"{location}: {status} plan item lacks task_refs")
+        if status == "in_progress" and task_refs:
+            progressed = {
+                "in_progress",
+                "validating",
+                "review",
+                "blocked",
+                "completed",
+                "reopened",
+            }
+            if not any(
+                task_ref in tasks and tasks[task_ref].get("status") in progressed
+                for task_ref in task_refs
+            ):
+                errors.append(
+                    f"{location}: in_progress plan item has no progressed task"
+                )
+        if status == "completed":
+            evidence = plan.get("evidence_refs")
             if not isinstance(evidence, list) or not evidence:
                 errors.append(f"{location}: completed plan item lacks evidence_refs")
+            incomplete_tasks = [
+                task_ref
+                for task_ref in task_refs
+                if task_ref not in tasks
+                or tasks[task_ref].get("status") != "completed"
+            ]
+            if incomplete_tasks:
+                errors.append(
+                    f"{location}: completed plan item has incomplete tasks: "
+                    + ", ".join(incomplete_tasks)
+                )
+
+    for task_id, task in tasks.items():
+        location = records[task_id][1]
+        plan_refs = task.get("plan_item_refs", [])
+        if not isinstance(plan_refs, list):
+            continue
+        for plan_ref in plan_refs:
+            plan = plans.get(plan_ref)
+            if plan is not None and task_id not in plan.get("task_refs", []):
+                errors.append(
+                    f"{location}: plan link {plan_ref} lacks reciprocal task_refs"
+                )
+
     for record_id, (record, location) in records.items():
         if record_id.startswith("REQ-") and record.get("status") == "active":
             for field in ("owner_role", "basis", "validation"):
@@ -2198,6 +3034,72 @@ def check_plan_and_traceability(
                     f"{location}: active requirement has no finding, plan, or evidence link"
                 )
     return errors
+
+
+def ready_frontier(
+    records: dict[str, tuple[dict[str, Any], str]],
+) -> dict[str, Any]:
+    plans = {
+        record_id: record
+        for record_id, (record, _) in records.items()
+        if record_id.startswith("PLAN-")
+    }
+    tasks = {
+        record_id: record
+        for record_id, (record, _) in records.items()
+        if record_id.startswith("TASK-")
+    }
+    ready_plans = []
+    for plan_id, plan in sorted(plans.items()):
+        if plan.get("status") != "planned":
+            continue
+        if plan_prerequisite_blockers(plan, records):
+            continue
+        if not plan.get("acceptance_criteria") or not plan.get("evidence_expected"):
+            continue
+        if plan.get("owner_role") in {None, "", "unassigned"}:
+            continue
+        ready_plans.append(plan_id)
+
+    ready_tasks = []
+    for task_id, task in sorted(tasks.items()):
+        if task.get("status") not in {"proposed", "ready"}:
+            continue
+        if task_prerequisite_blockers(task, records):
+            continue
+        if any(
+            not task.get(field)
+            for field in (
+                "scope",
+                "authority_basis",
+                "acceptance_criteria",
+                "validation_plan",
+            )
+        ):
+            continue
+        if not task_authority_is_valid(task, records):
+            continue
+        ready_tasks.append(task_id)
+
+    return {
+        "schema_version": "harness.ready-frontier.v1",
+        "permission_grant": False,
+        "priority_ordered": False,
+        "plan_items": ready_plans,
+        "tasks": ready_tasks,
+        "display_order": "stable identifier order only; never priority",
+        "selection_rule": (
+            "Hard dependencies, gates, blockers, and reciprocal plan/task links "
+            "determine eligibility. Current operator direction or an accepted "
+            "priority/value/risk decision selects among independent ready items."
+        ),
+        "timeline_fields_determine_readiness": False,
+        "limitations": [
+            "Eligibility does not grant authority to execute work.",
+            "Array order is deterministic display order, not priority.",
+            "External deadlines remain constraints but do not satisfy prerequisites.",
+        ],
+    }
 
 
 def check_current_state(
@@ -2381,6 +3283,19 @@ def check_current_state(
         errors.append(
             ".agent/state/current.json: adoption decision is set before adoption"
         )
+    if adoption_status == "superseded":
+        project_commands = project.get("commands", {})
+        for hook in PROJECT_COMMAND_HOOKS:
+            if (
+                isinstance(project_commands, dict)
+                and isinstance(project_commands.get(hook), dict)
+                and project_commands[hook].get("status") == "not_assessed"
+            ):
+                errors.append(
+                    f".agent/project.json: superseded project retains unassessed hook {hook}"
+                )
+    if adoption_status == "adopted":
+        errors.extend(check_adopted_project_conformance(root, project, records))
     return errors
 
 
@@ -4287,6 +5202,7 @@ def check_integrity(root: Path, include_generated: bool = True) -> list[str]:
         "pre_refresh_source_validation",
         "strict_json_and_duplicate_keys",
         "schemas_versions_lifecycles_and_references",
+        "dependency_readiness_and_ready_frontier",
         "authority_and_nested_instruction_invariants",
         "dossier_artifact_registry",
         "extension_confinement_and_validator_protocol",
@@ -4479,6 +5395,7 @@ def check_sources(root: Path = ROOT) -> list[str]:
     errors.extend(check_runtime())
     errors.extend(check_files_and_json(root, include_derived=False))
     errors.extend(check_kernel(root))
+    errors.extend(check_project_check_evidence(root))
     records, record_errors = collect_records(root)
     errors.extend(record_errors)
     errors.extend(check_origin(root, records))
@@ -4505,15 +5422,33 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         description="Read-only structural validation of the project foundation."
     )
-    parser.add_argument("--check", action="store_true", required=True)
-    parser.parse_args()
+    mode = parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument("--check", action="store_true")
+    mode.add_argument("--ready-frontier", action="store_true")
+    args = parser.parse_args()
+    if args.ready_frontier:
+        errors = check_sources()
+        for error in errors:
+            print(f"[FAIL] {safe_diagnostic(error)}", file=sys.stderr)
+        if errors:
+            return 1
+        records, record_errors = collect_records(ROOT)
+        if record_errors:
+            for error in record_errors:
+                print(f"[FAIL] {safe_diagnostic(error)}", file=sys.stderr)
+            return 1
+        print(json.dumps(ready_frontier(records), indent=2, sort_keys=True))
+        return 0
     errors = check()
     for error in errors:
         print(f"[FAIL] {safe_diagnostic(error)}", file=sys.stderr)
     if errors:
         return 1
     print("[PASS] harness and dossier structural contracts")
-    print("[INFO] project adoption, implementation, and readiness remain unassessed")
+    print(
+        "[INFO] structural/adoption conformance does not establish "
+        "target-project readiness"
+    )
     return 0
 
 

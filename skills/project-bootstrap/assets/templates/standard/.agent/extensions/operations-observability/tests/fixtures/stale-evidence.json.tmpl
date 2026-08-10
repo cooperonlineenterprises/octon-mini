@@ -1,0 +1,12 @@
+{
+  "schema_version": "harness.extension-test-mutation.v1",
+  "base": "valid.json",
+  "mutations": [
+    {
+      "document": "evidence_index",
+      "pointer": "/evidence/0/fresh_until",
+      "value": "2000-01-01T00:00:00Z"
+    }
+  ],
+  "expected_codes": ["OPS-STALE-EVIDENCE"]
+}
