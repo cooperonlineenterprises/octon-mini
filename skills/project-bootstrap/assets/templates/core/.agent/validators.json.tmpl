@@ -1,16 +1,16 @@
 {
   "schema_version": "harness.validators.v1",
-  "validator_version": "1.0.0",
+  "validator_version": "1.0.1",
   "runtime": {
-    "executable": "python3",
+    "executable": "python",
     "minimum_version": "3.11",
     "dependencies": "standard_library_only",
     "bytecode_and_cache_writes": "prohibited_for_check"
   },
   "commands": {
-    "bootstrap": {"run": "python3 --version", "writes": []},
-    "check": {"run": "python3 -B .agent/scripts/validate.py --check", "writes": []},
-    "test": {"run": "python3 -B -m unittest discover -s .agent/tests -p 'test_*.py'", "writes": []},
+    "bootstrap": {"run": "python --version", "writes": []},
+    "check": {"run": "python -B .agent/scripts/validate.py --check", "writes": []},
+    "test": {"run": "python -B -m unittest discover -s .agent/tests -p \"test_*.py\"", "writes": []},
     "refresh": {"run": "{{HARNESS_REFRESH_COMMAND}}", "writes": {{HARNESS_REFRESH_WRITES}}},
     "closure": {"run": "configure_during_project_adoption", "writes": "not_assessed"}
   },

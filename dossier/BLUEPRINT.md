@@ -1,6 +1,6 @@
 # Universal Project Dossier Blueprint
 
-Blueprint version: 1.0.0
+Blueprint version: 1.0.1
 Reference-analysis date: 2026-07-27
 
 This document defines a domain-neutral project dossier for software, product,
@@ -75,6 +75,7 @@ Every entry point states its information role and authority limitation.
 
 ### 2.3 Separate information states
 
+**[Observed: both] [Inferred]**
 Keep these states distinct even when a Minimal profile combines them:
 
 1. dossier interpretation and authority;
@@ -92,24 +93,28 @@ Keep these states distinct even when a Minimal profile combines them:
 
 ### 2.4 Evidence is scoped, dated, and reproducible
 
+**[Observed: both] [Recommended]**
 Current-state and readiness claims identify subject version, observation time,
 method, environment, result, and limitations. Stale evidence never overrides a
 newer direct observation.
 
 ### 2.5 Provenance survives transformation
 
+**[Observed: both] [Recommended]**
 Every consequential source records identity, version or retrieval date,
 classification, intended use, sensitivity, limitations, and freshness rule.
 Derived artifacts link their source records.
 
 ### 2.6 Versioning and supersession preserve history
 
+**[Observed: CF] [Inferred]**
 Accepted evidence and durable decisions are immutable or corrected with a
 successor. A supersession record names the old artifact, replacement,
 effective date, reason, migration impact, and retained-history location.
 
 ### 2.7 Progressive disclosure controls context
 
+**[Observed: both] [Inferred]**
 The dossier index and handoff pack stay compact. Readers load canonical,
 current-state, plan, specialist models, evidence, or history only when the
 task requires them. Large transcripts and historical narratives never
@@ -117,54 +122,65 @@ accumulate in the entry point.
 
 ### 2.8 Machine-readable mirrors have declared ownership
 
+**[Observed: both] [Recommended]**
 Each mirror states whether it is authoritative, generated from a human source,
 or the source from which a human view is generated. Two independently edited
 representations may not both claim authority.
 
 ### 2.9 Unknown is a valid state
 
+**[Inferred] [Recommended]**
 Use `unknown`, `not_assessed`, `not_applicable`, and `gated` rather than
 inventing facts or interpreting absence as failure.
 
 ## 3. Reference-dossier crosswalk
 
 The references share a common information architecture but emphasize
-different risks. CF contains a broad product/engineering dossier and a later
-canonical v0.2 handoff. COE contains a more explicit authority, current-state,
-conformance, plan, provenance, and integrity separation.
+different risks. CF's root instructions identify
+`CF:project-dossier/v0.2/` as the current canonical target; the Phase 0
+material directly under `CF:project-dossier/` is a retained historical
+baseline. COE contains a more
+explicit authority, current-state, conformance, plan, provenance, and
+integrity separation. Neither dossier is an instruction or permission channel.
 
 | Artifact family | Commerce Foundry evidence | COE evidence | Generalized interpretation |
 |---|---|---|---|
 | Entry and navigation | `CF:project-dossier/v0.2/README.md`; `CF:project-dossier/v0.2/HANDOFF_MANIFEST.md` | `COE:project-dossier/README.md`; `COE:project-dossier/handoff/START_HERE.md` | Compact index and resumable entry point |
 | Authority and canonical map | `CF:project-dossier/v0.2/CANONICAL_SOURCE_MAP.md` | `COE:project-dossier/AUTHORITY.md`; `COE:project-dossier/CANONICAL_SOURCE_MAP.md` | Explicit interpretation and source ownership |
-| Version and supersession | `CF:project-dossier/v0.2/SUPERSESSION_MAP.md`; `CF:project-dossier/v0.2/baseline/README.md` | `COE:project-dossier/MANIFEST.json`; `COE:project-dossier/CHECKSUMS.sha256` | Lifecycle, provenance, and point-in-time integrity |
-| Project definition | `CF:project-dossier/docs/product/problem-statement.md`; `goals-and-non-goals.md`; `vision.md` | `COE:project-dossier/canonical/executive-project-definition.md` | Identity, problem, scope, outcomes, success |
-| Requirements | `CF:project-dossier/docs/requirements/`; `requirements-traceability.md` | `COE:project-dossier/canonical/requirements-and-constraints.md`; `machine-readable/requirements.yaml` | Stable requirement definitions and traceability |
-| Architecture/outcome model | `CF:project-dossier/docs/architecture/`; `docs/workflows/`; `docs/schemas/` | `COE:project-dossier/canonical/technical-architecture.md`; `business-and-brand-architecture.md` | Domain-neutral actors, components, flows, interfaces, invariants |
-| Decisions | `CF:project-dossier/docs/architecture/adr/`; live `CF:.agent/decisions/` | `COE:project-dossier/registers/decisions.yaml`; live `COE:.agent/decisions/` | Durable accepted intent, preferably owned once |
-| Current state | `CF:project-dossier/PROJECT_STATUS.md`; `v0.2/agent-handoff/current-implementation-status.md` | `COE:project-dossier/current-state/` | Dated observation, not target or plan |
-| Conformance | `CF:project-dossier/v0.2/conformance/` | `COE:project-dossier/conformance/findings.yaml`; `initial-assessment.md` | Requirement-to-evidence gap assessment |
-| Planning | `CF:project-dossier/docs/roadmaps/`; `v0.2/implementation-plan/` | `COE:project-dossier/implementation-plan/`; `plan.yaml` | Dependency-aware future sequence |
-| Registers | `CF:project-dossier/docs/risks/risk-register.md`; `docs/knowledge/` | `COE:project-dossier/registers/` | Risks, assumptions, issues, dependencies, questions |
-| Provenance/research | `CF:project-dossier/docs/research/`; dated provider verification files | `COE:project-dossier/provenance/` | Source identity, external-fact freshness, limitations |
-| Validation/evidence | `CF:project-dossier/docs/testing/`; `evidence/` | `COE:project-dossier/validation/`; `COE:.agent/evidence/` | Reproducible checks and bounded evidence |
-| Operations/recovery | `CF:project-dossier/docs/operations/` | Operational guidance distributed across COE plans and harness checklists | Conditional runbooks triggered by external effects |
-| Machine-readable authority | YAML/JSON schemas and state machines under `CF:project-dossier/docs/` | `COE:project-dossier/machine-readable/path-authority.yaml` | Typed mirrors and path classification |
+| Version and supersession | `CF:project-dossier/v0.2/SUPERSESSION_MAP.md`; `CF:project-dossier/v0.2/baseline/README.md` | No direct dossier-version or supersession-ledger equivalent observed | Explicit lifecycle, replacement, and noncurrent history |
+| Generated integrity | `CF:project-dossier/v0.2/CHECKSUMS.md`; `CF:project-dossier/v0.2/HANDOFF_MANIFEST.md` | `COE:project-dossier/MANIFEST.json`; `COE:project-dossier/CHECKSUMS.sha256` | Point-in-time inventory and byte identity, not supersession or authority |
+| Project definition | `CF:project-dossier/v0.2/canonical/platform-definition.md`; `CF:project-dossier/v0.2/canonical/executive-summary.md` | `COE:project-dossier/canonical/executive-project-definition.md` | Identity, problem, scope, outcomes, success |
+| Requirements | `CF:project-dossier/v0.2/dossier-v0.2/docs/requirements/functional-requirements.md`; `CF:project-dossier/v0.2/dossier-v0.2/docs/requirements/requirements-traceability.md` | `COE:project-dossier/canonical/requirements-and-constraints.md`; `COE:project-dossier/machine-readable/requirements.yaml` | Stable requirement definitions and traceability |
+| Architecture/outcome model | `CF:project-dossier/v0.2/canonical/architecture.md`; `CF:project-dossier/v0.2/canonical/canonical-workflow.md`; `CF:project-dossier/v0.2/canonical/domain-data-model.md` | `COE:project-dossier/canonical/technical-architecture.md`; `COE:project-dossier/canonical/business-and-brand-architecture.md` | Domain-neutral actors, components, flows, interfaces, invariants |
+| Decisions | `CF:project-dossier/v0.2/dossier-v0.2/docs/architecture/adr/`; live `CF:.agent/decisions/` | proposed dossier records at `COE:project-dossier/registers/decisions.yaml`; live status-dependent records at `COE:.agent/decisions/` | Durable accepted intent, preferably owned once |
+| Current state | `CF:project-dossier/v0.2/agent-handoff/current-implementation-status.md`; `CF:project-dossier/v0.2/conformance/repository-inventory.md` | `COE:project-dossier/current-state/repository-baseline.md` | Dated observation, not target or plan |
+| Conformance | `CF:project-dossier/v0.2/conformance/README.md`; `CF:project-dossier/v0.2/conformance/conformance-matrix.csv` | `COE:project-dossier/conformance/findings.yaml`; `COE:project-dossier/conformance/initial-assessment.md` | Requirement-to-evidence gap assessment |
+| Planning | `CF:project-dossier/v0.2/implementation-plan/dependency-roadmap.md`; `CF:project-dossier/v0.2/implementation-plan/task-dependency-graph.md` | `COE:project-dossier/implementation-plan/dependency-graph.md`; `COE:project-dossier/implementation-plan/plan.yaml` | Dependency-aware future sequence |
+| Registers | `CF:project-dossier/v0.2/implementation-plan/risk-register.md`; `CF:project-dossier/v0.2/implementation-plan/technical-debt-register.md` | `COE:project-dossier/registers/risks.yaml`; `COE:project-dossier/registers/open-questions.yaml` | Risks, assumptions, issues, dependencies, questions |
+| Provenance/research | `CF:project-dossier/v0.2/verification/verification-manifest.md`; `CF:project-dossier/v0.2/verification/etsy-reverification-2026-07-23.md` | `COE:project-dossier/provenance/source-index.yaml`; `COE:project-dossier/provenance/reference-model-notes.md` | Source identity, external-fact freshness, limitations |
+| Validation/evidence | `CF:project-dossier/v0.2/machine-readable/validation-report.json`; `CF:project-dossier/v0.2/dossier-v0.2/evidence/README.md` | `COE:project-dossier/validation/validation-report.json`; `COE:.agent/evidence/` | Reproducible checks and bounded evidence |
+| Operations/recovery | `CF:project-dossier/v0.2/canonical/monitoring-lifecycle-model.md`; `CF:project-dossier/v0.2/implementation-plan/release-gates.md` | `COE:project-dossier/canonical/seo-analytics-and-operations.md`; `COE:project-dossier/implementation-plan/acceptance-gates.md` | Conditional runbooks and gates triggered by external effects |
+| Machine-readable authority | `CF:project-dossier/v0.2/machine-readable/repository-path-authority.yaml`; `CF:project-dossier/v0.2/machine-readable/workflow-registry.yaml` | `COE:project-dossier/machine-readable/path-authority.yaml`; `COE:project-dossier/machine-readable/requirements.yaml` | Typed sources, mirrors, and path classification |
 
 Direct equivalents include entry points, canonical requirements, current
 state, plans, registers, validation, and handoff. Functional equivalents use
 different structures for decisions, architecture, and evidence. CF uniquely
-emphasizes detailed runtime, workflow, schema, and operations material. COE
-uniquely emphasizes path-authority classification and generated integrity.
+provides an explicit dossier supersession package and emphasizes detailed
+runtime, workflow, schema, and operations material. COE uniquely emphasizes
+path-authority classification and generated integrity. COE integrity files
+are not treated as lifecycle or supersession equivalents.
 
-Apparent reference gaps that this blueprint closes:
+Apparent reference gaps and the blueprint response:
 
-- neither reference provides a portable universal artifact catalog schema;
-- both need stronger automatic drift and freshness enforcement;
-- both allow resumption summaries to grow;
-- neither reference supplies a domain-neutral installation and migration
+- **[Recommended]** Neither reference provides a portable universal artifact
+  registry/catalog schema.
+- **[Inferred]** Both benefit from stronger automatic drift and freshness
+  enforcement.
+- **[Inferred]** Both demonstrate the risk of resumption summaries growing
+  beyond a compact current view.
+- **[Recommended]** Neither reference supplies a domain-neutral installation and migration
   package for arbitrary projects; and
-- generated checksums in a repository-local trust boundary do not independently
+- **[Inferred]** Generated checksums in a repository-local trust boundary do not independently
   attest correctness or approval.
 
 ## 4. General artifact taxonomy
@@ -175,326 +191,1079 @@ Classification:
 - **Conditional** — required when a named trigger or risk is present.
 - **Optional** — useful for complex coordination or higher assurance.
 
-All artifacts use four-digit stable IDs. Record namespaces are globally unique
-within the generated project.
+### 4.1 Three-level identity model
 
-### DOS-0001 — Dossier index
+Artifact identity has three explicit levels. IDs are unique and immutable
+within their typed namespace; references name the namespace and ID rather than
+assuming that a bare string is globally unambiguous.
 
-- Category/classification: navigation / Core
-- Purpose: route readers through authoritative layers without restating them.
-- Questions: Where do I start? What is current? Which profile applies?
-- Audience/owner: everyone / dossier maintainer.
-- Inputs: artifact catalog, authority map, current handoff pointers.
-- Outputs: reading order and layer map.
-- Format/authority: Markdown; navigation only.
-- Dependencies: DOS-0002, DOS-0003, DOS-0004.
-- Timing/cadence: create first; update when paths or entry points change.
-- Validation: links resolve; current/high-profile directories are listed.
-- Omit/combine: never omit; may combine with handoff only in a very small,
-  single-session project if authority and current state remain distinct.
-- Evidence: `CF:project-dossier/v0.2/README.md`;
-  `COE:project-dossier/README.md`.
+1. **Conceptual artifact type** — a reusable information contract such as
+   `REQ-0001` (requirements and traceability). These definitions are owned by
+   `dossier/artifact-types.json` in this blueprint and copied into a generated
+   project’s authoritative artifact registry.
+2. **Physical representation** — a concrete path and edit direction identified
+   only as `REP-####`. Several representations may implement one type; for
+   example, explanatory Markdown and an authoritative structured record store.
+   One representation may deliberately implement multiple conceptual types;
+   `artifact_type_ids` records that combination without duplicating a path.
+3. **Record instance** — a project fact, requirement, decision, finding, plan
+   item, source, or evidence record. Record IDs follow the applicable record
+   schema and lifecycle. They are not artifact-type or representation IDs.
 
-### DOS-0002 — Authority map
+The v1 source catalog used conceptual-looking IDs for physical paths. Version
+1.0.1 retires that ambiguity: every old physical ID is preserved as
+`legacy_v1_id` on its `REP-####` successor. A retired legacy ID is never
+reassigned silently.
 
-- Category/classification: governance / Core
-- Purpose: define interpretation, precedence, information roles, and conflicts.
-- Questions: Which source governs which concern? What cannot create permission?
-- Audience/owner: all readers / project governance owner.
-- Inputs: repository instructions, accepted decisions, source classifications.
-- Outputs: authority rules consumed by navigation and validation.
-- Format/authority: Markdown plus path-authority JSON; authoritative for dossier
-  interpretation, never operating permission.
-- Dependencies: DEC-0001, PRV-0001.
-- Timing/cadence: create before content adoption; review on authority changes.
-- Validation: every managed path classified; conflicts and historical material
-  handled.
-- Omit/combine: may combine with DOS-0003 in Minimal.
-- Evidence: `COE:project-dossier/AUTHORITY.md`;
-  `COE:project-dossier/machine-readable/path-authority.yaml`.
+### 4.2 Registry, applicability, and review semantics
 
-### DOS-0003 — Canonical-source map
+`project-dossier/machine-readable/artifact-registry.json` is the project-local
+edit source for artifact metadata. `ARTIFACT_CATALOG.json` and
+`machine-readable/path-authority.json` are generated mirrors. A maintainer
+changes the registry and runs refresh; derived files are never edited
+independently.
 
-- Category/classification: governance / Core
-- Purpose: name the single owner for intended, current, plan, evidence, and
-  lifecycle concerns.
-- Questions: Where is the definition? Which mirrors are generated?
-- Audience/owner: maintainers and agents / dossier maintainer.
-- Inputs: artifact catalog and accepted ownership decisions.
-- Outputs: source-of-truth lookup and change route.
-- Format/authority: Markdown; authoritative for source ownership.
-- Dependencies: DOS-0004, DEC-0001.
-- Timing/cadence: create with first artifacts; update on ownership or path
-  change.
-- Validation: no concern has two independent authoritative owners.
-- Omit/combine: may combine with DOS-0002 in Minimal.
-- Evidence: `CF:project-dossier/v0.2/CANONICAL_SOURCE_MAP.md`;
-  `COE:project-dossier/CANONICAL_SOURCE_MAP.md`.
+Conceptual type applicability is the durable trigger/omission decision.
+Core types use `required`. Conditional and Optional types use `not_assessed`,
+`applicable`, or `not_applicable`. A scaffold begins conditional/optional
+types as `not_assessed`; physical entry-point presence does not mean the
+trigger applies. `applicable` and `not_applicable` require `assessed_on`,
+`assessed_by`, and an evidence-based rationale. Only a `not_applicable` type
+may remain in the registry without a physical representation, preserving the
+omission decision after its path is removed.
 
-### DOS-0004 — Artifact catalog
+Representation applicability describes physical realization and additionally
+supports `combined`. A combined representation requires at least two
+`artifact_type_ids`, each referring to a required or applicable type, and a
+rationale naming the sections and edit direction that keep the concerns
+distinct inside one file.
 
-- Category/classification: inventory / Core
-- Purpose: machine-readable inventory of artifact role, classification,
-  ownership, cadence, sensitivity, and supersession.
-- Questions: What belongs to the dossier? Who maintains it? Is it generated?
-- Audience/owner: maintainers, validators, agents / dossier maintainer.
-- Inputs: selected profile and project extensions.
-- Outputs: navigation, path authority, drift checks, handoff.
-- Format/authority: JSON; authoritative inventory metadata.
-- Dependencies: DOS-0005, DOS-0006.
-- Timing/cadence: generated initially; maintained on artifact/path changes.
-- Validation: JSON Schema, unique IDs/paths, existing paths, full coverage.
-- Omit/combine: never omit; Minimal may contain fewer entries.
-- Evidence: inferred from both manifests; schema is a new recommendation.
+Review state is separate from generation provenance. `generated_on` or
+`scaffold_generated_on` records when structure was produced. A substantive
+`last_reviewed_on` remains `null` until a named maintainer reviews project
+content against stated evidence. Refreshing derived files never advances that
+review date.
 
-### DOS-0005 — Generated manifest and integrity set
+Representation roles and source directions are controlled by the registry.
+`project_maintained_source*`, `authoritative_when_present`, and
+`external_live_store_navigation` identify edit ownership;
+`generated_from_artifact_registry` and `generated_from_managed_files` identify
+derived outputs; `navigation_only` and
+`derived_navigation_maintained_by_task_owner` cannot own mutable facts.
 
-- Category/classification: generated / Core
-- Purpose: point-in-time file inventory and fingerprints.
-- Questions: Which bytes were checked? When? What scope was excluded?
-- Audience/owner: reviewers and automation / refresh tool.
-- Inputs: declared managed scope.
-- Outputs: manifest, report, and optional checksums.
-- Format/authority: JSON and checksum text; generated evidence only.
-- Dependencies: DOS-0004, VAL-0001.
-- Timing/cadence: refresh after managed changes and before handoff/release.
-- Validation: exact scope, source fingerprint, generation ID, mutual
-  consistency, freshness.
-- Omit/combine: manifest required; checksums conditional on High Assurance.
-- Evidence: `COE:project-dossier/MANIFEST.json`;
-  `COE:project-dossier/CHECKSUMS.sha256`.
+### 4.3 Complete artifact-type specifications
 
-### DOS-0006 — Version and supersession ledger
+The following is the self-contained human-readable specification of every
+conceptual type in the v2 machine source. A `CF:` or `COE:` locator is
+**[Observed]** evidence from that reference; entries prefixed `Inferred:` or
+`Recommended:` retain those explicit labels.
 
-- Category/classification: lifecycle / Core
-- Purpose: identify dossier version and preserve replacement history.
-- Questions: What is current? What changed? What does it supersede?
-- Audience/owner: maintainers and auditors / dossier governance owner.
-- Inputs: accepted changes and migration records.
-- Outputs: semantic version, successor links, retained-history locations.
-- Format/authority: Markdown version plus JSON ledger.
-- Dependencies: DOS-0004, DEC-0001.
-- Timing/cadence: create at initialization; update on semantic dossier change.
-- Validation: no cycle, missing successor, or reused artifact ID.
-- Omit/combine: version and empty supersession ledger remain Core.
-- Evidence: `CF:project-dossier/v0.2/SUPERSESSION_MAP.md`; COE generated
-  integrity and provenance.
+#### DOS-0001 — Dossier index
 
-### DEF-0001 — Executive project definition
+- **Category / classification:** navigation / core
+- **Minimum profile:** minimal
+- **Type applicability default:** required — Core artifact type for the selected profile. (`assessed_on`: null; `assessed_by`: null)
+- **Purpose:** Route readers to authoritative layers without restating mutable content.
+- **Questions it must answer:** Where do I start?; Which profile and information layers apply?;
+  Where is current work summarized?
+- **Intended audience:** all_project_participants, new_maintainers, agents
+- **Expected owner or maintainer:** dossier_maintainer
+- **Required inputs:** artifact_registry, authority_map, current_handoff_pointers
+- **Outputs / downstream consumers:** all_dossier_readers, handoff_workflows
+- **Recommended format:** Markdown
+- **Source-of-truth expectations:** Navigation only; it links authoritative sources and never
+  owns their mutable facts.
+- **Dependencies and related artifacts:** DOS-0002, DOS-0003, DOS-0010
+- **Creation timing:** Create first as the dossier entry point.
+- **Update triggers:** artifact_path_change, profile_change, entry_point_change
+- **Review cadence:** on_path_or_entry_point_change
+- **Validation / quality checks:** links_resolve, all_active_layers_listed,
+  no_duplicated_mutable_status
+- **Inclusion triggers:** all_projects
+- **Omission or combination:** Never omit. It may share a file with HOF-0001 only for truly
+  single-session work if authority and state remain visibly separate.
+- **Representative evidence:** `CF:project-dossier/v0.2/README.md`;
+  `COE:project-dossier/README.md`
 
-- Category/classification: canonical target / Core
-- Purpose: define identity, problem, outcomes, boundaries, audiences, ownership,
-  and success.
-- Questions: What is this project and explicitly not this project?
-- Audience/owner: all stakeholders / project owner.
-- Inputs: authoritative brief, accepted decisions, stakeholder evidence.
-- Outputs: requirements, architecture/outcome model, success measures.
-- Format/authority: Markdown; canonical target definition.
-- Dependencies: PRV-0001, DEC-0001.
-- Timing/cadence: early; review on strategy or scope change.
-- Validation: scope is bounded; terms and measures are testable; unknowns named.
-- Omit/combine: never omit; small projects may combine with REQ-0001 and
-  ARC-0001.
-- Evidence: CF product definition files; COE executive definition.
+#### DOS-0002 — Authority and interpretation map
 
-### REQ-0001 — Requirements and traceability
+- **Category / classification:** governance / core
+- **Minimum profile:** minimal
+- **Type applicability default:** required — Core artifact type for the selected profile. (`assessed_on`: null; `assessed_by`: null)
+- **Purpose:** Define dossier precedence, information roles, conflict handling, and the
+  non-authorizing boundary.
+- **Questions it must answer:** Which source governs each concern?; How are conflicts handled?;
+  What cannot grant permission?
+- **Intended audience:** all_project_participants, reviewers, agents
+- **Expected owner or maintainer:** project_governance_owner
+- **Required inputs:** applicable_repository_instructions, accepted_decisions,
+  source_classifications
+- **Outputs / downstream consumers:** canonical_source_map, validators, handoff
+- **Recommended format:** Markdown
+- **Source-of-truth expectations:** Authoritative only for interpreting dossier information;
+  operating permission remains outside the dossier.
+- **Dependencies and related artifacts:** DEC-0001, PRV-0001
+- **Creation timing:** Create before project-specific dossier content is adopted.
+- **Update triggers:** authority_change, information_role_change, conflict_discovered
+- **Review cadence:** on_authority_change_and_quarterly_for_active_projects
+- **Validation / quality checks:** non_authorizing_boundary_present, precedence_complete,
+  conflict_rule_present
+- **Inclusion triggers:** all_projects
+- **Omission or combination:** Never omit as a concern; Minimal may combine it with DOS-0003
+  under distinct headings.
+- **Representative evidence:** `CF:project-dossier/v0.2/CANONICAL_SOURCE_MAP.md`;
+  `COE:project-dossier/AUTHORITY.md`
 
-- Category/classification: canonical target / Core
-- Purpose: own requirement wording, basis, status, owner, validation, and links.
-- Questions: What must be true, why, and how will it be verified?
-- Audience/owner: implementers, reviewers, owners / requirement owner.
-- Inputs: definition, decisions, constraints, research, gates.
-- Outputs: architecture, findings, plans, validation.
-- Format/authority: Markdown plus authoritative JSON registry.
-- Dependencies: DEF-0001, PRV-0001, DEC-0001.
-- Timing/cadence: before conformance and planning; update through change control.
-- Validation: stable IDs, basis, owner, method, evidence or remediation.
-- Omit/combine: never omit; may combine prose with definition in Minimal.
-- Evidence: both references' requirements and traceability material.
+#### DOS-0003 — Canonical-source map
 
-### ARC-0001 — Architecture or outcome model
+- **Category / classification:** governance / core
+- **Minimum profile:** minimal
+- **Type applicability default:** required — Core artifact type for the selected profile. (`assessed_on`: null; `assessed_by`: null)
+- **Purpose:** Name the single source owner and edit direction for every mutable concern.
+- **Questions it must answer:** Where is each definition maintained?; Which view is generated?;
+  How does profile choice change representation ownership?
+- **Intended audience:** maintainers, reviewers, agents
+- **Expected owner or maintainer:** dossier_maintainer
+- **Required inputs:** artifact_registry, accepted_source_ownership_decisions
+- **Outputs / downstream consumers:** navigation, drift_detection, change_control
+- **Recommended format:** Markdown
+- **Source-of-truth expectations:** Authoritative for concern-to-source routing; it does not
+  duplicate the routed content.
+- **Dependencies and related artifacts:** DOS-0002, DOS-0010
+- **Creation timing:** Create with the first canonical and observed-state artifacts.
+- **Update triggers:** source_owner_change, representation_added, source_direction_change
+- **Review cadence:** on_source_owner_or_representation_change
+- **Validation / quality checks:** one_edit_owner_per_concern, generated_direction_declared,
+  all_active_stores_routed
+- **Inclusion triggers:** all_projects
+- **Omission or combination:** Never omit as a concern; Minimal may combine it with DOS-0002
+  under distinct headings.
+- **Representative evidence:** `CF:project-dossier/v0.2/CANONICAL_SOURCE_MAP.md`;
+  `COE:project-dossier/CANONICAL_SOURCE_MAP.md`
 
-- Category/classification: canonical target / Core
-- Purpose: describe actors, components/workstreams, boundaries, flows,
+#### DOS-0004 — Generated artifact catalog
+
+- **Category / classification:** inventory / core
+- **Minimum profile:** minimal
+- **Type applicability default:** required — Core artifact type for the selected profile. (`assessed_on`: null; `assessed_by`: null)
+- **Purpose:** Provide a normalized, machine-readable point-in-time view of the project-local
+  artifact registry.
+- **Questions it must answer:** Which type and representation records were cataloged?; From
+  which registry generation was this view produced?
+- **Intended audience:** validators, maintainers, agents
+- **Expected owner or maintainer:** artifact_registry_refresh_tool
+- **Required inputs:** DOS-0010
+- **Outputs / downstream consumers:** navigation_checks, integrity_validation
+- **Recommended format:** JSON
+- **Source-of-truth expectations:** Generated non-authoritative mirror of DOS-0010; never edited
+  independently.
+- **Dependencies and related artifacts:** DOS-0010
+- **Creation timing:** Generate after registry initialization and after every registry change.
+- **Update triggers:** artifact_registry_change, integrity_refresh
+- **Review cadence:** generated_on_registry_change
+- **Validation / quality checks:** schema_valid, generation_id_matches_related_outputs,
+  content_matches_registry
+- **Inclusion triggers:** all_projects
+- **Omission or combination:** Never omit from a generated dossier; consumers that can read
+  DOS-0010 directly may ignore this view but must not edit it.
+- **Representative evidence:** Recommended: portable normalized catalog inferred from both
+  reference manifests
+
+#### DOS-0005 — Generated manifest and integrity set
+
+- **Category / classification:** integrity / core
+- **Minimum profile:** minimal
+- **Type applicability default:** required — Core artifact type for the selected profile. (`assessed_on`: null; `assessed_by`: null)
+- **Purpose:** Record a point-in-time managed-file inventory and, when triggered, byte
+  checksums.
+- **Questions it must answer:** Which bytes and paths were checked?; What was excluded?; Are
+  related integrity outputs from one refresh?
+- **Intended audience:** reviewers, release_owners, automation
+- **Expected owner or maintainer:** integrity_refresh_tool
+- **Required inputs:** DOS-0010, declared_managed_scope
+- **Outputs / downstream consumers:** freshness_checks, handoff, release_or_audit_evidence
+- **Recommended format:** JSON, SHA-256 checksum text
+- **Source-of-truth expectations:** Generated evidence only; proves scoped byte identity, not
+  authority, correctness, approval, or readiness.
+- **Dependencies and related artifacts:** DOS-0010, VAL-0001
+- **Creation timing:** Generate at scaffold time and refresh after managed changes; checksums
+  are High-Assurance or risk-triggered.
+- **Update triggers:** managed_file_change, handoff, release_candidate, integrity_refresh
+- **Review cadence:** after_managed_change_and_before_gated_handoff
+- **Validation / quality checks:** scope_exact, generation_ids_match, fingerprint_fresh,
+  checksum_set_complete_when_enabled
+- **Inclusion triggers:** manifest_for_all_profiles, checksums_for_high_assurance_or_audit_need
+- **Omission or combination:** The manifest is Core. Checksums may be omitted unless audit,
+  release, immutable-baseline, or High-Assurance triggers apply.
+- **Representative evidence:** `CF:project-dossier/v0.2/CHECKSUMS.md`;
+  `COE:project-dossier/MANIFEST.json`; `COE:project-dossier/CHECKSUMS.sha256`
+
+#### DOS-0006 — Dossier version record
+
+- **Category / classification:** lifecycle / core
+- **Minimum profile:** minimal
+- **Type applicability default:** required — Core artifact type for the selected profile. (`assessed_on`: null; `assessed_by`: null)
+- **Purpose:** Identify the dossier contract version, adoption state, effective date, and change
+  basis.
+- **Questions it must answer:** Which dossier version is current?; Was it merely generated or
+  project-adopted?; What migration applies?
+- **Intended audience:** maintainers, auditors, upgrade_tools
+- **Expected owner or maintainer:** dossier_governance_owner
+- **Required inputs:** accepted_dossier_changes, blueprint_origin, migration_records
+- **Outputs / downstream consumers:** upgrade_planning, handoff, supersession
+- **Recommended format:** Markdown
+- **Source-of-truth expectations:** Project-maintained source for dossier version and adoption
+  state.
+- **Dependencies and related artifacts:** DOS-0007, DEC-0001
+- **Creation timing:** Create at initialization; mark generated baseline as unadopted.
+- **Update triggers:** dossier_contract_change, profile_change, adoption_or_upgrade
+- **Review cadence:** on_semantic_dossier_change
+- **Validation / quality checks:** semantic_version_valid, adoption_state_explicit,
+  migration_link_present_when_required
+- **Inclusion triggers:** all_projects
+- **Omission or combination:** Never omit; it may be presented with the supersession ledger only
+  if the machine-readable lifecycle record remains available.
+- **Representative evidence:** `CF:project-dossier/v0.2/README.md`; Inferred: COE records
+  point-in-time creation and generated integrity but has no direct dossier-version equivalent
+
+#### DOS-0007 — Supersession ledger
+
+- **Category / classification:** lifecycle / core
+- **Minimum profile:** minimal
+- **Type applicability default:** required — Core artifact type for the selected profile. (`assessed_on`: null; `assessed_by`: null)
+- **Purpose:** Preserve explicit artifact replacements, effective dates, reasons, migrations,
+  and retained history.
+- **Questions it must answer:** What is no longer current?; What replaced it?; Where is history
+  retained?
+- **Intended audience:** maintainers, auditors, agents
+- **Expected owner or maintainer:** dossier_governance_owner
+- **Required inputs:** accepted_successor_change, artifact_registry, retention_decision
+- **Outputs / downstream consumers:** authority_resolution, history, migration, handoff
+- **Recommended format:** JSON
+- **Source-of-truth expectations:** Authoritative project-local lifecycle record; changes append
+  or correct through an explicit successor.
+- **Dependencies and related artifacts:** DOS-0006, DOS-0010, DEC-0001
+- **Creation timing:** Create empty at initialization; add a record before a superseded artifact
+  is treated as noncurrent.
+- **Update triggers:** artifact_superseded, artifact_split_or_merged, dossier_version_change
+- **Review cadence:** on_supersession
+- **Validation / quality checks:** no_cycles, successors_resolve, retained_location_resolves,
+  ids_not_reused
+- **Inclusion triggers:** all_projects
+- **Omission or combination:** Never omit the empty ledger; it may remain empty until the first
+  supersession.
+- **Representative evidence:** `CF:project-dossier/v0.2/SUPERSESSION_MAP.md`; Recommended: COE
+  has no direct dossier supersession ledger equivalent
+
+#### DOS-0008 — Generated path-authority map
+
+- **Category / classification:** governance / core
+- **Minimum profile:** minimal
+- **Type applicability default:** required — Core artifact type for the selected profile. (`assessed_on`: null; `assessed_by`: null)
+- **Purpose:** Provide per-path information-state and authority classification derived from the
+  registry.
+- **Questions it must answer:** Which representation owns this path?; What information role and
+  source direction apply?
+- **Intended audience:** validators, agents, reviewers
+- **Expected owner or maintainer:** artifact_registry_refresh_tool
+- **Required inputs:** DOS-0010
+- **Outputs / downstream consumers:** authority_checks, drift_detection, safe_context_loading
+- **Recommended format:** JSON
+- **Source-of-truth expectations:** Generated non-authoritative mirror; DOS-0010 owns
+  representation metadata.
+- **Dependencies and related artifacts:** DOS-0010
+- **Creation timing:** Generate alongside the artifact catalog directly from the artifact
+  registry.
+- **Update triggers:** artifact_registry_change, integrity_refresh
+- **Review cadence:** generated_on_registry_change
+- **Validation / quality checks:** every_managed_dossier_path_covered_once,
+  content_matches_registry, generation_id_matches_catalog
+- **Inclusion triggers:** all_projects
+- **Omission or combination:** Never omit from an agent-operable generated dossier;
+  non-filesystem adaptations must provide an equivalent locator classification.
+- **Representative evidence:**
+  `CF:project-dossier/v0.2/machine-readable/repository-path-authority.yaml`;
+  `COE:project-dossier/machine-readable/path-authority.yaml`
+
+#### DOS-0010 — Project artifact registry
+
+- **Category / classification:** inventory / core
+- **Minimum profile:** minimal
+- **Type applicability default:** required — Core artifact type for the selected profile. (`assessed_on`: null; `assessed_by`: null)
+- **Purpose:** Own project-local artifact types, physical representations, applicability
+  decisions, review state, and source direction.
+- **Questions it must answer:** Which artifact types apply?; Which physical representations are
+  active?; Who owns and reviews each one?
+- **Intended audience:** dossier_maintainers, validators, agents
+- **Expected owner or maintainer:** dossier_maintainer
+- **Required inputs:** selected_profile, project_trigger_assessment,
+  accepted_path_and_owner_changes
+- **Outputs / downstream consumers:** DOS-0004, DOS-0008, DOS-0005, navigation, drift_detection
+- **Recommended format:** JSON
+- **Source-of-truth expectations:** Authoritative project-local metadata source seeded by
+  generation and thereafter maintained explicitly; generated views never replace it.
+- **Dependencies and related artifacts:** DOS-0002, DOS-0003
+- **Creation timing:** Seed during scaffold generation before derived catalog and path-authority
+  outputs.
+- **Update triggers:** artifact_added_or_removed, path_change, applicability_assessment,
+  owner_or_review_change, supersession
+- **Review cadence:** on_artifact_change_and_quarterly_for_active_projects
+- **Validation / quality checks:** type_ids_unique, representation_ids_unique,
+  paths_confined_and_unique, references_resolve, applicability_and_review_semantics_valid
+- **Inclusion triggers:** all_projects
+- **Omission or combination:** Never omit. It is the edit source; DOS-0004 and DOS-0008 must be
+  regenerated from it.
+- **Representative evidence:** Recommended: closes the editable-registry and derived-catalog gap
+  observed across both references
+
+#### DEF-0001 — Executive project definition
+
+- **Category / classification:** project_definition / core
+- **Minimum profile:** minimal
+- **Type applicability default:** required — Core artifact type for the selected profile. (`assessed_on`: null; `assessed_by`: null)
+- **Purpose:** Define project identity, problem, intended outcomes, boundaries, audiences,
+  ownership, and success.
+- **Questions it must answer:** What is this project?; What is explicitly out of scope?; What
+  outcomes and measures define success?
+- **Intended audience:** all_stakeholders, maintainers, agents
+- **Expected owner or maintainer:** project_owner
+- **Required inputs:** authoritative_brief, accepted_scope_decisions, stakeholder_evidence
+- **Outputs / downstream consumers:** requirements, architecture_or_outcome_model, planning,
+  success_assessment
+- **Recommended format:** Markdown
+- **Source-of-truth expectations:** Canonical target definition; proposed or unknown content
+  stays labeled.
+- **Dependencies and related artifacts:** PRV-0001, DEC-0001
+- **Creation timing:** Create during project framing before detailed requirements.
+- **Update triggers:** strategy_change, scope_change, outcome_change, ownership_change
+- **Review cadence:** on_strategy_or_scope_change_and_at_major_gates
+- **Validation / quality checks:** scope_bounded, non_goals_present, success_measures_testable,
+  unknowns_labeled
+- **Inclusion triggers:** all_projects
+- **Omission or combination:** Never omit; small projects may combine it with REQ-0001 and
+  ARC-0001 under separate sections.
+- **Representative evidence:** `CF:project-dossier/v0.2/canonical/platform-definition.md`;
+  `COE:project-dossier/canonical/executive-project-definition.md`
+
+#### REQ-0001 — Requirements and traceability system
+
+- **Category / classification:** requirements / core
+- **Minimum profile:** minimal
+- **Type applicability default:** required — Core artifact type for the selected profile. (`assessed_on`: null; `assessed_by`: null)
+- **Purpose:** Own requirement wording, basis, status, owner, validation method, and
+  traceability.
+- **Questions it must answer:** What must be true?; Why is it required?; How will it be verified
+  and what currently satisfies it?
+- **Intended audience:** owners, implementers, reviewers, agents
+- **Expected owner or maintainer:** requirements_owner
+- **Required inputs:** project_definition, accepted_decisions, constraints, provenance
+- **Outputs / downstream consumers:** architecture, conformance, plans, validation, gates
+- **Recommended format:** Markdown, JSON for Standard and High-Assurance record stores
+- **Source-of-truth expectations:** Minimal owns records in Markdown; Standard and
+  High-Assurance own individual records in JSON while Markdown owns vocabulary and explanation.
+- **Dependencies and related artifacts:** DEF-0001, PRV-0001, DEC-0001
+- **Creation timing:** Create before conformance assessment and implementation planning.
+- **Update triggers:** requirement_proposed, decision_accepted, constraint_change,
+  validation_method_change
+- **Review cadence:** on_requirement_change_and_before_readiness_gates
+- **Validation / quality checks:** stable_record_ids, basis_and_owner_present,
+  status_controlled, validation_and_traceability_complete
+- **Inclusion triggers:** all_projects
+- **Omission or combination:** Never omit; prose may share DEF-0001 in Minimal, but requirement
+  IDs and record ownership remain explicit.
+- **Representative evidence:**
+  `CF:project-dossier/v0.2/dossier-v0.2/docs/requirements/requirements-traceability.md`;
+  `COE:project-dossier/machine-readable/requirements.yaml`;
+  `COE:project-dossier/requirements/traceability.md`
+
+#### ARC-0001 — Architecture or outcome model
+
+- **Category / classification:** architecture_or_outcome / core
+- **Minimum profile:** minimal
+- **Type applicability default:** required — Core artifact type for the selected profile. (`assessed_on`: null; `assessed_by`: null)
+- **Purpose:** Describe intended actors, components or workstreams, boundaries, flows,
   interfaces, states, and invariants.
-- Questions: How should the intended system or outcome fit together?
-- Audience/owner: implementers and reviewers / architecture or design owner.
-- Inputs: definition, requirements, decisions, domain models.
-- Outputs: plans, interfaces, validation criteria, operational models.
-- Format/authority: Markdown, diagrams, and structured schemas where consumed.
-- Dependencies: DEF-0001, REQ-0001, DEC-0001.
-- Timing/cadence: before detailed implementation; update on accepted design
-  changes.
-- Validation: every component supports requirements; boundaries and failure
-  behavior are explicit.
-- Omit/combine: never omit; terminology becomes outcome/workstream model for
-  non-software projects.
-- Evidence: CF architecture/workflows/schemas; COE canonical architecture set.
+- **Questions it must answer:** How should the intended system or outcome fit together?; Where
+  are boundaries and failure modes?; Which requirements does each part support?
+- **Intended audience:** implementers, designers, reviewers, operators
+- **Expected owner or maintainer:** architecture_or_design_owner
+- **Required inputs:** project_definition, requirements, accepted_decisions,
+  domain_models_when_applicable
+- **Outputs / downstream consumers:** plans, interfaces, validation, operations
+- **Recommended format:** Markdown, diagram, JSON schema where mechanically consumed
+- **Source-of-truth expectations:** Canonical intended structure; diagrams generated from
+  another source are labeled derived.
+- **Dependencies and related artifacts:** DEF-0001, REQ-0001, DEC-0001
+- **Creation timing:** Create before detailed execution or implementation.
+- **Update triggers:** accepted_design_change, boundary_change, workflow_change,
+  failure_model_change
+- **Review cadence:** on_accepted_design_change
+- **Validation / quality checks:** requirements_coverage, boundaries_explicit,
+  flows_and_failure_behavior_consistent, generated_diagrams_trace_source
+- **Inclusion triggers:** all_projects
+- **Omission or combination:** Never omit the concern; non-software projects use outcome,
+  operating, service, or workstream terminology.
+- **Representative evidence:** `CF:project-dossier/v0.2/canonical/architecture.md`;
+  `COE:project-dossier/canonical/technical-architecture.md`;
+  `COE:project-dossier/canonical/business-and-brand-architecture.md`
 
-### DEC-0001 — Decision records
+#### DEC-0001 — Durable decision records
 
-- Category/classification: durable intent / Core
-- Purpose: preserve why an accepted durable choice exists and its scope.
-- Questions: What was decided, by whom/what authority, and what did it replace?
-- Audience/owner: all future maintainers / decision owner.
-- Inputs: alternatives, evidence, authority source.
-- Outputs: canonical target, requirements, plans, supersession.
-- Format/authority: Markdown records under `.agent/decisions/`; status-dependent.
-- Dependencies: harness decision schema and lifecycle.
-- Timing/cadence: when a durable choice is proposed or accepted.
-- Validation: unique ID, valid status, authority source, successor semantics.
-- Omit/combine: store is Core; no fabricated accepted record is generated.
-- Evidence: both live `.agent/decisions/`; CF ADRs.
+- **Category / classification:** decisions / core
+- **Minimum profile:** minimal
+- **Type applicability default:** required — Core artifact type for the selected profile. (`assessed_on`: null; `assessed_by`: null)
+- **Purpose:** Preserve the context, authority, alternatives, consequences, and successors of
+  durable choices.
+- **Questions it must answer:** What was decided?; Under which authority and scope?; What did it
+  replace and how is it validated?
+- **Intended audience:** future_maintainers, owners, reviewers, agents
+- **Expected owner or maintainer:** decision_owner
+- **Required inputs:** decision_context, alternatives, evidence, valid_authority_source
+- **Outputs / downstream consumers:** canonical_target, requirements, plans, supersession
+- **Recommended format:** Markdown records governed by the harness lifecycle
+- **Source-of-truth expectations:** Status-dependent live decision store belongs in the harness;
+  dossier summaries only link to it.
+- **Dependencies and related artifacts:** none
+- **Creation timing:** Create when a durable choice is proposed; acceptance requires valid
+  project authority.
+- **Update triggers:** decision_proposed, decision_status_change, decision_superseded
+- **Review cadence:** on_durable_choice_or_invalidating_evidence
+- **Validation / quality checks:** stable_ids, legal_status_transition,
+  authority_source_present_for_acceptance, successor_semantics
+- **Inclusion triggers:** all_projects
+- **Omission or combination:** The store is Core; an empty store is valid and generation must
+  not fabricate an accepted decision.
+- **Representative evidence:** `CF:.agent/decisions/`; `COE:.agent/decisions/`;
+  `CF:project-dossier/v0.2/dossier-v0.2/docs/architecture/adr/`
 
-### GOV-0001 — Constraints, gates, and readiness criteria
+#### GOV-0001 — Constraints, quality gates, and readiness criteria
 
-- Category/classification: governance / Core
-- Purpose: define non-functional constraints and objective gates.
-- Questions: Which approvals, risks, evidence, and conditions block progression?
-- Audience/owner: owners, reviewers, specialists / governance owner.
-- Inputs: requirements, threat/risk analysis, specialist obligations.
-- Outputs: plans, validation, handoff, release decisions.
-- Format/authority: Markdown/JSON; canonical criteria, not approval.
-- Dependencies: REQ-0001, REG-0001, VAL-0001.
-- Timing/cadence: before gated work; review when risk or environment changes.
-- Validation: gates have owner, inputs, pass criteria, evidence, expiry.
-- Omit/combine: combine with requirements in Minimal; separate when any external
-  or high-impact gate exists.
-- Evidence: both references' approval/readiness checklists.
+- **Category / classification:** governance / core
+- **Minimum profile:** minimal
+- **Type applicability default:** required — Core artifact type for the selected profile. (`assessed_on`: null; `assessed_by`: null)
+- **Purpose:** Define constraints and objective evidence conditions for progression without
+  recording approval itself.
+- **Questions it must answer:** Which gates apply?; Who may decide them?; What exact evidence,
+  expiry, and exception rules apply?
+- **Intended audience:** owners, reviewers, specialists, operators
+- **Expected owner or maintainer:** project_governance_owner
+- **Required inputs:** requirements, risk_analysis, specialist_obligations, authority_sources
+- **Outputs / downstream consumers:** plans, validation, handoff, readiness_decisions
+- **Recommended format:** Markdown, JSON gate records
+- **Source-of-truth expectations:** Criteria are canonical; generated proposed gates remain
+  unadopted until project authority accepts them. Approval evidence is separate.
+- **Dependencies and related artifacts:** REQ-0001, REG-0001, VAL-0001
+- **Creation timing:** Create before any gated work or readiness claim.
+- **Update triggers:** gate_added_or_changed, risk_change, environment_change, obligation_change
+- **Review cadence:** on_gate_or_risk_change_and_before_gate_evaluation
+- **Validation / quality checks:** owner_and_scope_present, pass_criteria_objective,
+  required_evidence_and_expiry_present, approval_not_inferred
+- **Inclusion triggers:** all_projects
+- **Omission or combination:** Never omit the concern; Minimal may combine prose with
+  requirements, but machine gate records remain separate when present.
+- **Representative evidence:** `CF:project-dossier/v0.2/canonical/readiness-criteria.md`;
+  `CF:project-dossier/v0.2/machine-readable/approval-gates.yaml`;
+  `COE:project-dossier/canonical/readiness-criteria.md`
 
-### CUR-0001 — Current-state baseline
+#### CUR-0001 — Current-state baseline
 
-- Category/classification: current state / Core
-- Purpose: record dated, evidence-backed present reality.
-- Questions: What exists, is absent, is unknown, or differs by environment?
-- Audience/owner: all execution roles / current-state assessor.
-- Inputs: direct inspection, commands, inventory, evidence.
-- Outputs: findings, plans, handoff.
-- Format/authority: Markdown and optional JSON; authoritative only for stated
-  subject, time, and scope.
-- Dependencies: VAL-0001, PRV-0001.
-- Timing/cadence: initial assessment; refresh on material change or evidence
-  expiry.
-- Validation: date, subject fingerprint/version, method, environment,
-  limitations, evidence links.
-- Omit/combine: never omit.
-- Evidence: both references' current-status and implementation assessments.
+- **Category / classification:** current_state / core
+- **Minimum profile:** minimal
+- **Type applicability default:** required — Core artifact type for the selected profile. (`assessed_on`: null; `assessed_by`: null)
+- **Purpose:** Record dated, evidence-backed present reality independently of intended state and
+  plans.
+- **Questions it must answer:** What exists, is absent, is unknown, or differs by environment?;
+  What exact subject and method were inspected?
+- **Intended audience:** owners, implementers, reviewers, agents
+- **Expected owner or maintainer:** current_state_assessor
+- **Required inputs:** direct_inspection, source_revision_or_subject_identity,
+  executed_commands, evidence
+- **Outputs / downstream consumers:** conformance, plans, handoff, risk_assessment
+- **Recommended format:** Markdown, optional JSON observations
+- **Source-of-truth expectations:** Authoritative only for the stated subject, scope,
+  environment, method, and observation time.
+- **Dependencies and related artifacts:** VAL-0001, PRV-0001
+- **Creation timing:** Create after direct initial inspection, not from scaffold generation.
+- **Update triggers:** material_implementation_change, environment_change, evidence_expiry,
+  handoff
+- **Review cadence:** on_material_change_or_evidence_expiry
+- **Validation / quality checks:** observation_time_not_generation_time,
+  subject_identity_present, method_and_limits_present, claims_link_evidence
+- **Inclusion triggers:** all_projects
+- **Omission or combination:** Never omit; before inspection, retain an explicit not_assessed
+  state rather than a false dated baseline.
+- **Representative evidence:**
+  `CF:project-dossier/v0.2/agent-handoff/current-implementation-status.md`;
+  `COE:project-dossier/current-state/repository-baseline.md`
 
-### CNF-0001 — Conformance and gap register
+#### CNF-0001 — Conformance and gap register
 
-- Category/classification: conformance / Core
-- Purpose: compare current evidence with canonical requirements.
-- Questions: What conforms, is compatible, transitional, absent, or unassessed?
-- Audience/owner: owners and implementers / assessor.
-- Inputs: requirements, current state, evidence.
-- Outputs: findings, remediation plans, readiness status.
-- Format/authority: Markdown plus authoritative JSON findings.
-- Dependencies: REQ-0001, CUR-0001, VAL-0001.
-- Timing/cadence: after baseline; update when target or evidence changes.
-- Validation: every finding links requirement and evidence; classifications are
-  controlled.
-- Omit/combine: never omit; an empty/not-assessed register is valid.
-- Evidence: CF v0.2 conformance; COE conformance package.
+- **Category / classification:** conformance / core
+- **Minimum profile:** minimal
+- **Type applicability default:** required — Core artifact type for the selected profile. (`assessed_on`: null; `assessed_by`: null)
+- **Purpose:** Compare current evidence with canonical requirements using controlled findings.
+- **Questions it must answer:** What conforms, differs, is absent, or remains unassessed?; Which
+  evidence and requirement support each classification?
+- **Intended audience:** owners, implementers, reviewers, agents
+- **Expected owner or maintainer:** conformance_assessor
+- **Required inputs:** requirements, current_state, validation_evidence
+- **Outputs / downstream consumers:** remediation_plans, risk_register, readiness_assessment
+- **Recommended format:** Markdown, JSON for Standard and High-Assurance finding records
+- **Source-of-truth expectations:** Minimal may own findings in Markdown; Standard and
+  High-Assurance own finding records in JSON while Markdown owns method and summary.
+- **Dependencies and related artifacts:** REQ-0001, CUR-0001, VAL-0001
+- **Creation timing:** Create after the first current-state baseline.
+- **Update triggers:** requirement_change, current_state_change, evidence_change,
+  remediation_change
+- **Review cadence:** on_target_or_evidence_change
+- **Validation / quality checks:** finding_ids_stable, requirement_and_evidence_refs_resolve,
+  classification_controlled, coverage_disclosed
+- **Inclusion triggers:** all_projects
+- **Omission or combination:** Never omit; an empty or not_assessed register is valid before
+  evidence exists.
+- **Representative evidence:** `CF:project-dossier/v0.2/conformance/README.md`;
+  `COE:project-dossier/conformance/findings.yaml`
 
-### PLN-0001 — Dependency-aware plan
+#### PLN-0001 — Dependency-aware implementation or delivery plan
 
-- Category/classification: planning / Core
-- Purpose: define future work, dependencies, gates, owners, and acceptance.
-- Questions: What remains, in what order, and what proves completion?
-- Audience/owner: executors and owners / planning owner.
-- Inputs: findings, requirements, registers, decisions, gates.
-- Outputs: task intake, expected evidence, handoff priorities.
-- Format/authority: Markdown plus authoritative JSON plan registry.
-- Dependencies: CNF-0001, REG-0001, GOV-0001.
-- Timing/cadence: after target/current comparison; update on dependency/status
-  change.
-- Validation: acyclic dependencies, valid refs, completion evidence.
-- Omit/combine: plan entry point is Core; no accepted work is fabricated.
-- Evidence: both references' roadmaps and implementation plans.
+- **Category / classification:** planning / core
+- **Minimum profile:** minimal
+- **Type applicability default:** required — Core artifact type for the selected profile. (`assessed_on`: null; `assessed_by`: null)
+- **Purpose:** Define future work, dependencies, gates, ownership, rollback, and closure
+  evidence.
+- **Questions it must answer:** What remains?; In what order?; What proves completion and what
+  stops or rolls back the work?
+- **Intended audience:** executors, owners, reviewers, agents
+- **Expected owner or maintainer:** planning_owner
+- **Required inputs:** findings, requirements, registers, decisions, gates
+- **Outputs / downstream consumers:** task_intake, validation, handoff, resource_coordination
+- **Recommended format:** Markdown, JSON for Standard and High-Assurance plan-item records
+- **Source-of-truth expectations:** Minimal may own plan items in Markdown; Standard and
+  High-Assurance own plan-item records in JSON while Markdown owns method and summary.
+- **Dependencies and related artifacts:** CNF-0001, REG-0001, GOV-0001
+- **Creation timing:** Create after target/current comparison identifies real work.
+- **Update triggers:** finding_change, dependency_change, gate_change, plan_status_change
+- **Review cadence:** on_dependency_or_status_change
+- **Validation / quality checks:** dependency_graph_acyclic, references_resolve,
+  completion_links_evidence, authority_not_implied
+- **Inclusion triggers:** all_projects
+- **Omission or combination:** Never omit the planning entry point; an empty plan is valid and
+  generation must not fabricate accepted work.
+- **Representative evidence:**
+  `CF:project-dossier/v0.2/implementation-plan/dependency-roadmap.md`;
+  `COE:project-dossier/implementation-plan/plan.yaml`
 
-### REG-0001 — RAIDQ register
+#### REG-0001 — RAIDQ register
 
-- Category/classification: unresolved state / Core
-- Purpose: own risks, assumptions, issues, dependencies, and questions.
-- Questions: What is uncertain, blocking, accepted, expired, or unresolved?
-- Audience/owner: all roles / named item owners and register maintainer.
-- Inputs: discovery, reviews, incidents, planning.
-- Outputs: decisions, gates, plans, validation scope.
-- Format/authority: Markdown plus authoritative JSON registry.
-- Dependencies: PRV-0001, DEC-0001.
-- Timing/cadence: create during discovery; review by item date and before gates.
-- Validation: unique IDs, type/status, owner, impact, resolution condition.
-- Omit/combine: never omit; empty register is valid.
-- Evidence: both references' risk/open-question/knowledge stores.
+- **Category / classification:** unresolved_state / core
+- **Minimum profile:** minimal
+- **Type applicability default:** required — Core artifact type for the selected profile. (`assessed_on`: null; `assessed_by`: null)
+- **Purpose:** Own risks, assumptions, issues, dependencies, and open questions with review and
+  resolution conditions.
+- **Questions it must answer:** What is uncertain, blocking, accepted, expired, or unresolved?;
+  Who owns the next review or resolution?
+- **Intended audience:** all_project_roles, owners, reviewers
+- **Expected owner or maintainer:** register_maintainer
+- **Required inputs:** discovery, reviews, incidents, planning
+- **Outputs / downstream consumers:** decisions, gates, plans, validation_scope, handoff
+- **Recommended format:** Markdown, JSON for Standard and High-Assurance records
+- **Source-of-truth expectations:** Minimal may own items in Markdown; Standard and
+  High-Assurance own item records in JSON while Markdown owns vocabulary and summary.
+- **Dependencies and related artifacts:** PRV-0001, DEC-0001
+- **Creation timing:** Create during discovery before silent assumptions accumulate.
+- **Update triggers:** item_discovered, status_change, review_date_reached, resolution_evidence
+- **Review cadence:** weekly_during_active_work_and_by_each_item_date
+- **Validation / quality checks:** stable_ids, type_and_status_controlled,
+  owner_and_impact_present, review_or_expiry_and_resolution_condition_present
+- **Inclusion triggers:** all_projects
+- **Omission or combination:** Never omit; an empty register is valid. Categories may share one
+  store when IDs and vocabularies remain explicit.
+- **Representative evidence:** `CF:project-dossier/v0.2/implementation-plan/risk-register.md`;
+  `COE:project-dossier/registers/`
 
-### PRV-0001 — Source and provenance index
+#### PRV-0001 — Source and provenance index
 
-- Category/classification: provenance / Core
-- Purpose: identify sources, versions, rights, sensitivity, freshness, and
-  limitations.
-- Questions: Where did this claim come from and may it still be relied upon?
-- Audience/owner: all evidence consumers / source curator.
-- Inputs: project records, external references, imported assets and methods.
-- Outputs: requirements, decisions, research, evidence.
-- Format/authority: Markdown plus authoritative JSON source index.
-- Dependencies: DOS-0002.
-- Timing/cadence: before consequential source use; refresh on expiry/version
-  change.
-- Validation: stable source ID, locator, observation date/version, use,
-  limitations, sensitivity, rights/license where applicable.
-- Omit/combine: never omit.
-- Evidence: COE provenance package; CF dated provider research.
+- **Category / classification:** provenance / core
+- **Minimum profile:** minimal
+- **Type applicability default:** required — Core artifact type for the selected profile. (`assessed_on`: null; `assessed_by`: null)
+- **Purpose:** Identify sources, versions, retrieval or observation dates, rights, sensitivity,
+  freshness, and limitations.
+- **Questions it must answer:** Where did a consequential claim come from?; May it still be
+  relied upon and used for this purpose?
+- **Intended audience:** all_evidence_consumers, researchers, reviewers
+- **Expected owner or maintainer:** source_curator
+- **Required inputs:** project_sources, external_references, imported_assets, methods
+- **Outputs / downstream consumers:** requirements, decisions, research, evidence, supply_chain
+- **Recommended format:** Markdown, JSON for Standard and High-Assurance source records
+- **Source-of-truth expectations:** Minimal may own source records in Markdown; Standard and
+  High-Assurance own records in JSON while Markdown owns method and summary.
+- **Dependencies and related artifacts:** DOS-0002
+- **Creation timing:** Create before a consequential source is relied upon.
+- **Update triggers:** source_added, source_version_change, source_expiry,
+  rights_or_sensitivity_change, contradiction_found
+- **Review cadence:** on_source_change_or_expiry
+- **Validation / quality checks:** stable_source_id, locator_and_version_or_date_present,
+  use_and_limits_present, freshness_and_rights_assessed_when_applicable
+- **Inclusion triggers:** all_projects
+- **Omission or combination:** Never omit; private or sensitive locators may be represented by
+  safe references rather than exposed values.
+- **Representative evidence:** `CF:project-dossier/v0.2/verification/verification-manifest.md`;
+  `COE:project-dossier/provenance/source-index.yaml`
 
-### VAL-0001 — Validation and evidence index
+#### VAL-0001 — Validation and evidence system
 
-- Category/classification: evidence / Core
-- Purpose: define validation commands and index bounded evidence.
-- Questions: What was checked, on which subject, with what result and limits?
-- Audience/owner: reviewers, operators, agents / validation owner.
-- Inputs: requirements, gates, implementation/artifacts.
-- Outputs: findings, readiness decisions, handoff.
-- Format/authority: Markdown plus JSON evidence index and generated reports.
-- Dependencies: REQ-0001, GOV-0001, PRV-0001.
-- Timing/cadence: define with requirements; record evidence only after execution.
-- Validation: reproducible command/method, exact fingerprint, time, environment,
-  scope, result, limitations, freshness.
-- Omit/combine: never omit; evidence may initially be empty.
-- Evidence: both references' testing/validation/evidence layers.
+- **Category / classification:** validation_and_evidence / core
+- **Minimum profile:** minimal
+- **Type applicability default:** required — Core artifact type for the selected profile. (`assessed_on`: null; `assessed_by`: null)
+- **Purpose:** Define reproducible validation and index bounded evidence without converting a
+  check result into approval.
+- **Questions it must answer:** What was checked?; On which exact subject and environment?; What
+  result, limitations, and freshness rule apply?
+- **Intended audience:** reviewers, operators, owners, agents
+- **Expected owner or maintainer:** validation_owner
+- **Required inputs:** requirements, gates, implemented_or_produced_subject, provenance
+- **Outputs / downstream consumers:** current_state, findings, readiness_decisions, handoff,
+  integrity
+- **Recommended format:** Markdown, JSON evidence metadata, generated reports
+- **Source-of-truth expectations:** Validation procedure is maintained; executed evidence is
+  immutable and scoped. Standard and High-Assurance index evidence metadata in JSON.
+- **Dependencies and related artifacts:** REQ-0001, GOV-0001, PRV-0001
+- **Creation timing:** Define methods with requirements; create evidence only after observation
+  or execution.
+- **Update triggers:** requirement_or_validator_change, evidence_recorded,
+  evidence_expired_or_superseded
+- **Review cadence:** on_validation_contract_or_evidence_change
+- **Validation / quality checks:** method_reproducible, subject_fingerprint_present,
+  time_environment_scope_result_and_limits_present, freshness_enforced
+- **Inclusion triggers:** all_projects
+- **Omission or combination:** Never omit the validation entry point; the evidence index may be
+  empty before checks run.
+- **Representative evidence:**
+  `CF:project-dossier/v0.2/machine-readable/validation-report.json`;
+  `COE:project-dossier/validation/validation-report.json`
 
-### HOF-0001 — Handoff and resumption pack
+#### HOF-0001 — Handoff and resumption pack
 
-- Category/classification: navigation / Core
-- Purpose: provide a bounded current view and next safe action.
-- Questions: What is active, blocked, fresh, and next?
-- Audience/owner: incoming maintainer or agent / current task owner.
-- Inputs: active tasks, accepted decisions, current evidence, registers.
-- Outputs: reading order and resumption pointer.
-- Format/authority: Markdown; derived navigation only.
-- Dependencies: all current authoritative owners.
-- Timing/cadence: before handoff and after active-state change.
-- Validation: compact, link-based, no duplicated mutable facts, stale markers.
-- Omit/combine: never omit for multi-session work; may merge with index only for
-  truly single-session projects.
-- Evidence: both references' handoff/resumption packages.
+- **Category / classification:** handoff / core
+- **Minimum profile:** minimal
+- **Type applicability default:** required — Core artifact type for the selected profile. (`assessed_on`: null; `assessed_by`: null)
+- **Purpose:** Provide a bounded current view, exact revision, blockers, evidence pointers, and
+  next safe action.
+- **Questions it must answer:** What is active and blocked?; What evidence is fresh?; What
+  should the next maintainer inspect or do first?
+- **Intended audience:** incoming_maintainers, agents, reviewers
+- **Expected owner or maintainer:** current_task_owner
+- **Required inputs:** active_tasks, accepted_decisions, current_evidence, registers,
+  exact_revision
+- **Outputs / downstream consumers:** resumption, review, transition
+- **Recommended format:** Markdown
+- **Source-of-truth expectations:** Derived navigation only; links to mutable owners and never
+  becomes a second status store.
+- **Dependencies and related artifacts:** DEC-0001, CUR-0001, PLN-0001, REG-0001, VAL-0001
+- **Creation timing:** Create before the first multi-session handoff.
+- **Update triggers:** active_task_change, blocker_change, evidence_change, handoff
+- **Review cadence:** before_every_handoff
+- **Validation / quality checks:** compact_and_link_based, exact_revision_present,
+  pointers_resolve, stale_or_unknown_state_disclosed
+- **Inclusion triggers:** all_multi_session_projects, all_generated_profiles
+- **Omission or combination:** Never omit for multi-session work; a truly single-session project
+  may combine it with DOS-0001 while preserving separate state labels.
+- **Representative evidence:** `CF:project-dossier/v0.2/agent-handoff/START_HERE.md`;
+  `COE:project-dossier/handoff/START_HERE.md`
 
-### Conditional and optional artifact types
+#### HOF-0002 — Adoption checklist
 
-| ID | Artifact | Class | Trigger | Owner/format | Validation/omission |
-|---|---|---|---|---|---|
-| MOD-0001 | Domain models, workflows, interfaces, schemas | Conditional | multiple entities, states, interfaces, suppliers, or handoffs | domain owner; Markdown/JSON/diagram | required refs and consistency; omit when ARC-0001 is sufficient |
-| SEC-0001 | Security/privacy/legal/compliance model | Conditional | sensitive data, credentials, public claims, regulated activity, money, or external effects | qualified owners; Markdown/JSON/threat model | specialist review and control evidence; never infer conclusions |
-| OPS-0001 | Operations/release/incident/recovery runbooks | Conditional | deployment, publication, ongoing service, or irreversible effects | operator; executable procedure plus Markdown | exercise evidence and rollback; omit before operations exist |
-| RES-0001 | External-fact research | Conditional | mutable external facts affect decisions | researcher; Markdown/JSON source records | primary sources, retrieval date, contradiction and expiry |
-| TRN-0001 | Transition and migration package | Conditional | established project, replacement, split/merge, or version upgrade | transition owner; Markdown/JSON crosswalk | compatibility, rollback, acceptance; omit for empty new project |
-| HIS-0001 | Immutable historical baseline | Conditional | audit, release, regulated retention, or supersession needs | dossier custodian; frozen directory/manifest/checksum | immutability and successor links |
-| DAT-0001 | Data classification and retention model | Conditional | personal, confidential, licensed, regulated, or production data | data owner; JSON/Markdown | classifications cover stores/flows; retention/deletion tested |
-| SUP-0001 | Supply-chain and license inventory | Conditional | external code, models, content, datasets, vendors, or packages | supply-chain owner; SBOM/JSON | versions, licenses, provenance, vulnerability policy |
-| EVA-0001 | Quality rubric and evaluation suite | Optional | repeated agent work or subjective/high-impact review | quality owner; Markdown/JSON/tests | versioned fixtures and scoring |
-| CTX-0001 | Agent context packs | Optional | large dossier or specialist routing | dossier maintainer; Markdown | size budgets, source refs, no authority expansion |
+- **Category / classification:** handoff_and_adoption / core
+- **Minimum profile:** minimal
+- **Type applicability default:** required — Core artifact type for the selected profile. (`assessed_on`: null; `assessed_by`: null)
+- **Purpose:** Track conversion of a generated structure into an adopted project dossier and
+  harness without implying readiness.
+- **Questions it must answer:** Which adoption steps are complete?; Which project facts, owners,
+  checks, and extensions remain unresolved?
+- **Intended audience:** project_owners, bootstrap_maintainers, reviewers
+- **Expected owner or maintainer:** project_owner
+- **Required inputs:** selected_profile, project_inspection, adoption_decisions,
+  validation_results
+- **Outputs / downstream consumers:** handoff, adoption_review, upgrade_planning
+- **Recommended format:** Markdown checklist
+- **Source-of-truth expectations:** Tracking aid only; checked boxes do not create authority or
+  substantive evidence.
+- **Dependencies and related artifacts:** DOS-0010, CUR-0001, VAL-0001
+- **Creation timing:** Seed during generation and maintain through initial adoption or upgrade.
+- **Update triggers:** adoption_progress, profile_change, upgrade
+- **Review cadence:** during_adoption_and_before_adoption_closeout
+- **Validation / quality checks:** all_profile_triggers_assessed, unknowns_and_skips_disclosed,
+  real_project_checks_distinguished_from_structure
+- **Inclusion triggers:** all_generated_or_upgraded_projects
+- **Omission or combination:** May be archived after adoption is demonstrably complete; keep its
+  outcome or successor in history when assurance requires.
+- **Representative evidence:** `CF:project-dossier/v0.2/transition/adoption-checklist.md`;
+  Recommended: generalized adoption gate
+
+#### MOD-0001 — Domain models, workflows, interfaces, and schemas
+
+- **Category / classification:** domain_model / conditional
+- **Minimum profile:** high-assurance
+- **Type applicability default:** not_assessed — Generation does not establish trigger applicability. (`assessed_on`: null; `assessed_by`: null)
+- **Purpose:** Specify specialist entities, states, interfaces, handoffs, and controlled
+  vocabularies beyond the core outcome model.
+- **Questions it must answer:** Which domain concepts and transitions require precise
+  contracts?; Where are interface and ownership boundaries?
+- **Intended audience:** domain_owners, implementers, reviewers
+- **Expected owner or maintainer:** domain_owner
+- **Required inputs:** architecture_or_outcome_model, requirements, accepted_decisions
+- **Outputs / downstream consumers:** implementation, validation, operations, extensions
+- **Recommended format:** Markdown, JSON, diagram, schema
+- **Source-of-truth expectations:** Each model declares its edit source; generated diagrams or
+  mirrors point to that source.
+- **Dependencies and related artifacts:** ARC-0001, REQ-0001, DEC-0001
+- **Creation timing:** Create when domain complexity exceeds the core architecture or outcome
+  model.
+- **Update triggers:** entity_change, workflow_change, interface_change, vocabulary_change
+- **Review cadence:** on_model_change
+- **Validation / quality checks:** requirements_and_decision_refs_resolve,
+  states_and_interfaces_consistent, source_direction_declared
+- **Inclusion triggers:** multiple_entities_or_states, multiple_interfaces_or_suppliers,
+  formal_handoffs
+- **Omission or combination:** Omit when ARC-0001 answers all domain questions without
+  ambiguity.
+- **Representative evidence:** `CF:project-dossier/v0.2/canonical/domain-data-model.md`;
+  `COE:project-dossier/canonical/portfolio-and-content-model.md`
+
+#### SEC-0001 — Trust, security, privacy, legal, and compliance model
+
+- **Category / classification:** specialist_governance / conditional
+- **Minimum profile:** high-assurance
+- **Type applicability default:** not_assessed — Generation does not establish trigger applicability. (`assessed_on`: null; `assessed_by`: null)
+- **Purpose:** Define applicable trust boundaries, threats, controls, obligations, specialist
+  gates, and residual risks.
+- **Questions it must answer:** What sensitive or regulated interests exist?; Which qualified
+  reviews and controls are required?; What remains unresolved?
+- **Intended audience:** security_privacy_legal_or_compliance_owners, project_owners, reviewers
+- **Expected owner or maintainer:** qualified_governance_owner
+- **Required inputs:** data_and_effect_inventory, requirements, risk_register,
+  applicable_obligations
+- **Outputs / downstream consumers:** gates, architecture, operations, validation, handoff
+- **Recommended format:** Markdown, threat_model, JSON control register
+- **Source-of-truth expectations:** Canonical specialist criteria and models; no generated
+  template establishes a qualified conclusion.
+- **Dependencies and related artifacts:** GOV-0001, REG-0001, DAT-0001
+- **Creation timing:** Create before handling sensitive data, credentials, regulated activity,
+  public claims, money, or external effects.
+- **Update triggers:** threat_or_obligation_change, data_flow_change, external_effect_change,
+  incident
+- **Review cadence:** on_risk_or_obligation_change_and_at_specialist_gate
+- **Validation / quality checks:** qualified_owner_named, scope_and_controls_trace_requirements,
+  residual_risks_and_exceptions_explicit, no_inferred_legal_conclusion
+- **Inclusion triggers:** sensitive_data, credentials, regulated_activity, public_claims, money,
+  external_effects
+- **Omission or combination:** Omit only after triggers are explicitly assessed as not
+  applicable; related low-risk criteria may be combined with GOV-0001.
+- **Representative evidence:** `CF:project-dossier/v0.2/canonical/security-architecture.md`;
+  `COE:project-dossier/canonical/security-privacy-legal.md`
+
+#### OPS-0001 — Operations, release, incident, and recovery runbooks
+
+- **Category / classification:** operations / conditional
+- **Minimum profile:** high-assurance
+- **Type applicability default:** not_assessed — Generation does not establish trigger applicability. (`assessed_on`: null; `assessed_by`: null)
+- **Purpose:** Provide executable, exercised procedures for recurring operations and failure
+  recovery.
+- **Questions it must answer:** How is the outcome operated, released, rolled back, restored, or
+  retired?; What evidence proves the procedure works?
+- **Intended audience:** operators, release_owners, incident_responders, reviewers
+- **Expected owner or maintainer:** operations_owner
+- **Required inputs:** architecture, risk_model, environment_inventory, gates
+- **Outputs / downstream consumers:** operational_execution, recovery_testing, handoff,
+  readiness_assessment
+- **Recommended format:** Markdown, executable_procedure, checklist
+- **Source-of-truth expectations:** Project-maintained procedures; execution evidence is
+  separate and dated.
+- **Dependencies and related artifacts:** ARC-0001, GOV-0001, SEC-0001, VAL-0001
+- **Creation timing:** Create before deployment, publication, ongoing service, operator handoff,
+  or irreversible effect.
+- **Update triggers:** deployment_model_change, incident, recovery_change, provider_change,
+  retirement
+- **Review cadence:** quarterly_and_per_release_or_material_change
+- **Validation / quality checks:** owner_and_prerequisites_present,
+  rollback_or_stop_path_present, exercise_evidence_fresh, secrets_not_embedded
+- **Inclusion triggers:** deployment, publication, ongoing_service,
+  external_or_irreversible_effect
+- **Omission or combination:** Omit before operations exist; combine small related procedures
+  only when owners, triggers, and evidence remain clear.
+- **Representative evidence:**
+  `CF:project-dossier/v0.2/canonical/monitoring-lifecycle-model.md`;
+  `COE:project-dossier/canonical/seo-analytics-and-operations.md`
+
+#### RES-0001 — External-fact research and verification
+
+- **Category / classification:** research / conditional
+- **Minimum profile:** high-assurance
+- **Type applicability default:** not_assessed — Generation does not establish trigger applicability. (`assessed_on`: null; `assessed_by`: null)
+- **Purpose:** Record mutable external facts, source comparison, contradictions, verdicts, and
+  reverification deadlines.
+- **Questions it must answer:** Which external facts affect decisions?; When and how were they
+  verified?; When do they expire?
+- **Intended audience:** researchers, decision_owners, reviewers
+- **Expected owner or maintainer:** research_owner
+- **Required inputs:** source_index, research_question, primary_sources
+- **Outputs / downstream consumers:** decisions, requirements, risk_register, supply_chain
+- **Recommended format:** Markdown, JSON source_and_verdict_records
+- **Source-of-truth expectations:** Research records own bounded findings; source identity and
+  freshness remain in provenance.
+- **Dependencies and related artifacts:** PRV-0001, REG-0001
+- **Creation timing:** Create before a mutable external fact drives a consequential choice.
+- **Update triggers:** external_fact_used, source_changed_or_expired, contradiction_found
+- **Review cadence:** by_recorded_reverification_deadline
+- **Validation / quality checks:** primary_sources_preferred, retrieval_date_and_scope_present,
+  contradictions_and_limits_disclosed, expiry_enforced
+- **Inclusion triggers:** mutable_external_facts_affect_requirements_decisions_or_operations
+- **Omission or combination:** Omit when no consequential mutable external fact is used; small
+  research notes may live with provenance if conclusions and expiry remain explicit.
+- **Representative evidence:**
+  `CF:project-dossier/v0.2/verification/etsy-reverification-2026-07-23.md`;
+  `COE:project-dossier/provenance/`
+
+#### TRN-0001 — Transition and migration package
+
+- **Category / classification:** transition / conditional
+- **Minimum profile:** high-assurance
+- **Type applicability default:** not_assessed — Generation does not establish trigger applicability. (`assessed_on`: null; `assessed_by`: null)
+- **Purpose:** Control adoption, replacement, split, merge, and version migration without
+  silently overwriting authority or history.
+- **Questions it must answer:** What changes and what remains authoritative?; How is
+  compatibility, rollback, and acceptance demonstrated?
+- **Intended audience:** transition_owners, maintainers, reviewers, agents
+- **Expected owner or maintainer:** transition_owner
+- **Required inputs:** current_inventory, candidate_target, authority_delta,
+  migration_constraints
+- **Outputs / downstream consumers:** implementation_plan, supersession, history, handoff
+- **Recommended format:** Markdown, JSON crosswalk
+- **Source-of-truth expectations:** Project-maintained migration intent and crosswalk; execution
+  evidence and accepted decisions remain separate.
+- **Dependencies and related artifacts:** DOS-0007, CUR-0001, CNF-0001, PLN-0001
+- **Creation timing:** Create before changing an established project, dossier, harness,
+  architecture, or major version.
+- **Update triggers:** existing_project_adoption, blueprint_upgrade, replacement, split_or_merge
+- **Review cadence:** throughout_transition_and_at_acceptance
+- **Validation / quality checks:** authority_delta_complete,
+  path_and_concept_crosswalk_complete, rollback_present, supersession_verified
+- **Inclusion triggers:** established_project_adoption, replacement, split_or_merge,
+  major_version_upgrade
+- **Omission or combination:** Omit for an empty new project with no predecessor.
+- **Representative evidence:**
+  `CF:project-dossier/v0.2/transition/DEVELOPMENT_TRANSITION_v0_1_TO_v0_2.md`; Recommended: no
+  direct COE transition package equivalent
+
+#### HIS-0001 — Immutable historical baseline
+
+- **Category / classification:** history / conditional
+- **Minimum profile:** high-assurance
+- **Type applicability default:** not_assessed — Generation does not establish trigger applicability. (`assessed_on`: null; `assessed_by`: null)
+- **Purpose:** Retain noncurrent evidence or baselines for audit, recovery, provenance, or
+  regulated retention.
+- **Questions it must answer:** What historical snapshot is retained?; Why and for how long?;
+  Which current successor replaces it?
+- **Intended audience:** auditors, maintainers, recovery_owners
+- **Expected owner or maintainer:** dossier_custodian
+- **Required inputs:** retention_decision, supersession_record, frozen_inventory
+- **Outputs / downstream consumers:** audit, recovery, provenance, migration
+- **Recommended format:** frozen_directory, manifest, checksum_set, Markdown index
+- **Source-of-truth expectations:** Explicitly noncurrent immutable history; current authority
+  always routes to a successor.
+- **Dependencies and related artifacts:** DOS-0005, DOS-0007
+- **Creation timing:** Create when a retained baseline or superseded evidence set is required.
+- **Update triggers:** baseline_archived, artifact_superseded, retention_rule_change
+- **Review cadence:** on_archive_or_retention_event
+- **Validation / quality checks:** noncurrent_banner_present, manifest_and_checksum_scope_exact,
+  successor_link_resolves, retention_rule_recorded
+- **Inclusion triggers:** audit_or_regulatory_retention, release_baseline, recovery_need,
+  supersession_history
+- **Omission or combination:** Omit when version control and ordinary supersession records fully
+  satisfy retention and recovery needs.
+- **Representative evidence:** `CF:project-dossier/v0.2/baseline/README.md`; Recommended: COE
+  generated integrity is current evidence, not a historical-baseline equivalent
+
+#### DAT-0001 — Data classification, lifecycle, and retention model
+
+- **Category / classification:** data_governance / conditional
+- **Minimum profile:** high-assurance
+- **Type applicability default:** not_assessed — Generation does not establish trigger applicability. (`assessed_on`: null; `assessed_by`: null)
+- **Purpose:** Classify sensitive, personal, confidential, licensed, regulated, or production
+  data across collection, flow, retention, and deletion.
+- **Questions it must answer:** What data exists and where does it flow?; How is it classified,
+  retained, minimized, and deleted?; Who owns each decision?
+- **Intended audience:** data_owners, security_privacy_reviewers, operators
+- **Expected owner or maintainer:** data_owner
+- **Required inputs:** data_inventory, architecture_flows, applicable_obligations, risk_model
+- **Outputs / downstream consumers:** security_model, operations, validation,
+  retention_and_deletion_controls
+- **Recommended format:** JSON, Markdown, data_flow_diagram
+- **Source-of-truth expectations:** Canonical project-specific classification and lifecycle
+  model; no real data values belong in the dossier.
+- **Dependencies and related artifacts:** ARC-0001, SEC-0001, PRV-0001
+- **Creation timing:** Create before collecting or importing triggered data classes.
+- **Update triggers:** data_class_or_flow_change, retention_change, provider_change, incident
+- **Review cadence:** on_data_flow_or_obligation_change_and_at_least_quarterly_when_active
+- **Validation / quality checks:** stores_and_flows_covered, classification_and_owner_present,
+  retention_deletion_and_minimization_tested, no_sensitive_values_embedded
+- **Inclusion triggers:** personal_data, confidential_data, licensed_data, regulated_data,
+  production_data
+- **Omission or combination:** Omit only after data triggers are assessed as not applicable; a
+  small low-risk inventory may combine with SEC-0001.
+- **Representative evidence:** `CF:project-dossier/v0.2/canonical/domain-data-model.md`;
+  `COE:project-dossier/canonical/security-privacy-legal.md`; Recommended: generalized lifecycle
+  model
+
+#### SUP-0001 — Supply-chain, dependency, vendor, and license inventory
+
+- **Category / classification:** supply_chain / conditional
+- **Minimum profile:** high-assurance
+- **Type applicability default:** not_assessed — Generation does not establish trigger applicability. (`assessed_on`: null; `assessed_by`: null)
+- **Purpose:** Track external code, models, content, datasets, packages, services, vendors,
+  versions, licenses, provenance, and update risk.
+- **Questions it must answer:** Which external inputs are relied upon?; Under what version,
+  license, rights, and trust assumptions?; How are updates and vulnerabilities handled?
+- **Intended audience:** supply_chain_owner, security_legal_reviewers, maintainers
+- **Expected owner or maintainer:** supply_chain_owner
+- **Required inputs:** dependency_inventory, source_index, licenses_and_terms,
+  provider_assessments
+- **Outputs / downstream consumers:** security_gates, release, operations, provenance,
+  reproducibility
+- **Recommended format:** SBOM, JSON, Markdown
+- **Source-of-truth expectations:** Machine inventory should be generated from lockfiles or
+  declared sources where possible; judgments and exceptions remain project-maintained.
+- **Dependencies and related artifacts:** PRV-0001, SEC-0001, RES-0001
+- **Creation timing:** Create before relying on external code, content, models, data, packages,
+  or vendors.
+- **Update triggers:** dependency_or_vendor_change, license_change, vulnerability, source_expiry
+- **Review cadence:** on_dependency_change_and_per_release
+- **Validation / quality checks:** versions_and_sources_exact, licenses_and_rights_recorded,
+  vulnerability_and_update_policy_present, generated_inventory_fresh
+- **Inclusion triggers:** external_code, models, content, datasets, packages,
+  vendors_or_services
+- **Omission or combination:** Omit only when the project has no external supply-chain input;
+  very small inventories may combine with provenance.
+- **Representative evidence:** `CF:project-dossier/v0.2/verification/verification-manifest.md`;
+  `COE:project-dossier/provenance/source-index.yaml`; Recommended: portable supply-chain
+  inventory
+
+#### EVA-0001 — Quality rubric and evaluation suite
+
+- **Category / classification:** evaluation / optional
+- **Minimum profile:** high-assurance
+- **Type applicability default:** not_assessed — Generation does not establish trigger applicability. (`assessed_on`: null; `assessed_by`: null)
+- **Purpose:** Make repeated subjective, model-assisted, or high-impact quality review
+  reproducible.
+- **Questions it must answer:** What quality dimensions and thresholds apply?; Which fixtures,
+  raters, and limitations make evaluation repeatable?
+- **Intended audience:** quality_owners, reviewers, agent_operators
+- **Expected owner or maintainer:** quality_owner
+- **Required inputs:** requirements, quality_risks, representative_fixtures, scoring_method
+- **Outputs / downstream consumers:** validation, agent_workflows, readiness_gates,
+  continuous_improvement
+- **Recommended format:** Markdown, JSON, tests, fixtures
+- **Source-of-truth expectations:** Versioned rubric and fixtures own evaluation semantics;
+  generated scores are point-in-time evidence.
+- **Dependencies and related artifacts:** REQ-0001, VAL-0001, GOV-0001
+- **Creation timing:** Create when quality judgments recur or material consequences justify
+  calibrated evaluation.
+- **Update triggers:** quality_standard_change, model_or_process_change, fixture_drift,
+  evaluation_failure
+- **Review cadence:** per_material_method_change_and_periodic_calibration
+- **Validation / quality checks:** rubric_versioned, fixtures_representative_and_safe,
+  scoring_reproducible, limitations_and_rater_variance_disclosed
+- **Inclusion triggers:** repeated_agent_work, subjective_quality_review, model_evaluation,
+  high_impact_review
+- **Omission or combination:** Omit when ordinary objective validation is sufficient; combine
+  with VAL-0001 only if rubric versioning and fixtures remain explicit.
+- **Representative evidence:**
+  `CF:project-dossier/v0.2/agent-handoff/evaluations/task-quality-rubric.md`; Recommended: no
+  direct COE evaluation-suite equivalent
+
+#### CTX-0001 — Bounded context packs
+
+- **Category / classification:** agent_context / optional
+- **Minimum profile:** high-assurance
+- **Type applicability default:** not_assessed — Generation does not establish trigger applicability. (`assessed_on`: null; `assessed_by`: null)
+- **Purpose:** Package selectively loaded, size-bounded context for recurring specialist work
+  without duplicating authority.
+- **Questions it must answer:** What is the smallest context needed for this task class?; Which
+  authoritative sources and freshness rules does it reference?
+- **Intended audience:** agents, specialist_maintainers, reviewers
+- **Expected owner or maintainer:** dossier_maintainer
+- **Required inputs:** task_routing_needs, authoritative_source_map, context_budget
+- **Outputs / downstream consumers:** agent_skills, workflows, handoff
+- **Recommended format:** Markdown, JSON index
+- **Source-of-truth expectations:** Derived or curated navigation only; packs may narrow context
+  but never replace sources or expand authority.
+- **Dependencies and related artifacts:** DOS-0003, HOF-0001
+- **Creation timing:** Create when the dossier is too large for reliable routine loading or
+  specialist routing recurs.
+- **Update triggers:** source_change, task_pattern_change, context_budget_breach, staleness
+- **Review cadence:** on_source_change_and_quarterly_when_active
+- **Validation / quality checks:** source_refs_resolve, size_budget_met, freshness_visible,
+  no_authority_expansion_or_mutable_fact_duplication
+- **Inclusion triggers:** large_dossier, specialist_routing, repeated_agent_work
+- **Omission or combination:** Omit when the dossier index and handoff already provide
+  sufficient bounded context.
+- **Representative evidence:** `CF:project-dossier/v0.2/agent-handoff/context-packs/`; Inferred:
+  COE compact handoff demonstrates bounded routing without separate packs
+
+### 4.4 Physical representation crosswalk
+
+This table is the complete blueprint-source mapping. `Profile` means the
+smallest scaffold that includes the representation, not proof that a
+conditional type applies. A combined representation lists multiple type IDs
+and records `combined` applicability with a rationale in the project registry.
+
+| Representation | Artifact type(s) | Path | Profile | Role | Source direction | Default applicability | Legacy v1 ID |
+|---|---|---|---|---|---|---|---|
+| `REP-0001` | `DOS-0001` | `project-dossier/README.md` | `minimal` | `navigation` | `navigation_only` | `required` | `DOS-0001` |
+| `REP-0002` | `DOS-0002` | `project-dossier/AUTHORITY.md` | `minimal` | `interpretation_source` | `project_maintained_source` | `required` | `DOS-0002` |
+| `REP-0003` | `DOS-0003` | `project-dossier/CANONICAL_SOURCE_MAP.md` | `minimal` | `source_map` | `project_maintained_source` | `required` | `DOS-0003` |
+| `REP-0004` | `DOS-0004` | `project-dossier/ARTIFACT_CATALOG.json` | `minimal` | `generated_catalog` | `generated_from_artifact_registry` | `required` | `DOS-0004` |
+| `REP-0005` | `DOS-0005` | `project-dossier/MANIFEST.json` | `minimal` | `generated_manifest` | `generated_from_managed_files` | `required` | `DOS-0005` |
+| `REP-0006` | `DOS-0006` | `project-dossier/VERSION.md` | `minimal` | `version_source` | `project_maintained_source_seeded_by_generator` | `required` | `DOS-0006` |
+| `REP-0007` | `DOS-0007` | `project-dossier/SUPERSESSION.json` | `minimal` | `lifecycle_source` | `project_maintained_source_seeded_by_generator` | `required` | `DOS-0007` |
+| `REP-0008` | `DOS-0008` | `project-dossier/machine-readable/path-authority.json` | `minimal` | `generated_path_authority` | `generated_from_artifact_registry` | `required` | `DOS-0008` |
+| `REP-0009` | `DOS-0005` | `project-dossier/CHECKSUMS.sha256` | `high-assurance` | `generated_checksums` | `generated_from_managed_files` | `not_assessed` | `DOS-0009` |
+| `REP-0010` | `DEF-0001` | `project-dossier/canonical/executive-project-definition.md` | `minimal` | `canonical_human_source` | `project_maintained_source_seeded_by_generator` | `required` | `DEF-0001` |
+| `REP-0011` | `REQ-0001` | `project-dossier/canonical/requirements-and-constraints.md` | `minimal` | `canonical_human_source` | `profile_dependent_record_source` | `required` | `REQ-0001` |
+| `REP-0012` | `REQ-0001` | `project-dossier/machine-readable/requirements.json` | `standard` | `structured_record_source` | `authoritative_when_present` | `required` | `REQ-0002` |
+| `REP-0013` | `ARC-0001` | `project-dossier/canonical/architecture-or-outcome-model.md` | `minimal` | `canonical_human_source` | `project_maintained_source_seeded_by_generator` | `required` | `ARC-0001` |
+| `REP-0014` | `DEC-0001` | `.agent/decisions/README.md` | `minimal` | `external_live_store_navigation` | `external_live_store_navigation` | `required` | `DEC-0001` |
+| `REP-0015` | `GOV-0001` | `project-dossier/canonical/constraints-gates-and-readiness.md` | `minimal` | `canonical_human_source` | `project_maintained_source_seeded_by_generator` | `required` | `GOV-0001` |
+| `REP-0016` | `CUR-0001` | `project-dossier/current-state/README.md` | `minimal` | `current_state_source` | `project_maintained_source_seeded_by_generator` | `required` | `CUR-0001` |
+| `REP-0017` | `CNF-0001` | `project-dossier/conformance/README.md` | `minimal` | `method_and_summary_source` | `profile_dependent_record_source` | `required` | `CNF-0001` |
+| `REP-0018` | `CNF-0001` | `project-dossier/machine-readable/findings.json` | `standard` | `structured_record_source` | `authoritative_when_present` | `required` | `CNF-0002` |
+| `REP-0019` | `PLN-0001` | `project-dossier/plans/README.md` | `minimal` | `method_and_summary_source` | `profile_dependent_record_source` | `required` | `PLN-0001` |
+| `REP-0020` | `PLN-0001` | `project-dossier/machine-readable/plan.json` | `standard` | `structured_record_source` | `authoritative_when_present` | `required` | `PLN-0002` |
+| `REP-0021` | `REG-0001` | `project-dossier/registers/README.md` | `minimal` | `method_and_summary_source` | `profile_dependent_record_source` | `required` | `REG-0001` |
+| `REP-0022` | `REG-0001` | `project-dossier/machine-readable/raidq.json` | `standard` | `structured_record_source` | `authoritative_when_present` | `required` | `REG-0002` |
+| `REP-0023` | `PRV-0001` | `project-dossier/provenance/README.md` | `minimal` | `method_and_summary_source` | `profile_dependent_record_source` | `required` | `PRV-0001` |
+| `REP-0024` | `PRV-0001` | `project-dossier/machine-readable/sources.json` | `standard` | `structured_record_source` | `authoritative_when_present` | `required` | `PRV-0002` |
+| `REP-0025` | `VAL-0001` | `project-dossier/validation/README.md` | `minimal` | `validation_method_source` | `project_maintained_source_seeded_by_generator` | `required` | `VAL-0001` |
+| `REP-0026` | `GOV-0001` | `project-dossier/validation/QUALITY_GATES.json` | `minimal` | `proposed_gate_record_source` | `project_maintained_source_seeded_by_generator` | `required` | `VAL-0002` |
+| `REP-0027` | `VAL-0001` | `project-dossier/machine-readable/evidence-index.json` | `standard` | `structured_record_source` | `authoritative_when_present` | `required` | `VAL-0003` |
+| `REP-0028` | `HOF-0001` | `project-dossier/handoff/START_HERE.md` | `minimal` | `handoff_view` | `derived_navigation_maintained_by_task_owner` | `required` | `HOF-0001` |
+| `REP-0029` | `HOF-0002` | `project-dossier/handoff/ADOPTION_CHECKLIST.md` | `minimal` | `adoption_checklist` | `project_maintained_source_seeded_by_generator` | `required` | `HOF-0002` |
+| `REP-0030` | `SEC-0001` | `project-dossier/governance/README.md` | `high-assurance` | `conditional_entry_point` | `conditional_project_maintained_source` | `not_assessed` | `GOV-0002` |
+| `REP-0031` | `MOD-0001` | `project-dossier/models/README.md` | `high-assurance` | `conditional_entry_point` | `conditional_project_maintained_source` | `not_assessed` | `MOD-0001` |
+| `REP-0032` | `OPS-0001` | `project-dossier/operations/README.md` | `high-assurance` | `conditional_entry_point` | `conditional_project_maintained_source` | `not_assessed` | `OPS-0001` |
+| `REP-0033` | `RES-0001` | `project-dossier/research/README.md` | `high-assurance` | `conditional_entry_point` | `conditional_project_maintained_source` | `not_assessed` | `RES-0001` |
+| `REP-0034` | `TRN-0001` | `project-dossier/transition/README.md` | `high-assurance` | `conditional_entry_point` | `conditional_project_maintained_source` | `not_assessed` | `TRN-0001` |
+| `REP-0035` | `HIS-0001` | `project-dossier/history/README.md` | `high-assurance` | `conditional_entry_point` | `conditional_project_maintained_source` | `not_assessed` | `HIS-0001` |
+| `REP-0036` | `DOS-0010` | `project-dossier/machine-readable/artifact-registry.json` | `minimal` | `authoritative_registry` | `project_maintained_source_seeded_by_generator` | `required` | `—` |
+| `REP-0037` | `DAT-0001` | `project-dossier/data/README.md` | `high-assurance` | `conditional_entry_point` | `conditional_project_maintained_source` | `not_assessed` | `—` |
+| `REP-0038` | `SUP-0001` | `project-dossier/supply-chain/README.md` | `high-assurance` | `conditional_entry_point` | `conditional_project_maintained_source` | `not_assessed` | `—` |
+| `REP-0039` | `EVA-0001` | `project-dossier/evaluation/README.md` | `high-assurance` | `conditional_entry_point` | `conditional_project_maintained_source` | `not_assessed` | `—` |
+| `REP-0040` | `CTX-0001` | `project-dossier/context-packs/README.md` | `high-assurance` | `conditional_entry_point` | `conditional_project_maintained_source` | `not_assessed` | `—` |
 
 ## 5. Coverage profiles
 
-Profiles are cumulative starting structures, not readiness levels.
+**[Recommended]** Profiles are cumulative starting structures, not readiness
+levels.
 
 ### Minimal viable dossier
 
@@ -502,14 +1271,16 @@ Appropriate for a new, small, low-risk project with one principal context.
 
 Required artifacts:
 
-- DOS-0001 through DOS-0006;
+- DOS-0001 through DOS-0008 and DOS-0010;
 - DEF-0001, REQ-0001, ARC-0001, DEC-0001;
 - GOV-0001 combined with requirements if desired;
 - CUR-0001, CNF-0001, PLN-0001, REG-0001;
-- PRV-0001, VAL-0001, HOF-0001.
+- PRV-0001, VAL-0001, HOF-0001, HOF-0002.
 
 Human-readable files may combine related concerns, but the artifact catalog
-must preserve their distinct roles.
+must preserve their distinct roles. The project-local artifact registry is
+the metadata edit source; catalog, path-authority, and manifest outputs are
+refreshable in every profile.
 
 ### Standard dossier
 
@@ -518,7 +1289,7 @@ Default for active, multi-contributor, multi-session, or agent-assisted work.
 Adds:
 
 - authoritative JSON registries for requirements, findings, plans, RAIDQ,
-  sources, evidence, path authority, and artifact catalog;
+  sources, and evidence;
 - explicit review cadence and owners;
 - traceability and dependency validation;
 - evidence and handoff maintenance checks; and
@@ -539,16 +1310,22 @@ Adds every triggered conditional artifact plus:
 - data, supply-chain, approval, and retention evidence; and
 - context/evaluation packages for repeated agent work.
 
-High Assurance is achieved only after its acceptance demonstrations pass.
+The scaffold includes trigger-assessment entry points for every conditional
+and optional conceptual type, each initially `not_assessed`. An omitted type
+remains in the registry as a dated, attributed `not_applicable` decision even
+after its physical representation is removed. High Assurance is achieved only
+after applicable triggers are resolved and its acceptance demonstrations pass.
 
 ## 6. Recommended directory structure
+
+**[Recommended]** The reusable physical layout is:
 
 ```text
 project-dossier/
 ├── README.md
 ├── AUTHORITY.md
 ├── CANONICAL_SOURCE_MAP.md
-├── ARTIFACT_CATALOG.json
+├── ARTIFACT_CATALOG.json               # generated registry mirror
 ├── MANIFEST.json                       # generated
 ├── CHECKSUMS.sha256                    # High Assurance, generated
 ├── VERSION.md
@@ -556,27 +1333,32 @@ project-dossier/
 ├── canonical/
 │   ├── executive-project-definition.md
 │   ├── requirements-and-constraints.md
-│   └── architecture-or-outcome-model.md
+│   ├── architecture-or-outcome-model.md
+│   └── constraints-gates-and-readiness.md
 ├── current-state/
 ├── conformance/
 ├── plans/
 ├── registers/
 ├── provenance/
-├── evidence/
 ├── validation/
 ├── handoff/
 ├── machine-readable/
+│   ├── artifact-registry.json          # authoritative metadata source
 │   ├── requirements.json
 │   ├── findings.json
 │   ├── plan.json
 │   ├── raidq.json
 │   ├── sources.json
 │   ├── evidence-index.json
-│   └── path-authority.json             # generated from catalog
-├── governance/                         # conditional
+│   └── path-authority.json             # generated from registry
+├── governance/                         # conditional SEC-0001
+├── data/                               # conditional DAT-0001
 ├── models/                             # conditional
 ├── operations/                         # conditional
 ├── research/                           # conditional
+├── supply-chain/                       # conditional SUP-0001
+├── evaluation/                         # optional EVA-0001
+├── context-packs/                      # optional CTX-0001
 ├── transition/                         # conditional
 └── history/                            # conditional immutable records
 ```
@@ -584,7 +1366,8 @@ project-dossier/
 Naming conventions:
 
 - lower-kebab-case descriptive filenames;
-- four-digit stable IDs inside records;
+- typed stable IDs: conceptual artifact types, `REP-####` representations, and
+  schema-governed record instances;
 - one canonical owner for each mutable fact;
 - `README.md` only as a directory entry point;
 - `.json` for portable machine authority;
@@ -597,6 +1380,9 @@ Naming conventions:
 
 ## 7. Core artifact section outlines and schemas
 
+**[Recommended]** The following outlines and field contracts make the taxonomy
+directly implementable.
+
 Recommended concise outlines:
 
 | Artifact | Required sections |
@@ -604,9 +1390,12 @@ Recommended concise outlines:
 | DOS-0001 | purpose/boundary; reading order; current pointers; layer map; freshness |
 | DOS-0002 | role; precedence; path classes; conflict rules; non-authority rules |
 | DOS-0003 | concern-to-source table; mirror direction; change route; conflicts |
-| DOS-0004 | schema/version; artifact entries; classifications; ownership; cadence |
+| DOS-0004 | generated-on/generation ID; normalized type and representation entries; registry source fingerprint |
 | DOS-0005 | generation ID/time; scope/exclusions; file digests; limitations |
-| DOS-0006 | current version; effective date; change summary; supersession records |
+| DOS-0006 | current version; adoption state; effective date; change summary; migration |
+| DOS-0007 | predecessor; successor; effective date; reason; migration; retained history |
+| DOS-0008 | path; representation ID; artifact-type IDs; state; authority; source direction; generated flag |
+| DOS-0010 | registry role; types; representations; applicability; review; source direction; supersession |
 | DEF-0001 | identity; problem; intended outcome; in/out scope; audiences; owners; success |
 | REQ-0001 | vocabulary; active/proposed requirements; constraints; traceability |
 | ARC-0001 | context; actors; components/workstreams; boundaries; flows; states; failure behavior |
@@ -619,15 +1408,41 @@ Recommended concise outlines:
 | PRV-0001 | source classes; source records; rights/sensitivity; freshness; contradictions |
 | VAL-0001 | commands/methods; evidence schema; results; limitations; freshness |
 | HOF-0001 | current task; exact revision; recent evidence; blockers; next action; reading order |
+| HOF-0002 | profile; adoption steps; project checks; unresolved items; closeout evidence |
 
-Important structured field schemas are versioned under the generated
-`.agent/schemas/` directory and validated by the harness. The artifact catalog
-is authoritative metadata. Path authority is generated from it. Manifest,
-checksums, and validation report are generated and never edited independently.
-Human views generated from JSON state their source; authoritative Markdown
-with a JSON mirror states that the mirror is generated.
+### Structured field schemas
+
+The strict JSON Schemas are versioned under generated `.agent/schemas/`. These
+concise field contracts are sufficient to create equivalent stores in another
+storage system:
+
+| Structure | Required fields |
+|---|---|
+| Artifact type | `id`; `recommended_name`; `category`; `classification`; minimum `profile`; durable `applicability` with status/rationale/date/assessor; `purpose`; `questions`; `intended_audiences`; `owner_role`; `required_inputs`; `downstream_consumers`; `recommended_formats`; `source_of_truth_expectations`; `dependencies`; `creation_timing`; `update_triggers`; `review_cadence`; `validation_checks`; `triggers`; `omission_or_combination`; `representative_evidence` |
+| Representation | `id` (`REP-####`); nonempty unique `artifact_type_ids`; confined unique `path`; `profile`; `representation_role`; `information_state`; `authority`; `source_direction`; `generated`; `owner_role`; cadence/triggers; `sensitivity`; `applicability`; `review`; nullable `superseded_by` |
+| Type applicability | Core `required`; Conditional/Optional `not_assessed`, `applicable`, or `not_applicable`; `rationale`; nullable `assessed_on`; nullable `assessed_by`; applied/omitted assessments require non-null date and assessor |
+| Representation applicability | `required`, `applicable`, `not_applicable`, `not_assessed`, or `combined`; `rationale`; nullable `assessed_on`; `combined` requires multiple type IDs referring only to required/applicable types and explicit section/source-direction rationale |
+| Review | `status` (`not_reviewed`, `reviewed`, `stale`, `not_applicable`); nullable `last_reviewed_on`; `basis`; owner role and cadence supplied by the representation |
+| Requirement | stable record ID; statement; basis/source refs; status; owner; acceptance and validation method; decision, evidence, finding, and plan refs; successor when superseded |
+| Finding | stable record ID; requirement refs; evidence refs; controlled classification; scope; impact; remediation refs; assessor; assessment time; limitations |
+| Plan item | stable record ID; objective; finding/requirement refs; dependencies; owner; status; gates; acceptance criteria; expected and closure evidence; stop/rollback conditions |
+| RAIDQ item | stable record ID; item type; statement; owner; impact/probability as applicable; status; review/expiry; resolution condition; decision/evidence refs |
+| Source | stable source ID; safe locator; source class; version or retrieval/observation date; intended use; sensitivity; rights/license when applicable; limitations; freshness rule; contradiction/successor refs |
+| Evidence | stable evidence ID; exact subject/fingerprint; method/command and validator version; environment/scope; observed time; result; limitations; freshness; requirement/task/gate refs; successor |
+| Supersession | stable record ID; predecessor; successor; effective date; reason; migration impact; retained-history location; authority basis |
+| Handoff | exact revision; active task refs; current evidence refs; blockers/unknowns; next safe action; reading order; generated-integrity status; limitations |
+
+`machine-readable/artifact-registry.json` is edited; the artifact catalog and
+path-authority map are generated from it. Manifest, checksums, and integrity
+reports are generated from managed sources. Human views generated from JSON
+name their source. A project-maintained Markdown source with a generated
+machine mirror states that direction explicitly; two independently edited
+representations never own the same mutable record.
 
 ## 8. Relationships and lifecycle
+
+**[Inferred] [Recommended]** The reusable lifecycle preserves these
+relationships without collapsing information states.
 
 Primary flow:
 
@@ -657,7 +1472,8 @@ requirements and evidence. Every handoff pointer resolves to a current owner.
 
 Lifecycle:
 
-1. Initialize authority, catalog, version, definition, and empty registers.
+1. Initialize authority, the project artifact registry, version, definition,
+   and empty registers.
 2. Adopt sources and record provenance.
 3. Define proposed requirements and decisions; accept only through valid
    project authority.
@@ -665,15 +1481,21 @@ Lifecycle:
 5. Assess conformance and create traceable plans.
 6. Execute work through harness tasks.
 7. Record evidence only after observation or execution.
-8. Refresh generated integrity and handoff.
+8. Refresh catalog, path authority, manifest, and generated integrity; then
+   update handoff pointers without copying mutable facts.
 9. Supersede through successor records; archive immutable history when
    triggered.
 
 ## 9. Governance model
 
+**[Inferred] [Recommended]** Apply the following governance model to keep the
+dossier maintainable and safe for human/agent handoff.
+
 - Canonical authority: DOS-0002 and DOS-0003 define dossier interpretation;
   operating authority remains outside the dossier.
-- Ownership: every catalog entry names an owner role and review cadence.
+- Ownership: every registry type and representation names an owner role,
+  profile floor, applicability, review state, and cadence; type-level
+  applicability preserves trigger and omission decisions.
 - Change control: canonical changes require source/decision basis, affected
   artifact list, traceability update, and validation.
 - Versioning: semantic dossier version; breaking information-contract changes
@@ -682,9 +1504,15 @@ Lifecycle:
   history, no silent deletion.
 - Provenance: consequential claims link source IDs and limitations.
 - Traceability: unique IDs and references validated repository-wide.
+- Artifact registry: authoritative project-local metadata; all physical
+  artifact additions, removals, path changes, and applicability decisions
+  begin here.
+- Catalog/path authority: generated from the registry and rejected when stale
+  or independently edited.
 - Manifest/checksums: generated from declared scope; verified in the final
   read-only check; byte integrity only.
-- Machine-readable mirrors: source direction declared and schema validated.
+- Machine-readable representations: source direction declared and schema
+  validated; profile-specific ownership is explicit.
 - Drift detection: catalog/path coverage, source fingerprint, stale evidence,
   broken links/refs, and duplicated authority fail validation.
 - Periodic review: per change for affected records; monthly for active
@@ -695,13 +1523,19 @@ Lifecycle:
 
 ## 10. Adoption checklist and quality gates
 
+**[Recommended]** Use this sequence and these objective gates when creating or
+auditing a dossier.
+
 Creation sequence:
 
 1. Read target-project instructions and inspect the repository.
 2. Select the smallest profile justified by named triggers.
 3. Generate transactionally into an empty new-project target, or produce a
    read-only adoption crosswalk for an established project.
-4. Confirm artifact catalog and path-authority coverage.
+4. Confirm artifact registry type/representation coverage, assess every
+   conditional trigger with a date, assessor, and rationale, retain omitted
+   types as `not_applicable`, then refresh and confirm catalog/path-authority
+   consistency.
 5. Establish project definition, authority posture, source index, and owners.
 6. Convert generated proposed baselines into project-specific records only
    from evidence or valid decisions.
@@ -711,15 +1545,18 @@ Creation sequence:
 10. Run strict structure, schema, traceability, lifecycle, integrity, and
     project checks.
 11. Complete a real task through evidence, review, closure, and handoff.
-12. Refresh generated integrity; run final read-only validation.
+12. Refresh registry-derived views and generated integrity; run final
+    read-only validation.
 
 Objective quality gates:
 
-- Completeness: every Core catalog type exists or has an explicit combined
-  path; every conditional trigger is assessed.
+- Completeness: every Core type has an active representation or explicit
+  combination; every conditional/optional trigger is assessed in the registry,
+  and only a durably `not_applicable` type may be unrepresented.
 - Consistency: one authority owner per concern; controlled statuses and schema
   versions; no contradictory mutable facts.
-- Freshness: current evidence and generated reports match exact managed source.
+- Freshness: current evidence and generated reports match exact managed source;
+  scaffold dates are not treated as review or observation dates.
 - Traceability: every active requirement and completed plan item closes its
   required links.
 - Authority: every path is classified; no dossier content grants permission.
@@ -738,7 +1575,8 @@ The following are **[Recommended]**, not observed universal conventions:
 
 - Use strict JSON as the portable kernel format; permit YAML only through a
   pinned, duplicate-key-safe parser extension.
-- Generate path authority from the authoritative artifact catalog.
+- Maintain one project-local artifact registry and generate catalog and path
+  authority views from it.
 - Validate identifiers and references across dossier and harness as one
   namespace.
 - Treat project-source fingerprinting and dossier checksums as one integrity
@@ -751,6 +1589,9 @@ The following are **[Recommended]**, not observed universal conventions:
 - Protect high-assurance checks in independent CI or another trust boundary.
 - Add data classification, supply-chain, cost/rate, concurrency, recovery, and
   evaluation extensions only when their triggers apply.
+- Record reference checkout revision, role, authority status, and dirty state
+  in a structured evidence registry so future audits can reproduce the
+  reference analysis.
 
 Unresolved universal limits:
 

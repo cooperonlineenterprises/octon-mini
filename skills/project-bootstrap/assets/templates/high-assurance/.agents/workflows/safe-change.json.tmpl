@@ -2,20 +2,183 @@
   "schema_version": "harness.workflow.v1",
   "id": "safe-change",
   "version": "1.0.0",
+  "adoption_status": "generated_unadopted_baseline",
+  "adoption_decision_ref": null,
+  "permission_grant": false,
   "purpose": "Deliver one authorized repository-local change with reviewable evidence.",
   "scope": "current_task",
-  "authority": {"inherits_from": "current_task", "may_expand": false},
-  "side_effects": "repository_local_as_authorized_by_current_task",
-  "initial_state": "intake",
-  "states": {
-    "intake": {"requires": ["current_request", "applicable_instructions"], "next": "scope"},
-    "scope": {"actions": ["inspect_repository", "classify_side_effects", "create_or_select_task"], "gate": "authority_confirmed", "next": "implement"},
-    "implement": {"actions": ["make_bounded_changes", "update_tests"], "next": "validate"},
-    "validate": {"actions": ["run_scoped_checks", "run_harness_check"], "on_failure": "implement", "next": "review"},
-    "review": {"agent": "reviewer", "on_actionable_findings": "implement", "next": "close"},
-    "close": {"actions": ["record_evidence", "update_current_state", "close_task"], "gate": "acceptance_criteria_met"}
+  "authority": {
+    "source": "current_task_and_applicable_instructions",
+    "inherits_from": "current_task",
+    "may_expand": false
   },
-  "terminal_states": ["close", "cancelled", "blocked"],
+  "side_effects": "repository_local_as_authorized_by_current_task",
+  "inputs": {
+    "required": [
+      "current_request",
+      "applicable_instructions",
+      "task_record",
+      "project_validation_contract"
+    ],
+    "optional": [
+      "accepted_decision_refs",
+      "current_state_refs",
+      "coordination_lease"
+    ]
+  },
+  "outputs": {
+    "format": "task_and_evidence_records",
+    "required_fields": [
+      "task_status",
+      "validation_evidence",
+      "review_disposition",
+      "limitations"
+    ],
+    "evidence_required": true
+  },
+  "prohibited": [
+    "expanding_current_task_authority",
+    "performing_unapproved_external_effects",
+    "closing_without_required_evidence",
+    "overwriting_unrelated_work"
+  ],
+  "initial_state": "intake",
+  "cancellation_state": "cancelled",
+  "states": [
+    {
+      "id": "intake",
+      "kind": "action",
+      "requires": [
+        "current_request",
+        "applicable_instructions"
+      ],
+      "actions": [
+        "confirm_inputs"
+      ],
+      "agent_ref": null,
+      "gate": null,
+      "on_success": "scope",
+      "on_failure": "blocked",
+      "on_actionable_findings": null
+    },
+    {
+      "id": "scope",
+      "kind": "action",
+      "requires": [
+        "current_task"
+      ],
+      "actions": [
+        "inspect_repository",
+        "classify_side_effects",
+        "create_or_select_task"
+      ],
+      "agent_ref": null,
+      "gate": "authority_confirmed_by_applicable_source",
+      "on_success": "implement",
+      "on_failure": "blocked",
+      "on_actionable_findings": null
+    },
+    {
+      "id": "implement",
+      "kind": "action",
+      "requires": [
+        "bounded_task_scope"
+      ],
+      "actions": [
+        "make_bounded_changes",
+        "update_tests"
+      ],
+      "agent_ref": null,
+      "gate": null,
+      "on_success": "validate",
+      "on_failure": "blocked",
+      "on_actionable_findings": null
+    },
+    {
+      "id": "validate",
+      "kind": "action",
+      "requires": [
+        "implementation_result"
+      ],
+      "actions": [
+        "run_scoped_checks",
+        "run_harness_check"
+      ],
+      "agent_ref": null,
+      "gate": null,
+      "on_success": "review",
+      "on_failure": "implement",
+      "on_actionable_findings": null
+    },
+    {
+      "id": "review",
+      "kind": "review",
+      "requires": [
+        "validation_evidence"
+      ],
+      "actions": [],
+      "agent_ref": "reviewer",
+      "gate": null,
+      "on_success": "close",
+      "on_failure": "blocked",
+      "on_actionable_findings": "implement"
+    },
+    {
+      "id": "close",
+      "kind": "action",
+      "requires": [
+        "review_disposition"
+      ],
+      "actions": [
+        "record_evidence",
+        "update_current_state",
+        "close_task"
+      ],
+      "agent_ref": null,
+      "gate": "acceptance_criteria_met",
+      "on_success": "completed",
+      "on_failure": "blocked",
+      "on_actionable_findings": null
+    },
+    {
+      "id": "completed",
+      "kind": "terminal",
+      "requires": [],
+      "actions": [],
+      "agent_ref": null,
+      "gate": null,
+      "on_success": null,
+      "on_failure": null,
+      "on_actionable_findings": null
+    },
+    {
+      "id": "cancelled",
+      "kind": "terminal",
+      "requires": [],
+      "actions": [],
+      "agent_ref": null,
+      "gate": null,
+      "on_success": null,
+      "on_failure": null,
+      "on_actionable_findings": null
+    },
+    {
+      "id": "blocked",
+      "kind": "terminal",
+      "requires": [],
+      "actions": [],
+      "agent_ref": null,
+      "gate": null,
+      "on_success": null,
+      "on_failure": null,
+      "on_actionable_findings": null
+    }
+  ],
+  "terminal_states": [
+    "completed",
+    "cancelled",
+    "blocked"
+  ],
   "invariants": [
     "authority_never_expands_across_transition",
     "read_only_validation_never_writes",
@@ -23,7 +186,30 @@
   ],
   "validation": "harness_and_project_closure_commands",
   "owner": "unassigned",
-  "provenance": "generated_from_project_blueprint",
+  "provenance": {
+    "source": "project_blueprint",
+    "source_version": "{{BLUEPRINT_VERSION}}",
+    "source_fingerprint": null,
+    "generated_on": "{{CREATED_DATE}}",
+    "license_review": "not_assessed",
+    "security_review": "not_assessed",
+    "included_files": [
+      ".agents/workflows/safe-change.json"
+    ],
+    "local_changes": [],
+    "exclusions": [
+      "project_facts",
+      "project_permissions",
+      "accepted_decisions",
+      "readiness_claims"
+    ],
+    "trust_class": "generated_unadopted_capability",
+    "update_strategy": "explicit_project_specific_migration"
+  },
   "deprecated_at": null,
-  "successor": null
+  "removal_version": null,
+  "successor": null,
+  "limitations": [
+    "Project-specific commands, maintainer, trust, and acceptance evidence remain unassessed."
+  ]
 }

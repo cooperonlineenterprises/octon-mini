@@ -1,5 +1,21 @@
 # Operations and Recovery
 
+> Conditional entry point. Generation does not establish an operational
+> environment, permission to operate, or readiness.
+
+## Applicability assessment
+
+- Status: `not_assessed`
+- Triggers: deployment, publication, ongoing service, operator handoff, or
+  external or irreversible effects
+- Assessed on: not assessed
+- Assessor and basis: not assessed
+
+Record the durable assessment on conceptual type `OPS-0001` in the artifact
+registry. `applicable` or `not_applicable` requires `assessed_on`,
+`assessed_by`, and a rationale; retain a not-applicable type record after
+removing its physical representation.
+
 Create exercised runbooks before the project is deployed, published, handed to
 operators, or allowed to create external effects.
 

@@ -1,0 +1,149 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://project-blueprint.local/schemas/reference-evidence.schema.json",
+  "title": "Project Blueprint Reference Evidence Registry",
+  "description": "Provenance and authority classification for repository-relative evidence cited by the reusable blueprints.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "document_role",
+    "permission_grant",
+    "inspected_on",
+    "repositories"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "project-blueprint.reference-evidence.v1"
+    },
+    "document_role": {
+      "const": "reference_provenance_registry"
+    },
+    "permission_grant": {
+      "const": false
+    },
+    "inspected_on": {
+      "type": "string",
+      "format": "date"
+    },
+    "repositories": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/repository"
+      }
+    }
+  },
+  "$defs": {
+    "repository": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "label",
+        "commit",
+        "working_tree",
+        "entries"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9_-]{1,15}$"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "commit": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40}$"
+        },
+        "working_tree": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "interpretation"
+          ],
+          "properties": {
+            "status": {
+              "enum": [
+                "clean",
+                "dirty"
+              ]
+            },
+            "interpretation": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "entries": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/entry"
+          }
+        }
+      }
+    },
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "path_kind",
+        "authority_class",
+        "observation"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\]+$"
+        },
+        "path_kind": {
+          "enum": [
+            "file",
+            "directory"
+          ]
+        },
+        "authority_class": {
+          "enum": [
+            "repository_instruction",
+            "live_governance",
+            "canonical_current",
+            "current_state",
+            "plan_or_register",
+            "evidence_or_provenance",
+            "navigation_or_handoff",
+            "generated_integrity",
+            "historical_or_baseline",
+            "working_tree_uncommitted",
+            "mixed_directory"
+          ]
+        },
+        "observation": {
+          "enum": [
+            "commit",
+            "working_tree"
+          ]
+        },
+        "content_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "tree_sha256": {
+          "description": "For a directory: SHA-256 over sorted relative UTF-8 path, NUL, raw file SHA-256, NUL tuples; symlinks are excluded.",
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "note": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

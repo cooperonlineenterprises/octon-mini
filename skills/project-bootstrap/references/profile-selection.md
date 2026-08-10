@@ -7,7 +7,8 @@ operational risk. It creates the root router, seven-file governance kernel,
 decision and task contracts, compact state, portable read-only validation,
 positive/negative fixtures, and the dossier's target, current-state,
 conformance, plan, provenance, validation, and handoff entry points.
-It also includes the generated artifact catalog, per-file path authority, and
+It also includes the authoritative project-local artifact registry,
+refreshable generated artifact catalog, per-file path authority, manifest, and
 local schema snapshot.
 
 ## Standard
@@ -24,6 +25,12 @@ are possible, role separation helps, or audit and reproducibility matter. It
 adds constrained agents/skills/workflows, checkpoints, generated-integrity
 refresh, trust, operations, research, transition, history, supersession,
 stronger validation, and checksums.
+It also scaffolds unassessed trigger-entry points for approval attestations,
+concurrency leases, recovery, harness evaluations and metrics, data
+governance, supply-chain inventory, and bounded context packs. Their presence
+does not establish applicability; activate, combine, or mark them not
+applicable through the appropriate project records and artifact registry with
+an evidence-based rationale.
 The enabled sample restriction extension proves the versioned interface and
 can be disabled without a kernel change.
 

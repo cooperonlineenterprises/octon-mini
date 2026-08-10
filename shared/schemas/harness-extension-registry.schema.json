@@ -10,16 +10,20 @@
     "core_version",
     "extension_api",
     "permission_grant",
+    "execution_boundary",
     "extensions"
   ],
   "properties": {
     "schema_version": {"const": "harness.extension-registry.v1"},
     "core_version": {
       "type": "string",
-      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+      "pattern": "^(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)$"
     },
     "extension_api": {"const": "harness.extension.v1"},
     "permission_grant": {"const": false},
+    "execution_boundary": {
+      "const": "trusted_project_local_code_with_least_environment_and_post_execution_write_detection; external sandbox required for strong isolation"
+    },
     "extensions": {
       "type": "array",
       "uniqueItems": true,
@@ -36,9 +40,14 @@
           "validator",
           "owner",
           "provenance",
+          "trust_class",
+          "trust_decision_ref",
           "side_effects",
+          "network_access",
+          "filesystem_writes",
           "authority_effect",
           "deprecated_at",
+          "removal_version",
           "successor"
         ],
         "properties": {
@@ -49,7 +58,7 @@
           "enabled": {"type": "boolean"},
           "version": {
             "type": "string",
-            "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+            "pattern": "^(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)$"
           },
           "path": {
             "type": "string",
@@ -57,18 +66,28 @@
           },
           "requires_core": {
             "type": "string",
-            "pattern": "^\\^1\\.[0-9]+\\.[0-9]+$"
+            "pattern": "^\\^1\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)$"
           },
           "config": {
             "type": "string",
-            "pattern": "^\\.agent/extensions/[a-z0-9]+(?:-[a-z0-9]+)*/[^\\\\]+\\.json$"
+            "pattern": "^\\.agent/extensions/[a-z0-9]+(?:-[a-z0-9]+)*/(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\]+\\.json$"
           },
           "validator": {
             "type": "string",
-            "pattern": "^\\.agent/extensions/[a-z0-9]+(?:-[a-z0-9]+)*/[^\\\\]+\\.py$"
+            "pattern": "^\\.agent/extensions/[a-z0-9]+(?:-[a-z0-9]+)*/(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\]+\\.py$"
           },
           "owner": {"type": "string", "minLength": 1},
           "provenance": {"type": "string", "minLength": 1},
+          "trust_class": {
+            "enum": [
+              "unassessed_project_local_code",
+              "trusted_project_local_code"
+            ]
+          },
+          "trust_decision_ref": {
+            "type": ["string", "null"],
+            "pattern": "^DEC-[0-9]{4}$"
+          },
           "side_effects": {
             "enum": [
               "none",
@@ -76,15 +95,69 @@
               "repository_local_restriction_checks"
             ]
           },
+          "network_access": {"const": "denied"},
+          "filesystem_writes": {"const": "prohibited"},
           "authority_effect": {"const": "restrictions_only"},
-          "deprecated_at": {"type": ["string", "null"]},
-          "successor": {"type": ["string", "null"]}
+          "deprecated_at": {
+            "type": ["string", "null"],
+            "pattern": "^(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)$"
+          },
+          "removal_version": {
+            "type": ["string", "null"],
+            "pattern": "^(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)$"
+          },
+          "successor": {
+            "type": ["string", "null"],
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          }
         }
       }
     },
     "limitations": {
       "type": "array",
       "items": {"type": "string"}
+    }
+  }
+  ,
+  "$defs": {
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "severity",
+        "message"
+      ],
+      "properties": {
+        "code": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)*$"
+        },
+        "severity": {
+          "enum": [
+            "info",
+            "warning",
+            "error"
+          ]
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        },
+        "path": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "record_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[A-Z][A-Z0-9]*-[0-9]{4}$"
+        }
+      }
     }
   }
 }

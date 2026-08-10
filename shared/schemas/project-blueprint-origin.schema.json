@@ -16,6 +16,8 @@
     "project_slug",
     "harness_kernel_version",
     "authority",
+    "initial_generation",
+    "migration_history",
     "generated_paths"
   ],
   "properties": {
@@ -27,11 +29,11 @@
     },
     "blueprint_version": {
       "type": "string",
-      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+      "pattern": "^(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)$"
     },
     "generator_version": {
       "type": "string",
-      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+      "pattern": "^(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)$"
     },
     "generation_id": {
       "type": "string",
@@ -58,11 +60,10 @@
     },
     "harness_kernel_version": {
       "type": "string",
-      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+      "pattern": "^(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)$"
     },
     "authority": {
-      "type": "string",
-      "minLength": 1
+      "const": "Generation provenance only; does not grant permission or establish project facts, decisions, implementation, or readiness."
     },
     "generated_paths": {
       "type": "array",
@@ -71,6 +72,136 @@
       "items": {
         "type": "string",
         "minLength": 1
+      }
+    },
+    "initial_generation": {
+      "$ref": "#/$defs/generation"
+    },
+    "migration_history": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/migration"
+      }
+    }
+  },
+  "$defs": {
+    "generation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "blueprint_version",
+        "generator_version",
+        "generation_id",
+        "generated_on",
+        "profile"
+      ],
+      "properties": {
+        "blueprint_version": {
+          "type": "string",
+          "pattern": "^(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)$"
+        },
+        "generator_version": {
+          "type": "string",
+          "pattern": "^(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)$"
+        },
+        "generation_id": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{32}$"
+        },
+        "generated_on": {
+          "type": "string",
+          "format": "date"
+        },
+        "profile": {
+          "enum": [
+            "minimal",
+            "standard",
+            "high-assurance"
+          ]
+        }
+      }
+    },
+    "migration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "id",
+        "from_blueprint_version",
+        "to_blueprint_version",
+        "generator_version",
+        "migrated_on",
+        "from_profile",
+        "to_profile",
+        "migration_guide",
+        "authority_source",
+        "evidence_refs",
+        "limitations"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "project-blueprint.migration.v1"
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^MIG-[0-9]{4}$"
+        },
+        "from_blueprint_version": {
+          "type": "string",
+          "pattern": "^(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)$"
+        },
+        "to_blueprint_version": {
+          "type": "string",
+          "pattern": "^(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)$"
+        },
+        "generator_version": {
+          "type": "string",
+          "pattern": "^(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)$"
+        },
+        "migrated_on": {
+          "type": "string",
+          "format": "date"
+        },
+        "from_profile": {
+          "enum": [
+            "minimal",
+            "standard",
+            "high-assurance"
+          ]
+        },
+        "to_profile": {
+          "enum": [
+            "minimal",
+            "standard",
+            "high-assurance"
+          ]
+        },
+        "migration_guide": {
+          "type": "string",
+          "minLength": 1
+        },
+        "authority_source": {
+          "type": "string",
+          "pattern": "^(?:authority|external):.+$"
+        },
+        "evidence_refs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^EVD-[0-9]{4}$"
+          }
+        },
+        "limitations": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
       }
     }
   }

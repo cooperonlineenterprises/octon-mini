@@ -1,0 +1,22 @@
+# Supply Chain, Dependencies, Vendors, and Licenses
+
+> Conditional entry point. Generation does not establish dependency safety,
+> license rights, vendor acceptance, or applicability.
+
+## Applicability assessment
+
+- Status: `not_assessed`
+- Triggers: external code, packages, models, content, datasets, vendors, or
+  services
+- Assessed on: not assessed
+- Assessor and basis: not assessed
+
+Record the durable assessment on conceptual type `SUP-0001` in the artifact
+registry. `applicable` or `not_applicable` requires `assessed_on`,
+`assessed_by`, and a rationale; retain a not-applicable type record after
+removing its physical representation.
+
+If a trigger applies, inventory exact sources and versions, licenses and
+rights, trust and update assumptions, vulnerabilities, local modifications,
+and verification. Generate an SBOM from declared dependency sources where
+practical; do not edit a generated SBOM independently.

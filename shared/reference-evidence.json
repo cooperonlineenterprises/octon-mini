@@ -1,0 +1,512 @@
+{
+  "schema_version": "project-blueprint.reference-evidence.v1",
+  "document_role": "reference_provenance_registry",
+  "permission_grant": false,
+  "inspected_on": "2026-07-27",
+  "repositories": [
+    {
+      "id": "CF",
+      "label": "Commerce Foundry reference implementation",
+      "commit": "393135fe68ae1f2a014985d5d1e1b0fe76e88255",
+      "working_tree": {
+        "status": "dirty",
+        "interpretation": "Citations were resolved against this commit plus the inspected working tree. Working-tree evidence is explicitly marked and fingerprinted where it is a cited exact file; it is not treated as a stable committed baseline. A volatile count of unrelated dirty paths is intentionally not recorded."
+      },
+      "entries": [
+        {
+          "path": "AGENTS.md",
+          "path_kind": "file",
+          "authority_class": "repository_instruction",
+          "observation": "commit",
+          "content_sha256": "45b927cc5f97cd78c6880afe7b5c613307dbf5f38f9b568087925551aade1ab6"
+        },
+        {
+          "path": ".agent/",
+          "path_kind": "directory",
+          "authority_class": "live_governance",
+          "observation": "working_tree",
+          "note": "The live harness subtree included modified and untracked work; exact kernel files below were clean at inspection unless otherwise noted."
+        },
+        {
+          "path": ".agent/policies.yaml",
+          "path_kind": "file",
+          "authority_class": "live_governance",
+          "observation": "commit",
+          "content_sha256": "840ab182af72c41f8c4aff93228ae933fa1c364efd558407383383329c9d9880"
+        },
+        {
+          "path": ".agent/context-rules.yaml",
+          "path_kind": "file",
+          "authority_class": "live_governance",
+          "observation": "commit",
+          "content_sha256": "6a7634c767b24ee7481e4ff1af40d8f7b515f6144bba06ea3fe1edd95cd219c5"
+        },
+        {
+          "path": ".agent/schema.yaml",
+          "path_kind": "file",
+          "authority_class": "live_governance",
+          "observation": "commit",
+          "content_sha256": "3f2b30f065635344664168c128ea7b8a13d57ae888f0a6a6c95de838d93b3618"
+        },
+        {
+          "path": ".agent/lifecycle.yaml",
+          "path_kind": "file",
+          "authority_class": "live_governance",
+          "observation": "commit",
+          "content_sha256": "635bd177a63ba60d6240525149543a99c2d0761a71a61e1b7847feba9e786f9b"
+        },
+        {
+          "path": ".agent/tools.yaml",
+          "path_kind": "file",
+          "authority_class": "live_governance",
+          "observation": "commit",
+          "content_sha256": "374ab614add565cce22b1eebd3c91c47bc3cc654bc23028a68447e5b0468d607"
+        },
+        {
+          "path": ".agent/validators.yaml",
+          "path_kind": "file",
+          "authority_class": "live_governance",
+          "observation": "commit",
+          "content_sha256": "e2eb89a3064c10fef765d7b658d447e986a02bd9221e5a14a95fb86e6f6ad56b"
+        },
+        {
+          "path": ".agent/project.yaml",
+          "path_kind": "file",
+          "authority_class": "live_governance",
+          "observation": "commit",
+          "content_sha256": "1efe816db10d1ad9849f9d108e3cc4f3924d6e5f4115929a1aafcece9f6b8847"
+        },
+        {
+          "path": ".agents/skills/commerce-foundry-ux/",
+          "path_kind": "directory",
+          "authority_class": "working_tree_uncommitted",
+          "observation": "working_tree",
+          "tree_sha256": "b70709745fc2e0bf9c763091d79bda33a6a767e48595f6c8851f5a3352ba65a3",
+          "note": "Untracked capability-package evidence; useful as an active design example, not a committed baseline."
+        },
+        {
+          "path": "scripts/",
+          "path_kind": "directory",
+          "authority_class": "evidence_or_provenance",
+          "observation": "working_tree",
+          "note": "The scripts subtree was dirty, although the two cited harness scripts below were clean and fingerprinted."
+        },
+        {
+          "path": "scripts/validate-local.sh",
+          "path_kind": "file",
+          "authority_class": "evidence_or_provenance",
+          "observation": "commit",
+          "content_sha256": "9375326cfe9d2f3a18f556407b237719588408afa960d34286e7645d096dee16"
+        },
+        {
+          "path": "scripts/strict_yaml.py",
+          "path_kind": "file",
+          "authority_class": "evidence_or_provenance",
+          "observation": "commit",
+          "content_sha256": "7726b14ffc1d06b87b0f55bd3557931af1beee872a9218ac774aedc9a72b4654"
+        },
+        {
+          "path": "tests/",
+          "path_kind": "directory",
+          "authority_class": "evidence_or_provenance",
+          "observation": "commit"
+        },
+        {
+          "path": "tests/test_strict_yaml.py",
+          "path_kind": "file",
+          "authority_class": "evidence_or_provenance",
+          "observation": "commit",
+          "content_sha256": "9dd82fe9ba3bc81dc34eb2b06b0f5d825413aad514e20e41cd33f188707de950"
+        },
+        {
+          "path": "tests/test_status_consistency.py",
+          "path_kind": "file",
+          "authority_class": "evidence_or_provenance",
+          "observation": "commit",
+          "content_sha256": "ee3669bf0a36962a4072ad3045e8a879f0ea6a8e1717f761d0b2f54fd6260ef4"
+        },
+        {
+          "path": "tests/test_self_contained_runtime_policy.py",
+          "path_kind": "file",
+          "authority_class": "evidence_or_provenance",
+          "observation": "commit",
+          "content_sha256": "53956957210819ab90b0e89090fb109940835575070914dabfcd15b6b7d9166c"
+        },
+        {
+          "path": "project-dossier/",
+          "path_kind": "directory",
+          "authority_class": "mixed_directory",
+          "observation": "working_tree",
+          "note": "The root Phase 0 material is retained historical evidence; v0.2 is the current target package named by repository instructions."
+        },
+        {
+          "path": "project-dossier/PROJECT_STATUS.md",
+          "path_kind": "file",
+          "authority_class": "historical_or_baseline",
+          "observation": "commit"
+        },
+        {
+          "path": "project-dossier/docs/",
+          "path_kind": "directory",
+          "authority_class": "historical_or_baseline",
+          "observation": "working_tree",
+          "note": "Detailed Phase 0 artifact-family evidence, not the current target-state authority."
+        },
+        {
+          "path": "project-dossier/v0.2/",
+          "path_kind": "directory",
+          "authority_class": "mixed_directory",
+          "observation": "working_tree",
+          "note": "Current dossier target containing canonical, assessment, plan, evidence, handoff, and historical layers."
+        },
+        {
+          "path": "project-dossier/v0.2/README.md",
+          "path_kind": "file",
+          "authority_class": "navigation_or_handoff",
+          "observation": "working_tree",
+          "content_sha256": "7e97abda1602f04dcf88ac258e5b25063425937e107343ced762304bb1a18aeb"
+        },
+        {
+          "path": "project-dossier/v0.2/CANONICAL_SOURCE_MAP.md",
+          "path_kind": "file",
+          "authority_class": "canonical_current",
+          "observation": "commit",
+          "content_sha256": "cec358a297d07d629cd8205018248bcc652a56781d64b8d5369b1073394ecae0"
+        },
+        {
+          "path": "project-dossier/v0.2/SUPERSESSION_MAP.md",
+          "path_kind": "file",
+          "authority_class": "canonical_current",
+          "observation": "commit",
+          "content_sha256": "71658f366b93fd246f76d00b76d186f77b6c3683d345f1f7c19212f75bd7ec3a"
+        },
+        {
+          "path": "project-dossier/v0.2/CHECKSUMS.md",
+          "path_kind": "file",
+          "authority_class": "generated_integrity",
+          "observation": "commit"
+        },
+        {
+          "path": "project-dossier/v0.2/HANDOFF_MANIFEST.md",
+          "path_kind": "file",
+          "authority_class": "navigation_or_handoff",
+          "observation": "commit"
+        },
+        {
+          "path": "project-dossier/v0.2/canonical/",
+          "path_kind": "directory",
+          "authority_class": "canonical_current",
+          "observation": "working_tree"
+        },
+        {
+          "path": "project-dossier/v0.2/agent-handoff/",
+          "path_kind": "directory",
+          "authority_class": "navigation_or_handoff",
+          "observation": "working_tree"
+        },
+        {
+          "path": "project-dossier/v0.2/agent-handoff/START_HERE.md",
+          "path_kind": "file",
+          "authority_class": "navigation_or_handoff",
+          "observation": "working_tree",
+          "content_sha256": "43eca38e9974cdbb70c29e54c1af7b38be43ca7148f09adaaa02f54e64ba4fc9"
+        },
+        {
+          "path": "project-dossier/v0.2/agent-handoff/current-implementation-status.md",
+          "path_kind": "file",
+          "authority_class": "current_state",
+          "observation": "working_tree",
+          "content_sha256": "11bb68cd135802c1ef6570c0dbc911d66546489ccbc390b19f57ffeac6c08f0f"
+        },
+        {
+          "path": "project-dossier/v0.2/canonical/architecture.md",
+          "path_kind": "file",
+          "authority_class": "canonical_current",
+          "observation": "working_tree",
+          "content_sha256": "a1b88cf6069c3b5a2ca9be325609b041c9df599cd9d32c5e55eb9b1a5dfdefa4"
+        },
+        {
+          "path": "project-dossier/v0.2/canonical/domain-data-model.md",
+          "path_kind": "file",
+          "authority_class": "canonical_current",
+          "observation": "working_tree",
+          "content_sha256": "e0473fa362da9658700d9fb58a6c468ac7f7de46b83c1627620088f79df36c27"
+        },
+        {
+          "path": "project-dossier/v0.2/canonical/monitoring-lifecycle-model.md",
+          "path_kind": "file",
+          "authority_class": "canonical_current",
+          "observation": "working_tree",
+          "content_sha256": "04f33bce03ac47c17133ce1416299c11464a58539b0d1cfab80dc2a43202f994"
+        },
+        {
+          "path": "project-dossier/v0.2/canonical/platform-definition.md",
+          "path_kind": "file",
+          "authority_class": "canonical_current",
+          "observation": "working_tree",
+          "content_sha256": "889ae3fb2d9e2fda2db09bfff3588dc2c69bebb16d3fc8d9d49d66f789580ba0"
+        },
+        {
+          "path": "project-dossier/v0.2/canonical/readiness-criteria.md",
+          "path_kind": "file",
+          "authority_class": "canonical_current",
+          "observation": "working_tree",
+          "content_sha256": "4d750dfda3030d5d9fd42c8561cf91a1ff5f06110aced40fae48c08a9e1fca1d"
+        },
+        {
+          "path": "project-dossier/v0.2/conformance/",
+          "path_kind": "directory",
+          "authority_class": "current_state",
+          "observation": "working_tree"
+        },
+        {
+          "path": "project-dossier/v0.2/conformance/README.md",
+          "path_kind": "file",
+          "authority_class": "current_state",
+          "observation": "working_tree",
+          "content_sha256": "2a7f152b2529e8a598a080ad1fa4ccb615f644093a8aa38578e4bf914e80ea31"
+        },
+        {
+          "path": "project-dossier/v0.2/implementation-plan/",
+          "path_kind": "directory",
+          "authority_class": "plan_or_register",
+          "observation": "working_tree"
+        },
+        {
+          "path": "project-dossier/v0.2/transition/",
+          "path_kind": "directory",
+          "authority_class": "plan_or_register",
+          "observation": "commit"
+        },
+        {
+          "path": "project-dossier/v0.2/baseline/",
+          "path_kind": "directory",
+          "authority_class": "historical_or_baseline",
+          "observation": "commit"
+        },
+        {
+          "path": "project-dossier/v0.2/dossier-v0.2/",
+          "path_kind": "directory",
+          "authority_class": "historical_or_baseline",
+          "observation": "working_tree",
+          "note": "Nested prior detail retained as evidence; current authority is routed by the v0.2 canonical-source map."
+        },
+        {
+          "path": "project-dossier/v0.2/machine-readable/",
+          "path_kind": "directory",
+          "authority_class": "mixed_directory",
+          "observation": "working_tree"
+        },
+        {
+          "path": "project-dossier/v0.2/machine-readable/validation-report.json",
+          "path_kind": "file",
+          "authority_class": "generated_integrity",
+          "observation": "working_tree",
+          "content_sha256": "cb8a86298a83e3671d652e48b4744964251c9d58656b3f2604ebf57254f88563"
+        },
+        {
+          "path": "project-dossier/v0.2/verification/",
+          "path_kind": "directory",
+          "authority_class": "evidence_or_provenance",
+          "observation": "commit"
+        }
+      ]
+    },
+    {
+      "id": "COE",
+      "label": "Cooper Online Enterprises reference implementation",
+      "commit": "d74ce49843bb616a0147fed218139c31d70213f5",
+      "working_tree": {
+        "status": "clean",
+        "interpretation": "All cited evidence resolved to the recorded clean commit at inspection time."
+      },
+      "entries": [
+        {
+          "path": "AGENTS.md",
+          "path_kind": "file",
+          "authority_class": "repository_instruction",
+          "observation": "commit",
+          "content_sha256": "4112b497af89a2ed42d4c05d8dc5e3f828d246381538ef882e574d832e7eb1e1"
+        },
+        {
+          "path": ".agent/",
+          "path_kind": "directory",
+          "authority_class": "live_governance",
+          "observation": "commit"
+        },
+        {
+          "path": ".agent/START_HERE.md",
+          "path_kind": "file",
+          "authority_class": "live_governance",
+          "observation": "commit",
+          "content_sha256": "b423f4572151ce9db438eb92ced39d1785787ef6554699219aa82507f0a52440"
+        },
+        {
+          "path": ".agent/policies.yaml",
+          "path_kind": "file",
+          "authority_class": "live_governance",
+          "observation": "commit",
+          "content_sha256": "0e70e667f2e33d4a92b7597d2e6a66bdb7edf17494646a28dd8c05e5f15d7508"
+        },
+        {
+          "path": ".agent/context-rules.yaml",
+          "path_kind": "file",
+          "authority_class": "live_governance",
+          "observation": "commit",
+          "content_sha256": "422aee5b154492484ce9a0cdd3e43ef4ac2940e143dd9e90a97d244b3ae08b29"
+        },
+        {
+          "path": ".agent/schema.yaml",
+          "path_kind": "file",
+          "authority_class": "live_governance",
+          "observation": "commit",
+          "content_sha256": "04558964f2e76e7a766e3b135542bb4f42394e0787551f1096bc151f66527c07"
+        },
+        {
+          "path": ".agent/lifecycle.yaml",
+          "path_kind": "file",
+          "authority_class": "live_governance",
+          "observation": "commit",
+          "content_sha256": "92fdd244140a44fdcf1267afe68714a52ce570bff2720c8e017f1dd6762d4c5c"
+        },
+        {
+          "path": ".agent/tools.yaml",
+          "path_kind": "file",
+          "authority_class": "live_governance",
+          "observation": "commit",
+          "content_sha256": "a4007c7c96c5547ffaebd5c2244bbab9c6e052215405efe16cddc3ed9e88f162"
+        },
+        {
+          "path": ".agent/validators.yaml",
+          "path_kind": "file",
+          "authority_class": "live_governance",
+          "observation": "commit",
+          "content_sha256": "78fcf2b09751bc113af1d2f6c23d625521dd56f3fddc8dccdb8fbdf10816f3bd"
+        },
+        {
+          "path": ".agent/project.yaml",
+          "path_kind": "file",
+          "authority_class": "live_governance",
+          "observation": "commit",
+          "content_sha256": "ad024463e1104fd0f88f75ff39bf8861f5f6f1116b1bcc14a93cf3f821adaf44"
+        },
+        {
+          "path": "project-dossier/README.md",
+          "path_kind": "file",
+          "authority_class": "navigation_or_handoff",
+          "observation": "commit",
+          "content_sha256": "e38aebdee0a423b513f284124a384d94b0aa8863f53a0a6a41eebf47407bdb74"
+        },
+        {
+          "path": "project-dossier/AUTHORITY.md",
+          "path_kind": "file",
+          "authority_class": "canonical_current",
+          "observation": "commit",
+          "content_sha256": "80c0fb323e49fbe70df9d133f84069540326999c42c304de1affe4628631b590"
+        },
+        {
+          "path": "project-dossier/CANONICAL_SOURCE_MAP.md",
+          "path_kind": "file",
+          "authority_class": "canonical_current",
+          "observation": "commit",
+          "content_sha256": "617477079e1e425687b27eeec0f48c61fc089ed2cd332481c31b77e85ba22b88"
+        },
+        {
+          "path": "project-dossier/MANIFEST.json",
+          "path_kind": "file",
+          "authority_class": "generated_integrity",
+          "observation": "commit",
+          "content_sha256": "cd888e916d605d14eab433bc3dfce9fd84d9440eb1efd5e64370f34d78ef08fb"
+        },
+        {
+          "path": "project-dossier/CHECKSUMS.sha256",
+          "path_kind": "file",
+          "authority_class": "generated_integrity",
+          "observation": "commit",
+          "content_sha256": "ce2a52765289f519987a23244227338fa9f34ddc02019581afd837daeb805be2"
+        },
+        {
+          "path": "project-dossier/canonical/",
+          "path_kind": "directory",
+          "authority_class": "canonical_current",
+          "observation": "commit"
+        },
+        {
+          "path": "project-dossier/current-state/",
+          "path_kind": "directory",
+          "authority_class": "current_state",
+          "observation": "commit"
+        },
+        {
+          "path": "project-dossier/conformance/",
+          "path_kind": "directory",
+          "authority_class": "current_state",
+          "observation": "commit"
+        },
+        {
+          "path": "project-dossier/implementation-plan/",
+          "path_kind": "directory",
+          "authority_class": "plan_or_register",
+          "observation": "commit"
+        },
+        {
+          "path": "project-dossier/registers/",
+          "path_kind": "directory",
+          "authority_class": "plan_or_register",
+          "observation": "commit"
+        },
+        {
+          "path": "project-dossier/provenance/",
+          "path_kind": "directory",
+          "authority_class": "evidence_or_provenance",
+          "observation": "commit"
+        },
+        {
+          "path": "project-dossier/validation/",
+          "path_kind": "directory",
+          "authority_class": "evidence_or_provenance",
+          "observation": "commit"
+        },
+        {
+          "path": "project-dossier/validation/validation-report.json",
+          "path_kind": "file",
+          "authority_class": "generated_integrity",
+          "observation": "commit",
+          "content_sha256": "24dd98fcfe9dc24c644d61227a55f09664c63d69101533bde19fab8533d6c5e6"
+        },
+        {
+          "path": "project-dossier/handoff/",
+          "path_kind": "directory",
+          "authority_class": "navigation_or_handoff",
+          "observation": "commit"
+        },
+        {
+          "path": "project-dossier/handoff/START_HERE.md",
+          "path_kind": "file",
+          "authority_class": "navigation_or_handoff",
+          "observation": "commit",
+          "content_sha256": "55a5dedd807bdc6b3574f96de02315530a3a2feb21ab8a1e9f06d038e8b1940d"
+        },
+        {
+          "path": "project-dossier/machine-readable/",
+          "path_kind": "directory",
+          "authority_class": "mixed_directory",
+          "observation": "commit"
+        },
+        {
+          "path": "project-dossier/machine-readable/path-authority.yaml",
+          "path_kind": "file",
+          "authority_class": "generated_integrity",
+          "observation": "commit",
+          "content_sha256": "7f91bfe7b929e9dc8f8fcf9cce1c7e071b4011645d8d4dcb2226b77483eaa382"
+        },
+        {
+          "path": "project-dossier/requirements/",
+          "path_kind": "directory",
+          "authority_class": "canonical_current",
+          "observation": "commit"
+        }
+      ]
+    }
+  ]
+}

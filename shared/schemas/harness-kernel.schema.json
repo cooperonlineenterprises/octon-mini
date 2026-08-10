@@ -1,0 +1,739 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://project-blueprint.local/schemas/harness-kernel.schema.json",
+  "title": "Project Harness Seven-file Governance Kernel",
+  "description": "Per-file strict shapes for the versioned domain-neutral kernel. Semantic invariants are additionally checked by the generated validator.",
+  "$defs": {
+    "strings": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "command": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "run",
+        "writes"
+      ],
+      "properties": {
+        "run": {
+          "type": "string",
+          "minLength": 1
+        },
+        "writes": {
+          "type": [
+            "array",
+            "string"
+          ],
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "permission_grant",
+        "project_slug",
+        "policy_status",
+        "default",
+        "declarative_only",
+        "non_authorization_rule",
+        "local",
+        "external",
+        "sensitive",
+        "repository",
+        "invariants",
+        "project_specific_adoption"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "harness.policy.v1"
+        },
+        "permission_grant": {
+          "const": false
+        },
+        "project_slug": {
+          "type": "string",
+          "minLength": 1
+        },
+        "policy_status": {
+          "enum": [
+            "generated_unadopted_baseline",
+            "adopted",
+            "superseded"
+          ]
+        },
+        "default": {
+          "const": "deny"
+        },
+        "declarative_only": {
+          "const": true
+        },
+        "non_authorization_rule": {
+          "type": "string",
+          "minLength": 1
+        },
+        "local": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "read_repository",
+            "modify_repository",
+            "run_declared_validation",
+            "start_services"
+          ],
+          "properties": {
+            "read_repository": {
+              "type": "string"
+            },
+            "modify_repository": {
+              "type": "string"
+            },
+            "run_declared_validation": {
+              "type": "string"
+            },
+            "start_services": {
+              "type": "string"
+            }
+          }
+        },
+        "external": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "network",
+            "publication",
+            "deployment",
+            "communication",
+            "purchase"
+          ],
+          "properties": {
+            "network": {
+              "type": "string"
+            },
+            "publication": {
+              "const": "requires_explicit_current_authorization"
+            },
+            "deployment": {
+              "const": "requires_explicit_current_authorization"
+            },
+            "communication": {
+              "const": "requires_explicit_current_authorization"
+            },
+            "purchase": {
+              "const": "requires_explicit_current_authorization"
+            }
+          }
+        },
+        "sensitive": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "secret_values_in_repository_or_logs",
+            "production_data",
+            "destructive_operations",
+            "legal_or_compliance_determinations"
+          ],
+          "properties": {
+            "secret_values_in_repository_or_logs": {
+              "type": "string"
+            },
+            "production_data": {
+              "type": "string"
+            },
+            "destructive_operations": {
+              "type": "string"
+            },
+            "legal_or_compliance_determinations": {
+              "type": "string"
+            }
+          }
+        },
+        "repository": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "preserve_unrelated_work",
+            "writes_outside_declared_workspace",
+            "follow_untrusted_symlink",
+            "dossier_instruction_channel",
+            "plans_create_permission",
+            "generated_outputs_create_permission",
+            "current_state_requires_direct_evidence"
+          ],
+          "properties": {
+            "preserve_unrelated_work": {
+              "const": true
+            },
+            "writes_outside_declared_workspace": {
+              "const": "denied"
+            },
+            "follow_untrusted_symlink": {
+              "const": "denied"
+            },
+            "dossier_instruction_channel": {
+              "const": false
+            },
+            "plans_create_permission": {
+              "const": false
+            },
+            "generated_outputs_create_permission": {
+              "const": false
+            },
+            "current_state_requires_direct_evidence": {
+              "const": true
+            }
+          }
+        },
+        "invariants": {
+          "$ref": "#/$defs/strings"
+        },
+        "project_specific_adoption": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "requires"
+          ],
+          "properties": {
+            "status": {
+              "enum": [
+                "not_assessed",
+                "in_progress",
+                "adopted",
+                "superseded"
+              ]
+            },
+            "requires": {
+              "$ref": "#/$defs/strings"
+            }
+          }
+        }
+      }
+    },
+    "context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "permission_grant",
+        "project_slug",
+        "context_status",
+        "precedence",
+        "path_scope",
+        "information_states",
+        "conflicts",
+        "non_instruction_classes"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "harness.context.v1"
+        },
+        "permission_grant": {
+          "const": false
+        },
+        "project_slug": {
+          "type": "string",
+          "minLength": 1
+        },
+        "context_status": {
+          "enum": [
+            "generated_unadopted_baseline",
+            "adopted",
+            "superseded"
+          ]
+        },
+        "precedence": {
+          "$ref": "#/$defs/strings"
+        },
+        "path_scope": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "discovery",
+            "child_may_add_compatible_constraints",
+            "child_may_weaken_ancestor",
+            "untrusted_symlinks_as_instruction_paths"
+          ],
+          "properties": {
+            "discovery": {
+              "const": "root_to_leaf"
+            },
+            "child_may_add_compatible_constraints": {
+              "const": true
+            },
+            "child_may_weaken_ancestor": {
+              "const": false
+            },
+            "untrusted_symlinks_as_instruction_paths": {
+              "const": "prohibited"
+            }
+          }
+        },
+        "information_states": {
+          "type": "object"
+        },
+        "conflicts": {
+          "type": "object"
+        },
+        "non_instruction_classes": {
+          "$ref": "#/$defs/strings"
+        }
+      }
+    },
+    "schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "kernel_version",
+        "compatibility",
+        "record_versions",
+        "id_patterns",
+        "statuses",
+        "evolution"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "harness.schema.v1"
+        },
+        "kernel_version": {
+          "const": "1.0.1"
+        },
+        "compatibility": {
+          "type": "object"
+        },
+        "record_versions": {
+          "type": "object"
+        },
+        "id_patterns": {
+          "type": "object"
+        },
+        "statuses": {
+          "type": "object"
+        },
+        "evolution": {
+          "type": "object"
+        }
+      }
+    },
+    "lifecycle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "task",
+        "decision",
+        "artifact"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "harness.lifecycle.v1"
+        },
+        "task": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "initial",
+            "terminal",
+            "transitions",
+            "gates"
+          ],
+          "properties": {
+            "initial": {
+              "type": "string"
+            },
+            "terminal": {
+              "$ref": "#/$defs/strings"
+            },
+            "transitions": {
+              "type": "object"
+            },
+            "gates": {
+              "type": "object"
+            }
+          }
+        },
+        "decision": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "initial",
+            "terminal",
+            "transitions",
+            "immutable_meaning_after",
+            "successor_required_for"
+          ],
+          "properties": {
+            "initial": {
+              "type": "string"
+            },
+            "terminal": {
+              "$ref": "#/$defs/strings"
+            },
+            "transitions": {
+              "type": "object"
+            },
+            "immutable_meaning_after": {
+              "type": "string"
+            },
+            "successor_required_for": {
+              "$ref": "#/$defs/strings"
+            }
+          }
+        },
+        "artifact": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "initial",
+            "terminal",
+            "transitions"
+          ],
+          "properties": {
+            "initial": {
+              "type": "string"
+            },
+            "terminal": {
+              "$ref": "#/$defs/strings"
+            },
+            "transitions": {
+              "type": "object"
+            }
+          }
+        }
+      }
+    },
+    "tools": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "permission_grant",
+        "declarative_only",
+        "real_enforcement_boundary",
+        "tools",
+        "evidence"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "harness.tools.v1"
+        },
+        "permission_grant": {
+          "const": false
+        },
+        "declarative_only": {
+          "const": true
+        },
+        "real_enforcement_boundary": {
+          "$ref": "#/$defs/strings"
+        },
+        "tools": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "filesystem",
+            "shell",
+            "git"
+          ],
+          "properties": {
+            "filesystem": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["availability", "allowed", "denied"],
+              "properties": {
+                "availability": {"const": "required"},
+                "allowed": {"$ref": "#/$defs/strings"},
+                "denied": {"$ref": "#/$defs/strings"}
+              }
+            },
+            "shell": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["availability", "allowed", "denied"],
+              "properties": {
+                "availability": {"const": "required"},
+                "allowed": {"$ref": "#/$defs/strings"},
+                "denied": {"$ref": "#/$defs/strings"}
+              }
+            },
+            "git": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "availability",
+                "allowed",
+                "task_scoped",
+                "explicit_current_authorization"
+              ],
+              "properties": {
+                "availability": {"const": "optional"},
+                "allowed": {"$ref": "#/$defs/strings"},
+                "task_scoped": {"$ref": "#/$defs/strings"},
+                "explicit_current_authorization": {
+                  "$ref": "#/$defs/strings"
+                }
+              }
+            }
+          }
+        },
+        "evidence": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "record_material_commands",
+            "redact_secret_values",
+            "tool_availability_implies_permission"
+          ],
+          "properties": {
+            "record_material_commands": {"const": true},
+            "redact_secret_values": {"const": true},
+            "tool_availability_implies_permission": {"const": false}
+          }
+        }
+      }
+    },
+    "validators": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "validator_version",
+        "runtime",
+        "commands",
+        "required_core_checks",
+        "limitations"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "harness.validators.v1"
+        },
+        "validator_version": {
+          "type": "string",
+          "pattern": "^(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)$"
+        },
+        "runtime": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "executable",
+            "minimum_version",
+            "dependencies",
+            "bytecode_and_cache_writes"
+          ],
+          "properties": {
+            "executable": {"const": "python"},
+            "minimum_version": {"const": "3.11"},
+            "dependencies": {"const": "standard_library_only"},
+            "bytecode_and_cache_writes": {
+              "const": "prohibited_for_check"
+            }
+          }
+        },
+        "commands": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "bootstrap",
+            "check",
+            "test",
+            "refresh",
+            "closure"
+          ],
+          "properties": {
+            "bootstrap": {
+              "$ref": "#/$defs/command"
+            },
+            "check": {
+              "$ref": "#/$defs/command"
+            },
+            "test": {
+              "$ref": "#/$defs/command"
+            },
+            "refresh": {
+              "$ref": "#/$defs/command"
+            },
+            "closure": {
+              "$ref": "#/$defs/command"
+            }
+          }
+        },
+        "required_core_checks": {
+          "$ref": "#/$defs/strings"
+        },
+        "limitations": {
+          "$ref": "#/$defs/strings"
+        }
+      }
+    },
+    "project": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "project",
+        "paths",
+        "commands",
+        "extensions",
+        "mutable_work_status"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "harness.project.v1"
+        },
+        "project": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "name",
+            "repository_root",
+            "profile",
+            "blueprint_version",
+            "adoption_status",
+            "adoption_decision_ref"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1
+            },
+            "repository_root": {
+              "const": "."
+            },
+            "profile": {
+              "enum": [
+                "minimal",
+                "standard",
+                "high-assurance"
+              ]
+            },
+            "blueprint_version": {
+              "type": "string",
+              "pattern": "^(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)$"
+            },
+            "adoption_status": {
+              "enum": [
+                "not_assessed",
+                "in_progress",
+                "adopted",
+                "superseded"
+              ]
+            },
+            "adoption_decision_ref": {
+              "type": ["string", "null"],
+              "pattern": "^DEC-[0-9]{4}$"
+            }
+          }
+        },
+        "paths": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "source",
+            "tests",
+            "generated",
+            "instruction_roots",
+            "fingerprint_exclusions"
+          ],
+          "properties": {
+            "source": {
+              "$ref": "#/$defs/strings"
+            },
+            "tests": {
+              "$ref": "#/$defs/strings"
+            },
+            "generated": {
+              "$ref": "#/$defs/strings"
+            },
+            "instruction_roots": {
+              "$ref": "#/$defs/strings"
+            },
+            "fingerprint_exclusions": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "path",
+                  "reason"
+                ],
+                "properties": {
+                  "path": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              }
+            }
+          }
+        },
+        "commands": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "project_test",
+            "project_lint",
+            "project_build",
+            "project_closure"
+          ],
+          "properties": {
+            "project_test": {"$ref": "#/$defs/project_command"},
+            "project_lint": {"$ref": "#/$defs/project_command"},
+            "project_build": {"$ref": "#/$defs/project_command"},
+            "project_closure": {"$ref": "#/$defs/project_command"}
+          }
+        },
+        "extensions": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "registry",
+            "registry_required_in_profile"
+          ],
+          "properties": {
+            "registry": {
+              "const": ".agent/extensions/registry.json"
+            },
+            "registry_required_in_profile": {
+              "const": "standard_or_higher"
+            }
+          }
+        },
+        "mutable_work_status": {
+          "const": "prohibited_here"
+        }
+      }
+    },
+    "project_command": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "run"],
+      "properties": {
+        "status": {
+          "enum": ["not_assessed", "configured"]
+        },
+        "run": {
+          "type": ["string", "null"]
+        }
+      }
+    }
+  }
+}

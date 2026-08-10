@@ -4,19 +4,21 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import hashlib
 import json
 import os
 import re
+import secrets
 import subprocess
 import sys
 import tempfile
 from datetime import date
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 
-GENERATOR_VERSION = "1.0.0"
-KERNEL_VERSION = "1.0.0"
+GENERATOR_VERSION = "1.0.1"
+KERNEL_VERSION = "1.0.1"
 PROFILE_LAYERS = {
     "minimal": ("core",),
     "standard": ("core", "standard"),
@@ -29,6 +31,7 @@ KNOWN_VARIABLES = {
     "PROJECT_SLUG",
     "CREATED_DATE",
     "BLUEPRINT_VERSION",
+    "HARNESS_KERNEL_VERSION",
     "PROFILE",
     "HARNESS_REFRESH_COMMAND",
     "HARNESS_REFRESH_WRITES",
@@ -40,14 +43,13 @@ DERIVED_PATHS = {
     Path("project-dossier/machine-readable/path-authority.json"),
     Path("project-dossier/MANIFEST.json"),
 }
+PROJECT_LOCAL_SOURCE_PATHS = {
+    Path("project-dossier/machine-readable/artifact-registry.json"),
+}
 HIGH_DERIVED_PATHS = {
     Path("project-dossier/CHECKSUMS.sha256"),
     Path(".agent/generated/manifest.json"),
     Path(".agent/generated/validation-report.json"),
-}
-SOURCE_EXCLUSIONS = {
-    "project-dossier/MANIFEST.json",
-    "project-dossier/CHECKSUMS.sha256",
 }
 
 
@@ -89,11 +91,16 @@ def strict_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
     return result
 
 
+def reject_nonfinite(value: str) -> object:
+    raise ValueError(f"non-finite JSON number is prohibited: {value}")
+
+
 def load_json(path: Path) -> object:
     try:
         return json.loads(
             path.read_text(encoding="utf-8"),
             object_pairs_hook=strict_object,
+            parse_constant=reject_nonfinite,
         )
     except json.JSONDecodeError as error:
         raise ValueError(f"invalid JSON {path}: {error}") from error
@@ -211,52 +218,8 @@ def write_json(path: Path, value: object) -> None:
     write_text(path, json.dumps(value, indent=2, sort_keys=True) + "\n")
 
 
-def sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as source:
-        for chunk in iter(lambda: source.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
-
-
-def source_files(root: Path) -> list[Path]:
-    files: list[Path] = []
-    for path in sorted(root.rglob("*")):
-        if not path.is_file() or path.is_symlink():
-            continue
-        relative = path.relative_to(root).as_posix()
-        if (
-            ".git" in path.relative_to(root).parts
-            or "__pycache__" in path.parts
-            or path.name in {".DS_Store"}
-            or relative.startswith(".agent/generated/")
-            or relative in SOURCE_EXCLUSIONS
-        ):
-            continue
-        files.append(path)
-    return files
-
-
-def source_fingerprint(root: Path) -> str:
-    digest = hashlib.sha256()
-    for path in source_files(root):
-        relative = path.relative_to(root).as_posix()
-        digest.update(relative.encode("utf-8"))
-        digest.update(b"\0")
-        digest.update(hashlib.sha256(path.read_bytes()).digest())
-        digest.update(b"\0")
-    return digest.hexdigest()
-
-
-def generation_id(
-    version: str,
-    profile: str,
-    created: str,
-    project_name: str,
-    slug: str,
-) -> str:
-    material = "\0".join((version, profile, created, project_name, slug))
-    return hashlib.sha256(material.encode("utf-8")).hexdigest()[:32]
+def generation_id() -> str:
+    return secrets.token_hex(16)
 
 
 def schema_outputs() -> dict[Path, Path]:
@@ -267,123 +230,152 @@ def schema_outputs() -> dict[Path, Path]:
     }
 
 
-def selected_artifacts(profile: str, created: str) -> list[dict[str, object]]:
-    source = load_json(blueprint_root() / "dossier" / "artifact-types.json")
-    if not isinstance(source, dict) or not isinstance(source.get("artifacts"), list):
-        raise ValueError("dossier/artifact-types.json has an invalid top-level shape")
-    selected: list[dict[str, object]] = []
-    seen_ids: set[str] = set()
-    seen_paths: set[str] = set()
-    for raw in source["artifacts"]:
-        if not isinstance(raw, dict):
-            raise ValueError("artifact type entry must be an object")
-        artifact_profile = raw.get("profile")
-        if artifact_profile not in PROFILE_RANK:
-            raise ValueError(f"artifact {raw.get('id')}: invalid profile")
-        if PROFILE_RANK[str(artifact_profile)] > PROFILE_RANK[profile]:
-            continue
-        artifact_id = raw.get("id")
-        path = raw.get("path")
-        if not isinstance(artifact_id, str) or not re.fullmatch(
-            r"[A-Z]{3}-[0-9]{4}", artifact_id
-        ):
-            raise ValueError(f"invalid artifact ID: {artifact_id!r}")
-        if not isinstance(path, str) or not path:
-            raise ValueError(f"artifact {artifact_id}: invalid path")
-        if artifact_id in seen_ids or path in seen_paths:
-            raise ValueError(f"duplicate artifact ID or path: {artifact_id} / {path}")
-        seen_ids.add(artifact_id)
-        seen_paths.add(path)
-        selected.append(
-            {
-                key: raw[key]
-                for key in (
-                    "id",
-                    "path",
-                    "category",
-                    "classification",
-                    "information_state",
-                    "authority",
-                    "generated",
-                    "owner_role",
-                    "review_cadence",
-                    "update_triggers",
-                    "sensitivity",
-                )
-            }
-            | {
-                "source_refs": [
-                    f"project-blueprint:dossier/artifact-types.json#{artifact_id}"
-                ],
-                "last_reviewed": created,
-                "superseded_by": None,
-            }
-        )
-    return selected
+def portable_project_path(value: object, label: str) -> Path:
+    if not isinstance(value, str) or not value or "\\" in value:
+        raise ValueError(f"{label}: invalid path {value!r}")
+    path = PurePosixPath(value)
+    if path.is_absolute() or any(part in {"", ".", ".."} for part in path.parts):
+        raise ValueError(f"{label}: unsafe path {value!r}")
+    return Path(*path.parts)
 
 
-def generate_catalog(
-    stage: Path,
+def selected_artifact_registry(
     profile: str,
     created: str,
-    expected_paths: set[Path],
-) -> list[dict[str, object]]:
-    artifacts = selected_artifacts(profile, created)
-    missing = [
-        str(item["path"])
-        for item in artifacts
-        if Path(str(item["path"])) not in expected_paths
-    ]
-    if missing:
-        raise ValueError(
-            "artifact catalog paths absent from selected profile: " + ", ".join(missing)
-        )
-    catalog = {
-        "schema_version": "project-dossier.artifact-catalog.v1",
-        "dossier_version": "1.0.0",
-        "authority": "Artifact metadata and source ownership only; not permission.",
-        "artifacts": artifacts,
-    }
-    write_json(stage / "project-dossier" / "ARTIFACT_CATALOG.json", catalog)
-    return artifacts
-
-
-def generate_path_authority(
-    stage: Path,
-    artifacts: list[dict[str, object]],
-    expected_paths: set[Path],
     project_slug: str,
-) -> None:
-    by_path = {str(item["path"]): item for item in artifacts}
-    dossier_paths = sorted(
+    expected_paths: set[Path],
+) -> dict[str, object]:
+    source = load_json(blueprint_root() / "dossier" / "artifact-types.json")
+    if (
+        not isinstance(source, dict)
+        or source.get("schema_version")
+        != "project-blueprint.dossier-artifact-types.v2"
+        or source.get("permission_grant") is not False
+        or not isinstance(source.get("artifact_types"), list)
+        or not isinstance(source.get("representations"), list)
+    ):
+        raise ValueError("dossier/artifact-types.json has an invalid top-level shape")
+
+    types_by_id: dict[str, dict[str, object]] = {}
+    selected_type_ids: set[str] = set()
+    for index, raw in enumerate(source["artifact_types"]):
+        if not isinstance(raw, dict):
+            raise ValueError(f"artifact type {index} must be an object")
+        artifact_type_id = raw.get("id")
+        if (
+            not isinstance(artifact_type_id, str)
+            or not re.fullmatch(r"[A-Z]{3}-[0-9]{4}", artifact_type_id)
+            or artifact_type_id in types_by_id
+        ):
+            raise ValueError(
+                f"artifact type {index} has an invalid or duplicate ID"
+            )
+        type_profile = raw.get("profile")
+        if type_profile not in PROFILE_RANK:
+            raise ValueError(
+                f"artifact type {artifact_type_id}: invalid profile"
+            )
+        types_by_id[artifact_type_id] = copy.deepcopy(raw)
+        if PROFILE_RANK[str(type_profile)] <= PROFILE_RANK[profile]:
+            selected_type_ids.add(artifact_type_id)
+
+    selected_representations: list[dict[str, object]] = []
+    seen_representation_ids: set[str] = set()
+    seen_paths: set[str] = set()
+    for index, raw in enumerate(source["representations"]):
+        if not isinstance(raw, dict):
+            raise ValueError(f"representation {index} must be an object")
+        representation_profile = raw.get("profile")
+        if representation_profile not in PROFILE_RANK:
+            raise ValueError(
+                f"representation {raw.get('id')}: invalid profile"
+            )
+        if PROFILE_RANK[str(representation_profile)] > PROFILE_RANK[profile]:
+            continue
+        representation_id = raw.get("id")
+        artifact_type_ids = raw.get("artifact_type_ids")
+        if (
+            not isinstance(representation_id, str)
+            or not re.fullmatch(r"REP-[0-9]{4}", representation_id)
+            or representation_id in seen_representation_ids
+        ):
+            raise ValueError(
+                f"representation {index} has an invalid or duplicate ID"
+            )
+        if (
+            not isinstance(artifact_type_ids, list)
+            or not artifact_type_ids
+            or any(not isinstance(item, str) for item in artifact_type_ids)
+            or len(artifact_type_ids) != len(set(artifact_type_ids))
+            or any(item not in selected_type_ids for item in artifact_type_ids)
+        ):
+            raise ValueError(
+                f"representation {representation_id} has invalid artifact_type_ids"
+            )
+        path = portable_project_path(
+            raw.get("path"), f"representation {representation_id}"
+        )
+        if path.as_posix() in seen_paths:
+            raise ValueError(f"duplicate representation path: {path.as_posix()}")
+        if path not in expected_paths:
+            raise ValueError(
+                f"representation path absent from selected profile: {path.as_posix()}"
+            )
+        selected_representations.append(copy.deepcopy(raw))
+        seen_representation_ids.add(representation_id)
+        seen_paths.add(path.as_posix())
+
+    expected_dossier = {
         path.as_posix()
         for path in expected_paths
         if path.as_posix().startswith("project-dossier/")
-    )
-    entries: list[dict[str, object]] = []
-    for path in dossier_paths:
-        artifact = by_path.get(path)
-        if artifact is None:
-            raise ValueError(f"no artifact catalog owner for dossier path: {path}")
-        entries.append(
-            {
-                "path": path,
-                "artifact_id": artifact["id"],
-                "information_state": artifact["information_state"],
-                "authority": artifact["authority"],
-                "generated": artifact["generated"],
-            }
-        )
-    value = {
-        "schema_version": "project.dossier.path-authority.v1",
-        "document_role": "generated_from_artifact_catalog",
-        "permission_grant": False,
-        "project_slug": project_slug,
-        "paths": entries,
     }
+    represented_dossier = {
+        str(item["path"])
+        for item in selected_representations
+        if str(item["path"]).startswith("project-dossier/")
+    }
+    if expected_dossier != represented_dossier:
+        missing = sorted(expected_dossier - represented_dossier)
+        extra = sorted(represented_dossier - expected_dossier)
+        details = []
+        if missing:
+            details.append("unrepresented expected paths: " + ", ".join(missing))
+        if extra:
+            details.append("unexpected represented paths: " + ", ".join(extra))
+        raise ValueError("artifact registry coverage mismatch: " + "; ".join(details))
+
+    selected_types = [
+        types_by_id[str(raw["id"])]
+        for raw in source["artifact_types"]
+        if isinstance(raw, dict) and raw.get("id") in selected_type_ids
+    ]
+    return {
+        "schema_version": "project-dossier.artifact-registry.v2",
+        "document_role": "authoritative_project_local_artifact_metadata",
+        "permission_grant": False,
+        "dossier_version": "1.0.1",
+        "profile": profile,
+        "project_slug": project_slug,
+        "generated_on": created,
+        "artifact_types": selected_types,
+        "representations": selected_representations,
+    }
+
+
+def write_artifact_registry(
+    stage: Path,
+    profile: str,
+    created: str,
+    project_slug: str,
+    expected_paths: set[Path],
+) -> None:
+    registry = selected_artifact_registry(
+        profile, created, project_slug, expected_paths
+    )
     write_json(
-        stage / "project-dossier" / "machine-readable" / "path-authority.json",
-        value,
+        stage / "project-dossier/machine-readable/artifact-registry.json",
+        registry,
     )
 
 
@@ -395,17 +387,22 @@ def configure_high_assurance_extension(stage: Path) -> None:
     registry["extensions"] = [
         {
             "id": "sample-restriction",
-            "enabled": True,
-            "version": "1.0.0",
+            "enabled": False,
+            "version": "1.0.1",
             "path": ".agent/extensions/sample-restriction",
             "requires_core": "^1.0.0",
             "config": ".agent/extensions/sample-restriction/config.json",
             "validator": ".agent/extensions/sample-restriction/validate.py",
             "owner": "unassigned",
             "provenance": "generated_domain_neutral_reference_extension",
+            "trust_class": "unassessed_project_local_code",
+            "trust_decision_ref": None,
             "side_effects": "read_only",
+            "network_access": "denied",
+            "filesystem_writes": "prohibited",
             "authority_effect": "restrictions_only",
             "deprecated_at": None,
+            "removal_version": None,
             "successor": None,
         }
     ]
@@ -413,17 +410,6 @@ def configure_high_assurance_extension(stage: Path) -> None:
         "Reference extension only; project adoption must assess actual needs."
     ]
     write_json(registry_path, registry)
-
-
-def classify(path: Path) -> str:
-    text = path.as_posix()
-    if text == "AGENTS.md" or text.startswith((".agent/", ".agents/")):
-        return "agent_harness"
-    if text.startswith("project-dossier/"):
-        return "project_dossier"
-    if text == ".project-blueprint-origin.json":
-        return "generation_provenance"
-    return "generated_control"
 
 
 def write_origin(
@@ -453,52 +439,19 @@ def write_origin(
                 "Generation provenance only; does not grant permission or "
                 "establish project facts, decisions, implementation, or readiness."
             ),
+            "initial_generation": {
+                "blueprint_version": version,
+                "generator_version": GENERATOR_VERSION,
+                "generation_id": identifier,
+                "generated_on": created,
+                "profile": profile,
+            },
+            "migration_history": [],
             "generated_paths": [
                 path.as_posix() for path in sorted(expected_paths)
             ],
         },
     )
-
-
-def write_dossier_integrity(
-    stage: Path,
-    version: str,
-    profile: str,
-    created: str,
-    identifier: str,
-) -> None:
-    fingerprint = source_fingerprint(stage)
-    files = [
-        {
-            "path": path.relative_to(stage).as_posix(),
-            "layer": classify(path.relative_to(stage)),
-            "sha256": sha256(path),
-        }
-        for path in source_files(stage)
-    ]
-    write_json(
-        stage / "project-dossier" / "MANIFEST.json",
-        {
-            "schema_version": "project-dossier.manifest.v1",
-            "generation_id": identifier,
-            "generated_on": created,
-            "blueprint_version": version,
-            "profile": profile,
-            "harness_kernel_version": KERNEL_VERSION,
-            "authority": "Generated point-in-time inventory and byte hashes only.",
-            "source_fingerprint": fingerprint,
-            "files": files,
-        },
-    )
-    checksum_path = stage / "project-dossier" / "CHECKSUMS.sha256"
-    if checksum_path.parent.exists() and profile == "high-assurance":
-        lines = []
-        for path in sorted((stage / "project-dossier").rglob("*")):
-            if not path.is_file() or path == checksum_path:
-                continue
-            relative = path.relative_to(stage).as_posix()
-            lines.append(f"{sha256(path)}  {relative}")
-        write_text(checksum_path, "\n".join(lines) + "\n")
 
 
 def validate_generated(stage: Path, expected_paths: set[Path]) -> list[str]:
@@ -581,14 +534,18 @@ def main() -> int:
         templates = collect_templates(args.profile)
         schemas = schema_outputs()
         created = date.today().isoformat()
-        identifier = generation_id(version, args.profile, created, name, slug)
+        identifier = generation_id()
     except ValueError as error:
         print(f"ERROR: {error}", file=sys.stderr)
         return 2
 
-    expected = set(templates) | set(schemas) | DERIVED_PATHS | {
-        Path(".project-blueprint-origin.json")
-    }
+    expected = (
+        set(templates)
+        | set(schemas)
+        | PROJECT_LOCAL_SOURCE_PATHS
+        | DERIVED_PATHS
+        | {Path(".project-blueprint-origin.json")}
+    )
     if args.profile == "high-assurance":
         expected |= HIGH_DERIVED_PATHS
 
@@ -604,25 +561,22 @@ def main() -> int:
         print("Dry run complete; no files written.")
         return 0
 
+    refresh_writes = set(DERIVED_PATHS)
+    if args.profile == "high-assurance":
+        refresh_writes.update(HIGH_DERIVED_PATHS)
     variables = {
         "PROJECT_NAME": markdown_escape(name),
         "PROJECT_NAME_JSON": json.dumps(name, ensure_ascii=False),
         "PROJECT_SLUG": slug,
         "CREATED_DATE": created,
         "BLUEPRINT_VERSION": version,
+        "HARNESS_KERNEL_VERSION": KERNEL_VERSION,
         "PROFILE": args.profile,
         "HARNESS_REFRESH_COMMAND": (
-            "python3 -B .agent/scripts/refresh.py --refresh"
-            if args.profile == "high-assurance"
-            else "not_available_in_this_profile"
+            "python -B .agent/scripts/refresh.py --refresh"
         ),
-        "HARNESS_REFRESH_WRITES": (
-            '[".agent/generated/manifest.json", '
-            '".agent/generated/validation-report.json", '
-            '"project-dossier/MANIFEST.json", '
-            '"project-dossier/CHECKSUMS.sha256"]'
-            if args.profile == "high-assurance"
-            else "[]"
+        "HARNESS_REFRESH_WRITES": json.dumps(
+            [path.as_posix() for path in sorted(refresh_writes)]
         ),
     }
 
@@ -638,8 +592,9 @@ def main() -> int:
                 write_text(stage / relative, source.read_text(encoding="utf-8"))
             if args.profile == "high-assurance":
                 configure_high_assurance_extension(stage)
-            artifacts = generate_catalog(stage, args.profile, created, expected)
-            generate_path_authority(stage, artifacts, expected, slug)
+            write_artifact_registry(
+                stage, args.profile, created, slug, expected
+            )
             write_origin(
                 stage,
                 version,
@@ -650,15 +605,11 @@ def main() -> int:
                 identifier,
                 expected,
             )
-            write_dossier_integrity(
-                stage, version, args.profile, created, identifier
+            issues = validate_generated(
+                stage, expected - DERIVED_PATHS - HIGH_DERIVED_PATHS
             )
-            issues = validate_generated(stage, expected - {
-                Path(".agent/generated/manifest.json"),
-                Path(".agent/generated/validation-report.json"),
-            })
 
-            if args.profile == "high-assurance" and not issues:
+            if not issues:
                 code, details = run(
                     [
                         sys.executable,
@@ -669,7 +620,9 @@ def main() -> int:
                     stage,
                 )
                 if code:
-                    issues.append(f"high-assurance refresh failed: {details}")
+                    issues.append(f"initial derived refresh failed: {details}")
+            if not issues:
+                issues.extend(validate_generated(stage, expected))
 
             for command in (
                 [

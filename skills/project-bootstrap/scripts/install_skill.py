@@ -25,6 +25,23 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def blueprint_root(skill_source: Path) -> Path:
+    candidates = (
+        skill_source.parents[1],
+        skill_source / "assets" / "blueprint-source",
+    )
+    for candidate in candidates:
+        if (
+            (candidate / "VERSION").is_file()
+            and (candidate / "dossier/artifact-types.json").is_file()
+            and (candidate / "shared/schemas").is_dir()
+        ):
+            return candidate
+    raise ValueError(
+        "Blueprint source bundle not found beside the skill or in its source checkout."
+    )
+
+
 def main() -> int:
     if sys.version_info < (3, 11):
         print("ERROR: Python 3.11+ is required.", file=sys.stderr)
@@ -49,6 +66,11 @@ def main() -> int:
     if args.dry_run:
         print("Dry run complete; no files written.")
         return 0
+    try:
+        repository_root = blueprint_root(source)
+    except ValueError as error:
+        print(f"ERROR: {error}", file=sys.stderr)
+        return 2
     with tempfile.TemporaryDirectory(
         prefix=".project-bootstrap-install-", dir=destination.parent
     ) as temporary:
@@ -57,13 +79,18 @@ def main() -> int:
             source,
             stage,
             ignore=shutil.ignore_patterns(
-                ".DS_Store", "__pycache__", "*.pyc"
+                ".DS_Store", "__pycache__", "*.pyc", "blueprint-source"
             ),
         )
-        repository_root = source.parents[1]
         bundle = stage / "assets" / "blueprint-source"
         bundle.mkdir(parents=True)
-        for directory in ("dossier", "harness", "shared", "migrations"):
+        for directory in (
+            ".github",
+            "dossier",
+            "harness",
+            "shared",
+            "migrations",
+        ):
             shutil.copytree(
                 repository_root / directory,
                 bundle / directory,
@@ -74,8 +101,44 @@ def main() -> int:
             "blueprint.json",
             "CHANGELOG.md",
             "RELEASE.md",
+            ".gitignore",
+            "AGENTS.md",
+            "README.md",
+            "pyproject.toml",
         ):
             shutil.copy2(repository_root / filename, bundle / filename)
+        staged_checks = (
+            [
+                sys.executable,
+                "-B",
+                str(stage / "scripts" / "validate_skill_package.py"),
+                str(stage),
+            ],
+            [
+                sys.executable,
+                "-B",
+                str(stage / "scripts" / "verify_reference_evidence.py"),
+            ],
+            [
+                sys.executable,
+                "-B",
+                str(stage / "scripts" / "validate_blueprint.py"),
+            ],
+        )
+        for command in staged_checks:
+            result = subprocess.run(
+                command,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if result.returncode:
+                print(
+                    "ERROR: staged installed skill failed package validation: "
+                    + (result.stderr.strip() or result.stdout.strip()),
+                    file=sys.stderr,
+                )
+                return 4
         smoke_target = Path(temporary) / "smoke-project"
         result = subprocess.run(
             [
@@ -102,7 +165,10 @@ def main() -> int:
             return 4
         os.replace(stage, destination)
     print("Installed project-bootstrap skill snapshot.")
-    print("Validate the installed SKILL.md before first use.")
+    print(
+        "The staged package, bundled blueprint, and profile builds passed; "
+        "inspect the installed SKILL.md before first project use."
+    )
     return 0
 
 

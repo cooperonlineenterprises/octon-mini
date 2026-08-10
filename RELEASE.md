@@ -2,13 +2,13 @@
 
 ## Current release
 
-- Blueprint version: `1.0.0`
-- Harness kernel: `1.0.0`
+- Blueprint version: `1.0.1`
+- Harness kernel: `1.0.1`
 - Extension API: `harness.extension.v1`
 - Minimum runtime: Python `3.11`
 - Canonical structured format: strict JSON
 
-Version `1.0.0` is the stable domain-neutral kernel. Major versions may break
+Version `1.0.1` is the current stable domain-neutral kernel. Major versions may break
 paths, schemas, IDs, lifecycle semantics, extension compatibility, or
 migration behavior. Minor versions add backward-compatible artifacts or
 checks. Patch versions correct behavior without changing accepted contracts.
@@ -17,16 +17,26 @@ checks. Patch versions correct behavior without changing accepted contracts.
 
 Before tagging a release:
 
-1. run `validate_blueprint.py`;
-2. run `test_acceptance.py`;
-3. run the skill-creator `quick_validate.py`;
-4. confirm CI passes on the declared Python and OS matrix;
-5. review the changelog and every migration from the previous release;
-6. confirm generated Minimal, Standard, and High-Assurance snapshots contain
+1. run `validate_skill_package.py` and `verify_reference_evidence.py`;
+   when the reference checkouts are available, rerun reference verification
+   with an explicit `--reference-root ID=/absolute/path` for each registered
+   repository and disclose any unavailable checkout;
+2. run `validate_blueprint.py`;
+3. run `test_acceptance.py`;
+4. install the skill into a fresh temporary destination, run the installed
+   package, blueprint, reference, and acceptance validators from that
+   destination, and generate and check all three profiles from the bundled
+   source;
+5. when available, run the skill-creator `quick_validate.py` as a compatibility
+   check against the installed Codex tooling;
+6. confirm CI passes on the declared Python and OS matrix; local success is
+   not evidence that hosted CI passed;
+7. review the changelog and every migration from the previous release;
+8. confirm generated Minimal, Standard, and High-Assurance snapshots contain
    no project facts, secrets, permissions, accepted decisions, or readiness
    claims;
-7. commit the exact validated source; and
-8. create an annotated `v<version>` tag on that commit.
+9. commit the exact validated source; and
+10. create an annotated `v<version>` tag on that commit.
 
 Do not move a published version tag. A correction receives a new patch
 version.

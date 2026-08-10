@@ -1,0 +1,411 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://project-blueprint.local/schemas/dossier-artifact-registry.schema.json",
+  "title": "Authoritative Project-local Dossier Artifact Registry",
+  "description": "Project-owned artifact types and their physical representations. The registry describes information authority and never grants operating permission.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "document_role",
+    "permission_grant",
+    "dossier_version",
+    "profile",
+    "project_slug",
+    "generated_on",
+    "artifact_types",
+    "representations"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "project-dossier.artifact-registry.v2"
+    },
+    "document_role": {
+      "const": "authoritative_project_local_artifact_metadata"
+    },
+    "permission_grant": {
+      "const": false
+    },
+    "dossier_version": {
+      "type": "string",
+      "pattern": "^(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)$"
+    },
+    "profile": {
+      "enum": [
+        "minimal",
+        "standard",
+        "high-assurance"
+      ]
+    },
+    "project_slug": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "generated_on": {
+      "type": "string",
+      "format": "date"
+    },
+    "artifact_types": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/artifact_type"
+      }
+    },
+    "representations": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/representation"
+      }
+    }
+  },
+  "$defs": {
+    "nonempty_strings": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "artifact_type": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "recommended_name",
+        "category",
+        "classification",
+        "profile",
+        "applicability",
+        "purpose",
+        "questions",
+        "intended_audiences",
+        "owner_role",
+        "required_inputs",
+        "downstream_consumers",
+        "recommended_formats",
+        "source_of_truth_expectations",
+        "dependencies",
+        "creation_timing",
+        "update_triggers",
+        "review_cadence",
+        "validation_checks",
+        "triggers",
+        "omission_or_combination",
+        "representative_evidence"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9]*-[0-9]{4}$"
+        },
+        "recommended_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "category": {
+          "type": "string",
+          "minLength": 1
+        },
+        "classification": {
+          "enum": [
+            "core",
+            "conditional",
+            "optional"
+          ]
+        },
+        "profile": {
+          "enum": [
+            "minimal",
+            "standard",
+            "high-assurance"
+          ]
+        },
+        "applicability": {
+          "$ref": "#/$defs/type_applicability"
+        },
+        "purpose": {
+          "type": "string",
+          "minLength": 1
+        },
+        "questions": {
+          "$ref": "#/$defs/nonempty_strings"
+        },
+        "intended_audiences": {
+          "$ref": "#/$defs/nonempty_strings"
+        },
+        "owner_role": {
+          "type": "string",
+          "minLength": 1
+        },
+        "required_inputs": {
+          "$ref": "#/$defs/nonempty_strings"
+        },
+        "downstream_consumers": {
+          "$ref": "#/$defs/nonempty_strings"
+        },
+        "recommended_formats": {
+          "$ref": "#/$defs/nonempty_strings"
+        },
+        "source_of_truth_expectations": {
+          "type": "string",
+          "minLength": 1
+        },
+        "dependencies": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9]*-[0-9]{4}$"
+          }
+        },
+        "creation_timing": {
+          "type": "string",
+          "minLength": 1
+        },
+        "update_triggers": {
+          "$ref": "#/$defs/nonempty_strings"
+        },
+        "review_cadence": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "validation_checks": {
+          "$ref": "#/$defs/nonempty_strings"
+        },
+        "triggers": {
+          "$ref": "#/$defs/nonempty_strings"
+        },
+        "omission_or_combination": {
+          "type": "string",
+          "minLength": 1
+        },
+        "representative_evidence": {
+          "$ref": "#/$defs/nonempty_strings"
+        }
+      }
+    },
+    "type_applicability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "rationale",
+        "assessed_on",
+        "assessed_by"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "required",
+            "not_assessed",
+            "applicable",
+            "not_applicable"
+          ]
+        },
+        "rationale": {
+          "type": "string",
+          "minLength": 1
+        },
+        "assessed_on": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "assessed_by": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "representation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "artifact_type_ids",
+        "path",
+        "profile",
+        "representation_role",
+        "information_state",
+        "authority",
+        "source_direction",
+        "generated",
+        "owner_role",
+        "review_cadence",
+        "update_triggers",
+        "sensitivity",
+        "applicability",
+        "review",
+        "superseded_by"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^REP-[0-9]{4}$"
+        },
+        "artifact_type_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9]*-[0-9]{4}$"
+          }
+        },
+        "path": {
+          "type": "string",
+          "pattern": "^(?:project-dossier|\\.agent/decisions)/(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\]+$"
+        },
+        "profile": {
+          "enum": [
+            "minimal",
+            "standard",
+            "high-assurance"
+          ]
+        },
+        "representation_role": {
+          "type": "string",
+          "minLength": 1
+        },
+        "information_state": {
+          "enum": [
+            "navigation",
+            "governance",
+            "canonical_target",
+            "current_state",
+            "conformance",
+            "planning",
+            "register",
+            "provenance",
+            "evidence",
+            "handoff",
+            "historical",
+            "generated"
+          ]
+        },
+        "authority": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_direction": {
+          "type": "string",
+          "minLength": 1
+        },
+        "generated": {
+          "type": "boolean"
+        },
+        "owner_role": {
+          "type": "string",
+          "minLength": 1
+        },
+        "review_cadence": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "update_triggers": {
+          "$ref": "#/$defs/nonempty_strings"
+        },
+        "sensitivity": {
+          "type": "string",
+          "minLength": 1
+        },
+        "applicability": {
+          "$ref": "#/$defs/applicability"
+        },
+        "review": {
+          "$ref": "#/$defs/review"
+        },
+        "superseded_by": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^REP-[0-9]{4}$"
+        },
+        "legacy_v1_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[A-Z][A-Z0-9]*-[0-9]{4}$"
+        }
+      }
+    },
+    "applicability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "rationale",
+        "assessed_on"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "required",
+            "applicable",
+            "not_applicable",
+            "not_assessed",
+            "combined"
+          ]
+        },
+        "rationale": {
+          "type": "string",
+          "minLength": 1
+        },
+        "assessed_on": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        }
+      }
+    },
+    "review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "last_reviewed_on",
+        "basis"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "not_reviewed",
+            "reviewed",
+            "stale",
+            "not_applicable"
+          ]
+        },
+        "last_reviewed_on": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "basis": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    }
+  }
+}

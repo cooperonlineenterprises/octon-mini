@@ -10,14 +10,16 @@ import os
 import re
 import subprocess
 import sys
-from datetime import date
-from pathlib import Path
+import tempfile
+import stat
+from datetime import date, datetime
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 
 sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parents[2]
-KERNEL_VERSION = "1.0.0"
+KERNEL_VERSION = "1.0.1"
 KERNEL_FILES = (
     ".agent/policy.json",
     ".agent/context.json",
@@ -27,16 +29,126 @@ KERNEL_FILES = (
     ".agent/validators.json",
     ".agent/project.json",
 )
+CORE_OPERATIONAL_FILES = {
+    "AGENTS.md",
+    ".project-blueprint-origin.json",
+    ".agent/START_HERE.md",
+    ".agent/context.json",
+    ".agent/decisions/README.md",
+    ".agent/generated/README.md",
+    ".agent/lifecycle.json",
+    ".agent/policy.json",
+    ".agent/project.json",
+    ".agent/schema.json",
+    ".agent/scripts/refresh.py",
+    ".agent/scripts/validate.py",
+    ".agent/state/RESUME.md",
+    ".agent/state/current.json",
+    ".agent/tasks/README.md",
+    ".agent/templates/decision.md",
+    ".agent/templates/task.md",
+    ".agent/tests/fixtures/invalid/duplicate-key.json",
+    ".agent/tests/fixtures/invalid/event-sequence.jsonl",
+    ".agent/tests/fixtures/invalid/nested-agent-weakening.md",
+    ".agent/tests/fixtures/invalid/non-finite.json",
+    ".agent/tests/fixtures/valid/kernel.json",
+    ".agent/tests/fixtures/valid/recovery-event.jsonl",
+    ".agent/tests/test_validate.py",
+    ".agent/tools.json",
+    ".agent/validators.json",
+}
+STANDARD_OPERATIONAL_FILES = CORE_OPERATIONAL_FILES | {
+    ".agent/artifacts/registry.json",
+    ".agent/checklists/task-closure.md",
+    ".agent/events/README.md",
+    ".agent/evidence/README.md",
+    ".agent/extensions/README.md",
+    ".agent/extensions/registry.json",
+    ".agent/reviews/README.md",
+    ".agent/templates/artifact.json",
+    ".agent/templates/event.json",
+    ".agent/templates/evidence.md",
+    ".agent/templates/review.md",
+}
+HIGH_ASSURANCE_OPERATIONAL_FILES = STANDARD_OPERATIONAL_FILES | {
+    ".agent/approvals/README.md",
+    ".agent/approvals/registry.json",
+    ".agent/checkpoints/README.md",
+    ".agent/coordination/README.md",
+    ".agent/coordination/leases.json",
+    ".agent/evaluations/README.md",
+    ".agent/evaluations/registry.json",
+    ".agent/extensions/sample-restriction/README.md",
+    ".agent/extensions/sample-restriction/config.json",
+    ".agent/extensions/sample-restriction/validate.py",
+    ".agent/generated/manifest.json",
+    ".agent/generated/validation-report.json",
+    ".agent/metrics/README.md",
+    ".agent/metrics/registry.json",
+    ".agent/templates/checkpoint.md",
+    ".agents/README.md",
+    ".agents/agents/reviewer.json",
+    ".agents/skills/change-review/SKILL.md",
+    ".agents/skills/change-review/references/provenance.json",
+    ".agents/workflows/safe-change.json",
+}
+DERIVED_OPERATIONAL_FILES = {
+    ".agent/generated/manifest.json",
+    ".agent/generated/validation-report.json",
+}
+PROFILE_OPERATIONAL_FILES = {
+    "minimal": CORE_OPERATIONAL_FILES,
+    "standard": STANDARD_OPERATIONAL_FILES,
+    "high-assurance": HIGH_ASSURANCE_OPERATIONAL_FILES,
+}
+REQUIRED_SCHEMA_FILES = {
+    ".agent/schemas/artifact-catalog.schema.json",
+    ".agent/schemas/dossier-artifact-registry.schema.json",
+    ".agent/schemas/dossier-path-authority.schema.json",
+    ".agent/schemas/dossier-records.schema.json",
+    ".agent/schemas/harness-artifact-registry.schema.json",
+    ".agent/schemas/harness-assurance-records.schema.json",
+    ".agent/schemas/harness-capability-records.schema.json",
+    ".agent/schemas/harness-current-state.schema.json",
+    ".agent/schemas/harness-extension-registry.schema.json",
+    ".agent/schemas/harness-kernel.schema.json",
+    ".agent/schemas/harness-record.schema.json",
+    ".agent/schemas/project-blueprint-origin.schema.json",
+    ".agent/schemas/reference-evidence.schema.json",
+}
 DERIVED_EXCLUSIONS = {
+    "project-dossier/ARTIFACT_CATALOG.json",
     "project-dossier/MANIFEST.json",
     "project-dossier/CHECKSUMS.sha256",
+    "project-dossier/machine-readable/path-authority.json",
 }
 PLACEHOLDER = re.compile(r"\{\{[A-Z_]+\}\}")
 ID4 = re.compile(r"^[A-Z][A-Z0-9]*-[0-9]{4}$")
 SECRET_ASSIGNMENT = re.compile(
-    r"(?im)^\s*(?:api[_-]?key|access[_-]?token|auth[_-]?token|password|secret)"
-    r"\s*[:=]\s*(?!null\b|none\b|false\b|\$\{|<|redacted\b)"
-    r"[^\s#]{12,}\s*$"
+    r"""(?imx)
+    ^\s*["']?
+    (?:api[_-]?key|access[_-]?token|auth[_-]?token|password|secret|
+       client[_-]?secret|private[_-]?key|authorization|credential)
+    ["']?\s*[:=]\s*
+    ["']?
+    (?!null\b|none\b|false\b|not[_-]?configured\b|not[_-]?assessed\b|
+       \$\{|<|redacted\b|secret[_-]?ref:|env:)
+    [^"'\s\#][^"'\r\n\#]{7,}
+    ["']?\s*,?\s*$
+    """
+)
+SECRET_VALUE = re.compile(
+    r"(?i)^(?:sk-[A-Za-z0-9_-]{12,}|gh[pousr]_[A-Za-z0-9]{12,}|"
+    r"xox[baprs]-[A-Za-z0-9-]{12,}|AKIA[A-Z0-9]{12,}|"
+    r"-----BEGIN [A-Z ]*PRIVATE KEY-----)"
+)
+SENSITIVE_JSON_KEY = re.compile(
+    r"(?i)^(?:api[_-]?key|access[_-]?token|auth[_-]?token|password|secret|"
+    r"client[_-]?secret|private[_-]?key|authorization|credential)$"
+)
+SAFE_SECRET_SENTINEL = re.compile(
+    r"(?i)^(?:null|none|false|redacted|not[_-]?configured|not[_-]?assessed|"
+    r"\$\{.+\}|<.+>|(?:secret[_-]?ref|env):.+)$"
 )
 AUTHORITY_EXPANSION = re.compile(
     r"""(?imx)
@@ -46,6 +158,20 @@ AUTHORITY_EXPANSION = re.compile(
       ["']?child_may_weaken_ancestor["']?\s*:\s*true |
       ["']?(?:publication|deployment|communication|purchase)["']?
         \s*:\s*["']?allowed["']?
+    )
+    """
+)
+NATURAL_LANGUAGE_WEAKENING = re.compile(
+    r"""(?imx)
+    (?:
+      (?:ignore|disregard|override|bypass|supersede)\s+
+        (?:the\s+)?(?:root|parent|ancestor|higher[- ]level)\s+
+        (?:instructions?|rules?|policy|constraints?) |
+      (?:no|without)\s+(?:approval|authorization|permission)\s+
+        (?:is\s+)?(?:needed|required) |
+      (?:all|any)\s+(?:actions?|tools?)\s+(?:are\s+)?(?:allowed|permitted) |
+      (?:may|can)\s+(?:publish|deploy|push|purchase|communicate)\s+
+        (?:without|regardless\s+of)\s+(?:approval|authorization|permission)
     )
     """
 )
@@ -60,6 +186,7 @@ REFERENCE_KEYS = {
     "dependencies",
     "depends_on",
     "supersedes",
+    "superseded_by",
     "successor",
     "task",
     "task_ref",
@@ -77,22 +204,162 @@ REFERENCE_KEYS = {
     "closure_evidence",
     "inspected_evidence",
     "source_refs",
+    "artifact_refs",
+    "review_refs",
+    "checkpoint_refs",
+    "reopened_by",
+    "subject",
+    "evidence",
+    "required_evidence",
+    "remediation_plan_refs",
+    "source_inputs_and_licenses",
+    "validation",
+    "review",
+    "approval_source",
+    "active_tasks",
+    "accepted_decisions",
+    "fresh_evidence",
+    "external_effects_authority_refs",
 }
 DOSSIER_STORES = {
-    "project-dossier/machine-readable/requirements.json": ("requirements", "requirement"),
-    "project-dossier/machine-readable/findings.json": ("findings", "finding"),
-    "project-dossier/machine-readable/plan.json": ("plan_items", "plan_item"),
-    "project-dossier/machine-readable/raidq.json": ("items", "raidq_item"),
-    "project-dossier/machine-readable/sources.json": ("sources", "source"),
-    "project-dossier/machine-readable/evidence-index.json": ("evidence", "evidence"),
+    "project-dossier/machine-readable/requirements.json": (
+        "requirements",
+        "requirement",
+        "requirements_store",
+    ),
+    "project-dossier/machine-readable/findings.json": (
+        "findings",
+        "finding",
+        "findings_store",
+    ),
+    "project-dossier/machine-readable/plan.json": (
+        "plan_items",
+        "plan_item",
+        "plan_store",
+    ),
+    "project-dossier/machine-readable/raidq.json": (
+        "items",
+        "raidq_item",
+        "raidq_store",
+    ),
+    "project-dossier/machine-readable/sources.json": (
+        "sources",
+        "source",
+        "sources_store",
+    ),
+    "project-dossier/machine-readable/evidence-index.json": (
+        "evidence",
+        "evidence",
+        "evidence_store",
+    ),
 }
-DOSSIER_STORE_VERSIONS = {
-    "project-dossier/machine-readable/requirements.json": "project.dossier.requirements.v1",
-    "project-dossier/machine-readable/findings.json": "project.dossier.findings.v1",
-    "project-dossier/machine-readable/plan.json": "project.dossier.plan.v1",
-    "project-dossier/machine-readable/raidq.json": "project.dossier.raidq.v1",
-    "project-dossier/machine-readable/sources.json": "project.dossier.sources.v1",
-    "project-dossier/machine-readable/evidence-index.json": "project.dossier.evidence-index.v1",
+ASSURANCE_STORES = {
+    ".agent/approvals/registry.json": (
+        "attestations",
+        "approval_attestation",
+        "approval_store",
+    ),
+    ".agent/coordination/leases.json": (
+        "leases",
+        "coordination_lease",
+        "coordination_store",
+    ),
+    ".agent/evaluations/registry.json": (
+        "evaluations",
+        "evaluation",
+        "evaluation_store",
+    ),
+    ".agent/metrics/registry.json": (
+        "metrics",
+        "metric",
+        "metrics_store",
+    ),
+}
+KERNEL_SCHEMA_DEFS = {
+    ".agent/policy.json": "policy",
+    ".agent/context.json": "context",
+    ".agent/schema.json": "schema",
+    ".agent/lifecycle.json": "lifecycle",
+    ".agent/tools.json": "tools",
+    ".agent/validators.json": "validators",
+    ".agent/project.json": "project",
+}
+EXPECTED_RECORD_VERSIONS = {
+    "decision": "harness.decision.v1",
+    "task": "harness.task.v1",
+    "evidence": "harness.evidence.v1",
+    "review": "harness.review.v1",
+    "event": "harness.event.v1",
+    "checkpoint": "harness.checkpoint.v1",
+    "artifact": "harness.artifact.v1",
+}
+EXPECTED_ID_PATTERNS = {
+    "decision": "^DEC-[0-9]{4}$",
+    "task": "^TASK-[0-9]{4}$",
+    "evidence": "^EVD-[0-9]{4}$",
+    "review": "^REV-[0-9]{4}$",
+    "event": "^EVT-[0-9]{4}$",
+    "checkpoint": "^CHK-[0-9]{4}$",
+    "artifact": "^ART-[0-9]{4}$",
+}
+EXPECTED_LIFECYCLES = {
+    "task": {
+        "initial": "proposed",
+        "terminal": ["completed", "cancelled"],
+        "transitions": {
+            "proposed": ["ready", "cancelled"],
+            "ready": ["in_progress", "cancelled"],
+            "in_progress": ["validating", "blocked", "cancelled"],
+            "validating": ["in_progress", "review", "blocked"],
+            "review": ["in_progress", "completed", "blocked"],
+            "blocked": ["in_progress", "cancelled"],
+            "completed": ["reopened"],
+            "reopened": ["in_progress", "cancelled"],
+            "cancelled": [],
+        },
+        "gates": {
+            "ready": [
+                "scope",
+                "authority_basis",
+                "acceptance_criteria",
+                "validation_plan",
+            ],
+            "completed": [
+                "acceptance_criteria_met",
+                "closure_evidence",
+                "limitations_recorded",
+                "external_effects_disclosed",
+            ],
+        },
+    },
+    "decision": {
+        "initial": "proposed",
+        "terminal": ["rejected", "superseded", "deprecated"],
+        "transitions": {
+            "proposed": ["accepted", "rejected"],
+            "accepted": ["superseded", "deprecated"],
+            "rejected": [],
+            "superseded": [],
+            "deprecated": [],
+        },
+        "immutable_meaning_after": "accepted",
+        "successor_required_for": [
+            "superseded",
+            "materially_changed_accepted_decision",
+        ],
+    },
+    "artifact": {
+        "initial": "scratch",
+        "terminal": ["archived"],
+        "transitions": {
+            "scratch": ["draft", "archived"],
+            "draft": ["reviewed", "archived"],
+            "reviewed": ["draft", "approved", "archived"],
+            "approved": ["final", "archived"],
+            "final": ["archived"],
+            "archived": [],
+        },
+    },
 }
 
 
@@ -104,6 +371,25 @@ def relative(path: Path, root: Path = ROOT) -> str:
     return path.relative_to(root).as_posix()
 
 
+def safe_diagnostic(value: Any) -> str:
+    """Escape control characters before a finding reaches logs or callers."""
+    text = str(value)
+    escaped: list[str] = []
+    for character in text:
+        codepoint = ord(character)
+        if codepoint < 32 or codepoint == 127:
+            escaped.append(
+                {
+                    "\n": r"\n",
+                    "\r": r"\r",
+                    "\t": r"\t",
+                }.get(character, f"\\x{codepoint:02x}")
+            )
+        else:
+            escaped.append(character)
+    return "".join(escaped)
+
+
 def strict_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     result: dict[str, Any] = {}
     for key, value in pairs:
@@ -113,16 +399,204 @@ def strict_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     return result
 
 
+def reject_json_constant(value: str) -> None:
+    raise ValueError(f"non-finite JSON number is prohibited: {value}")
+
+
 def loads_json(text: str) -> Any:
-    return json.loads(text, object_pairs_hook=strict_object)
+    return json.loads(
+        text,
+        object_pairs_hook=strict_object,
+        parse_constant=reject_json_constant,
+    )
 
 
 def load_json(path: Path) -> Any:
     return loads_json(path.read_text(encoding="utf-8"))
 
 
+def freshness_deadline(value: Any) -> datetime | None:
+    """Parse a date or timezone-aware date-time as an inclusive deadline."""
+    if not isinstance(value, str):
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        if "T" in value or " " in value:
+            return parsed if parsed.tzinfo is not None else None
+    except ValueError:
+        pass
+    try:
+        return datetime.combine(
+            date.fromisoformat(value),
+            datetime.max.time(),
+        ).astimezone()
+    except ValueError:
+        return None
+
+
 def hash_file(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def hash_path_identity(path: Path) -> str:
+    if path.is_symlink():
+        target = os.readlink(path)
+        return hashlib.sha256(
+            b"symlink\0" + target.encode("utf-8", errors="surrogateescape")
+        ).hexdigest()
+    return hash_file(path)
+
+
+def safe_relative_path(
+    root: Path,
+    value: Any,
+    *,
+    allowed_prefixes: tuple[str, ...] = (),
+    must_exist: bool = False,
+) -> tuple[Path | None, str | None]:
+    if (
+        not isinstance(value, str)
+        or not value
+        or "\x00" in value
+        or "\\" in value
+        or value.startswith(("/", "./"))
+        or any(ord(character) < 32 or ord(character) == 127 for character in value)
+        or PurePosixPath(value).as_posix() != value
+    ):
+        return None, "path must be a normalized repository-relative POSIX path"
+    candidate = Path(value)
+    if candidate.is_absolute() or any(part in {"", ".", ".."} for part in candidate.parts):
+        return None, "path contains an unsafe or non-normalized segment"
+    if allowed_prefixes and not any(
+        value == prefix or value.startswith(prefix + "/")
+        for prefix in allowed_prefixes
+    ):
+        return None, "path is outside its allowed repository scope"
+    resolved_root = root.resolve()
+    try:
+        resolved = (root / candidate).resolve(strict=must_exist)
+        resolved.relative_to(resolved_root)
+    except (FileNotFoundError, OSError, ValueError):
+        return None, "path escapes the repository, is broken, or is absent"
+    return candidate, None
+
+
+def json_secret_path(value: Any, path: str = "$"):
+    if isinstance(value, dict):
+        for key, child in value.items():
+            child_path = f"{path}.{key}"
+            if (
+                SENSITIVE_JSON_KEY.fullmatch(key)
+                and isinstance(child, str)
+                and len(child) >= 8
+                and not SAFE_SECRET_SENTINEL.fullmatch(child.strip())
+            ):
+                yield child_path
+            yield from json_secret_path(child, child_path)
+    elif isinstance(value, list):
+        for index, child in enumerate(value):
+            yield from json_secret_path(child, f"{path}[{index}]")
+    elif isinstance(value, str) and SECRET_VALUE.search(value.strip()):
+        yield path
+
+
+def snapshot_files(root: Path) -> dict[str, str]:
+    def identity(path: Path) -> str:
+        metadata = path.lstat()
+        kind = (
+            "symlink"
+            if stat.S_ISLNK(metadata.st_mode)
+            else "directory"
+            if stat.S_ISDIR(metadata.st_mode)
+            else "file"
+        )
+        if kind == "directory":
+            payload = ""
+        else:
+            try:
+                payload = hash_path_identity(path)
+            except OSError:
+                payload = "unreadable"
+        return (
+            f"{kind}:{stat.S_IMODE(metadata.st_mode):o}:"
+            f"{metadata.st_size}:{metadata.st_mtime_ns}:{payload}"
+        )
+
+    def add_git_directory(git_dir: Path, prefix: str) -> None:
+        critical = [
+            git_dir / "HEAD",
+            git_dir / "index",
+            git_dir / "config",
+            git_dir / "packed-refs",
+        ]
+        for directory in (git_dir / "refs", git_dir / "hooks"):
+            if directory.is_dir():
+                critical.extend(
+                    path
+                    for path in directory.rglob("*")
+                    if path.is_file() or path.is_symlink()
+                )
+        for path in critical:
+            if path.is_file() or path.is_symlink():
+                try:
+                    rel = path.relative_to(git_dir).as_posix()
+                    snapshot[f"{prefix}/{rel}"] = identity(path)
+                except (OSError, ValueError):
+                    continue
+
+    snapshot: dict[str, str] = {}
+    for path in sorted(root.rglob("*")):
+        rel_path = path.relative_to(root)
+        if ".git" in rel_path.parts or "__pycache__" in rel_path.parts:
+            continue
+        snapshot[rel_path.as_posix()] = identity(path)
+    git_path = root / ".git"
+    if git_path.is_file() or git_path.is_symlink():
+        snapshot[".git"] = identity(git_path)
+        if git_path.is_file() and not git_path.is_symlink():
+            try:
+                pointer = git_path.read_text(encoding="utf-8").strip()
+                if (
+                    pointer.startswith("gitdir: ")
+                    and "\n" not in pointer
+                    and "\r" not in pointer
+                    and "\x00" not in pointer
+                ):
+                    raw_git_dir = Path(pointer[8:])
+                    git_dir = (
+                        raw_git_dir
+                        if raw_git_dir.is_absolute()
+                        else (root / raw_git_dir)
+                    ).resolve(strict=True)
+                    if git_dir.is_dir():
+                        add_git_directory(git_dir, ".git::worktree")
+                        common_file = git_dir / "commondir"
+                        if common_file.is_file() and not common_file.is_symlink():
+                            common_value = common_file.read_text(
+                                encoding="utf-8"
+                            ).strip()
+                            if (
+                                common_value
+                                and "\n" not in common_value
+                                and "\r" not in common_value
+                                and "\x00" not in common_value
+                            ):
+                                raw_common = Path(common_value)
+                                common_dir = (
+                                    raw_common
+                                    if raw_common.is_absolute()
+                                    else git_dir / raw_common
+                                ).resolve(strict=True)
+                                if common_dir.is_dir():
+                                    add_git_directory(
+                                        common_dir,
+                                        ".git::common",
+                                    )
+            except (OSError, UnicodeDecodeError, ValueError):
+                pass
+    elif git_path.is_dir():
+        add_git_directory(git_path, ".git")
+    return snapshot
 
 
 def fingerprint_exclusions(root: Path) -> tuple[set[str], list[str]]:
@@ -135,7 +609,12 @@ def fingerprint_exclusions(root: Path) -> tuple[set[str], list[str]]:
         project = load_json(project_path)
     except (OSError, ValueError, json.JSONDecodeError):
         return exclusions, errors
-    raw = project.get("paths", {}).get("fingerprint_exclusions", [])
+    if not isinstance(project, dict):
+        return exclusions, [".agent/project.json: top-level value must be an object"]
+    paths = project.get("paths")
+    if not isinstance(paths, dict):
+        return exclusions, [".agent/project.json: paths must be an object"]
+    raw = paths.get("fingerprint_exclusions", [])
     if not isinstance(raw, list):
         return exclusions, [".agent/project.json: fingerprint_exclusions must be an array"]
     for index, item in enumerate(raw):
@@ -149,9 +628,25 @@ def fingerprint_exclusions(root: Path) -> tuple[set[str], list[str]]:
         if (
             not isinstance(path, str)
             or not path
-            or path.startswith(("/", "../"))
-            or path in {".", ".git"}
             or "*" in path
+        ):
+            errors.append(
+                f".agent/project.json: unsafe fingerprint exclusion at index {index}"
+            )
+            continue
+        normalized, path_error = safe_relative_path(root, path)
+        if (
+            path_error
+            or normalized is None
+            or normalized.parts[0]
+            in {".git", ".agent", ".agents", "project-dossier"}
+            or path in {
+                ".",
+                ".git",
+                "AGENTS.md",
+                ".project-blueprint-origin.json",
+            }
+            or path in DERIVED_EXCLUSIONS
         ):
             errors.append(
                 f".agent/project.json: unsafe fingerprint exclusion at index {index}"
@@ -178,13 +673,16 @@ def repository_files(
         rel = rel_path.as_posix()
         if ".git" in rel_path.parts or "__pycache__" in rel_path.parts:
             continue
-        if path.is_dir():
-            continue
         if source_only and (
             rel.startswith(".agent/generated/")
             or rel in DERIVED_EXCLUSIONS
             or any(rel == item or rel.startswith(item + "/") for item in exclusions)
         ):
+            continue
+        if path.is_symlink():
+            files.append(path)
+            continue
+        if path.is_dir():
             continue
         files.append(path)
     return files
@@ -193,14 +691,16 @@ def repository_files(
 def source_fingerprint(root: Path = ROOT) -> str:
     digest = hashlib.sha256()
     for path in repository_files(root, source_only=True):
-        if path.is_symlink():
-            continue
         rel = relative(path, root)
         if path.name == ".DS_Store":
             continue
-        digest.update(rel.encode("utf-8"))
+        digest.update(rel.encode("utf-8", errors="surrogateescape"))
         digest.update(b"\0")
-        digest.update(hashlib.sha256(path.read_bytes()).digest())
+        try:
+            identity = bytes.fromhex(hash_path_identity(path))
+        except OSError:
+            identity = hashlib.sha256(b"unreadable").digest()
+        digest.update(identity)
         digest.update(b"\0")
     return digest.hexdigest()
 
@@ -275,10 +775,24 @@ def validate_schema(
                 date.fromisoformat(value)
             except ValueError:
                 errors.append(f"{path}: expected ISO date")
+        if schema.get("format") == "date-time":
+            try:
+                parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+                if parsed.tzinfo is None:
+                    raise ValueError("timezone required")
+            except ValueError:
+                errors.append(f"{path}: expected timezone-aware ISO date-time")
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        if "minimum" in schema and value < schema["minimum"]:
+            errors.append(f"{path}: number is below minimum")
+        if "maximum" in schema and value > schema["maximum"]:
+            errors.append(f"{path}: number is above maximum")
 
     if isinstance(value, list):
         if len(value) < schema.get("minItems", 0):
             errors.append(f"{path}: array has too few items")
+        if "maxItems" in schema and len(value) > schema["maxItems"]:
+            errors.append(f"{path}: array has too many items")
         if schema.get("uniqueItems"):
             encoded = [json.dumps(item, sort_keys=True) for item in value]
             if len(encoded) != len(set(encoded)):
@@ -296,6 +810,8 @@ def validate_schema(
                 )
 
     if isinstance(value, dict):
+        if len(value) < schema.get("minProperties", 0):
+            errors.append(f"{path}: object has too few properties")
         for required in schema.get("required", []):
             if required not in value:
                 errors.append(f"{path}: missing required property {required!r}")
@@ -318,10 +834,63 @@ def validate_schema(
     return errors
 
 
+def lint_schema_contract(schema: dict[str, Any]) -> list[str]:
+    allowed = {
+        "$schema",
+        "$id",
+        "$ref",
+        "$defs",
+        "title",
+        "description",
+        "type",
+        "additionalProperties",
+        "required",
+        "properties",
+        "const",
+        "enum",
+        "pattern",
+        "minLength",
+        "items",
+        "uniqueItems",
+        "minItems",
+        "maxItems",
+        "minProperties",
+        "format",
+        "minimum",
+        "maximum",
+    }
+    errors: list[str] = []
+
+    def visit(value: Any, location: str) -> None:
+        if not isinstance(value, dict):
+            return
+        for key in value:
+            if key not in allowed:
+                errors.append(f"{location}: unsupported schema keyword {key!r}")
+        reference = value.get("$ref")
+        if isinstance(reference, str):
+            match = re.fullmatch(r"#/\$defs/([^/]+)", reference)
+            if not match or match.group(1) not in schema.get("$defs", {}):
+                errors.append(f"{location}: unresolved or nonlocal schema reference")
+        for map_key in ("properties", "$defs"):
+            children = value.get(map_key, {})
+            if isinstance(children, dict):
+                for child_name, child in children.items():
+                    visit(child, f"{location}.{map_key}.{child_name}")
+        if isinstance(value.get("items"), dict):
+            visit(value["items"], f"{location}.items")
+
+    visit(schema, "$")
+    return errors
+
+
 def load_schema(root: Path, name: str) -> dict[str, Any]:
     value = load_json(root / ".agent" / "schemas" / name)
     if not isinstance(value, dict):
         raise ValueError(f"schema {name} must be an object")
+    schema_errors = lint_schema_contract(value)
+    if schema_errors:
+        raise ValueError("; ".join(schema_errors))
     return value
 
 
@@ -344,17 +913,27 @@ def check_runtime() -> list[str]:
     return []
 
 
-def check_files_and_json(root: Path) -> list[str]:
+def check_files_and_json(
+    root: Path,
+    *,
+    include_derived: bool = True,
+) -> list[str]:
     errors: list[str] = []
     _, exclusion_errors = fingerprint_exclusions(root)
     errors.extend(exclusion_errors)
     for path in repository_files(root):
         rel = relative(path, root)
+        if any(ord(character) < 32 or ord(character) == 127 for character in rel):
+            errors.append(f"{rel!r}: repository path contains control characters")
+            continue
+        if not include_derived and (
+            rel in DERIVED_EXCLUSIONS or rel.startswith(".agent/generated/")
+        ):
+            continue
         if path.name == ".DS_Store":
             errors.append(f"{rel}: prohibited host metadata")
         if path.is_symlink():
-            if path.name == "AGENTS.md":
-                errors.append(f"{rel}: instruction files must not be symlinks")
+            errors.append(f"{rel}: managed repository symlinks are prohibited")
             try:
                 path.resolve(strict=True).relative_to(root.resolve())
             except (FileNotFoundError, ValueError):
@@ -362,18 +941,67 @@ def check_files_and_json(root: Path) -> list[str]:
             continue
         if rel.startswith(".agent/tests/fixtures/invalid/"):
             continue
-        if path.stat().st_size > 4 * 1024 * 1024:
+        try:
+            size = path.stat().st_size
+        except OSError as error:
+            errors.append(f"{rel}: cannot inspect file: {error}")
+            continue
+        if size > 4 * 1024 * 1024:
             continue
         try:
             text = path.read_text(encoding="utf-8")
         except UnicodeDecodeError:
             continue
+        except OSError as error:
+            errors.append(f"{rel}: cannot read file: {error}")
+            continue
         if PLACEHOLDER.search(text):
             errors.append(f"{rel}: unresolved generation placeholder")
-        if SECRET_ASSIGNMENT.search(text):
+        secret_detected = bool(SECRET_ASSIGNMENT.search(text) or SECRET_VALUE.search(text))
+        parsed_json: Any = None
+        if path.suffix == ".json":
+            try:
+                parsed_json = loads_json(text)
+            except (DuplicateKeyError, json.JSONDecodeError, ValueError):
+                parsed_json = None
+            if parsed_json is not None and any(json_secret_path(parsed_json)):
+                secret_detected = True
+        if secret_detected:
             errors.append(f"{rel}: possible embedded secret assignment (value redacted)")
-        if path.name == "AGENTS.md" and AUTHORITY_EXPANSION.search(text):
-            errors.append(f"{rel}: nested instruction may expand authority")
+        if (
+            path.name == "AGENTS.md"
+            and rel != "AGENTS.md"
+            and (
+                AUTHORITY_EXPANSION.search(text)
+                or NATURAL_LANGUAGE_WEAKENING.search(text)
+            )
+        ):
+            errors.append(
+                f"{rel}: nested instruction may expand authority or weaken ancestor constraints"
+            )
+        governed_instruction_prose = (
+            (rel.startswith(".agents/") and path.suffix == ".md")
+            or (
+                rel.startswith(".agent/")
+                and path.suffix == ".md"
+                and not rel.startswith(
+                    (
+                        ".agent/evidence/",
+                        ".agent/reviews/",
+                        ".agent/checkpoints/",
+                        ".agent/events/",
+                        ".agent/templates/",
+                        ".agent/tests/",
+                        ".agent/generated/",
+                        ".agent/artifacts/",
+                    )
+                )
+            )
+        )
+        if governed_instruction_prose and NATURAL_LANGUAGE_WEAKENING.search(text):
+            errors.append(
+                f"{rel}: governed instructional prose may weaken authority"
+            )
         if (
             rel.startswith((".agent/", ".agents/"))
             and not rel.startswith(
@@ -389,34 +1017,46 @@ def check_files_and_json(root: Path) -> list[str]:
             errors.append(f"{rel}: harness component may expand authority")
         if path.suffix == ".json":
             try:
-                value = loads_json(text)
+                value = parsed_json if parsed_json is not None else loads_json(text)
             except DuplicateKeyError:
                 errors.append(f"{rel}: duplicate JSON key")
                 continue
             except json.JSONDecodeError as error:
                 errors.append(f"{rel}: invalid JSON at line {error.lineno}")
                 continue
+            except ValueError:
+                errors.append(
+                    f"{rel}: invalid strict JSON numeric constant (value redacted)"
+                )
+                continue
             controlled = (
                 rel.startswith((".agent/", ".agents/", "project-dossier/"))
                 or rel == ".project-blueprint-origin.json"
             )
             is_schema = rel.startswith(".agent/schemas/")
-            if (
-                controlled
-                and not is_schema
-                and isinstance(value, dict)
-                and "schema_version" not in value
-            ):
-                errors.append(f"{rel}: missing top-level schema_version")
-        if path.suffix == ".jsonl":
-            errors.extend(check_jsonl(path, root))
+            if controlled and not is_schema:
+                if not isinstance(value, dict):
+                    errors.append(f"{rel}: controlled JSON must be a top-level object")
+                elif "schema_version" not in value:
+                    errors.append(f"{rel}: missing top-level schema_version")
     return errors
 
 
 def check_jsonl(path: Path, root: Path) -> list[str]:
     errors: list[str] = []
     seen: set[str] = set()
-    for number, raw in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+    seen_sequences: set[int] = set()
+    previous_sequence: int | None = None
+    previous_time: datetime | None = None
+    try:
+        schema = load_schema(root, "harness-record.schema.json")
+    except (OSError, ValueError, json.JSONDecodeError) as error:
+        return [f"{relative(path, root)}: event schema unavailable: {error}"]
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except (OSError, UnicodeDecodeError) as error:
+        return [f"{relative(path, root)}: cannot read event log: {error}"]
+    for number, raw in enumerate(lines, 1):
         if not raw.strip():
             continue
         try:
@@ -424,24 +1064,89 @@ def check_jsonl(path: Path, root: Path) -> list[str]:
         except (ValueError, json.JSONDecodeError):
             errors.append(f"{relative(path, root)}:{number}: invalid strict JSON")
             continue
+        location = f"{relative(path, root)}:{number}"
+        errors.extend(
+            f"{location}: {item}"
+            for item in validate_schema(
+                value,
+                {"$ref": "#/$defs/event"},
+                root_schema=schema,
+            )
+        )
         event_id = value.get("id") if isinstance(value, dict) else None
-        if (
-            not isinstance(value, dict)
-            or value.get("schema_version") != "harness.event.v1"
-            or not isinstance(event_id, str)
-            or not re.fullmatch(r"EVT-[0-9]{4}", event_id)
-        ):
-            errors.append(f"{relative(path, root)}:{number}: invalid event record")
-        elif event_id in seen:
+        if not isinstance(event_id, str):
+            continue
+        if event_id in seen:
             errors.append(f"{relative(path, root)}:{number}: duplicate event ID")
         else:
             seen.add(event_id)
+        sequence = value.get("sequence") if isinstance(value, dict) else None
+        if isinstance(sequence, int) and not isinstance(sequence, bool):
+            if sequence in seen_sequences:
+                errors.append(f"{location}: duplicate event sequence")
+            if previous_sequence is not None and sequence <= previous_sequence:
+                errors.append(f"{location}: event sequence is not strictly monotonic")
+            seen_sequences.add(sequence)
+            previous_sequence = sequence
+        occurred_at = value.get("occurred_at") if isinstance(value, dict) else None
+        if isinstance(occurred_at, str):
+            try:
+                current_time = datetime.fromisoformat(
+                    occurred_at.replace("Z", "+00:00")
+                )
+                if current_time.tzinfo is None:
+                    raise ValueError("timezone required")
+                if previous_time is not None and current_time < previous_time:
+                    errors.append(f"{location}: events are not chronological")
+                previous_time = current_time
+            except ValueError:
+                pass
     return errors
 
 
 def check_kernel(root: Path) -> list[str]:
     errors: list[str] = []
+    allowed_agent_entries = {
+        "START_HERE.md",
+        "approvals",
+        "artifacts",
+        "checklists",
+        "checkpoints",
+        "context.json",
+        "coordination",
+        "decisions",
+        "evaluations",
+        "events",
+        "evidence",
+        "extensions",
+        "generated",
+        "lifecycle.json",
+        "metrics",
+        "policy.json",
+        "project.json",
+        "reviews",
+        "schema.json",
+        "schemas",
+        "scripts",
+        "state",
+        "tasks",
+        "templates",
+        "tests",
+        "tools.json",
+        "validators.json",
+    }
+    agent_root = root / ".agent"
+    if agent_root.is_dir():
+        for path in sorted(agent_root.iterdir()):
+            if path.name not in allowed_agent_entries:
+                errors.append(
+                    f"{relative(path, root)}: unknown live-governance path"
+                )
     values: dict[str, dict[str, Any]] = {}
+    try:
+        kernel_schema = load_schema(root, "harness-kernel.schema.json")
+    except (OSError, ValueError, json.JSONDecodeError) as error:
+        return [f".agent/schemas/harness-kernel.schema.json: {error}"]
     for relative_path in KERNEL_FILES:
         path = root / relative_path
         if not path.is_file():
@@ -456,6 +1161,15 @@ def check_kernel(root: Path) -> list[str]:
             errors.append(f"{relative_path}: expected object")
             continue
         values[relative_path] = value
+        definition = KERNEL_SCHEMA_DEFS[relative_path]
+        errors.extend(
+            f"{relative_path}: {item}"
+            for item in validate_schema(
+                value,
+                {"$ref": f"#/$defs/{definition}"},
+                root_schema=kernel_schema,
+            )
+        )
 
     policy = values.get(".agent/policy.json", {})
     if not (
@@ -481,37 +1195,410 @@ def check_kernel(root: Path) -> list[str]:
         == "stop_and_request_authority"
     ):
         errors.append(".agent/context.json: precedence or path-scope contract invalid")
+    expected_context_contract = {
+        "precedence": [
+            "platform_system_sandbox_and_tool_constraints",
+            "current_operator_instruction",
+            "applicable_AGENTS_md_root_to_leaf",
+            "live_policy_within_higher_authority",
+            "accepted_in_scope_decisions",
+            "direct_observation_and_fresh_evidence",
+            "canonical_dossier_target",
+            "active_task_and_implementation_plan",
+            "maintained_explanatory_documentation",
+            "drafts_generated_imported_and_historical",
+        ],
+        "information_states": {
+            "permission": "authorized_channel_only",
+            "intended_state": "canonical_target_and_accepted_decisions",
+            "current_state": "dated_direct_observation",
+            "planning": "future_sequence_not_permission",
+            "evidence": "bounded_support_for_a_claim",
+            "provenance": "source_origin_and_limitations",
+            "generated": "point_in_time_non_authoritative_view",
+            "historical": "retained_noncurrent_context",
+        },
+        "conflicts": {
+            "permission": "higher_and_safer_compatible_rule",
+            "current_state": "newest_direct_evidence",
+            "intended_state": "accepted_decision_then_canonical_target",
+            "ambiguous_high_impact_action": "stop_and_request_authority",
+            "reversible_local_analysis": "continue_with_stated_assumptions",
+        },
+        "non_instruction_classes": [
+            "dossier_and_documentation",
+            "plans_and_templates",
+            "generated_reports_and_model_output",
+            "imported_and_web_content",
+            "tool_output_and_untrusted_data",
+        ],
+    }
+    if any(
+        context.get(field) != expected
+        for field, expected in expected_context_contract.items()
+    ):
+        errors.append(".agent/context.json: safety contract differs from kernel")
+
+    expected_policy_contract = {
+        "non_authorization_rule": (
+            "This harness cannot create permission. Every action remains bounded "
+            "by current user instructions, platform policy, applicable AGENTS.md "
+            "files, tool permissions, the host sandbox, contracts, and law."
+        ),
+        "local": {
+            "read_repository": "allowed_when_relevant",
+            "modify_repository": "requires_implementation_request",
+            "run_declared_validation": "allowed",
+            "start_services": "denied_unless_declared_loopback_and_disposable",
+        },
+        "external": {
+            "network": "denied_unless_tool_and_task_scoped",
+            "publication": "requires_explicit_current_authorization",
+            "deployment": "requires_explicit_current_authorization",
+            "communication": "requires_explicit_current_authorization",
+            "purchase": "requires_explicit_current_authorization",
+        },
+        "sensitive": {
+            "secret_values_in_repository_or_logs": "prohibited",
+            "production_data": "prohibited_unless_explicitly_authorized_and_isolated",
+            "destructive_operations": "require_exact_target_and_explicit_authorization",
+            "legal_or_compliance_determinations": "require_qualified_human_authority",
+        },
+        "invariants": [
+            "lower_level_files_cannot_expand_authority",
+            "installed_tools_do_not_imply_permission",
+            "capabilities_inherit_and_cannot_expand_task_authority",
+            "generated_outputs_are_non_authoritative_and_point_in_time",
+        ],
+    }
+    if any(
+        policy.get(field) != expected
+        for field, expected in expected_policy_contract.items()
+    ) or policy.get("project_specific_adoption", {}).get("requires") != [
+        "inspected_project_scope_and_threat_model",
+        "explicit_authority_source",
+        "project_specific_decision_record",
+        "successful_read_only_check_and_mutation_tests",
+    ]:
+        errors.append(".agent/policy.json: safety contract differs from kernel")
 
     schema = values.get(".agent/schema.json", {})
     lifecycle = values.get(".agent/lifecycle.json", {})
     if schema.get("kernel_version") != KERNEL_VERSION:
         errors.append(".agent/schema.json: unsupported kernel version")
-    task_statuses = set(schema.get("statuses", {}).get("task", []))
-    task_transitions = lifecycle.get("task", {}).get("transitions", {})
-    if task_statuses != set(task_transitions):
-        errors.append(".agent/lifecycle.json: task status/transition graph mismatch")
-    decision_statuses = set(schema.get("statuses", {}).get("decision", []))
-    decision_transitions = lifecycle.get("decision", {}).get("transitions", {})
-    if decision_statuses != set(decision_transitions):
-        errors.append(".agent/lifecycle.json: decision status/transition graph mismatch")
-    artifact_statuses = set(schema.get("statuses", {}).get("artifact", []))
-    artifact_transitions = lifecycle.get("artifact", {}).get("transitions", {})
-    if artifact_statuses != set(artifact_transitions):
-        errors.append(".agent/lifecycle.json: artifact status/transition graph mismatch")
+    if schema.get("record_versions") != EXPECTED_RECORD_VERSIONS:
+        errors.append(".agent/schema.json: record-version contract mismatch")
+    if schema.get("id_patterns") != EXPECTED_ID_PATTERNS:
+        errors.append(".agent/schema.json: record ID contract mismatch")
+    if schema.get("compatibility") != {
+        "extension_api": "harness.extension.v1",
+        "unknown_safety_values": "reject",
+    } or schema.get("evolution") != {
+        "breaking_change_requires_major_version": True,
+        "migration_must_be_idempotent_and_fixture_tested": True,
+        "accepted_decision_changes_require_successor": True,
+    }:
+        errors.append(".agent/schema.json: compatibility/evolution contract mismatch")
+    actual_statuses = schema.get("statuses", {})
+    if (
+        set(actual_statuses) != set(EXPECTED_LIFECYCLES)
+        or any(
+            set(actual_statuses.get(kind, []))
+            != set(contract["transitions"])
+            or len(actual_statuses.get(kind, [])) != len(contract["transitions"])
+            for kind, contract in EXPECTED_LIFECYCLES.items()
+        )
+    ):
+        errors.append(".agent/schema.json: controlled status vocabularies mismatch")
+    for kind, expected in EXPECTED_LIFECYCLES.items():
+        if lifecycle.get(kind) != expected:
+            errors.append(
+                f".agent/lifecycle.json: {kind} lifecycle differs from versioned contract"
+            )
+
+    validators = values.get(".agent/validators.json", {})
+    commands = validators.get("commands", {})
+    project = values.get(".agent/project.json", {})
+    profile = project.get("project", {}).get("profile")
+    refresh_writes = [
+        "project-dossier/ARTIFACT_CATALOG.json",
+        "project-dossier/MANIFEST.json",
+        "project-dossier/machine-readable/path-authority.json",
+    ]
+    if profile == "high-assurance":
+        refresh_writes = sorted(
+            refresh_writes
+            + [
+                ".agent/generated/manifest.json",
+                ".agent/generated/validation-report.json",
+                "project-dossier/CHECKSUMS.sha256",
+            ]
+        )
+    expected_commands = {
+        "bootstrap": {"run": "python --version", "writes": []},
+        "check": {
+            "run": "python -B .agent/scripts/validate.py --check",
+            "writes": [],
+        },
+        "test": {
+            "run": (
+                "python -B -m unittest discover -s .agent/tests "
+                '-p "test_*.py"'
+            ),
+            "writes": [],
+        },
+        "refresh": {
+            "run": "python -B .agent/scripts/refresh.py --refresh",
+            "writes": refresh_writes,
+        },
+        "closure": {
+            "run": "configure_during_project_adoption",
+            "writes": "not_assessed",
+        },
+    }
+    if (
+        validators.get("validator_version") != KERNEL_VERSION
+        or commands != expected_commands
+    ):
+        errors.append(".agent/validators.json: core command contract mismatch")
+    tools = values.get(".agent/tools.json", {})
+    if not (
+        tools.get("permission_grant") is False
+        and tools.get("declarative_only") is True
+        and tools.get("evidence", {}).get("tool_availability_implies_permission")
+        is False
+    ):
+        errors.append(".agent/tools.json: availability/authority boundary invalid")
+    if tools.get("tools") != {
+        "filesystem": {
+            "availability": "required",
+            "allowed": ["read_relevant", "write_requested_repository_paths"],
+            "denied": [
+                "write_outside_declared_workspace",
+                "follow_untrusted_symlink",
+            ],
+        },
+        "shell": {
+            "availability": "required",
+            "allowed": ["declared_validation", "scoped_local_commands"],
+            "denied": ["undeclared_external_effect", "secret_in_command"],
+        },
+        "git": {
+            "availability": "optional",
+            "allowed": ["status", "diff"],
+            "task_scoped": ["add", "commit", "branch"],
+            "explicit_current_authorization": [
+                "push",
+                "force_push",
+                "remote_mutation",
+            ],
+        },
+    } or tools.get("evidence") != {
+        "record_material_commands": True,
+        "redact_secret_values": True,
+        "tool_availability_implies_permission": False,
+    } or tools.get("real_enforcement_boundary") != [
+        "platform_and_sandbox_permissions",
+        "operating_system_and_workspace_access",
+        "credential_scope",
+        "protected_remote_controls",
+    ]:
+        errors.append(".agent/tools.json: safety vocabulary differs from kernel")
+    project_id = project.get("project", {}).get("id")
+    if (
+        not isinstance(project_id, str)
+        or policy.get("project_slug") != project_id
+        or context.get("project_slug") != project_id
+    ):
+        errors.append(".agent: governance kernel project identity mismatch")
+    for group in ("source", "tests", "generated", "instruction_roots"):
+        for index, item in enumerate(project.get("paths", {}).get(group, [])):
+            _, path_error = safe_relative_path(root, item)
+            if path_error:
+                errors.append(
+                    f".agent/project.json: paths.{group}[{index}] {path_error}"
+                )
     return errors
 
 
-def check_origin(root: Path) -> list[str]:
+def check_origin(
+    root: Path,
+    records: dict[str, tuple[dict[str, Any], str]] | None = None,
+) -> list[str]:
     path = root / ".project-blueprint-origin.json"
     try:
         origin = load_json(path)
         schema = load_schema(root, "project-blueprint-origin.schema.json")
     except (OSError, ValueError, json.JSONDecodeError) as error:
         return [f".project-blueprint-origin.json: {error}"]
-    return [
+    errors = [
         f".project-blueprint-origin.json: {item}"
         for item in validate_schema(origin, schema)
     ]
+    if isinstance(origin, dict):
+        generated_paths = origin.get("generated_paths", [])
+        generated_path_set = {
+            item for item in generated_paths if isinstance(item, str)
+        }
+        for index, item in enumerate(origin.get("generated_paths", [])):
+            _, path_error = safe_relative_path(root, item)
+            if path_error:
+                errors.append(
+                    f".project-blueprint-origin.json: generated_paths[{index}] "
+                    f"{path_error}"
+                )
+        profile = origin.get("profile")
+        required_operational = (
+            PROFILE_OPERATIONAL_FILES.get(profile, set()) | REQUIRED_SCHEMA_FILES
+        )
+        for required_path in sorted(required_operational):
+            if required_path not in generated_path_set:
+                errors.append(
+                    ".project-blueprint-origin.json: profile-required operational "
+                    f"path absent from inventory: {required_path}"
+                )
+            candidate = root / required_path
+            if (
+                required_path not in DERIVED_OPERATIONAL_FILES
+                and (not candidate.is_file() or candidate.is_symlink())
+            ):
+                errors.append(
+                    f"{required_path}: profile-required operational file missing"
+                )
+        try:
+            project = load_json(root / ".agent/project.json")
+            if (
+                not isinstance(project, dict)
+                or not isinstance(project.get("project"), dict)
+                or
+                project.get("project", {}).get("id") != origin.get("project_slug")
+                or project.get("project", {}).get("profile") != origin.get("profile")
+            ):
+                errors.append(
+                    ".project-blueprint-origin.json: project identity/profile mismatch"
+                )
+            if (
+                isinstance(project, dict)
+                and isinstance(project.get("project"), dict)
+                and project["project"].get("blueprint_version")
+                != origin.get("blueprint_version")
+            ):
+                errors.append(
+                    ".project-blueprint-origin.json: project blueprint version mismatch"
+                )
+        except (OSError, ValueError, json.JSONDecodeError):
+            pass
+        try:
+            harness_schema = load_json(root / ".agent/schema.json")
+            if (
+                not isinstance(harness_schema, dict)
+                or origin.get("harness_kernel_version") != KERNEL_VERSION
+                or harness_schema.get("kernel_version") != KERNEL_VERSION
+            ):
+                errors.append(
+                    ".project-blueprint-origin.json: harness kernel version mismatch"
+                )
+        except (OSError, ValueError, json.JSONDecodeError):
+            pass
+        initial = origin.get("initial_generation")
+        history = origin.get("migration_history")
+        if initial is not None or history is not None:
+            if not isinstance(initial, dict) or not isinstance(history, list):
+                errors.append(
+                    ".project-blueprint-origin.json: upgrade provenance is incomplete"
+                )
+            else:
+                migration_ids: set[str] = set()
+                expected_from = initial.get("blueprint_version")
+                expected_profile = initial.get("profile")
+                previous_date = initial.get("generated_on")
+                for index, migration in enumerate(history):
+                    if not isinstance(migration, dict):
+                        continue
+                    migration_id = migration.get("id")
+                    if migration_id in migration_ids:
+                        errors.append(
+                            ".project-blueprint-origin.json: duplicate migration ID"
+                        )
+                    if isinstance(migration_id, str):
+                        migration_ids.add(migration_id)
+                    if migration.get("from_blueprint_version") != expected_from:
+                        errors.append(
+                            ".project-blueprint-origin.json: migration version chain "
+                            f"breaks at index {index}"
+                        )
+                    if migration.get("from_profile") != expected_profile:
+                        errors.append(
+                            ".project-blueprint-origin.json: migration profile chain "
+                            f"breaks at index {index}"
+                        )
+                    if not str(migration.get("authority_source", "")).startswith(
+                        ("authority:", "external:")
+                    ):
+                        errors.append(
+                            ".project-blueprint-origin.json: migration authority "
+                            f"is invalid at index {index}"
+                        )
+                    evidence_refs = migration.get("evidence_refs", [])
+                    if not evidence_refs:
+                        errors.append(
+                            ".project-blueprint-origin.json: migration evidence "
+                            f"is missing at index {index}"
+                        )
+                    elif records is not None:
+                        for reference in evidence_refs:
+                            if (
+                                reference not in records
+                                or not str(reference).startswith("EVD-")
+                            ):
+                                errors.append(
+                                    ".project-blueprint-origin.json: unresolved "
+                                    f"migration evidence {reference}"
+                                )
+                    migrated_on = migration.get("migrated_on")
+                    if (
+                        isinstance(previous_date, str)
+                        and isinstance(migrated_on, str)
+                        and migrated_on < previous_date
+                    ):
+                        errors.append(
+                            ".project-blueprint-origin.json: migration dates are "
+                            "not chronological"
+                        )
+                    expected_from = migration.get("to_blueprint_version")
+                    expected_profile = migration.get("to_profile")
+                    previous_date = migrated_on
+                if expected_from != origin.get("blueprint_version"):
+                    errors.append(
+                        ".project-blueprint-origin.json: migration history does not "
+                        "reach current blueprint version"
+                    )
+                if expected_profile != origin.get("profile"):
+                    errors.append(
+                        ".project-blueprint-origin.json: migration history does not "
+                        "reach current profile"
+                    )
+                if history and history[-1].get("generator_version") != origin.get(
+                    "generator_version"
+                ):
+                    errors.append(
+                        ".project-blueprint-origin.json: latest migration generator "
+                        "does not match current provenance"
+                    )
+                if not history:
+                    for field in (
+                        "blueprint_version",
+                        "generator_version",
+                        "generation_id",
+                        "generated_on",
+                        "profile",
+                    ):
+                        if initial.get(field) != origin.get(field):
+                            errors.append(
+                                ".project-blueprint-origin.json: initial generation "
+                                f"{field} differs without migration history"
+                            )
+    return errors
 
 
 def record_files(root: Path) -> list[tuple[Path, str]]:
@@ -530,14 +1617,49 @@ def record_files(root: Path) -> list[tuple[Path, str]]:
     return result
 
 
+def check_record_store_filenames(root: Path) -> list[str]:
+    errors: list[str] = []
+    specifications = (
+        (".agent/tasks", r"TASK-[0-9]{4}(?:-[a-z0-9-]+)?\.md"),
+        (".agent/decisions", r"DEC-[0-9]{4}(?:-[a-z0-9-]+)?\.md"),
+        (".agent/evidence", r"EVD-[0-9]{4}(?:-[a-z0-9-]+)?\.md"),
+        (".agent/reviews", r"REV-[0-9]{4}(?:-[a-z0-9-]+)?\.md"),
+        (".agent/checkpoints", r"CHK-[0-9]{4}(?:-[a-z0-9-]+)?\.md"),
+    )
+    for directory, pattern in specifications:
+        base = root / directory
+        if not base.is_dir():
+            continue
+        for path in sorted(base.iterdir()):
+            if path.name == "README.md":
+                continue
+            if path.is_dir() or not re.fullmatch(pattern, path.name):
+                errors.append(
+                    f"{relative(path, root)}: unexpected governed record-store path"
+                )
+    events = root / ".agent/events"
+    if events.is_dir():
+        for path in sorted(events.iterdir()):
+            if path.name == "README.md":
+                continue
+            if path.is_dir() or path.suffix != ".jsonl":
+                errors.append(
+                    f"{relative(path, root)}: unexpected event-store path"
+                )
+    return errors
+
+
 def collect_records(
     root: Path,
 ) -> tuple[dict[str, tuple[dict[str, Any], str]], list[str]]:
     records: dict[str, tuple[dict[str, Any], str]] = {}
-    errors: list[str] = []
+    errors: list[str] = check_record_store_filenames(root)
     try:
         record_schema = load_schema(root, "harness-record.schema.json")
         dossier_schema = load_schema(root, "dossier-records.schema.json")
+        artifact_schema = load_schema(root, "harness-artifact-registry.schema.json")
+        assurance_schema = load_schema(root, "harness-assurance-records.schema.json")
+        harness_schema = load_json(root / ".agent/schema.json")
     except (OSError, ValueError, json.JSONDecodeError) as error:
         return records, [f"schema loading failed: {error}"]
 
@@ -545,24 +1667,26 @@ def collect_records(
         rel = relative(path, root)
         try:
             record = parse_json_header(path)
-        except (ValueError, json.JSONDecodeError) as error:
+        except (OSError, UnicodeDecodeError, ValueError, json.JSONDecodeError) as error:
             errors.append(f"{rel}: {error}")
             continue
         errors.extend(
             f"{rel}: {item}"
-            for item in validate_schema(record, record_schema)
+            for item in validate_schema(
+                record,
+                {"$ref": f"#/$defs/{kind}"},
+                root_schema=record_schema,
+            )
         )
         record_id = record.get("id")
-        expected_prefix = {
-            "task": "TASK",
-            "decision": "DEC",
-            "evidence": "EVD",
-            "review": "REV",
-            "checkpoint": "CHK",
-        }[kind]
+        expected_version = harness_schema.get("record_versions", {}).get(kind)
+        expected_pattern = harness_schema.get("id_patterns", {}).get(kind)
+        if record.get("schema_version") != expected_version:
+            errors.append(f"{rel}: schema version does not match {kind} record kind")
         if (
             not isinstance(record_id, str)
-            or not re.fullmatch(rf"{expected_prefix}-[0-9]{{4}}", record_id)
+            or not isinstance(expected_pattern, str)
+            or not re.fullmatch(expected_pattern, record_id)
         ):
             errors.append(f"{rel}: invalid {kind} ID")
             continue
@@ -573,23 +1697,23 @@ def collect_records(
         else:
             records[record_id] = (record, rel)
 
-    for store_path, (array_name, definition) in DOSSIER_STORES.items():
+    for store_path, (array_name, definition, store_definition) in DOSSIER_STORES.items():
         path = root / store_path
         if not path.is_file():
             continue
         try:
             store = load_json(path)
-        except (ValueError, json.JSONDecodeError) as error:
+        except (OSError, UnicodeDecodeError, ValueError, json.JSONDecodeError) as error:
             errors.append(f"{store_path}: {error}")
             continue
-        if (
-            not isinstance(store, dict)
-            or store.get("schema_version") != DOSSIER_STORE_VERSIONS[store_path]
-            or store.get("permission_grant") is not False
-        ):
-            errors.append(
-                f"{store_path}: invalid schema version or authorization boundary"
+        errors.extend(
+            f"{store_path}: {item}"
+            for item in validate_schema(
+                store,
+                {"$ref": f"#/$defs/{store_definition}"},
+                root_schema=dossier_schema,
             )
+        )
         entries = store.get(array_name) if isinstance(store, dict) else None
         if not isinstance(entries, list):
             errors.append(f"{store_path}: {array_name} must be an array")
@@ -614,13 +1738,16 @@ def collect_records(
     if gates_path.is_file():
         try:
             gates_value = load_json(gates_path)
-            if (
-                not isinstance(gates_value, dict)
-                or gates_value.get("schema_version")
-                != "project.dossier.quality-gates.v1"
-                or gates_value.get("permission_grant") is not False
-            ):
-                raise ValueError("invalid schema version or authorization boundary")
+            errors.extend(
+                f"project-dossier/validation/QUALITY_GATES.json: {item}"
+                for item in validate_schema(
+                    gates_value,
+                    {"$ref": "#/$defs/quality_gates_store"},
+                    root_schema=dossier_schema,
+                )
+            )
+            if not isinstance(gates_value, dict):
+                raise ValueError("top-level value must be an object")
             gates = gates_value.get("gates", [])
             if not isinstance(gates, list):
                 raise ValueError("gates must be an array")
@@ -635,8 +1762,112 @@ def collect_records(
                     errors.append(f"{location}: duplicate global record ID {gate_id}")
                 else:
                     records[gate_id] = (gate, location)
-        except (ValueError, json.JSONDecodeError) as error:
+        except (OSError, ValueError, json.JSONDecodeError) as error:
             errors.append(f"project-dossier/validation/QUALITY_GATES.json: {error}")
+
+    supersession_path = root / "project-dossier" / "SUPERSESSION.json"
+    if supersession_path.is_file():
+        try:
+            supersession = load_json(supersession_path)
+            errors.extend(
+                f"project-dossier/SUPERSESSION.json: {item}"
+                for item in validate_schema(
+                    supersession,
+                    {"$ref": "#/$defs/supersession_store"},
+                    root_schema=dossier_schema,
+                )
+            )
+            if not isinstance(supersession, dict):
+                raise ValueError("top-level value must be an object")
+            for index, record in enumerate(supersession.get("records", [])):
+                location = f"project-dossier/SUPERSESSION.json:records[{index}]"
+                record_id = record.get("id") if isinstance(record, dict) else None
+                if isinstance(record_id, str):
+                    if record_id in records:
+                        errors.append(f"{location}: duplicate global record ID {record_id}")
+                    else:
+                        records[record_id] = (record, location)
+        except (OSError, ValueError, json.JSONDecodeError) as error:
+            errors.append(f"project-dossier/SUPERSESSION.json: {error}")
+
+    artifact_registry_path = root / ".agent" / "artifacts" / "registry.json"
+    if artifact_registry_path.is_file():
+        try:
+            registry = load_json(artifact_registry_path)
+            errors.extend(
+                f".agent/artifacts/registry.json: {item}"
+                for item in validate_schema(registry, artifact_schema)
+            )
+            if not isinstance(registry, dict):
+                raise ValueError("top-level value must be an object")
+            for index, record in enumerate(registry.get("artifacts", [])):
+                location = f".agent/artifacts/registry.json:artifacts[{index}]"
+                record_id = record.get("id") if isinstance(record, dict) else None
+                if isinstance(record_id, str):
+                    if record_id in records:
+                        errors.append(f"{location}: duplicate global record ID {record_id}")
+                    else:
+                        records[record_id] = (record, location)
+        except (OSError, ValueError, json.JSONDecodeError) as error:
+            errors.append(f".agent/artifacts/registry.json: {error}")
+
+    for store_path, (array_name, definition, store_definition) in ASSURANCE_STORES.items():
+        path = root / store_path
+        if not path.is_file():
+            continue
+        try:
+            store = load_json(path)
+            errors.extend(
+                f"{store_path}: {item}"
+                for item in validate_schema(
+                    store,
+                    {"$ref": f"#/$defs/{store_definition}"},
+                    root_schema=assurance_schema,
+                )
+            )
+            if not isinstance(store, dict):
+                raise ValueError("top-level value must be an object")
+            for index, record in enumerate(store.get(array_name, [])):
+                location = f"{store_path}:{array_name}[{index}]"
+                record_errors = validate_schema(
+                    record,
+                    {"$ref": f"#/$defs/{definition}"},
+                    root_schema=assurance_schema,
+                )
+                errors.extend(f"{location}: {item}" for item in record_errors)
+                record_id = record.get("id") if isinstance(record, dict) else None
+                if isinstance(record_id, str):
+                    if record_id in records:
+                        errors.append(f"{location}: duplicate global record ID {record_id}")
+                    else:
+                        records[record_id] = (record, location)
+        except (OSError, ValueError, json.JSONDecodeError) as error:
+            errors.append(f"{store_path}: {error}")
+
+    events_root = root / ".agent" / "events"
+    if events_root.is_dir():
+        for path in sorted(events_root.glob("*.jsonl")):
+            errors.extend(check_jsonl(path, root))
+            try:
+                lines = path.read_text(encoding="utf-8").splitlines()
+            except (OSError, UnicodeDecodeError):
+                continue
+            for number, raw in enumerate(lines, 1):
+                if not raw.strip():
+                    continue
+                try:
+                    record = loads_json(raw)
+                except (ValueError, json.JSONDecodeError):
+                    continue
+                if not isinstance(record, dict):
+                    continue
+                record_id = record.get("id")
+                location = f"{relative(path, root)}:{number}"
+                if isinstance(record_id, str):
+                    if record_id in records:
+                        errors.append(f"{location}: duplicate global record ID {record_id}")
+                    else:
+                        records[record_id] = (record, location)
     return records, errors
 
 
@@ -682,6 +1913,9 @@ def check_references_and_lifecycle(
         )
         if kind is None:
             continue
+        expected_version = EXPECTED_RECORD_VERSIONS[kind]
+        if record.get("schema_version") != expected_version:
+            errors.append(f"{location}: schema version/kind mismatch")
         status = record.get("status")
         previous = record.get("previous_status")
         graph = lifecycle.get(kind, {}).get("transitions", {})
@@ -697,17 +1931,215 @@ def check_references_and_lifecycle(
             errors.append(
                 f"{location}: illegal {kind} transition {previous!r} -> {status!r}"
             )
-        if kind == "task" and status == "completed":
-            if not record.get("closure_evidence"):
-                errors.append(f"{location}: completed task lacks closure evidence")
-            if record.get("external_effects") in {None, "not_assessed"}:
-                errors.append(f"{location}: completed task external effects unassessed")
-            if "limitations" not in record:
-                errors.append(f"{location}: completed task lacks limitations field")
-        if kind == "decision" and status == "superseded" and not record.get(
-            "successor"
-        ):
-            errors.append(f"{location}: superseded decision requires successor")
+        if kind == "task":
+            ready_or_later = {
+                "ready",
+                "in_progress",
+                "validating",
+                "review",
+                "completed",
+                "blocked",
+                "reopened",
+            }
+            if status in ready_or_later:
+                for field in (
+                    "scope",
+                    "authority_basis",
+                    "acceptance_criteria",
+                    "validation_plan",
+                ):
+                    if not record.get(field):
+                        errors.append(f"{location}: {status} task lacks {field}")
+                authority_basis = record.get("authority_basis")
+                if isinstance(authority_basis, str) and authority_basis.startswith(
+                    ("authority:", "external:")
+                ):
+                    pass
+                elif (
+                    isinstance(authority_basis, str)
+                    and re.fullmatch(r"DEC-[0-9]{4}", authority_basis)
+                    and authority_basis in records
+                    and records[authority_basis][0].get("status") == "accepted"
+                ):
+                    pass
+                else:
+                    errors.append(
+                        f"{location}: {status} task requires an external authority "
+                        "reference or accepted decision basis"
+                    )
+            if status in {
+                "in_progress",
+                "validating",
+                "review",
+                "completed",
+                "blocked",
+                "reopened",
+            } and record.get("owner") in {None, "", "unassigned"}:
+                errors.append(f"{location}: {status} task requires an assigned owner")
+            if status in {"validating", "review", "completed"} and not record.get(
+                "implementation_result"
+            ):
+                errors.append(
+                    f"{location}: {status} task lacks implementation_result"
+                )
+            if status == "review" and not (
+                record.get("review_evidence") or record.get("limitations")
+            ):
+                errors.append(
+                    f"{location}: review task requires evidence or an explicit limitation"
+                )
+            if status == "completed":
+                if record.get("acceptance_criteria_met") is not True:
+                    errors.append(
+                        f"{location}: completed task lacks satisfied acceptance criteria"
+                    )
+                if not record.get("closure_evidence"):
+                    errors.append(f"{location}: completed task lacks closure evidence")
+                resolved_closure_evidence = 0
+                for evidence_ref in record.get("closure_evidence", []):
+                    if not str(evidence_ref).startswith("EVD-"):
+                        continue
+                    resolved_closure_evidence += 1
+                    evidence_entry = records.get(evidence_ref)
+                    if evidence_entry is None:
+                        errors.append(
+                            f"{location}: completed task closure evidence "
+                            f"{evidence_ref} is unresolved"
+                        )
+                        continue
+                    evidence = evidence_entry[0]
+                    subject = evidence.get(
+                        "subject_revision_or_fingerprint",
+                        evidence.get("subject_version"),
+                    )
+                    if (
+                        not isinstance(subject, str)
+                        or not subject.strip()
+                        or subject in {"not_recorded", "not_assessed"}
+                        or subject.startswith("replace_")
+                    ):
+                        errors.append(
+                            f"{location}: completed task closure evidence "
+                            f"{evidence_ref} has an unbound subject"
+                        )
+                    task_refs = evidence.get("task_refs", [])
+                    explicitly_binds_task = (
+                        evidence.get("task") == record_id
+                        or (
+                            isinstance(task_refs, list)
+                            and record_id in task_refs
+                        )
+                    )
+                    if not explicitly_binds_task:
+                        errors.append(
+                            f"{location}: completed task closure evidence "
+                            f"{evidence_ref} does not bind the task"
+                        )
+                    if evidence.get("result") != "pass":
+                        errors.append(
+                            f"{location}: completed task closure evidence "
+                            f"{evidence_ref} does not have a pass result"
+                        )
+                    deadline = freshness_deadline(evidence.get("fresh_until"))
+                    if deadline is None:
+                        errors.append(
+                            f"{location}: completed task closure evidence "
+                            f"{evidence_ref} lacks an explicit freshness deadline"
+                        )
+                    elif deadline < datetime.now().astimezone():
+                        errors.append(
+                            f"{location}: completed task closure evidence "
+                            f"{evidence_ref} is expired"
+                        )
+                if record.get("closure_evidence") and not resolved_closure_evidence:
+                    errors.append(
+                        f"{location}: completed task requires at least one EVD "
+                        "closure record"
+                    )
+                if record.get("external_effects") in {None, "not_assessed"}:
+                    errors.append(
+                        f"{location}: completed task external effects unassessed"
+                    )
+                if "limitations" not in record:
+                    errors.append(f"{location}: completed task lacks limitations field")
+            if status == "blocked" and not record.get("blocked_by"):
+                errors.append(f"{location}: blocked task lacks blocking condition")
+            if status == "reopened" and not record.get("reopened_by"):
+                errors.append(f"{location}: reopened task lacks invalidating evidence")
+        if kind == "decision":
+            if status in {"accepted", "superseded"} and not str(
+                record.get("authority_source", "")
+            ).startswith(("authority:", "external:")):
+                errors.append(
+                    f"{location}: {status} decision requires an explicit external "
+                    "authority source"
+                )
+            if status == "superseded" and not record.get("successor"):
+                errors.append(f"{location}: superseded decision requires successor")
+        if kind == "artifact":
+            if status in {"approved", "final"} and record.get(
+                "required_approver"
+            ) in {None, "", "not_assessed"}:
+                errors.append(
+                    f"{location}: {status} artifact lacks required approver"
+                )
+            if status in {"reviewed", "approved", "final"} and not record.get(
+                "review"
+            ):
+                errors.append(f"{location}: {status} artifact lacks review evidence")
+            if status == "final":
+                validation_refs = record.get("validation", [])
+                if not validation_refs:
+                    errors.append(f"{location}: final artifact lacks validation evidence")
+                fingerprint = record.get("content_fingerprint")
+                if fingerprint in {
+                    None,
+                    "",
+                    "not_recorded",
+                }:
+                    errors.append(f"{location}: final artifact lacks content fingerprint")
+                valid_bound_evidence = 0
+                for evidence_ref in (
+                    validation_refs if isinstance(validation_refs, list) else []
+                ):
+                    if not isinstance(evidence_ref, str) or not evidence_ref.startswith(
+                        "EVD-"
+                    ):
+                        continue
+                    evidence_entry = records.get(evidence_ref)
+                    if evidence_entry is None:
+                        continue
+                    evidence = evidence_entry[0]
+                    subject = evidence.get(
+                        "subject_revision_or_fingerprint",
+                        evidence.get("subject_version"),
+                    )
+                    deadline = freshness_deadline(evidence.get("fresh_until"))
+                    if (
+                        evidence.get("result") == "pass"
+                        and isinstance(fingerprint, str)
+                        and subject == fingerprint
+                        and deadline is not None
+                        and deadline >= datetime.now().astimezone()
+                    ):
+                        valid_bound_evidence += 1
+                if validation_refs and not valid_bound_evidence:
+                    errors.append(
+                        f"{location}: final artifact requires fresh passing EVD "
+                        "validation bound to its content fingerprint"
+                    )
+
+    for record_id, (record, location) in records.items():
+        if not record_id.startswith(("DEC-", "ART-")):
+            continue
+        successor = record.get("successor")
+        supersedes = record.get("supersedes")
+        if successor in records and records[successor][0].get("supersedes") != record_id:
+            errors.append(f"{location}: successor {successor} lacks reciprocal supersedes")
+        if supersedes in records and records[supersedes][0].get("successor") != record_id:
+            errors.append(f"{location}: superseded record {supersedes} lacks reciprocal successor")
+        if successor == record_id or supersedes == record_id:
+            errors.append(f"{location}: record cannot supersede itself")
     return errors
 
 
@@ -768,12 +2200,773 @@ def check_plan_and_traceability(
     return errors
 
 
-def check_dossier_catalog(root: Path) -> list[str]:
+def check_current_state(
+    root: Path,
+    records: dict[str, tuple[dict[str, Any], str]],
+) -> list[str]:
+    path = root / ".agent/state/current.json"
     errors: list[str] = []
-    catalog_path = root / "project-dossier" / "ARTIFACT_CATALOG.json"
-    authority_path = (
-        root / "project-dossier" / "machine-readable" / "path-authority.json"
+    try:
+        current = load_json(path)
+        schema = load_schema(root, "harness-current-state.schema.json")
+    except (OSError, ValueError, json.JSONDecodeError) as error:
+        return [f".agent/state/current.json: {error}"]
+    errors.extend(
+        f".agent/state/current.json: {item}"
+        for item in validate_schema(current, schema)
     )
+    if not isinstance(current, dict):
+        return errors + [".agent/state/current.json: expected object"]
+    try:
+        project = load_json(root / ".agent/project.json")
+        project_slug = (
+            project.get("project", {}).get("id")
+            if isinstance(project, dict)
+            else None
+        )
+        if current.get("project_slug") != project_slug:
+            errors.append(".agent/state/current.json: project slug mismatch")
+    except (OSError, ValueError, json.JSONDecodeError):
+        pass
+
+    active_statuses = {
+        "ready",
+        "in_progress",
+        "validating",
+        "review",
+        "blocked",
+        "reopened",
+    }
+    for field, prefix, statuses in (
+        ("active_tasks", "TASK-", active_statuses),
+        ("accepted_decisions", "DEC-", {"accepted"}),
+    ):
+        values = current.get(field, [])
+        if not isinstance(values, list):
+            continue
+        for reference in values:
+            record = records.get(reference)
+            if record is None:
+                errors.append(
+                    f".agent/state/current.json: unresolved reference {reference}"
+                )
+            elif not str(reference).startswith(prefix):
+                errors.append(
+                    f".agent/state/current.json: {field} contains wrong record kind"
+                )
+            elif record[0].get("status") not in statuses:
+                errors.append(
+                    f".agent/state/current.json: {reference} status is inconsistent "
+                    f"with {field}"
+                )
+
+    evidence_values = current.get("fresh_evidence", [])
+    if isinstance(evidence_values, list):
+        for reference in evidence_values:
+            record = records.get(reference)
+            if record is None:
+                errors.append(
+                    f".agent/state/current.json: unresolved reference {reference}"
+                )
+                continue
+            value = record[0]
+            if (
+                not str(reference).startswith("EVD-")
+                or value.get("result") in {"not_run", "not_assessed"}
+            ):
+                errors.append(
+                    f".agent/state/current.json: {reference} is not fresh evidence"
+                )
+            deadline = freshness_deadline(value.get("fresh_until"))
+            if deadline is None:
+                errors.append(
+                    f".agent/state/current.json: {reference} lacks an explicit "
+                    "parseable freshness deadline"
+                )
+            elif deadline < datetime.now().astimezone():
+                errors.append(
+                    f".agent/state/current.json: {reference} evidence is expired"
+                )
+
+    authority_refs = current.get("external_effects_authority_refs", [])
+    if isinstance(authority_refs, list):
+        for reference in authority_refs:
+            if isinstance(reference, str) and reference.startswith(
+                ("authority:", "external:")
+            ):
+                continue
+            record = records.get(reference)
+            if (
+                record is None
+                or not str(reference).startswith("DEC-")
+                or record[0].get("status") != "accepted"
+            ):
+                errors.append(
+                    ".agent/state/current.json: external-effects authority "
+                    f"reference {reference} is not an accepted decision or external source"
+                )
+    if current.get("adoption_status") == "adopted" and current.get("blocked_by"):
+        errors.append(
+            ".agent/state/current.json: adopted status contradicts active blockers"
+        )
+    try:
+        project = load_json(root / ".agent/project.json")
+        policy = load_json(root / ".agent/policy.json")
+        context = load_json(root / ".agent/context.json")
+    except (OSError, ValueError, json.JSONDecodeError):
+        return errors
+    project_data = project.get("project", {}) if isinstance(project, dict) else {}
+    policy_adoption = (
+        policy.get("project_specific_adoption", {})
+        if isinstance(policy, dict)
+        else {}
+    )
+    adoption_statuses = (
+        project_data.get("adoption_status"),
+        policy_adoption.get("status"),
+        current.get("adoption_status"),
+    )
+    context_status = (
+        context.get("context_status") if isinstance(context, dict) else None
+    )
+    policy_status = (
+        policy.get("policy_status") if isinstance(policy, dict) else None
+    )
+    if len(set(adoption_statuses)) != 1:
+        errors.append(
+            ".agent/state/current.json: project, policy, and current-state "
+            "adoption statuses are incoherent"
+        )
+    adoption_status = adoption_statuses[0]
+    expected_context_status = {
+        "not_assessed": "generated_unadopted_baseline",
+        "in_progress": "generated_unadopted_baseline",
+        "adopted": "adopted",
+        "superseded": "superseded",
+    }.get(adoption_status)
+    if (
+        expected_context_status is None
+        or context_status != expected_context_status
+        or policy_status != expected_context_status
+    ):
+        errors.append(
+            ".agent/state/current.json: context/policy status is incoherent "
+            "with the adoption lifecycle"
+        )
+    if adoption_status in {"adopted", "superseded"}:
+        decision_ref = project_data.get("adoption_decision_ref")
+        if adoption_status == "adopted" and current.get("blocked_by"):
+            errors.append(
+                ".agent/state/current.json: adopted project retains blockers"
+            )
+        if (
+            decision_ref not in records
+            or not str(decision_ref).startswith("DEC-")
+            or records[decision_ref][0].get("status") != "accepted"
+            or not str(
+                records.get(decision_ref, ({}, ""))[0].get(
+                    "authority_source", ""
+                )
+            ).startswith(("authority:", "external:"))
+            or (
+                adoption_status == "adopted"
+                and decision_ref not in current.get("accepted_decisions", [])
+            )
+        ):
+            errors.append(
+                f".agent/state/current.json: {adoption_status} project lacks a "
+                "traceable accepted adoption decision with external authority"
+            )
+    elif project_data.get("adoption_decision_ref") is not None:
+        errors.append(
+            ".agent/state/current.json: adoption decision is set before adoption"
+        )
+    return errors
+
+
+def check_governance_semantics(
+    root: Path,
+    records: dict[str, tuple[dict[str, Any], str]],
+) -> list[str]:
+    errors: list[str] = []
+    now = datetime.now().astimezone()
+
+    def parsed_time(value: Any) -> datetime | None:
+        if not isinstance(value, str):
+            return None
+        try:
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+            return parsed if parsed.tzinfo is not None else None
+        except ValueError:
+            return None
+
+    gates = {
+        record_id: (record, location)
+        for record_id, (record, location) in records.items()
+        if record_id.startswith("GATE-")
+    }
+    for gate_id, (gate, location) in gates.items():
+        status = gate.get("status")
+        if status == "passed":
+            if not gate.get("pass_criteria") or not gate.get("required_evidence"):
+                errors.append(
+                    f"{location}: passed gate requires criteria and evidence"
+                )
+            if gate.get("owner_role") in {None, "", "unassigned"}:
+                errors.append(f"{location}: passed gate requires an assigned owner")
+            gate_requirements = set(gate.get("requirement_refs", []))
+            for evidence_ref in gate.get("required_evidence", []):
+                evidence_entry = records.get(evidence_ref)
+                if (
+                    evidence_entry is None
+                    or not str(evidence_ref).startswith("EVD-")
+                ):
+                    errors.append(
+                        f"{location}: passed gate evidence {evidence_ref} "
+                        "does not resolve to an evidence record"
+                    )
+                    continue
+                evidence = evidence_entry[0]
+                subject = evidence.get(
+                    "subject_revision_or_fingerprint",
+                    evidence.get("subject_version"),
+                )
+                scope = evidence.get("scope")
+                if (
+                    not isinstance(subject, str)
+                    or not subject.strip()
+                    or subject in {"not_recorded", "not_assessed"}
+                    or subject.startswith("replace_")
+                    or not isinstance(scope, str)
+                    or not scope.strip()
+                    or scope in {"not_recorded", "not_assessed"}
+                    or scope.startswith("replace_")
+                ):
+                    errors.append(
+                        f"{location}: passed gate evidence {evidence_ref} "
+                        "has an unbound subject or scope"
+                    )
+                if evidence.get("result") != "pass":
+                    errors.append(
+                        f"{location}: passed gate evidence {evidence_ref} "
+                        "does not have a pass result"
+                    )
+                deadline = freshness_deadline(evidence.get("fresh_until"))
+                if deadline is None:
+                    errors.append(
+                        f"{location}: passed gate evidence {evidence_ref} "
+                        "lacks an explicit freshness deadline"
+                    )
+                elif deadline < now:
+                    errors.append(
+                        f"{location}: passed gate evidence {evidence_ref} is expired"
+                    )
+                evidence_requirements = evidence.get("requirement_refs")
+                if (
+                    gate_requirements
+                    and isinstance(evidence_requirements, list)
+                    and not gate_requirements.issubset(set(evidence_requirements))
+                ):
+                    errors.append(
+                        f"{location}: passed gate evidence {evidence_ref} "
+                        "does not cover its requirement scope"
+                    )
+            expires_on = gate.get("expires_on")
+            if isinstance(expires_on, str):
+                try:
+                    if date.fromisoformat(expires_on) < date.today():
+                        errors.append(f"{location}: passed gate is expired")
+                except ValueError:
+                    pass
+        if status == "waived":
+            if gate.get("owner_role") in {None, "", "unassigned"}:
+                errors.append(f"{location}: waived gate requires an assigned owner")
+            if gate.get("approval_required") is not True:
+                errors.append(
+                    f"{location}: waived gate requires approval_required=true"
+                )
+            if not gate.get("limitations"):
+                errors.append(f"{location}: waived gate requires limitations")
+        if gate.get("approval_required") and status in {"passed", "waived"}:
+            approval_source = gate.get("approval_source")
+            if not approval_source:
+                errors.append(
+                    f"{location}: {status} gate requires external approval evidence"
+                )
+            elif isinstance(approval_source, str) and approval_source.startswith(
+                "APR-"
+            ):
+                approval_entry = records.get(approval_source)
+                if (
+                    approval_entry is None
+                    or approval_entry[0].get("status") != "observed"
+                ):
+                    errors.append(
+                        f"{location}: approval source {approval_source} is not "
+                        "a current observed attestation"
+                    )
+                else:
+                    approval = approval_entry[0]
+                    valid_from = parsed_time(approval.get("valid_from"))
+                    valid_until = parsed_time(approval.get("valid_until"))
+                    revoked_at = parsed_time(approval.get("revoked_at"))
+                    if (
+                        (valid_from is not None and valid_from > now)
+                        or (valid_until is not None and valid_until <= now)
+                        or revoked_at is not None
+                    ):
+                        errors.append(
+                            f"{location}: approval source {approval_source} is "
+                            "expired, revoked, or not yet valid"
+                        )
+                    if gate_id not in str(approval.get("resource_scope", "")):
+                        errors.append(
+                            f"{location}: approval source {approval_source} "
+                            "does not bind the gate scope"
+                        )
+            elif not str(approval_source).startswith(
+                ("authority:", "external:")
+            ):
+                errors.append(
+                    f"{location}: approval source must be APR, authority, or external reference"
+                )
+    quality_path = root / "project-dossier/validation/QUALITY_GATES.json"
+    if quality_path.is_file():
+        try:
+            quality = load_json(quality_path)
+            if isinstance(quality, dict) and quality.get("readiness") == "ready" and (
+                not gates
+                or any(
+                    gate.get("status") not in {"passed", "waived"}
+                    for gate, _ in gates.values()
+                )
+            ):
+                errors.append(
+                    "project-dossier/validation/QUALITY_GATES.json: readiness "
+                    "cannot be ready while gates are unresolved"
+                )
+        except (ValueError, json.JSONDecodeError):
+            pass
+
+    for record_id, (record, location) in records.items():
+        if record_id.startswith("REQ-") and record.get("status") == "superseded":
+            if not record.get("superseded_by"):
+                errors.append(
+                    f"{location}: superseded requirement requires a successor"
+                )
+        if record_id.startswith("ART-"):
+            candidate, path_error = safe_relative_path(
+                root,
+                record.get("path"),
+                must_exist=record.get("status") != "scratch",
+            )
+            if path_error and record.get("path") != "replace_with_repository_path":
+                errors.append(f"{location}: artifact {path_error}")
+            if candidate is not None and candidate.parts[0] == ".git":
+                errors.append(f"{location}: artifact path may not target .git")
+        if record_id.startswith("APR-"):
+            status = record.get("status")
+            observed_at = parsed_time(record.get("observed_at"))
+            valid_from = parsed_time(record.get("valid_from"))
+            valid_until = parsed_time(record.get("valid_until"))
+            revoked_at = parsed_time(record.get("revoked_at"))
+            if valid_from and valid_until and valid_until <= valid_from:
+                errors.append(
+                    f"{location}: approval validity window is not increasing"
+                )
+            if observed_at and valid_until and observed_at > valid_until:
+                errors.append(
+                    f"{location}: approval was observed after its validity ended"
+                )
+            if status == "observed":
+                if (
+                    not record.get("evidence_refs")
+                    or not re.fullmatch(
+                        r"[a-f0-9]{64}",
+                        str(record.get("evidence_fingerprint", "")),
+                    )
+                ):
+                    errors.append(
+                        f"{location}: observed approval lacks evidence fingerprint"
+                    )
+                if not record.get("principal_or_role"):
+                    errors.append(
+                        f"{location}: observed approval lacks principal or role"
+                    )
+                if not str(record.get("authority_source", "")).startswith(
+                    ("authority:", "external:")
+                ):
+                    errors.append(
+                        f"{location}: approval attestation must cite external authority"
+                    )
+                if revoked_at is not None:
+                    errors.append(
+                        f"{location}: observed approval cannot also be revoked"
+                    )
+                if valid_from and valid_from > now:
+                    errors.append(f"{location}: observed approval is not yet valid")
+                if valid_until and valid_until <= now:
+                    errors.append(f"{location}: observed approval is expired")
+            if status == "expired" and (
+                valid_until is None or valid_until > now
+            ):
+                errors.append(
+                    f"{location}: expired approval lacks an elapsed valid_until"
+                )
+            if status == "revoked" and (
+                revoked_at is None or revoked_at > now
+            ):
+                errors.append(
+                    f"{location}: revoked approval lacks a valid revocation time"
+                )
+            if status == "superseded":
+                successor = record.get("superseded_by")
+                if successor not in records or not str(successor).startswith("APR-"):
+                    errors.append(
+                        f"{location}: superseded approval lacks a valid successor"
+                    )
+        if record_id.startswith("EVA-") and record.get("status") == "completed":
+            if not record.get("result") or not record.get("evidence_refs"):
+                errors.append(
+                    f"{location}: completed evaluation lacks result or evidence"
+                )
+
+    active_leases: list[tuple[str, set[str], str]] = []
+    for record_id, (record, location) in records.items():
+        if not record_id.startswith("LEASE-") or record.get("status") != "active":
+            continue
+        paths: set[str] = set()
+        for index, item in enumerate(record.get("write_ownership", [])):
+            candidate, path_error = safe_relative_path(root, item)
+            if path_error or candidate is None or candidate.parts[0] == ".git":
+                errors.append(
+                    f"{location}: write_ownership[{index}] is unsafe"
+                )
+            else:
+                paths.add(candidate.as_posix())
+        acquired = parsed_time(record.get("acquired_at"))
+        expires = parsed_time(record.get("expires_at"))
+        if acquired is None or expires is None or expires <= acquired:
+            errors.append(f"{location}: active lease has invalid expiry window")
+        elif expires <= now:
+            errors.append(f"{location}: active lease is expired")
+        active_leases.append((record_id, paths, location))
+    for index, (lease_id, paths, location) in enumerate(active_leases):
+        for other_id, other_paths, _ in active_leases[index + 1 :]:
+            for path in paths:
+                for other in other_paths:
+                    if (
+                        path == other
+                        or path.startswith(other + "/")
+                        or other.startswith(path + "/")
+                    ):
+                        errors.append(
+                            f"{location}: active lease {lease_id} overlaps "
+                            f"{other_id} at {path!r}/{other!r}"
+                        )
+
+    try:
+        registry = load_json(
+            root / "project-dossier/machine-readable/artifact-registry.json"
+        )
+        if not isinstance(registry, dict):
+            return errors + ["artifact registry: top-level value must be an object"]
+        representations = {
+            item.get("id"): item
+            for item in registry.get("representations", [])
+            if isinstance(item, dict)
+        }
+        supersession = load_json(root / "project-dossier/SUPERSESSION.json")
+        if not isinstance(supersession, dict):
+            return errors + ["supersession ledger: top-level value must be an object"]
+        seen_superseded: set[str] = set()
+        for index, item in enumerate(supersession.get("records", [])):
+            if not isinstance(item, dict):
+                continue
+            location = f"project-dossier/SUPERSESSION.json:records[{index}]"
+            old = item.get("superseded_representation_id")
+            new = item.get("successor_representation_id")
+            if old == new:
+                errors.append(f"{location}: successor must differ from superseded")
+            if old not in representations or new not in representations:
+                errors.append(f"{location}: unresolved representation supersession")
+            elif representations[old].get("superseded_by") != new:
+                errors.append(
+                    f"{location}: registry successor does not match ledger"
+                )
+            if old in seen_superseded:
+                errors.append(f"{location}: representation superseded more than once")
+            if isinstance(old, str):
+                seen_superseded.add(old)
+            retained, path_error = safe_relative_path(
+                root,
+                item.get("retained_history_path"),
+                allowed_prefixes=("project-dossier/history",),
+                must_exist=True,
+            )
+            if path_error or retained is None:
+                errors.append(f"{location}: retained history path is invalid")
+    except (OSError, ValueError, json.JSONDecodeError):
+        pass
+    return errors
+
+
+def _sorted_by_id(values: Any) -> list[dict[str, Any]]:
+    if not isinstance(values, list):
+        return []
+    return sorted(
+        (item for item in values if isinstance(item, dict)),
+        key=lambda item: str(item.get("id", "")),
+    )
+
+
+def load_dossier_registry(
+    root: Path,
+) -> tuple[dict[str, Any] | None, list[str]]:
+    path = root / "project-dossier/machine-readable/artifact-registry.json"
+    errors: list[str] = []
+    try:
+        registry = load_json(path)
+        schema = load_schema(root, "dossier-artifact-registry.schema.json")
+    except (OSError, ValueError, json.JSONDecodeError) as error:
+        return None, [f"project-dossier/machine-readable/artifact-registry.json: {error}"]
+    errors.extend(
+        f"project-dossier/machine-readable/artifact-registry.json: {item}"
+        for item in validate_schema(registry, schema)
+    )
+    if not isinstance(registry, dict):
+        return None, errors
+
+    try:
+        project = load_json(root / ".agent/project.json")
+        if (
+            registry.get("project_slug") != project.get("project", {}).get("id")
+            or registry.get("profile") != project.get("project", {}).get("profile")
+        ):
+            errors.append("artifact registry: project identity/profile mismatch")
+    except (OSError, ValueError, json.JSONDecodeError):
+        pass
+
+    artifact_types = _sorted_by_id(registry.get("artifact_types"))
+    representations = _sorted_by_id(registry.get("representations"))
+    type_ids = [item.get("id") for item in artifact_types]
+    representation_ids = [item.get("id") for item in representations]
+    representation_paths = [item.get("path") for item in representations]
+    if len(type_ids) != len(set(type_ids)):
+        errors.append("artifact registry: duplicate artifact type ID")
+    if len(representation_ids) != len(set(representation_ids)):
+        errors.append("artifact registry: duplicate representation ID")
+    if len(representation_paths) != len(set(representation_paths)):
+        errors.append("artifact registry: duplicate representation path")
+    known_types = {item for item in type_ids if isinstance(item, str)}
+    known_representations = {
+        item for item in representation_ids if isinstance(item, str)
+    }
+    by_type = {
+        str(item.get("id")): item
+        for item in artifact_types
+        if isinstance(item.get("id"), str)
+    }
+    by_representation = {
+        str(item.get("id")): item
+        for item in representations
+        if isinstance(item.get("id"), str)
+    }
+
+    for artifact_type in artifact_types:
+        artifact_type_id = artifact_type.get("id")
+        classification = artifact_type.get("classification")
+        applicability = artifact_type.get("applicability", {})
+        status = (
+            applicability.get("status") if isinstance(applicability, dict) else None
+        )
+        if classification == "core" and status != "required":
+            errors.append(
+                f"artifact type {artifact_type_id}: core type must be required"
+            )
+        if classification in {"conditional", "optional"} and status not in {
+            "not_assessed",
+            "applicable",
+            "not_applicable",
+        }:
+            errors.append(
+                f"artifact type {artifact_type_id}: invalid applicability for "
+                f"{classification} type"
+            )
+        if status in {"applicable", "not_applicable"} and (
+            not applicability.get("assessed_on")
+            or not isinstance(applicability.get("assessed_by"), str)
+            or not applicability.get("assessed_by", "").strip()
+            or not isinstance(applicability.get("rationale"), str)
+            or not applicability.get("rationale", "").strip()
+        ):
+            errors.append(
+                f"artifact type {artifact_type_id}: assessed applicability requires "
+                "date, assessor, and rationale"
+            )
+        if status in {"required", "not_assessed"} and (
+            applicability.get("assessed_on") is not None
+            or applicability.get("assessed_by") is not None
+        ):
+            errors.append(
+                f"artifact type {artifact_type_id}: unassessed/generated applicability "
+                "must not claim an assessor or date"
+            )
+        for dependency in artifact_type.get("dependencies", []):
+            if dependency not in known_types:
+                errors.append(
+                    f"artifact type {artifact_type_id}: unresolved dependency {dependency}"
+                )
+
+    nonderived_dossier_paths: set[str] = set()
+    represented_type_ids: set[str] = set()
+    for representation in representations:
+        representation_id = representation.get("id")
+        path_value = representation.get("path")
+        type_refs = representation.get("artifact_type_ids", [])
+        for artifact_type_id in type_refs:
+            if artifact_type_id not in known_types:
+                errors.append(
+                    f"representation {representation_id}: unresolved artifact type "
+                    f"{artifact_type_id}"
+                )
+        applicability = representation.get("applicability", {})
+        applicability_status = (
+            applicability.get("status") if isinstance(applicability, dict) else None
+        )
+        if len(type_refs) > 1 and applicability_status != "combined":
+            errors.append(
+                f"representation {representation_id}: combined representation "
+                "requires applicability.status=combined"
+            )
+        if len(type_refs) == 1 and applicability_status == "combined":
+            errors.append(
+                f"representation {representation_id}: combined status requires "
+                "multiple artifact type IDs"
+            )
+        if applicability_status != "not_applicable":
+            represented_type_ids.update(
+                item for item in type_refs if isinstance(item, str)
+            )
+        if len(type_refs) > 1 and any(
+            by_type.get(str(item), {}).get("applicability", {}).get("status")
+            not in {"required", "applicable"}
+            for item in type_refs
+        ):
+            errors.append(
+                f"representation {representation_id}: combined representation "
+                "may reference only required/applicable artifact types"
+            )
+        review = representation.get("review", {})
+        if isinstance(review, dict):
+            review_status = review.get("status")
+            reviewed_on = review.get("last_reviewed_on")
+            basis = review.get("basis")
+            if review_status == "reviewed" and (
+                not reviewed_on or not isinstance(basis, str) or not basis.strip()
+            ):
+                errors.append(
+                    f"representation {representation_id}: reviewed status requires "
+                    "date and basis"
+                )
+            if review_status == "not_reviewed" and reviewed_on is not None:
+                errors.append(
+                    f"representation {representation_id}: generated date cannot "
+                    "serve as substantive review"
+                )
+        candidate, path_error = safe_relative_path(
+            root,
+            path_value,
+            allowed_prefixes=("project-dossier", ".agent/decisions"),
+            must_exist=(
+                isinstance(path_value, str)
+                and path_value not in DERIVED_EXCLUSIONS
+            ),
+        )
+        if path_error:
+            errors.append(f"representation {representation_id}: {path_error}")
+        elif (
+            candidate is not None
+            and candidate.as_posix().startswith("project-dossier/")
+            and candidate.as_posix() not in DERIVED_EXCLUSIONS
+        ):
+            nonderived_dossier_paths.add(candidate.as_posix())
+        if representation.get("generated"):
+            if not str(representation.get("source_direction", "")).startswith(
+                "generated_"
+            ):
+                errors.append(
+                    f"representation {representation_id}: generated representation "
+                    "must declare generated source direction"
+                )
+        successor = representation.get("superseded_by")
+        if successor is not None and successor not in known_representations:
+            errors.append(
+                f"representation {representation_id}: unresolved successor {successor}"
+            )
+        if successor == representation_id:
+            errors.append(
+                f"representation {representation_id}: cannot supersede itself"
+            )
+
+    for representation_id in by_representation:
+        seen: set[str] = set()
+        current: str | None = representation_id
+        while current is not None and current in by_representation:
+            if current in seen:
+                errors.append(
+                    f"artifact registry: supersession cycle includes {current}"
+                )
+                break
+            seen.add(current)
+            successor = by_representation[current].get("superseded_by")
+            current = successor if isinstance(successor, str) else None
+
+    uncovered_required = sorted(
+        artifact_type_id
+        for artifact_type_id, artifact_type in by_type.items()
+        if artifact_type.get("applicability", {}).get("status")
+        != "not_applicable"
+        and artifact_type_id not in represented_type_ids
+    )
+    if uncovered_required:
+        errors.append(
+            "artifact registry: applicable/unassessed artifact types lack a "
+            "representation: "
+            + ", ".join(uncovered_required)
+        )
+
+    actual_nonderived = {
+        relative(path, root)
+        for path in (root / "project-dossier").rglob("*")
+        if path.is_file() and relative(path, root) not in DERIVED_EXCLUSIONS
+    }
+    if nonderived_dossier_paths != actual_nonderived:
+        missing = sorted(actual_nonderived - nonderived_dossier_paths)
+        extra = sorted(nonderived_dossier_paths - actual_nonderived)
+        if missing:
+            errors.append(
+                "artifact registry missing project-maintained dossier files: "
+                + ", ".join(missing)
+            )
+        if extra:
+            errors.append(
+                "artifact registry contains absent project-maintained files: "
+                + ", ".join(extra)
+            )
+    return registry, errors
+
+
+def check_dossier_registry(root: Path) -> list[str]:
+    return load_dossier_registry(root)[1]
+
+
+def check_dossier_catalog(root: Path) -> list[str]:
+    registry, errors = load_dossier_registry(root)
+    if registry is None:
+        return errors
+    catalog_path = root / "project-dossier/ARTIFACT_CATALOG.json"
+    authority_path = root / "project-dossier/machine-readable/path-authority.json"
     try:
         catalog = load_json(catalog_path)
         catalog_schema = load_schema(root, "artifact-catalog.schema.json")
@@ -782,36 +2975,74 @@ def check_dossier_catalog(root: Path) -> list[str]:
             for item in validate_schema(catalog, catalog_schema)
         )
     except (OSError, ValueError, json.JSONDecodeError) as error:
-        return [f"project-dossier/ARTIFACT_CATALOG.json: {error}"]
-    artifacts = catalog.get("artifacts", []) if isinstance(catalog, dict) else []
-    catalog_paths: set[str] = set()
-    catalog_ids: set[str] = set()
-    for item in artifacts:
-        if not isinstance(item, dict):
-            continue
-        artifact_id = item.get("id")
-        path = item.get("path")
-        if artifact_id in catalog_ids:
-            errors.append(f"artifact catalog: duplicate ID {artifact_id}")
-        if path in catalog_paths:
-            errors.append(f"artifact catalog: duplicate path {path}")
-        catalog_ids.add(artifact_id)
-        catalog_paths.add(path)
-        if isinstance(path, str) and not (root / path).is_file():
-            errors.append(f"artifact catalog: missing path {path}")
+        return errors + [f"project-dossier/ARTIFACT_CATALOG.json: {error}"]
+    if isinstance(catalog, dict):
+        for field in ("dossier_version", "profile", "project_slug"):
+            if catalog.get(field) != registry.get(field):
+                errors.append(f"artifact catalog: {field} differs from source registry")
+        if _sorted_by_id(catalog.get("artifact_types")) != _sorted_by_id(
+            registry.get("artifact_types")
+        ):
+            errors.append("artifact catalog: artifact types differ from source registry")
+        if _sorted_by_id(catalog.get("representations")) != _sorted_by_id(
+            registry.get("representations")
+        ):
+            errors.append(
+                "artifact catalog: representations differ from source registry"
+            )
+
     try:
         authority = load_json(authority_path)
+        authority_schema = load_schema(root, "dossier-path-authority.schema.json")
+        errors.extend(
+            f"project-dossier/machine-readable/path-authority.json: {item}"
+            for item in validate_schema(authority, authority_schema)
+        )
     except (OSError, ValueError, json.JSONDecodeError) as error:
-        return errors + [f"machine-readable/path-authority.json: {error}"]
-    if (
-        not isinstance(authority, dict)
-        or authority.get("schema_version")
-        != "project.dossier.path-authority.v1"
-        or authority.get("permission_grant") is not False
-        or authority.get("document_role") != "generated_from_artifact_catalog"
-    ):
-        errors.append("machine-readable/path-authority.json: invalid contract")
-    entries = authority.get("paths", []) if isinstance(authority, dict) else []
+        return errors + [
+            f"project-dossier/machine-readable/path-authority.json: {error}"
+        ]
+
+    expected_entries = sorted(
+        (
+            {
+                "path": item["path"],
+                "representation_id": item["id"],
+                "artifact_type_ids": item["artifact_type_ids"],
+                "information_state": item["information_state"],
+                "authority": item["authority"],
+                "source_direction": item["source_direction"],
+                "generated": item["generated"],
+            }
+            for item in registry.get("representations", [])
+            if isinstance(item, dict)
+            and str(item.get("path", "")).startswith("project-dossier/")
+        ),
+        key=lambda item: item["path"],
+    )
+    entries = (
+        authority.get("paths", [])
+        if isinstance(authority, dict) and isinstance(authority.get("paths"), list)
+        else []
+    )
+    for index, item in enumerate(entries):
+        path_value = item.get("path") if isinstance(item, dict) else None
+        _, path_error = safe_relative_path(
+            root,
+            path_value,
+            allowed_prefixes=("project-dossier",),
+            must_exist=True,
+        )
+        if path_error:
+            errors.append(
+                "project-dossier/machine-readable/path-authority.json: "
+                f"paths[{index}] {path_error}"
+            )
+    if sorted(entries, key=lambda item: str(item.get("path", ""))) != expected_entries:
+        errors.append(
+            "path authority: entries differ from artifact registry representations"
+        )
+
     authority_paths = {
         item.get("path")
         for item in entries
@@ -833,32 +3064,67 @@ def check_dossier_catalog(root: Path) -> list[str]:
             errors.append(
                 "path authority contains absent files: " + ", ".join(extra)
             )
-    for item in entries:
-        if not isinstance(item, dict):
-            errors.append("path authority entry must be an object")
-            continue
-        path = item.get("path")
-        artifact_id = item.get("artifact_id")
-        matching = next(
-            (
-                artifact
-                for artifact in artifacts
-                if isinstance(artifact, dict) and artifact.get("path") == path
-            ),
-            None,
-        )
-        if matching is None or matching.get("id") != artifact_id:
-            errors.append(f"path authority/catalog mismatch for {path}")
+    generation_ids = {
+        catalog.get("generation_id") if isinstance(catalog, dict) else None,
+        authority.get("generation_id") if isinstance(authority, dict) else None,
+    }
+    manifest_path = root / "project-dossier/MANIFEST.json"
+    if manifest_path.is_file():
+        try:
+            manifest = load_json(manifest_path)
+            generation_ids.add(
+                manifest.get("generation_id") if isinstance(manifest, dict) else None
+            )
+        except (ValueError, json.JSONDecodeError):
+            pass
+    if len(generation_ids) != 1 or None in generation_ids:
+        errors.append("dossier derived files have mismatched generation IDs")
     return errors
 
 
+def parse_semver(value: Any) -> tuple[int, int, int] | None:
+    match = re.fullmatch(
+        r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)",
+        str(value),
+    )
+    if not match:
+        return None
+    return tuple(int(match.group(index)) for index in range(1, 4))
+
+
 def version_satisfies_core(requirement: str) -> bool:
-    match = re.fullmatch(r"\^([0-9]+)\.([0-9]+)\.([0-9]+)", requirement)
-    core = re.fullmatch(r"([0-9]+)\.([0-9]+)\.([0-9]+)", KERNEL_VERSION)
-    return bool(match and core and match.group(1) == core.group(1))
+    match = re.fullmatch(
+        r"\^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)",
+        requirement,
+    )
+    current = parse_semver(KERNEL_VERSION)
+    if not match or current is None:
+        return False
+    lower = tuple(int(match.group(index)) for index in range(1, 4))
+    if lower[0] > 0:
+        upper = (lower[0] + 1, 0, 0)
+    elif lower[1] > 0:
+        upper = (0, lower[1] + 1, 0)
+    else:
+        upper = (0, 0, lower[2] + 1)
+    return lower <= current < upper
 
 
 def confined(root: Path, declared_root: Path, candidate: Path) -> bool:
+    _, declared_error = safe_relative_path(
+        root,
+        declared_root.as_posix(),
+        allowed_prefixes=(".agent/extensions",),
+        must_exist=True,
+    )
+    _, candidate_error = safe_relative_path(
+        root,
+        candidate.as_posix(),
+        allowed_prefixes=(".agent/extensions",),
+        must_exist=True,
+    )
+    if declared_error or candidate_error:
+        return False
     try:
         (root / candidate).resolve(strict=True).relative_to(
             (root / declared_root).resolve(strict=True)
@@ -868,9 +3134,639 @@ def confined(root: Path, declared_root: Path, candidate: Path) -> bool:
         return False
 
 
-def check_extensions(root: Path) -> list[str]:
+def check_capabilities(
+    root: Path,
+    governed_records: dict[str, tuple[dict[str, Any], str]] | None = None,
+) -> list[str]:
+    capabilities_root = root / ".agents"
+    if not capabilities_root.exists():
+        try:
+            project = load_json(root / ".agent/project.json")
+            profile = (
+                project.get("project", {}).get("profile")
+                if isinstance(project, dict)
+                else None
+            )
+        except (OSError, UnicodeDecodeError, ValueError, json.JSONDecodeError):
+            profile = None
+        if profile == "high-assurance":
+            return [".agents: capability package required by high-assurance profile"]
+        return []
+    if capabilities_root.is_symlink() or not capabilities_root.is_dir():
+        return [".agents: capability root must be a regular directory"]
+    errors: list[str] = []
+    allowed_capability_entries = {"README.md", "agents", "workflows", "skills"}
+    for path in sorted(capabilities_root.iterdir()):
+        if path.name not in allowed_capability_entries:
+            errors.append(f"{relative(path, root)}: unknown capability-root path")
+        elif path.is_symlink():
+            errors.append(f"{relative(path, root)}: capability-root symlink prohibited")
+    try:
+        schema = load_schema(root, "harness-capability-records.schema.json")
+    except (OSError, ValueError, json.JSONDecodeError) as error:
+        return [f".agents: capability schema unavailable: {error}"]
+    try:
+        origin = load_json(root / ".project-blueprint-origin.json")
+        if not isinstance(origin, dict):
+            origin = {}
+    except (OSError, ValueError, json.JSONDecodeError):
+        origin = {}
+    if governed_records is None:
+        governed_records, _ = collect_records(root)
+
+    records: dict[str, tuple[str, dict[str, Any], str]] = {}
+    by_kind: dict[str, dict[str, dict[str, Any]]] = {
+        "agent": {},
+        "workflow": {},
+        "skill": {},
+    }
+    for directory_name, kind in (("agents", "agent"), ("workflows", "workflow")):
+        directory = capabilities_root / directory_name
+        if not directory.is_dir():
+            errors.append(f".agents/{directory_name}: required governed store missing")
+            continue
+        for path in sorted(directory.iterdir()):
+            rel = relative(path, root)
+            if path.is_symlink() or path.is_dir() or path.suffix != ".json":
+                errors.append(f"{rel}: unexpected governed capability path")
+                continue
+            try:
+                value = load_json(path)
+            except (OSError, ValueError, json.JSONDecodeError) as error:
+                errors.append(f"{rel}: {error}")
+                continue
+            errors.extend(
+                f"{rel}: {item}"
+                for item in validate_schema(
+                    value,
+                    {"$ref": f"#/$defs/{kind}"},
+                    root_schema=schema,
+                )
+            )
+            if not isinstance(value, dict):
+                continue
+            capability_id = value.get("id")
+            if capability_id != path.stem:
+                errors.append(f"{rel}: filename/ID mismatch")
+            if isinstance(capability_id, str):
+                if capability_id in records:
+                    errors.append(f"{rel}: duplicate global capability ID {capability_id}")
+                else:
+                    records[capability_id] = (kind, value, rel)
+                    by_kind[kind][capability_id] = value
+
+    for capability_id, (kind, value, location) in records.items():
+        status = value.get("adoption_status")
+        provenance = value.get("provenance", {})
+        if not isinstance(provenance, dict):
+            provenance = {}
+        trust = provenance.get("trust_class")
+        adoption_decision = value.get("adoption_decision_ref")
+        if status == "generated_unadopted_baseline" and trust != (
+            "generated_unadopted_capability"
+        ):
+            errors.append(f"{location}: unadopted capability has invalid trust class")
+        if status == "generated_unadopted_baseline" and (
+            value.get("owner") != "unassigned"
+            or adoption_decision is not None
+            or provenance.get("source") != "project_blueprint"
+            or provenance.get("source_version") != origin.get("blueprint_version")
+            or provenance.get("generated_on") != origin.get("generated_on")
+            or provenance.get("license_review") != "not_assessed"
+            or provenance.get("security_review") != "not_assessed"
+            or provenance.get("source_fingerprint") is not None
+            or provenance.get("local_changes") != []
+        ):
+            errors.append(
+                f"{location}: unadopted capability provenance differs from origin"
+            )
+        if status == "adopted" and (
+            value.get("owner") in {None, "", "unassigned"}
+            or trust
+            not in {
+                "project_local_reviewed_capability",
+                "imported_reviewed_capability",
+            }
+            or provenance.get("license_review") in {"not_assessed", "review_required"}
+            or provenance.get("security_review") in {"not_assessed", "review_required"}
+            or not isinstance(adoption_decision, str)
+            or adoption_decision not in governed_records
+            or governed_records.get(adoption_decision, ({}, ""))[0].get("status")
+            != "accepted"
+            or not str(
+                governed_records.get(adoption_decision, ({}, ""))[0].get(
+                    "authority_source", ""
+                )
+            ).startswith(("authority:", "external:"))
+        ):
+            errors.append(
+                f"{location}: adopted capability lacks assigned owner, accepted "
+                "authority decision, or completed trust reviews"
+            )
+        if status == "adopted" and trust == "imported_reviewed_capability" and (
+            not re.fullmatch(
+                r"[a-f0-9]{64}",
+                str(provenance.get("source_fingerprint", "")),
+            )
+            or str(provenance.get("source_version", "")).casefold()
+            in {
+                "latest",
+                "main",
+                "master",
+                "head",
+                "unknown",
+                "not_assessed",
+                "unversioned",
+            }
+        ):
+            errors.append(f"{location}: imported capability provenance is not pinned")
+        included_files = provenance.get("included_files", [])
+        if not isinstance(included_files, list):
+            included_files = []
+        if status == "generated_unadopted_baseline" and included_files != [location]:
+            errors.append(f"{location}: unadopted included-file set is not exact")
+        for index, included_path in enumerate(included_files):
+            candidate, path_error = safe_relative_path(
+                root,
+                included_path,
+                allowed_prefixes=(".agents",),
+                must_exist=True,
+            )
+            if (
+                path_error
+                or candidate is None
+                or (root / candidate).is_symlink()
+                or not (root / candidate).is_file()
+            ):
+                errors.append(
+                    f"{location}: included_files[{index}] is unsafe or absent"
+                )
+        deprecated = parse_semver(value.get("deprecated_at"))
+        removal = parse_semver(value.get("removal_version"))
+        current_kernel = parse_semver(KERNEL_VERSION)
+        successor = value.get("successor")
+        if status in {
+            "generated_unadopted_baseline",
+            "adopted",
+            "disabled",
+        } and any(item is not None for item in (deprecated, removal, successor)):
+            errors.append(f"{location}: active capability has deprecation metadata")
+        if status in {"deprecated", "superseded"}:
+            if (
+                deprecated is None
+                or removal is None
+                or removal <= deprecated
+                or not isinstance(successor, str)
+                or successor == capability_id
+                or successor not in by_kind[kind]
+            ):
+                errors.append(f"{location}: invalid capability deprecation tuple")
+            if (
+                removal is not None
+                and current_kernel is not None
+                and current_kernel >= removal
+            ):
+                errors.append(f"{location}: capability remains after removal version")
+        elif any(
+            raw is not None
+            for raw in (
+                value.get("deprecated_at"),
+                value.get("removal_version"),
+                successor,
+            )
+        ):
+            errors.append(f"{location}: deprecation metadata requires deprecated status")
+
+        if kind == "workflow":
+            states = value.get("states", [])
+            state_by_id: dict[str, dict[str, Any]] = {}
+            for state in states if isinstance(states, list) else []:
+                if not isinstance(state, dict):
+                    continue
+                state_id = state.get("id")
+                if isinstance(state_id, str) and state_id in state_by_id:
+                    errors.append(f"{location}: duplicate workflow state ID {state_id}")
+                elif isinstance(state_id, str):
+                    state_by_id[state_id] = state
+            terminal_ids = {
+                state_id
+                for state_id, state in state_by_id.items()
+                if state.get("kind") == "terminal"
+            }
+            declared_terminals = value.get("terminal_states", [])
+            if not isinstance(declared_terminals, list):
+                declared_terminals = []
+            if set(
+                item for item in declared_terminals if isinstance(item, str)
+            ) != terminal_ids:
+                errors.append(f"{location}: terminal state declaration mismatch")
+            for field in ("initial_state", "cancellation_state"):
+                field_value = value.get(field)
+                if not isinstance(field_value, str) or field_value not in state_by_id:
+                    errors.append(f"{location}: unresolved workflow {field}")
+            for state_id, state in state_by_id.items():
+                kind_value = state.get("kind")
+                agent_ref = state.get("agent_ref")
+                if kind_value == "terminal":
+                    if (
+                        state.get("actions")
+                        or agent_ref is not None
+                        or state.get("gate") is not None
+                        or any(
+                            state.get(field) is not None
+                            for field in (
+                                "on_success",
+                                "on_failure",
+                                "on_actionable_findings",
+                            )
+                        )
+                    ):
+                        errors.append(
+                            f"{location}: terminal state {state_id} has behavior"
+                        )
+                else:
+                    if state.get("on_success") is None:
+                        errors.append(
+                            f"{location}: nonterminal state {state_id} lacks on_success"
+                        )
+                    if kind_value == "review":
+                        if (
+                            not isinstance(agent_ref, str)
+                            or agent_ref not in by_kind["agent"]
+                            or state.get("on_actionable_findings") is None
+                        ):
+                            errors.append(
+                                f"{location}: review state {state_id} lacks a valid agent "
+                                "or actionable-finding transition"
+                            )
+                    elif agent_ref is not None or state.get(
+                        "on_actionable_findings"
+                    ) is not None:
+                        errors.append(
+                            f"{location}: only review states may use agent/findings routing"
+                        )
+                for field in (
+                    "on_success",
+                    "on_failure",
+                    "on_actionable_findings",
+                ):
+                    target = state.get(field)
+                    if target is not None and (
+                        not isinstance(target, str) or target not in state_by_id
+                    ):
+                        errors.append(
+                            f"{location}: state {state_id} has unresolved {field}"
+                        )
+            initial_state = value.get("initial_state")
+            cancellation_state = value.get("cancellation_state")
+            reachable = (
+                {initial_state}
+                if isinstance(initial_state, str) and initial_state in state_by_id
+                else set()
+            )
+            pending = list(reachable)
+            while pending:
+                state = state_by_id[pending.pop()]
+                for field in ("on_success", "on_failure", "on_actionable_findings"):
+                    target = state.get(field)
+                    if (
+                        isinstance(target, str)
+                        and target in state_by_id
+                        and target not in reachable
+                    ):
+                        reachable.add(target)
+                        pending.append(target)
+            expected_reachable = set(state_by_id) - (
+                {cancellation_state}
+                if isinstance(cancellation_state, str)
+                else set()
+            )
+            if not expected_reachable.issubset(reachable):
+                errors.append(f"{location}: workflow contains unreachable states")
+            if not (reachable & terminal_ids):
+                errors.append(
+                    f"{location}: workflow initial state cannot reach a terminal"
+                )
+            if cancellation_state not in terminal_ids:
+                errors.append(
+                    f"{location}: cancellation state must be terminal"
+                )
+
+    for kind, values in by_kind.items():
+        for capability_id in values:
+            seen: set[str] = set()
+            current_id: str | None = capability_id
+            while current_id in values:
+                if current_id in seen:
+                    errors.append(
+                        f".agents/{kind}s: successor cycle includes {current_id}"
+                    )
+                    break
+                seen.add(current_id)
+                successor = values[current_id].get("successor")
+                current_id = successor if isinstance(successor, str) else None
+
+    skills_root = capabilities_root / "skills"
+    if not skills_root.is_dir():
+        errors.append(".agents/skills: required governed store missing")
+        return errors
+    for skill_dir in sorted(skills_root.iterdir()):
+        if skill_dir.is_symlink() or not skill_dir.is_dir():
+            errors.append(f"{relative(skill_dir, root)}: unexpected skill package path")
+            continue
+        skill_path = skill_dir / "SKILL.md"
+        provenance_path = skill_dir / "references/provenance.json"
+        if not skill_path.is_file() or skill_path.is_symlink():
+            errors.append(f"{relative(skill_dir, root)}: missing safe SKILL.md")
+            continue
+        try:
+            text = skill_path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError) as error:
+            errors.append(f"{relative(skill_path, root)}: cannot read frontmatter: {error}")
+            continue
+        metadata: dict[str, str] = {}
+        if not text.startswith("---\n") or "\n---\n" not in text[4:]:
+            errors.append(f"{relative(skill_path, root)}: invalid frontmatter")
+        else:
+            end = text.find("\n---\n", 4)
+            for line in text[4:end].splitlines():
+                if ":" not in line:
+                    errors.append(f"{relative(skill_path, root)}: invalid frontmatter line")
+                    continue
+                key, raw_value = line.split(":", 1)
+                if key in metadata:
+                    errors.append(
+                        f"{relative(skill_path, root)}: duplicate frontmatter key {key}"
+                    )
+                metadata[key] = raw_value.strip()
+            if set(metadata) != {"name", "description"}:
+                errors.append(
+                    f"{relative(skill_path, root)}: frontmatter field contract mismatch"
+                )
+            if (
+                not metadata.get("name")
+                or metadata.get("name") != skill_dir.name
+                or not re.fullmatch(
+                    r"[a-z0-9]+(?:-[a-z0-9]+)*",
+                    metadata.get("name", ""),
+                )
+                or not metadata.get("description")
+            ):
+                errors.append(
+                    f"{relative(skill_path, root)}: skill name/description invalid"
+                )
+        if not provenance_path.is_file() or provenance_path.is_symlink():
+            errors.append(f"{relative(skill_dir, root)}: missing provenance record")
+            continue
+        try:
+            skill_record = load_json(provenance_path)
+        except (OSError, ValueError, json.JSONDecodeError) as error:
+            errors.append(f"{relative(provenance_path, root)}: {error}")
+            continue
+        errors.extend(
+            f"{relative(provenance_path, root)}: {item}"
+            for item in validate_schema(
+                skill_record,
+                {"$ref": "#/$defs/skill_provenance"},
+                root_schema=schema,
+            )
+        )
+        if not isinstance(skill_record, dict):
+            continue
+        skill_id = skill_record.get("id")
+        if skill_id != skill_dir.name or skill_record.get("entrypoint") != relative(
+            skill_path, root
+        ):
+            errors.append(
+                f"{relative(provenance_path, root)}: skill identity/entrypoint mismatch"
+            )
+        if isinstance(skill_id, str):
+            if skill_id in records:
+                errors.append(
+                    f"{relative(provenance_path, root)}: duplicate global capability "
+                    f"ID {skill_id}"
+                )
+            else:
+                records[skill_id] = (
+                    "skill",
+                    skill_record,
+                    relative(provenance_path, root),
+                )
+                by_kind["skill"][skill_id] = skill_record
+        if metadata.get("name") != skill_id:
+            errors.append(
+                f"{relative(skill_path, root)}: frontmatter name differs from provenance"
+            )
+
+    for skill_id, skill in by_kind["skill"].items():
+        location = records[skill_id][2]
+        provenance = skill.get("provenance")
+        if not isinstance(provenance, dict):
+            provenance = {}
+        status = skill.get("adoption_status")
+        decision_ref = skill.get("adoption_decision_ref")
+        if status == "generated_unadopted_baseline" and (
+            skill.get("owner") != "unassigned"
+            or decision_ref is not None
+            or provenance.get("source") != "project_blueprint"
+            or provenance.get("source_version") != origin.get("blueprint_version")
+            or provenance.get("generated_on") != origin.get("generated_on")
+            or provenance.get("license_review") != "not_assessed"
+            or provenance.get("security_review") != "not_assessed"
+            or provenance.get("source_fingerprint") is not None
+            or provenance.get("local_changes") != []
+            or provenance.get("trust_class")
+            != "generated_unadopted_capability"
+        ):
+            errors.append(f"{location}: unadopted skill provenance differs from origin")
+        if status == "adopted" and (
+            skill.get("owner") in {None, "", "unassigned"}
+            or provenance.get("trust_class")
+            not in {
+                "project_local_reviewed_capability",
+                "imported_reviewed_capability",
+            }
+            or provenance.get("license_review") in {"not_assessed", "review_required"}
+            or provenance.get("security_review") in {"not_assessed", "review_required"}
+            or not isinstance(decision_ref, str)
+            or decision_ref not in governed_records
+            or governed_records.get(decision_ref, ({}, ""))[0].get("status")
+            != "accepted"
+            or not str(
+                governed_records.get(decision_ref, ({}, ""))[0].get(
+                    "authority_source", ""
+                )
+            ).startswith(("authority:", "external:"))
+        ):
+            errors.append(f"{location}: adopted skill lacks decision/trust review")
+        if (
+            status == "adopted"
+            and provenance.get("trust_class") == "imported_reviewed_capability"
+            and (
+                not re.fullmatch(
+                    r"[a-f0-9]{64}",
+                    str(provenance.get("source_fingerprint", "")),
+                )
+                or str(provenance.get("source_version", "")).casefold()
+                in {
+                    "latest",
+                    "main",
+                    "master",
+                    "head",
+                    "unknown",
+                    "not_assessed",
+                    "unversioned",
+                }
+            )
+        ):
+            errors.append(f"{location}: imported skill provenance is not pinned")
+        included_files = provenance.get("included_files", [])
+        if not isinstance(included_files, list):
+            included_files = []
+        expected_skill_files = [
+            f".agents/skills/{skill_id}/SKILL.md",
+            f".agents/skills/{skill_id}/references/provenance.json",
+        ]
+        if (
+            status == "generated_unadopted_baseline"
+            and included_files != expected_skill_files
+        ):
+            errors.append(f"{location}: unadopted included-file set is not exact")
+        current_skill_dir = skills_root / skill_id
+        actual_skill_files = sorted(
+            relative(path, root)
+            for path in current_skill_dir.rglob("*")
+            if path.is_file() and not path.is_symlink()
+        )
+        if sorted(
+            item for item in included_files if isinstance(item, str)
+        ) != actual_skill_files:
+            errors.append(f"{location}: included-file inventory is incomplete")
+        for index, included_path in enumerate(included_files):
+            candidate, path_error = safe_relative_path(
+                root,
+                included_path,
+                allowed_prefixes=(f".agents/skills/{skill_id}",),
+                must_exist=True,
+            )
+            if (
+                path_error
+                or candidate is None
+                or (root / candidate).is_symlink()
+                or not (root / candidate).is_file()
+            ):
+                errors.append(f"{location}: included_files[{index}] is unsafe or absent")
+        deprecated = parse_semver(skill.get("deprecated_at"))
+        removal = parse_semver(skill.get("removal_version"))
+        successor = skill.get("successor")
+        current_kernel = parse_semver(KERNEL_VERSION)
+        if status in {"deprecated", "superseded"}:
+            if (
+                deprecated is None
+                or removal is None
+                or removal <= deprecated
+                or not isinstance(successor, str)
+                or successor == skill_id
+                or successor not in by_kind["skill"]
+            ):
+                errors.append(f"{location}: invalid capability deprecation tuple")
+            if (
+                removal is not None
+                and current_kernel is not None
+                and current_kernel >= removal
+            ):
+                errors.append(f"{location}: capability remains after removal version")
+        elif any(
+            value is not None
+            for value in (
+                skill.get("deprecated_at"),
+                skill.get("removal_version"),
+                successor,
+            )
+        ):
+            errors.append(f"{location}: deprecation metadata requires deprecated status")
+    for skill_id in by_kind["skill"]:
+        seen: set[str] = set()
+        current_id: str | None = skill_id
+        while current_id in by_kind["skill"]:
+            if current_id in seen:
+                errors.append(f".agents/skills: successor cycle includes {current_id}")
+                break
+            seen.add(current_id)
+            successor = by_kind["skill"][current_id].get("successor")
+            current_id = successor if isinstance(successor, str) else None
+    for agent_id, agent in by_kind["agent"].items():
+        skill_refs = agent.get("skill_refs", [])
+        if not isinstance(skill_refs, list):
+            skill_refs = []
+        for skill_id in skill_refs:
+            if skill_id not in by_kind["skill"]:
+                errors.append(f"{records[agent_id][2]}: unresolved skill reference {skill_id}")
+            elif (
+                agent.get("adoption_status") == "adopted"
+                and by_kind["skill"][skill_id].get("adoption_status") != "adopted"
+            ):
+                errors.append(
+                    f"{records[agent_id][2]}: adopted agent depends on unadopted skill"
+                )
+    for workflow_id, workflow in by_kind["workflow"].items():
+        if workflow.get("adoption_status") != "adopted":
+            continue
+        states = workflow.get("states", [])
+        for state in states if isinstance(states, list) else []:
+            agent_ref = state.get("agent_ref") if isinstance(state, dict) else None
+            if (
+                isinstance(agent_ref, str)
+                and agent_ref in by_kind["agent"]
+                and by_kind["agent"][agent_ref].get("adoption_status") != "adopted"
+            ):
+                errors.append(
+                    f"{records[workflow_id][2]}: adopted workflow depends on "
+                    "unadopted agent"
+                )
+    return errors
+
+
+def least_extension_environment(temporary_home: Path) -> dict[str, str]:
+    allowed = ("PATH", "SYSTEMROOT", "WINDIR")
+    environment = {
+        key: os.environ[key]
+        for key in allowed
+        if key in os.environ
+    }
+    environment.update(
+        HOME=str(temporary_home),
+        USERPROFILE=str(temporary_home),
+        TEMP=str(temporary_home),
+        TMP=str(temporary_home),
+        TMPDIR=str(temporary_home),
+        PYTHONDONTWRITEBYTECODE="1",
+        PYTHONIOENCODING="utf-8",
+        LANG="C.UTF-8",
+        LC_ALL="C.UTF-8",
+    )
+    return environment
+
+
+def check_extensions(
+    root: Path,
+    records: dict[str, tuple[dict[str, Any], str]] | None = None,
+) -> list[str]:
     registry_path = root / ".agent" / "extensions" / "registry.json"
     if not registry_path.exists():
+        try:
+            project = load_json(root / ".agent/project.json")
+            profile = (
+                project.get("project", {}).get("profile")
+                if isinstance(project, dict)
+                else None
+            )
+        except (OSError, UnicodeDecodeError, ValueError, json.JSONDecodeError):
+            profile = None
+        if profile in {"standard", "high-assurance"}:
+            return [
+                ".agent/extensions/registry.json: required by selected profile"
+            ]
         return []
     errors: list[str] = []
     try:
@@ -882,42 +3778,179 @@ def check_extensions(root: Path) -> list[str]:
         )
     except (OSError, ValueError, json.JSONDecodeError) as error:
         return [f".agent/extensions/registry.json: {error}"]
-    if errors:
+    if isinstance(registry, dict) and registry.get("core_version") != KERNEL_VERSION:
+        errors.append(
+            ".agent/extensions/registry.json: core_version does not match "
+            "the installed kernel"
+        )
+    if errors or not isinstance(registry, dict):
         return errors
+    seen_ids: set[str] = set()
+    seen_paths: set[str] = set()
+    known_extension_ids = {
+        item.get("id")
+        for item in registry.get("extensions", [])
+        if isinstance(item, dict) and isinstance(item.get("id"), str)
+    }
+    extensions_root = registry_path.parent
+    declared_root_names = {
+        Path(item.get("path", "")).name
+        for item in registry.get("extensions", [])
+        if isinstance(item, dict) and isinstance(item.get("path"), str)
+    }
+    allowed_extension_entries = {
+        "README.md",
+        "registry.json",
+        *declared_root_names,
+    }
+    for path in sorted(extensions_root.iterdir()):
+        if path.name not in allowed_extension_entries:
+            errors.append(f"{relative(path, root)}: unregistered extension-root path")
+        elif path.is_symlink():
+            errors.append(f"{relative(path, root)}: extension-root symlink prohibited")
+    finding_schema = schema
+    if records is None:
+        records, _ = collect_records(root)
     for extension in registry.get("extensions", []):
         extension_id = extension["id"]
+        extension_errors: list[str] = []
         declared_root = Path(extension["path"])
         config = Path(extension["config"])
         validator = Path(extension["validator"])
-        if declared_root.name != extension_id:
-            errors.append(f"extension {extension_id}: path/ID mismatch")
-        if not confined(root, declared_root, config):
-            errors.append(f"extension {extension_id}: config escapes extension path")
-        if not confined(root, declared_root, validator):
-            errors.append(f"extension {extension_id}: validator escapes extension path")
-        if not version_satisfies_core(extension["requires_core"]):
-            errors.append(f"extension {extension_id}: incompatible core version")
-        if not extension["enabled"] or errors:
-            continue
-        try:
-            result = subprocess.run(
-                [
-                    sys.executable,
-                    "-B",
-                    extension["validator"],
-                    "--config",
-                    extension["config"],
-                ],
-                cwd=root,
-                capture_output=True,
-                text=True,
-                check=False,
-                timeout=30,
-                env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
+        if extension_id in seen_ids:
+            extension_errors.append(f"extension {extension_id}: duplicate extension ID")
+        if extension["path"] in seen_paths:
+            extension_errors.append(
+                f"extension {extension_id}: duplicate extension path"
             )
-        except subprocess.TimeoutExpired:
-            errors.append(f"extension {extension_id}: validator timed out")
+        seen_ids.add(extension_id)
+        seen_paths.add(extension["path"])
+        if declared_root.name != extension_id:
+            extension_errors.append(f"extension {extension_id}: path/ID mismatch")
+        if not confined(root, declared_root, config):
+            extension_errors.append(
+                f"extension {extension_id}: config escapes extension path"
+            )
+        if not confined(root, declared_root, validator):
+            extension_errors.append(
+                f"extension {extension_id}: validator escapes extension path"
+            )
+        if not version_satisfies_core(extension["requires_core"]):
+            extension_errors.append(
+                f"extension {extension_id}: incompatible core version"
+            )
+        trust_decision = extension.get("trust_decision_ref")
+        if extension.get("enabled") and (
+            extension.get("trust_class") != "trusted_project_local_code"
+            or extension.get("owner") in {None, "", "unassigned"}
+            or str(extension.get("provenance", "")).startswith(
+                ("replace_", "not_assessed", "generated_")
+            )
+            or not isinstance(trust_decision, str)
+            or trust_decision not in records
+            or records[trust_decision][0].get("status") != "accepted"
+        ):
+            extension_errors.append(
+                f"extension {extension_id}: enabled extension requires assigned "
+                "ownership, adopted provenance, trusted classification, and a "
+                "resolved accepted trust decision"
+            )
+        deprecated = parse_semver(extension.get("deprecated_at"))
+        removal = parse_semver(extension.get("removal_version"))
+        current_core = parse_semver(KERNEL_VERSION)
+        if extension.get("deprecated_at") is not None and deprecated is None:
+            extension_errors.append(
+                f"extension {extension_id}: deprecated_at must be strict semver"
+            )
+        if extension.get("removal_version") is not None and removal is None:
+            extension_errors.append(
+                f"extension {extension_id}: removal_version must be strict semver"
+            )
+        if deprecated is not None and removal is None:
+            extension_errors.append(
+                f"extension {extension_id}: deprecated extension lacks removal version"
+            )
+        if removal is not None and deprecated is None:
+            extension_errors.append(
+                f"extension {extension_id}: removal version requires deprecated_at"
+            )
+        if deprecated is not None and removal is not None and removal <= deprecated:
+            extension_errors.append(
+                f"extension {extension_id}: removal version must follow deprecated_at"
+            )
+        successor = extension.get("successor")
+        if deprecated is not None and removal is not None and successor is None:
+            extension_errors.append(
+                f"extension {extension_id}: planned removal requires a successor"
+            )
+        if successor == extension_id:
+            extension_errors.append(
+                f"extension {extension_id}: successor cannot reference itself"
+            )
+        elif successor is not None and successor not in known_extension_ids:
+            extension_errors.append(
+                f"extension {extension_id}: unresolved successor {successor}"
+            )
+        if (
+            removal is not None
+            and current_core is not None
+            and current_core >= removal
+        ):
+            extension_errors.append(
+                f"extension {extension_id}: remains registered at or after its "
+                "removal version"
+            )
+        errors.extend(extension_errors)
+        if not extension["enabled"] or extension_errors:
             continue
+        before = snapshot_files(root)
+        with tempfile.TemporaryDirectory(
+            prefix="harness-extension-environment-"
+        ) as temporary:
+            temporary_home = Path(temporary)
+            try:
+                result = subprocess.run(
+                    [
+                        sys.executable,
+                        "-I",
+                        "-B",
+                        extension["validator"],
+                        "--config",
+                        extension["config"],
+                    ],
+                    cwd=root,
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                    timeout=30,
+                    env=least_extension_environment(temporary_home),
+                )
+            except subprocess.TimeoutExpired:
+                errors.append(f"extension {extension_id}: validator timed out")
+                continue
+            except OSError:
+                errors.append(f"extension {extension_id}: validator could not execute")
+                continue
+            temporary_writes = [
+                path for path in temporary_home.rglob("*") if path.is_file()
+            ]
+            if temporary_writes:
+                errors.append(
+                    f"extension {extension_id}: validator wrote outside repository "
+                    "to its isolated temporary environment"
+                )
+        after = snapshot_files(root)
+        if before != after:
+            changed = sorted(set(before) ^ set(after))
+            changed.extend(
+                path
+                for path in sorted(set(before) & set(after))
+                if before[path] != after[path]
+            )
+            errors.append(
+                f"extension {extension_id}: validator changed repository files: "
+                + ", ".join(changed[:10])
+            )
         try:
             response = loads_json(result.stdout)
         except (ValueError, json.JSONDecodeError):
@@ -931,21 +3964,47 @@ def check_extensions(root: Path) -> list[str]:
         ):
             errors.append(f"extension {extension_id}: invalid validator response")
             continue
+        finding_errors: list[str] = []
+        finding_keys: set[tuple[Any, Any]] = set()
+        for index, finding in enumerate(response["findings"]):
+            finding_errors.extend(
+                f"extension {extension_id}: finding[{index}] {item}"
+                for item in validate_schema(
+                    finding,
+                    {"$ref": "#/$defs/finding"},
+                    root_schema=finding_schema,
+                )
+            )
+            if isinstance(finding, dict):
+                key = (finding.get("code"), finding.get("path"))
+                if key in finding_keys:
+                    finding_errors.append(
+                        f"extension {extension_id}: duplicate finding identity"
+                    )
+                finding_keys.add(key)
+        if finding_errors:
+            errors.extend(finding_errors)
+            continue
         if result.returncode not in {0, 1}:
             errors.append(f"extension {extension_id}: validator execution failed")
-        if any(
+        reports_error = any(
             isinstance(item, dict) and item.get("severity") == "error"
             for item in response["findings"]
-        ):
+        )
+        if reports_error:
             errors.append(f"extension {extension_id}: validator reported errors")
+        if (result.returncode == 1) != reports_error:
+            errors.append(
+                f"extension {extension_id}: return code/findings severity mismatch"
+            )
     return errors
 
 
 def expected_manifest_files(root: Path) -> dict[str, str]:
     return {
-        relative(path, root): hash_file(path)
+        relative(path, root): hash_path_identity(path)
         for path in repository_files(root, source_only=True)
-        if not path.is_symlink() and path.name != ".DS_Store"
+        if path.name != ".DS_Store"
     }
 
 
@@ -958,6 +4017,21 @@ def parse_checksums(path: Path) -> tuple[dict[str, str], list[str]]:
             errors.append(f"project-dossier/CHECKSUMS.sha256:{number}: invalid line")
             continue
         digest, target = match.groups()
+        _, path_error = safe_relative_path(
+            path.parent.parent,
+            target,
+            allowed_prefixes=("project-dossier",),
+            must_exist=True,
+        )
+        if (
+            path_error
+            or target == "project-dossier/CHECKSUMS.sha256"
+            or (path.parent.parent / target).is_symlink()
+        ):
+            errors.append(
+                f"project-dossier/CHECKSUMS.sha256:{number}: unsafe or absent path"
+            )
+            continue
         if target in values:
             errors.append(f"project-dossier/CHECKSUMS.sha256:{number}: duplicate path")
         values[target] = digest
@@ -971,19 +4045,122 @@ def check_integrity(root: Path, include_generated: bool = True) -> list[str]:
         manifest = load_json(manifest_path)
     except (OSError, ValueError, json.JSONDecodeError) as error:
         return [f"project-dossier/MANIFEST.json: {error}"]
+    if not isinstance(manifest, dict):
+        return ["project-dossier/MANIFEST.json: expected object"]
+    required_manifest_fields = {
+        "schema_version",
+        "generation_id",
+        "generated_on",
+        "blueprint_version",
+        "profile",
+        "harness_kernel_version",
+        "authority",
+        "source_fingerprint",
+        "source_scope",
+        "files",
+    }
+    if set(manifest) != required_manifest_fields:
+        errors.append("project-dossier/MANIFEST.json: invalid field contract")
+    if manifest.get("schema_version") != "project-dossier.manifest.v1":
+        errors.append("project-dossier/MANIFEST.json: invalid schema version")
+    if not re.fullmatch(r"[a-f0-9]{32}", str(manifest.get("generation_id", ""))):
+        errors.append("project-dossier/MANIFEST.json: invalid generation ID")
+    try:
+        generated_on = datetime.fromisoformat(
+            str(manifest.get("generated_on", "")).replace("Z", "+00:00")
+        )
+        if generated_on.tzinfo is None:
+            raise ValueError("timezone required")
+    except ValueError:
+        errors.append("project-dossier/MANIFEST.json: invalid generated_on")
+    origin: dict[str, Any] = {}
+    try:
+        origin_value = load_json(root / ".project-blueprint-origin.json")
+        if not isinstance(origin_value, dict):
+            raise ValueError("origin must be an object")
+        origin = origin_value
+        if (
+            manifest.get("blueprint_version") != origin.get("blueprint_version")
+            or manifest.get("profile") != origin.get("profile")
+            or manifest.get("harness_kernel_version")
+            != origin.get("harness_kernel_version")
+        ):
+            errors.append("project-dossier/MANIFEST.json: origin metadata mismatch")
+        profile = origin.get("profile")
+    except (OSError, UnicodeDecodeError, ValueError, json.JSONDecodeError):
+        profile = None
     expected_fingerprint = source_fingerprint(root)
     if manifest.get("source_fingerprint") != expected_fingerprint:
         errors.append("project-dossier/MANIFEST.json: stale source fingerprint")
-    listed = {
-        item.get("path"): item.get("sha256")
-        for item in manifest.get("files", [])
-        if isinstance(item, dict)
+    try:
+        project_scope = load_json(root / ".agent/project.json")
+        expected_exclusions = (
+            project_scope.get("paths", {}).get("fingerprint_exclusions", [])
+            if isinstance(project_scope, dict)
+            and isinstance(project_scope.get("paths"), dict)
+            else []
+        )
+    except (OSError, ValueError, json.JSONDecodeError):
+        expected_exclusions = []
+    expected_source_scope = {
+        "model": "repository_paths_excluding_declared_exclusions_and_git_metadata",
+        "exclusions": expected_exclusions,
+        "git_metadata": "excluded_from_source_fingerprint",
     }
+    if manifest.get("source_scope") != expected_source_scope:
+        errors.append("project-dossier/MANIFEST.json: source scope mismatch")
+    listed: dict[str, str] = {}
+    manifest_files = manifest.get("files", [])
+    if not isinstance(manifest_files, list):
+        errors.append("project-dossier/MANIFEST.json: files must be an array")
+        manifest_files = []
+    for index, item in enumerate(manifest_files):
+        if not isinstance(item, dict) or set(item) != {"path", "layer", "sha256"}:
+            errors.append(
+                f"project-dossier/MANIFEST.json: files[{index}] invalid contract"
+            )
+            continue
+        path_value = item.get("path")
+        _, path_error = safe_relative_path(root, path_value, must_exist=True)
+        if path_error:
+            errors.append(
+                f"project-dossier/MANIFEST.json: files[{index}] {path_error}"
+            )
+        if path_value in listed:
+            errors.append(
+                f"project-dossier/MANIFEST.json: duplicate file path {path_value}"
+            )
+        digest = item.get("sha256")
+        if not isinstance(digest, str) or not re.fullmatch(r"[a-f0-9]{64}", digest):
+            errors.append(
+                f"project-dossier/MANIFEST.json: files[{index}] invalid digest"
+            )
+            continue
+        expected_layer = (
+            "agent_harness"
+            if path_value == "AGENTS.md"
+            or str(path_value).startswith((".agent/", ".agents/"))
+            else "project_dossier"
+            if str(path_value).startswith("project-dossier/")
+            else "generation_provenance"
+            if path_value == ".project-blueprint-origin.json"
+            else "project_source"
+        )
+        if item.get("layer") != expected_layer:
+            errors.append(
+                f"project-dossier/MANIFEST.json: files[{index}] layer mismatch"
+            )
+        if isinstance(path_value, str):
+            listed[path_value] = digest
     expected = expected_manifest_files(root)
     if listed != expected:
         errors.append("project-dossier/MANIFEST.json: file inventory or hashes are stale")
 
     checksum_path = root / "project-dossier" / "CHECKSUMS.sha256"
+    if profile == "high-assurance" and not checksum_path.is_file():
+        errors.append("project-dossier/CHECKSUMS.sha256: required by profile")
+    if profile != "high-assurance" and checksum_path.exists():
+        errors.append("project-dossier/CHECKSUMS.sha256: not declared by profile")
     if checksum_path.exists():
         checksums, checksum_errors = parse_checksums(checksum_path)
         errors.extend(checksum_errors)
@@ -1000,9 +4177,29 @@ def check_integrity(root: Path, include_generated: bool = True) -> list[str]:
     generated = root / ".agent" / "generated"
     manifest_generated = generated / "manifest.json"
     report_path = generated / "validation-report.json"
-    temporary = sorted(generated.glob("*.tmp")) if generated.is_dir() else []
+    temporary = (
+        sorted(
+            path
+            for path in generated.rglob("*")
+            if path.name.endswith(".tmp") or path.name.startswith(".refresh-")
+        )
+        if generated.is_dir()
+        else []
+    )
     if temporary:
         errors.append(".agent/generated: interrupted refresh artifacts present")
+    if profile == "high-assurance" and (
+        not manifest_generated.is_file() or not report_path.is_file()
+    ):
+        errors.append(
+            ".agent/generated: manifest and validation report required by profile"
+        )
+        return errors
+    if profile != "high-assurance" and (
+        manifest_generated.exists() or report_path.exists()
+    ):
+        errors.append(".agent/generated: integrity outputs not declared by profile")
+        return errors
     if not manifest_generated.exists() and not report_path.exists():
         return errors
     if not manifest_generated.is_file() or not report_path.is_file():
@@ -1011,8 +4208,11 @@ def check_integrity(root: Path, include_generated: bool = True) -> list[str]:
     try:
         generated_manifest = load_json(manifest_generated)
         report = load_json(report_path)
-    except (ValueError, json.JSONDecodeError) as error:
+    except (OSError, UnicodeDecodeError, ValueError, json.JSONDecodeError) as error:
         errors.append(f".agent/generated: {error}")
+        return errors
+    if not isinstance(generated_manifest, dict) or not isinstance(report, dict):
+        errors.append(".agent/generated: manifest and report must be objects")
         return errors
     generation_ids = {
         manifest.get("generation_id"),
@@ -1029,6 +4229,195 @@ def check_integrity(root: Path, include_generated: bool = True) -> list[str]:
             errors.append(f"{name}: stale source fingerprint")
         if value.get("authority") != "generated_non_authoritative_point_in_time":
             errors.append(f"{name}: invalid authority label")
+        if value.get("source_scope") != expected_source_scope:
+            errors.append(f"{name}: source scope mismatch")
+    generated_manifest_fields = {
+        "schema_version",
+        "generator_version",
+        "generation_id",
+        "generated_at",
+        "authority",
+        "source_fingerprint",
+        "source_scope",
+        "managed_files",
+        "limitations",
+    }
+    if (
+        set(generated_manifest) != generated_manifest_fields
+        or generated_manifest.get("schema_version")
+        != "harness.generated-manifest.v1"
+        or generated_manifest.get("generator_version")
+        != origin.get("generator_version")
+        or not re.fullmatch(
+            r"[a-f0-9]{32}",
+            str(generated_manifest.get("generation_id", "")),
+        )
+        or generated_manifest.get("managed_files") != sorted(expected)
+        or not isinstance(generated_manifest.get("limitations"), list)
+        or not generated_manifest.get("limitations")
+        or not all(
+            isinstance(item, str) and item
+            for item in generated_manifest.get("limitations", [])
+        )
+    ):
+        errors.append(".agent/generated/manifest.json: invalid metadata contract")
+    try:
+        generated_at = datetime.fromisoformat(
+            str(generated_manifest.get("generated_at", "")).replace("Z", "+00:00")
+        )
+        if generated_at.tzinfo is None:
+            raise ValueError("timezone required")
+    except ValueError:
+        errors.append(".agent/generated/manifest.json: invalid generated_at")
+    enabled_extensions: list[str] = []
+    extension_registry_path = root / ".agent/extensions/registry.json"
+    if extension_registry_path.is_file():
+        try:
+            extension_registry = load_json(extension_registry_path)
+            if isinstance(extension_registry, dict):
+                enabled_extensions = [
+                    str(item.get("id"))
+                    for item in extension_registry.get("extensions", [])
+                    if isinstance(item, dict) and item.get("enabled") is True
+                ]
+        except (ValueError, json.JSONDecodeError):
+            pass
+    checks = report.get("checks", [])
+    expected_check_ids = {
+        "pre_refresh_source_validation",
+        "strict_json_and_duplicate_keys",
+        "schemas_versions_lifecycles_and_references",
+        "authority_and_nested_instruction_invariants",
+        "dossier_artifact_registry",
+        "extension_confinement_and_validator_protocol",
+        "bounded_secret_heuristic_and_redaction",
+    }
+    well_shaped_checks = (
+        isinstance(checks, list)
+        and len(checks) == len(expected_check_ids)
+        and all(
+            isinstance(item, dict)
+            and set(item) == {"id", "status"}
+            and isinstance(item.get("id"), str)
+            and isinstance(item.get("status"), str)
+            for item in checks
+        )
+    )
+    check_map = (
+        {item["id"]: item["status"] for item in checks}
+        if well_shaped_checks
+        else {}
+    )
+    well_shaped_checks = (
+        well_shaped_checks
+        and len(check_map) == len(checks)
+        and set(check_map) == expected_check_ids
+    )
+    non_extension_checks = expected_check_ids - {
+        "extension_confinement_and_validator_protocol"
+    }
+    report_fields = {
+        "schema_version",
+        "validator_version",
+        "generation_id",
+        "generated_at",
+        "authority",
+        "source_fingerprint",
+        "source_scope",
+        "result",
+        "checks",
+        "failures",
+        "skipped_checks",
+        "scope",
+        "environment",
+        "git_scope",
+        "task_and_decision_links",
+        "external_effects",
+        "freshness_rule",
+        "limitations",
+    }
+    skipped_checks = report.get("skipped_checks", [])
+    extension_skip = "extension validators: no adopted enabled extension"
+    expected_extension_status = "pass" if enabled_extensions else "not_run"
+    git_scope_value = report.get("git_scope", {})
+    git_scope_values_valid = False
+    if (
+        isinstance(git_scope_value, dict)
+        and set(git_scope_value)
+        == {"available", "tracked_modified", "untracked", "ignored"}
+        and isinstance(git_scope_value.get("available"), bool)
+    ):
+        count_values = [
+            git_scope_value.get("tracked_modified"),
+            git_scope_value.get("untracked"),
+            git_scope_value.get("ignored"),
+        ]
+        git_scope_values_valid = (
+            all(
+                isinstance(item, int) and not isinstance(item, bool) and item >= 0
+                for item in count_values
+            )
+            if git_scope_value["available"]
+            else count_values == ["not_assessed", "not_assessed", "not_assessed"]
+        )
+    if (
+        set(report) != report_fields
+        or report.get("schema_version") != "harness.validation-report.v1"
+        or report.get("validator_version") != KERNEL_VERSION
+        or not re.fullmatch(r"[a-f0-9]{32}", str(report.get("generation_id", "")))
+        or not well_shaped_checks
+        or not isinstance(report.get("limitations"), list)
+        or not report.get("limitations")
+        or not all(
+            isinstance(item, str) and item for item in report.get("limitations", [])
+        )
+        or not isinstance(report.get("environment"), dict)
+        or set(report.get("environment", {})) != {"python", "platform"}
+        or not all(
+            isinstance(item, str) and item
+            for item in report.get("environment", {}).values()
+        )
+        or not git_scope_values_valid
+        or not isinstance(report.get("task_and_decision_links"), list)
+        or not all(
+            isinstance(item, str)
+            for item in report.get("task_and_decision_links", [])
+        )
+        or report.get("failures") != []
+        or not isinstance(skipped_checks, list)
+        or not all(isinstance(item, str) and item for item in skipped_checks)
+        or report.get("scope")
+        != "pre_refresh_domain_neutral_source_validation"
+        or report.get("external_effects")
+        != "repository_local_derived_metadata_refresh_only"
+        or report.get("freshness_rule")
+        != "Invalid when any non-excluded repository source byte or path changes."
+        or any(check_map.get(check_id) != "pass" for check_id in non_extension_checks)
+        or check_map.get("extension_confinement_and_validator_protocol")
+        != expected_extension_status
+        or ((extension_skip in skipped_checks) != (not enabled_extensions))
+    ):
+        errors.append(
+            ".agent/generated/validation-report.json: invalid metadata contract"
+        )
+    try:
+        report_generated_at = datetime.fromisoformat(
+            str(report.get("generated_at", "")).replace("Z", "+00:00")
+        )
+        if report_generated_at.tzinfo is None:
+            raise ValueError("timezone required")
+    except ValueError:
+        errors.append(
+            ".agent/generated/validation-report.json: invalid generated_at"
+        )
+    if (
+        check_map.get("extension_confinement_and_validator_protocol")
+        != expected_extension_status
+    ):
+        errors.append(
+            ".agent/generated/validation-report.json: extension execution status "
+            "overclaims or underreports"
+        )
     if report.get("result") != "PASS":
         errors.append(".agent/generated/validation-report.json: result is not PASS")
     return errors
@@ -1041,23 +4430,32 @@ def git_scope(root: Path) -> dict[str, Any]:
         "untracked": "not_assessed",
         "ignored": "not_assessed",
     }
-    probe = subprocess.run(
-        ["git", "rev-parse", "--is-inside-work-tree"],
-        cwd=root,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    git_environment = {**os.environ, "GIT_OPTIONAL_LOCKS": "0"}
+    try:
+        probe = subprocess.run(
+            ["git", "rev-parse", "--is-inside-work-tree"],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            check=False,
+            env=git_environment,
+        )
+    except OSError:
+        return result
     if probe.returncode:
         return result
     result["available"] = True
-    status = subprocess.run(
-        ["git", "status", "--porcelain=v1", "--ignored"],
-        cwd=root,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    try:
+        status = subprocess.run(
+            ["git", "status", "--porcelain=v1", "--ignored"],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            check=False,
+            env=git_environment,
+        )
+    except OSError:
+        return result
     tracked = untracked = ignored = 0
     if status.returncode == 0:
         for line in status.stdout.splitlines():
@@ -1075,22 +4473,32 @@ def git_scope(root: Path) -> dict[str, Any]:
     return result
 
 
-def check(root: Path = ROOT, include_generated: bool = True) -> list[str]:
+def check_sources(root: Path = ROOT) -> list[str]:
+    """Validate authoritative/project-maintained inputs before derived refresh."""
     errors: list[str] = []
     errors.extend(check_runtime())
-    errors.extend(check_files_and_json(root))
+    errors.extend(check_files_and_json(root, include_derived=False))
     errors.extend(check_kernel(root))
-    errors.extend(check_origin(root))
     records, record_errors = collect_records(root)
     errors.extend(record_errors)
-    if not record_errors:
-        errors.extend(check_references_and_lifecycle(root, records))
-        errors.extend(check_plan_and_traceability(records))
+    errors.extend(check_origin(root, records))
+    errors.extend(check_references_and_lifecycle(root, records))
+    errors.extend(check_plan_and_traceability(records))
+    errors.extend(check_current_state(root, records))
+    errors.extend(check_governance_semantics(root, records))
+    errors.extend(check_dossier_registry(root))
+    errors.extend(check_capabilities(root, records))
+    errors.extend(check_extensions(root, records))
+    return list(dict.fromkeys(safe_diagnostic(item) for item in errors))
+
+
+def check(root: Path = ROOT, include_generated: bool = True) -> list[str]:
+    errors = check_sources(root)
+    errors.extend(check_files_and_json(root, include_derived=True))
     errors.extend(check_dossier_catalog(root))
-    errors.extend(check_extensions(root))
     if include_generated:
         errors.extend(check_integrity(root, include_generated=True))
-    return errors
+    return list(dict.fromkeys(safe_diagnostic(item) for item in errors))
 
 
 def main() -> int:
@@ -1101,7 +4509,7 @@ def main() -> int:
     parser.parse_args()
     errors = check()
     for error in errors:
-        print(f"[FAIL] {error}", file=sys.stderr)
+        print(f"[FAIL] {safe_diagnostic(error)}", file=sys.stderr)
     if errors:
         return 1
     print("[PASS] harness and dossier structural contracts")

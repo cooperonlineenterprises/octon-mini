@@ -9,13 +9,41 @@ import re
 import subprocess
 import sys
 import tempfile
+import tomllib
 from datetime import date
 from pathlib import Path
 from typing import Any
 
 
-ROOT = Path(__file__).resolve().parents[3]
 SKILL_ROOT = Path(__file__).resolve().parents[1]
+
+
+def blueprint_root() -> Path:
+    candidates = (
+        Path(__file__).resolve().parents[3],
+        SKILL_ROOT / "assets" / "blueprint-source",
+    )
+    for candidate in candidates:
+        if (
+            (candidate / "VERSION").is_file()
+            and (candidate / "dossier/artifact-types.json").is_file()
+            and (candidate / "shared/schemas").is_dir()
+        ):
+            return candidate
+    return candidates[0]
+
+
+ROOT = blueprint_root()
+
+
+def repository_path(value: str) -> Path:
+    path = Path(value)
+    skill_prefix = Path("skills/project-bootstrap")
+    try:
+        relative = path.relative_to(skill_prefix)
+    except ValueError:
+        return ROOT / path
+    return SKILL_ROOT / relative
 PROFILE_LAYERS = {
     "minimal": ("core",),
     "standard": ("core", "standard"),
@@ -36,13 +64,23 @@ REQUIRED_PATHS = (
     "harness/BLUEPRINT.md",
     "harness/references/REFERENCE_EVIDENCE.md",
     "migrations/0.2.0-to-1.0.0.md",
+    "migrations/1.0.0-to-1.0.1.md",
     "pyproject.toml",
     "shared/GENERATION_CONTRACT.md",
+    "shared/reference-evidence.json",
     "shared/schemas/artifact-catalog.schema.json",
+    "shared/schemas/dossier-artifact-registry.schema.json",
+    "shared/schemas/dossier-path-authority.schema.json",
     "shared/schemas/dossier-records.schema.json",
+    "shared/schemas/harness-artifact-registry.schema.json",
+    "shared/schemas/harness-assurance-records.schema.json",
+    "shared/schemas/harness-capability-records.schema.json",
+    "shared/schemas/harness-current-state.schema.json",
     "shared/schemas/harness-extension-registry.schema.json",
+    "shared/schemas/harness-kernel.schema.json",
     "shared/schemas/harness-record.schema.json",
     "shared/schemas/project-blueprint-origin.schema.json",
+    "shared/schemas/reference-evidence.schema.json",
     "skills/project-bootstrap/SKILL.md",
     "skills/project-bootstrap/agents/openai.yaml",
     "skills/project-bootstrap/references/dossier-model.md",
@@ -54,6 +92,8 @@ REQUIRED_PATHS = (
     "skills/project-bootstrap/scripts/scaffold_project.py",
     "skills/project-bootstrap/scripts/test_acceptance.py",
     "skills/project-bootstrap/scripts/validate_blueprint.py",
+    "skills/project-bootstrap/scripts/validate_skill_package.py",
+    "skills/project-bootstrap/scripts/verify_reference_evidence.py",
 )
 DOSSIER_HEADINGS = (
     "## 1. Executive summary",
@@ -84,6 +124,7 @@ REQUIRED_KERNEL = {
     ".agent/templates/task.md",
     ".agent/templates/decision.md",
     ".agent/scripts/validate.py",
+    ".agent/scripts/refresh.py",
     ".agent/tests/test_validate.py",
     "project-dossier/README.md",
     "project-dossier/AUTHORITY.md",
@@ -99,6 +140,29 @@ class DuplicateKeyError(ValueError):
     pass
 
 
+SUPPORTED_SCHEMA_KEYWORDS = {
+    "$defs",
+    "$id",
+    "$ref",
+    "$schema",
+    "additionalProperties",
+    "const",
+    "description",
+    "enum",
+    "format",
+    "items",
+    "minItems",
+    "minLength",
+    "minimum",
+    "pattern",
+    "properties",
+    "required",
+    "title",
+    "type",
+    "uniqueItems",
+}
+
+
 def strict_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     value: dict[str, Any] = {}
     for key, item in pairs:
@@ -108,11 +172,129 @@ def strict_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     return value
 
 
+def reject_json_constant(value: str) -> None:
+    raise ValueError(f"non-finite JSON number is prohibited: {value}")
+
+
 def load_json(path: Path) -> Any:
     return json.loads(
         path.read_text(encoding="utf-8"),
         object_pairs_hook=strict_object,
+        parse_constant=reject_json_constant,
     )
+
+
+def lint_supported_schema(
+    schema: Any,
+    location: str,
+    issues: list[str],
+    *,
+    root_schema: dict[str, Any] | None = None,
+) -> None:
+    if not isinstance(schema, dict):
+        issues.append(f"{location}: schema node must be an object")
+        return
+    root_schema = root_schema or schema
+    unexpected = sorted(set(schema) - SUPPORTED_SCHEMA_KEYWORDS)
+    if unexpected:
+        issues.append(
+            f"{location}: unsupported schema keywords: {', '.join(unexpected)}"
+        )
+    schema_type = schema.get("type")
+    allowed_types = {
+        "array",
+        "boolean",
+        "integer",
+        "null",
+        "number",
+        "object",
+        "string",
+    }
+    declared_types = (
+        schema_type if isinstance(schema_type, list) else [schema_type]
+    )
+    if schema_type is not None and (
+        not declared_types
+        or any(not isinstance(item, str) for item in declared_types)
+        or len(declared_types) != len(set(declared_types))
+        or any(item not in allowed_types for item in declared_types)
+    ):
+        issues.append(f"{location}.type: unsupported or duplicate JSON type")
+    required = schema.get("required")
+    if required is not None and (
+        not isinstance(required, list)
+        or any(not isinstance(item, str) for item in required)
+        or len(required) != len(set(required))
+    ):
+        issues.append(f"{location}.required: expected unique string array")
+    enum = schema.get("enum")
+    if enum is not None and (not isinstance(enum, list) or not enum):
+        issues.append(f"{location}.enum: expected nonempty array")
+    for field in ("minItems", "minLength"):
+        value = schema.get(field)
+        if value is not None and (
+            not isinstance(value, int) or isinstance(value, bool) or value < 0
+        ):
+            issues.append(f"{location}.{field}: expected nonnegative integer")
+    minimum = schema.get("minimum")
+    if minimum is not None and (
+        not isinstance(minimum, (int, float))
+        or isinstance(minimum, bool)
+    ):
+        issues.append(f"{location}.minimum: expected number")
+    if "uniqueItems" in schema and not isinstance(schema["uniqueItems"], bool):
+        issues.append(f"{location}.uniqueItems: expected boolean")
+    pattern = schema.get("pattern")
+    if pattern is not None:
+        if not isinstance(pattern, str):
+            issues.append(f"{location}.pattern: expected string")
+        else:
+            try:
+                re.compile(pattern)
+            except re.error as error:
+                issues.append(f"{location}.pattern: invalid regular expression: {error}")
+    reference = schema.get("$ref")
+    if reference is not None and (
+        not isinstance(reference, str) or not reference.startswith("#/")
+    ):
+        issues.append(f"{location}.$ref: only local references are supported")
+    elif isinstance(reference, str):
+        current: Any = root_schema
+        for raw_part in reference[2:].split("/"):
+            part = raw_part.replace("~1", "/").replace("~0", "~")
+            if not isinstance(current, dict) or part not in current:
+                issues.append(f"{location}.$ref: unresolved reference {reference}")
+                break
+            current = current[part]
+    schema_format = schema.get("format")
+    if schema_format not in {None, "date", "date-time"}:
+        issues.append(f"{location}.format: unsupported format {schema_format!r}")
+    if "additionalProperties" in schema and not isinstance(
+        schema["additionalProperties"], bool
+    ):
+        issues.append(f"{location}.additionalProperties: expected boolean")
+    for field in ("properties", "$defs"):
+        children = schema.get(field)
+        if children is None:
+            continue
+        if not isinstance(children, dict):
+            issues.append(f"{location}.{field}: expected object")
+            continue
+        for name, child in children.items():
+            lint_supported_schema(
+                child,
+                f"{location}.{field}.{name}",
+                issues,
+                root_schema=root_schema,
+            )
+    items = schema.get("items")
+    if items is not None:
+        lint_supported_schema(
+            items,
+            f"{location}.items",
+            issues,
+            root_schema=root_schema,
+        )
 
 
 def load_scaffolder():
@@ -143,22 +325,31 @@ def validate_docs(issues: list[str]) -> None:
         if label not in dossier:
             issues.append(f"dossier blueprint missing evidence label: {label}")
     for field in (
-        "Category/classification",
-        "Purpose",
-        "Questions",
-        "Audience/owner",
-        "Inputs",
-        "Outputs",
-        "Format/authority",
-        "Dependencies",
-        "Timing/cadence",
-        "Validation",
-        "Omit/combine",
-        "Evidence",
+        "Category / classification:",
+        "Purpose:",
+        "Questions it must answer:",
+        "Intended audience:",
+        "Expected owner or maintainer:",
+        "Required inputs:",
+        "Outputs / downstream consumers:",
+        "Recommended format:",
+        "Source-of-truth expectations:",
+        "Dependencies and related artifacts:",
+        "Creation timing:",
+        "Update triggers:",
+        "Validation / quality checks:",
+        "Omission or combination:",
+        "Representative evidence:",
     ):
         if field not in dossier:
             issues.append(f"dossier artifact specifications missing field: {field}")
-    if len(re.findall(r"^### [A-Z]{3}-[0-9]{4} — ", dossier, re.MULTILINE)) < 15:
+    if len(
+        re.findall(
+            r"^#### [A-Z][A-Z0-9]*-[0-9]{4} — ",
+            dossier,
+            re.MULTILINE,
+        )
+    ) < 25:
         issues.append("dossier blueprint has too few stable artifact specifications")
 
     harness = (ROOT / "harness/BLUEPRINT.md").read_text(encoding="utf-8")
@@ -198,6 +389,8 @@ def validate_config_and_schemas(issues: list[str]) -> None:
         issues.append("blueprint.json Python minimum must be 3.11")
     if config.get("profiles") != list(PROFILE_LAYERS):
         issues.append("blueprint.json profile order mismatch")
+    if config.get("reference_evidence_registry") != "shared/reference-evidence.json":
+        issues.append("blueprint.json reference-evidence registry path mismatch")
     kernel = config.get("modules", {}).get("harness", {}).get("kernel_files")
     if set(kernel or []) != {
         ".agent/policy.json",
@@ -220,6 +413,7 @@ def validate_config_and_schemas(issues: list[str]) -> None:
             issues.append(f"{path.name}: schema lacks $id")
         elif "example.invalid" in schema["$id"]:
             issues.append(f"{path.name}: placeholder schema ID remains")
+        lint_supported_schema(schema, path.name, issues)
 
 
 def validate_artifact_types(issues: list[str], scaffolder: Any) -> None:
@@ -228,54 +422,122 @@ def validate_artifact_types(issues: list[str], scaffolder: Any) -> None:
     except (ValueError, json.JSONDecodeError) as error:
         issues.append(f"invalid dossier/artifact-types.json: {error}")
         return
-    artifacts = source.get("artifacts", []) if isinstance(source, dict) else []
+    if (
+        not isinstance(source, dict)
+        or source.get("schema_version")
+        != "project-blueprint.dossier-artifact-types.v2"
+        or source.get("permission_grant") is not False
+        or not isinstance(source.get("artifact_types"), list)
+        or not isinstance(source.get("representations"), list)
+    ):
+        issues.append("dossier/artifact-types.json has an invalid v2 envelope")
+        return
+    artifact_types = source["artifact_types"]
+    representations = source["representations"]
     ids: set[str] = set()
     paths: set[str] = set()
-    for index, artifact in enumerate(artifacts):
+    for index, artifact in enumerate(artifact_types):
         if not isinstance(artifact, dict):
             issues.append(f"artifact type {index} is not an object")
             continue
         artifact_id = artifact.get("id")
-        path = artifact.get("path")
         if not isinstance(artifact_id, str) or not re.fullmatch(
-            r"[A-Z]{3}-[0-9]{4}", artifact_id
+            r"[A-Z][A-Z0-9]*-[0-9]{4}", artifact_id
         ):
             issues.append(f"artifact type {index} has invalid four-digit ID")
         elif artifact_id in ids:
             issues.append(f"duplicate artifact type ID: {artifact_id}")
         ids.add(artifact_id)
-        if not isinstance(path, str) or not path.startswith(
-            (".agent/", "project-dossier/")
-        ):
-            issues.append(f"artifact {artifact_id}: invalid path")
-        elif path in paths:
-            issues.append(f"duplicate artifact type path: {path}")
-        paths.add(path)
-        if artifact.get("profile") not in PROFILE_LAYERS:
-            issues.append(f"artifact {artifact_id}: invalid profile")
         for required in (
+            "recommended_name",
             "category",
             "classification",
-            "information_state",
-            "authority",
-            "generated",
+            "purpose",
+            "questions",
+            "intended_audiences",
             "owner_role",
+            "required_inputs",
+            "downstream_consumers",
+            "recommended_formats",
+            "source_of_truth_expectations",
+            "dependencies",
+            "creation_timing",
             "review_cadence",
             "update_triggers",
-            "sensitivity",
+            "validation_checks",
+            "triggers",
+            "omission_or_combination",
+            "representative_evidence",
         ):
             if required not in artifact:
                 issues.append(f"artifact {artifact_id}: missing {required}")
-    if len(artifacts) < 25:
+    if len(artifact_types) < 25:
         issues.append("artifact taxonomy is unexpectedly incomplete")
+
+    representation_ids: set[str] = set()
+    for index, representation in enumerate(representations):
+        if not isinstance(representation, dict):
+            issues.append(f"representation {index} is not an object")
+            continue
+        representation_id = representation.get("id")
+        path = representation.get("path")
+        type_refs = representation.get("artifact_type_ids")
+        if (
+            not isinstance(representation_id, str)
+            or not re.fullmatch(r"REP-[0-9]{4}", representation_id)
+            or representation_id in representation_ids
+        ):
+            issues.append(f"representation {index} has invalid or duplicate ID")
+        representation_ids.add(str(representation_id))
+        if (
+            not isinstance(path, str)
+            or not path.startswith((".agent/decisions/", "project-dossier/"))
+            or path in paths
+        ):
+            issues.append(f"representation {representation_id}: invalid/duplicate path")
+        paths.add(str(path))
+        if (
+            not isinstance(type_refs, list)
+            or not type_refs
+            or len(type_refs) != len(set(type_refs))
+            or any(item not in ids for item in type_refs)
+        ):
+            issues.append(
+                f"representation {representation_id}: invalid artifact_type_ids"
+            )
+        if representation.get("profile") not in PROFILE_LAYERS:
+            issues.append(f"representation {representation_id}: invalid profile")
+        status = representation.get("applicability", {}).get("status")
+        if len(type_refs or []) > 1 and status != "combined":
+            issues.append(
+                f"representation {representation_id}: combined mapping lacks status"
+            )
+        if len(type_refs or []) == 1 and status == "combined":
+            issues.append(
+                f"representation {representation_id}: singleton marked combined"
+            )
 
     for profile in PROFILE_LAYERS:
         try:
-            selected = scaffolder.selected_artifacts(profile, date.today().isoformat())
+            expected_paths = (
+                set(scaffolder.collect_templates(profile))
+                | set(scaffolder.schema_outputs())
+                | set(scaffolder.PROJECT_LOCAL_SOURCE_PATHS)
+                | set(scaffolder.DERIVED_PATHS)
+                | {Path(".project-blueprint-origin.json")}
+            )
+            if profile == "high-assurance":
+                expected_paths |= set(scaffolder.HIGH_DERIVED_PATHS)
+            selected = scaffolder.selected_artifact_registry(
+                profile,
+                date.today().isoformat(),
+                "source-validation",
+                expected_paths,
+            )
         except ValueError as error:
             issues.append(f"{profile} artifact selection failed: {error}")
             continue
-        if not selected:
+        if not selected.get("artifact_types") or not selected.get("representations"):
             issues.append(f"{profile} artifact selection is empty")
 
 
@@ -285,12 +547,24 @@ def validate_templates(issues: list[str], scaffolder: Any) -> None:
         "PROJECT_NAME_JSON": json.dumps('Template "Validation" [α]', ensure_ascii=False),
         "PROJECT_SLUG": "template-validation",
         "CREATED_DATE": "2030-01-02",
-        "BLUEPRINT_VERSION": "1.0.0",
+        "BLUEPRINT_VERSION": (ROOT / "VERSION").read_text(encoding="utf-8").strip(),
+        "HARNESS_KERNEL_VERSION": scaffolder.KERNEL_VERSION,
         "PROFILE": "high-assurance",
-        "HARNESS_REFRESH_COMMAND": "python3 -B .agent/scripts/refresh.py --refresh",
+        "HARNESS_REFRESH_COMMAND": "python -B .agent/scripts/refresh.py --refresh",
         "HARNESS_REFRESH_WRITES": "[]",
     }
     templates_root = SKILL_ROOT / "assets/templates"
+    extension_registry_template = (
+        templates_root / "standard/.agent/extensions/registry.json.tmpl"
+    )
+    if (
+        '"core_version": "{{HARNESS_KERNEL_VERSION}}"'
+        not in extension_registry_template.read_text(encoding="utf-8")
+    ):
+        issues.append(
+            "extension registry must use the harness-kernel version axis, "
+            "not the blueprint release version"
+        )
     for profile in PROFILE_LAYERS:
         try:
             templates = scaffolder.collect_templates(profile)
@@ -323,7 +597,11 @@ def validate_templates(issues: list[str], scaffolder: Any) -> None:
             )
             if relative.suffix == ".json" and not invalid_fixture:
                 try:
-                    json.loads(rendered, object_pairs_hook=strict_object)
+                    json.loads(
+                        rendered,
+                        object_pairs_hook=strict_object,
+                        parse_constant=reject_json_constant,
+                    )
                 except (ValueError, json.JSONDecodeError) as error:
                     issues.append(f"{template.relative_to(ROOT)}: invalid JSON: {error}")
             if relative.suffix == ".py":
@@ -358,14 +636,122 @@ def validate_skill_and_release(issues: list[str]) -> None:
     if "$project-bootstrap" not in openai:
         issues.append("agents/openai.yaml does not invoke $project-bootstrap")
     version = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
-    if version != "1.0.0":
-        issues.append(f"release VERSION must be 1.0.0, found {version!r}")
+    if version != "1.0.1":
+        issues.append(f"release VERSION must be 1.0.1, found {version!r}")
     for path in ("CHANGELOG.md", "RELEASE.md"):
-        if f"1.0.0" not in (ROOT / path).read_text(encoding="utf-8"):
-            issues.append(f"{path} lacks the 1.0.0 release")
-    pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
-    if 'requires-python = ">=3.11"' not in pyproject:
+        if version not in (ROOT / path).read_text(encoding="utf-8"):
+            issues.append(f"{path} lacks the {version} release")
+    try:
+        with (ROOT / "pyproject.toml").open("rb") as source:
+            pyproject = tomllib.load(source)
+    except (OSError, tomllib.TOMLDecodeError) as error:
+        issues.append(f"pyproject.toml is invalid: {error}")
+        pyproject = {}
+    project_metadata = pyproject.get("project", {})
+    if not isinstance(project_metadata, dict):
+        issues.append("pyproject.toml project metadata must be a table")
+        project_metadata = {}
+    if project_metadata.get("requires-python") != ">=3.11":
         issues.append("pyproject.toml does not enforce Python 3.11+")
+    if project_metadata.get("version") != version:
+        issues.append("pyproject.toml version differs from VERSION")
+    if project_metadata.get("name") != "project-blueprint":
+        issues.append("pyproject.toml project name differs from release identity")
+    blueprint_metadata = pyproject.get("tool", {}).get("project-blueprint", {})
+    if not isinstance(blueprint_metadata, dict) or (
+        blueprint_metadata.get("runtime-dependencies") != []
+        or blueprint_metadata.get("canonical-structured-format") != "strict-json"
+    ):
+        issues.append("pyproject.toml blueprint runtime contract is invalid")
+    config = load_json(ROOT / "blueprint.json")
+    if config.get("modules", {}).get("harness", {}).get("kernel_version") != version:
+        issues.append("blueprint.json kernel version differs from VERSION")
+    scaffolder = load_scaffolder()
+    if (
+        scaffolder.GENERATOR_VERSION != version
+        or scaffolder.KERNEL_VERSION != version
+    ):
+        issues.append("scaffolder generator/kernel version differs from VERSION")
+    schema_template = (
+        SKILL_ROOT / "assets/templates/core/.agent/schema.json.tmpl"
+    ).read_text(encoding="utf-8")
+    validator_template = (
+        SKILL_ROOT / "assets/templates/core/.agent/scripts/validate.py.tmpl"
+    ).read_text(encoding="utf-8")
+    if f'"kernel_version": "{version}"' not in schema_template:
+        issues.append("generated schema kernel version differs from VERSION")
+    if f'KERNEL_VERSION = "{version}"' not in validator_template:
+        issues.append("generated validator kernel version differs from VERSION")
+
+    commands = (
+        (
+            [sys.executable, "-B", "scripts/validate_skill_package.py"],
+            SKILL_ROOT,
+            "skill package validator",
+        ),
+        (
+            [
+                sys.executable,
+                "-B",
+                str(SKILL_ROOT / "scripts/verify_reference_evidence.py"),
+            ],
+            ROOT,
+            "reference evidence validator",
+        ),
+    )
+    for command, cwd, label in commands:
+        result = subprocess.run(
+            command,
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode:
+            issues.append(
+                f"{label} failed: {result.stderr.strip() or result.stdout.strip()}"
+            )
+
+
+def validate_ci_contract(issues: list[str]) -> None:
+    workflow_path = ROOT / ".github/workflows/validate.yml"
+    try:
+        workflow = workflow_path.read_text(encoding="utf-8")
+    except OSError as error:
+        issues.append(f"cannot read CI workflow: {error}")
+        return
+    required_snippets = {
+        "read-only contents permission": "permissions:\n  contents: read",
+        "three-OS matrix": (
+            "os: [ubuntu-latest, macos-latest, windows-latest]"
+        ),
+        "Python 3.11-3.14 matrix": (
+            'python: ["3.11", "3.12", "3.13", "3.14"]'
+        ),
+        "pinned checkout action": (
+            "actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803"
+        ),
+        "pinned setup-python action": (
+            "actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1"
+        ),
+        "skill metadata validation": (
+            "python -B skills/project-bootstrap/scripts/"
+            "validate_skill_package.py"
+        ),
+        "reference evidence validation": (
+            "python -B skills/project-bootstrap/scripts/"
+            "verify_reference_evidence.py"
+        ),
+        "blueprint source validation": (
+            "python -B skills/project-bootstrap/scripts/validate_blueprint.py"
+        ),
+        "acceptance suite": (
+            "python -B skills/project-bootstrap/scripts/test_acceptance.py"
+        ),
+    }
+    for label, snippet in required_snippets.items():
+        if snippet not in workflow:
+            issues.append(f"CI workflow lacks {label}")
 
 
 def validate_profile_builds(issues: list[str]) -> None:
@@ -402,7 +788,7 @@ def main() -> int:
     if sys.version_info < (3, 11):
         issues.append(f"Python 3.11+ required; found {sys.version.split()[0]}")
     for path in REQUIRED_PATHS:
-        if not (ROOT / path).is_file():
+        if not repository_path(path).is_file():
             issues.append(f"missing required file: {path}")
     if issues:
         print(f"FAIL: {len(issues)} issue(s)")
@@ -419,6 +805,7 @@ def main() -> int:
     validate_artifact_types(issues, scaffolder)
     validate_templates(issues, scaffolder)
     validate_skill_and_release(issues)
+    validate_ci_contract(issues)
     validate_profile_builds(issues)
     if issues:
         print(f"FAIL: {len(issues)} issue(s)")

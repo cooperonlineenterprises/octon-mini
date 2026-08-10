@@ -1,0 +1,165 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://project-blueprint.local/schemas/harness-artifact-registry.schema.json",
+  "title": "Harness Artifact Metadata Registry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "authority",
+    "artifacts",
+    "lifecycle_source",
+    "required_metadata"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "harness.artifact-registry.v1"
+    },
+    "authority": {
+      "const": "metadata_only_not_permission_or_approval"
+    },
+    "artifacts": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/artifact"
+      }
+    },
+    "lifecycle_source": {
+      "const": ".agent/lifecycle.json"
+    },
+    "required_metadata": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  },
+  "$defs": {
+    "refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:[A-Z][A-Z0-9]*-[0-9]{4}|(?:authority|external|project-blueprint|repo|url):.+)$"
+      }
+    },
+    "strings": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "id",
+        "type",
+        "status",
+        "previous_status",
+        "path",
+        "source_inputs_and_licenses",
+        "producer_and_version",
+        "data_classification",
+        "validation",
+        "review",
+        "required_approver",
+        "retention",
+        "destination",
+        "content_fingerprint",
+        "supersedes",
+        "successor",
+        "limitations"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "harness.artifact.v1"
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^ART-[0-9]{4}$"
+        },
+        "type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "enum": [
+            "scratch",
+            "draft",
+            "reviewed",
+            "approved",
+            "final",
+            "archived"
+          ]
+        },
+        "previous_status": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_inputs_and_licenses": {
+          "$ref": "#/$defs/refs"
+        },
+        "producer_and_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "data_classification": {
+          "type": "string",
+          "minLength": 1
+        },
+        "validation": {
+          "$ref": "#/$defs/refs"
+        },
+        "review": {
+          "$ref": "#/$defs/refs"
+        },
+        "required_approver": {
+          "type": "string",
+          "minLength": 1
+        },
+        "retention": {
+          "type": "string",
+          "minLength": 1
+        },
+        "destination": {
+          "type": "string",
+          "minLength": 1
+        },
+        "content_fingerprint": {
+          "type": "string",
+          "minLength": 1
+        },
+        "supersedes": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^ART-[0-9]{4}$"
+        },
+        "successor": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^ART-[0-9]{4}$"
+        },
+        "limitations": {
+          "$ref": "#/$defs/strings"
+        }
+      }
+    }
+  }
+}

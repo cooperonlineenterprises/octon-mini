@@ -1,72 +1,634 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://project-blueprint.local/schemas/harness-record.schema.json",
-  "title": "Project Harness Record Header",
-  "description": "Common machine-readable header for durable harness records. A conforming record does not imply authority, approval, or readiness.",
-  "type": "object",
-  "required": [
-    "schema_version",
-    "id"
-  ],
-  "properties": {
-    "schema_version": {
+  "title": "Project Harness Records",
+  "description": "Strict contracts for operational records. Conformance does not imply authority, approval, or readiness.",
+  "$defs": {
+    "id4": {
       "type": "string",
-      "pattern": "^harness\\.[a-z][a-z0-9-]*\\.v[1-9][0-9]*$"
+      "pattern": "^[A-Z][A-Z0-9]*-[0-9]{4}$"
     },
-    "id": {
-      "type": "string",
-      "pattern": "^(DEC|TASK|EVD|REV|EVT|CHK|ART)-[0-9]{4}$"
-    },
-    "status": {
-      "type": "string",
-      "minLength": 1
-    },
-    "previous_status": {
-      "type": [
-        "string",
-        "null"
-      ]
-    },
-    "title": {
-      "type": "string",
-      "minLength": 1
-    },
-    "authority_source": {
-      "type": [
-        "string",
-        "null"
-      ]
-    },
-    "owner": {
-      "type": [
-        "string",
-        "null"
-      ]
-    },
-    "created_at": {
-      "type": "string"
-    },
-    "updated_at": {
-      "type": "string"
-    },
-    "supersedes": {
-      "type": [
-        "string",
-        "null"
-      ]
-    },
-    "successor": {
-      "type": [
-        "string",
-        "null"
-      ]
-    },
-    "limitations": {
+    "refs": {
       "type": "array",
+      "uniqueItems": true,
       "items": {
-        "type": "string"
+        "type": "string",
+        "pattern": "^(?:[A-Z][A-Z0-9]*-[0-9]{4}|(?:authority|external|project-blueprint|repo|url):.+)$"
+      }
+    },
+    "strings": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "id",
+        "status",
+        "previous_status",
+        "title",
+        "created_at",
+        "authority_source",
+        "owner",
+        "scope",
+        "supersedes",
+        "successor",
+        "limitations"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "harness.decision.v1"
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^DEC-[0-9]{4}$"
+        },
+        "status": {
+          "enum": [
+            "proposed",
+            "accepted",
+            "rejected",
+            "superseded",
+            "deprecated"
+          ]
+        },
+        "previous_status": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date"
+        },
+        "authority_source": {
+          "type": "string",
+          "minLength": 1
+        },
+        "owner": {
+          "type": "string",
+          "minLength": 1
+        },
+        "scope": {
+          "type": "string",
+          "minLength": 1
+        },
+        "supersedes": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^DEC-[0-9]{4}$"
+        },
+        "successor": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^DEC-[0-9]{4}$"
+        },
+        "limitations": {
+          "$ref": "#/$defs/strings"
+        }
+      }
+    },
+    "task": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "id",
+        "status",
+        "previous_status",
+        "title",
+        "authority_basis",
+        "owner",
+        "created_at",
+        "updated_at",
+        "dependencies",
+        "scope",
+        "acceptance_criteria",
+        "validation_plan",
+        "implementation_result",
+        "review_evidence",
+        "blocked_by",
+        "reopened_by",
+        "acceptance_criteria_met",
+        "closure_evidence",
+        "external_effects",
+        "limitations"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "harness.task.v1"
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^TASK-[0-9]{4}$"
+        },
+        "status": {
+          "enum": [
+            "proposed",
+            "ready",
+            "in_progress",
+            "validating",
+            "review",
+            "blocked",
+            "completed",
+            "cancelled",
+            "reopened"
+          ]
+        },
+        "previous_status": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "authority_basis": {
+          "type": "string",
+          "minLength": 1
+        },
+        "owner": {
+          "type": "string",
+          "minLength": 1
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date"
+        },
+        "dependencies": {
+          "$ref": "#/$defs/refs"
+        },
+        "scope": {
+          "type": "string",
+          "minLength": 1
+        },
+        "acceptance_criteria": {
+          "$ref": "#/$defs/strings"
+        },
+        "validation_plan": {
+          "$ref": "#/$defs/strings"
+        },
+        "implementation_result": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "review_evidence": {
+          "$ref": "#/$defs/refs"
+        },
+        "blocked_by": {
+          "$ref": "#/$defs/strings"
+        },
+        "reopened_by": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^EVD-[0-9]{4}$"
+        },
+        "acceptance_criteria_met": {
+          "type": "boolean"
+        },
+        "closure_evidence": {
+          "$ref": "#/$defs/refs"
+        },
+        "external_effects": {
+          "enum": [
+            "not_assessed",
+            "none",
+            "repository_local",
+            "external_reversible",
+            "external_irreversible"
+          ]
+        },
+        "limitations": {
+          "$ref": "#/$defs/strings"
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "id",
+        "title",
+        "task",
+        "recorded_at",
+        "authority_source",
+        "owner",
+        "scope",
+        "method",
+        "environment",
+        "subject_revision_or_fingerprint",
+        "result",
+        "fresh_until",
+        "supersedes",
+        "limitations"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "harness.evidence.v1"
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^EVD-[0-9]{4}$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "task": {
+          "type": "string",
+          "pattern": "^TASK-[0-9]{4}$"
+        },
+        "recorded_at": {
+          "type": "string",
+          "format": "date"
+        },
+        "authority_source": {
+          "type": "string",
+          "minLength": 1
+        },
+        "owner": {
+          "type": "string",
+          "minLength": 1
+        },
+        "scope": {
+          "type": "string",
+          "minLength": 1
+        },
+        "method": {
+          "type": "string",
+          "minLength": 1
+        },
+        "environment": {
+          "type": "string",
+          "minLength": 1
+        },
+        "subject_revision_or_fingerprint": {
+          "type": "string",
+          "minLength": 1
+        },
+        "result": {
+          "enum": [
+            "pass",
+            "fail",
+            "mixed",
+            "not_run",
+            "not_assessed"
+          ]
+        },
+        "fresh_until": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "supersedes": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^EVD-[0-9]{4}$"
+        },
+        "limitations": {
+          "$ref": "#/$defs/strings"
+        }
+      }
+    },
+    "review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "id",
+        "title",
+        "task",
+        "review_mode",
+        "status",
+        "recorded_at",
+        "authority_source",
+        "owner",
+        "scope",
+        "evidence_refs",
+        "limitations"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "harness.review.v1"
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^REV-[0-9]{4}$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "task": {
+          "type": "string",
+          "pattern": "^TASK-[0-9]{4}$"
+        },
+        "review_mode": {
+          "enum": [
+            "independent",
+            "self_review",
+            "specialist"
+          ]
+        },
+        "status": {
+          "enum": [
+            "open",
+            "changes_requested",
+            "accepted_with_limitations",
+            "closed"
+          ]
+        },
+        "recorded_at": {
+          "type": "string",
+          "format": "date"
+        },
+        "authority_source": {
+          "type": "string",
+          "minLength": 1
+        },
+        "owner": {
+          "type": "string",
+          "minLength": 1
+        },
+        "scope": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidence_refs": {
+          "$ref": "#/$defs/refs"
+        },
+        "limitations": {
+          "$ref": "#/$defs/strings"
+        }
+      }
+    },
+    "checkpoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "id",
+        "title",
+        "created_at",
+        "task",
+        "authority_source",
+        "owner",
+        "source_revision_or_fingerprint",
+        "evidence_refs",
+        "next_safe_action",
+        "supersedes",
+        "limitations"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "harness.checkpoint.v1"
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^CHK-[0-9]{4}$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date"
+        },
+        "task": {
+          "type": "string",
+          "pattern": "^TASK-[0-9]{4}$"
+        },
+        "authority_source": {
+          "type": "string",
+          "minLength": 1
+        },
+        "owner": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_revision_or_fingerprint": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidence_refs": {
+          "$ref": "#/$defs/refs"
+        },
+        "next_safe_action": {
+          "type": "string",
+          "minLength": 1
+        },
+        "supersedes": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^CHK-[0-9]{4}$"
+        },
+        "limitations": {
+          "$ref": "#/$defs/strings"
+        }
+      }
+    },
+    "event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "id",
+        "sequence",
+        "occurred_at",
+        "kind",
+        "subject",
+        "actor_or_source",
+        "summary",
+        "evidence",
+        "redaction_applied"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "harness.event.v1"
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^EVT-[0-9]{4}$"
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "occurred_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "kind": {
+          "enum": [
+            "task_transition",
+            "decision_transition",
+            "artifact_transition",
+            "validation_result",
+            "approval_observed",
+            "external_effect",
+            "recovery",
+            "handoff"
+          ]
+        },
+        "subject": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9]*-[0-9]{4}$"
+        },
+        "actor_or_source": {
+          "type": "string",
+          "minLength": 1
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidence": {
+          "$ref": "#/$defs/refs"
+        },
+        "redaction_applied": {
+          "type": "boolean"
+        }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "id",
+        "type",
+        "status",
+        "previous_status",
+        "path",
+        "source_inputs_and_licenses",
+        "producer_and_version",
+        "data_classification",
+        "validation",
+        "review",
+        "required_approver",
+        "retention",
+        "destination",
+        "content_fingerprint",
+        "supersedes",
+        "successor",
+        "limitations"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "harness.artifact.v1"
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^ART-[0-9]{4}$"
+        },
+        "type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "enum": [
+            "scratch",
+            "draft",
+            "reviewed",
+            "approved",
+            "final",
+            "archived"
+          ]
+        },
+        "previous_status": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_inputs_and_licenses": {
+          "$ref": "#/$defs/refs"
+        },
+        "producer_and_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "data_classification": {
+          "type": "string",
+          "minLength": 1
+        },
+        "validation": {
+          "$ref": "#/$defs/refs"
+        },
+        "review": {
+          "$ref": "#/$defs/refs"
+        },
+        "required_approver": {
+          "type": "string",
+          "minLength": 1
+        },
+        "retention": {
+          "type": "string",
+          "minLength": 1
+        },
+        "destination": {
+          "type": "string",
+          "minLength": 1
+        },
+        "content_fingerprint": {
+          "type": "string",
+          "minLength": 1
+        },
+        "supersedes": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^ART-[0-9]{4}$"
+        },
+        "successor": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^ART-[0-9]{4}$"
+        },
+        "limitations": {
+          "$ref": "#/$defs/strings"
+        }
       }
     }
-  },
-  "additionalProperties": true
+  }
 }

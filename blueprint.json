@@ -17,7 +17,7 @@
         ".agent",
         ".agents"
       ],
-      "kernel_version": "1.0.0",
+      "kernel_version": "1.0.1",
       "kernel_files": [
         ".agent/policy.json",
         ".agent/context.json",
@@ -41,6 +41,7 @@
     "high-assurance"
   ],
   "generation_contract": "shared/GENERATION_CONTRACT.md",
+  "reference_evidence_registry": "shared/reference-evidence.json",
   "overwrite_existing_paths": false,
   "new_generation_requires_empty_target": true,
   "generated_snapshot_is_independent": true

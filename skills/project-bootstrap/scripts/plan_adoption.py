@@ -11,6 +11,71 @@ from pathlib import Path
 from typing import Any
 
 
+IGNORED_DISCOVERY_PARTS = {
+    ".git",
+    ".hg",
+    ".svn",
+    ".venv",
+    "node_modules",
+    "vendor",
+    "__pycache__",
+}
+FUNCTIONAL_EQUIVALENT_PATTERNS = {
+    "repository_instructions": (
+        "AGENTS.md",
+        "**/AGENTS.md",
+        "CLAUDE.md",
+        ".github/copilot-instructions.md",
+    ),
+    "agent_policy_and_context": (
+        ".agent/policy.*",
+        ".agent/policies.*",
+        ".agent/context.*",
+        ".agent/context-rules.*",
+        "**/governance/**/policy*",
+    ),
+    "decisions_and_work_state": (
+        ".agent/decisions/**/*",
+        ".agent/tasks/**/*",
+        "**/decisions/**/*",
+        "**/adr/**/*",
+        "**/ADRs/**/*",
+    ),
+    "project_definition_and_requirements": (
+        "**/*project*definition*",
+        "**/*problem*statement*",
+        "**/*requirements*",
+        "**/*brief*",
+    ),
+    "architecture_or_outcome_model": (
+        "**/*architecture*",
+        "**/*system*design*",
+        "**/*operating*model*",
+        "**/*outcome*model*",
+    ),
+    "current_state_and_conformance": (
+        "**/*current*state*",
+        "**/*project*status*",
+        "**/*conformance*",
+        "**/*gap*assessment*",
+    ),
+    "plans_and_registers": (
+        "**/*implementation*plan*",
+        "**/*roadmap*",
+        "**/*risk*register*",
+        "**/*open*question*",
+        "**/*assumption*",
+    ),
+    "provenance_validation_and_handoff": (
+        "**/*provenance*",
+        "**/*evidence*",
+        "**/*validation*report*",
+        "**/*handoff*",
+        "**/*resumption*",
+    ),
+}
+
+
 def load_scaffolder():
     path = Path(__file__).with_name("scaffold_project.py")
     spec = importlib.util.spec_from_file_location("project_blueprint_scaffold", path)
@@ -69,6 +134,26 @@ def origin_summary(target: Path, scaffolder: Any) -> dict[str, Any] | None:
     }
 
 
+def functional_equivalent_candidates(target: Path) -> dict[str, list[str]]:
+    """Find path/name candidates without reading project file contents."""
+    discovered: dict[str, list[str]] = {}
+    for concern, patterns in FUNCTIONAL_EQUIVALENT_PATTERNS.items():
+        candidates: set[str] = set()
+        for pattern in patterns:
+            for path in target.glob(pattern):
+                try:
+                    relative = path.relative_to(target)
+                except ValueError:
+                    continue
+                if any(part in IGNORED_DISCOVERY_PARTS for part in relative.parts):
+                    continue
+                if path.is_symlink() or not path.is_file():
+                    continue
+                candidates.add(relative.as_posix())
+        discovered[concern] = sorted(candidates)
+    return discovered
+
+
 def build_plan(target: Path, profile: str) -> dict[str, Any]:
     scaffolder = load_scaffolder()
     scaffolder.require_runtime()
@@ -84,6 +169,7 @@ def build_plan(target: Path, profile: str) -> dict[str, Any]:
         set(templates)
         | set(schemas)
         | scaffolder.DERIVED_PATHS
+        | scaffolder.PROJECT_LOCAL_SOURCE_PATHS
         | {Path(".project-blueprint-origin.json")}
     )
     if profile == "high-assurance":
@@ -114,6 +200,13 @@ def build_plan(target: Path, profile: str) -> dict[str, Any]:
         "existing_top_level_names": existing_top_level,
         "collisions": collisions,
         "candidate_new_paths": absent,
+        "functional_equivalent_candidates": functional_equivalent_candidates(
+            resolved
+        ),
+        "functional_equivalence_limit": (
+            "Path/name candidates only. Inspect content and authority before "
+            "accepting any candidate as a functional equivalent."
+        ),
         "required_sequence": [
             "Read applicable target-project instructions root to leaf.",
             "Classify existing authority, governance, dossier, and handoff sources.",
@@ -180,6 +273,14 @@ def render_markdown(plan: dict[str, Any]) -> str:
         [f"- `{item}`" for item in plan["candidate_new_paths"]]
         or ["- none"]
     )
+    lines.extend(["", "## Functional-equivalent candidates", ""])
+    lines.append(f"- Limitation: {plan['functional_equivalence_limit']}")
+    for concern, candidates in plan["functional_equivalent_candidates"].items():
+        lines.append(f"- {concern}:")
+        lines.extend(
+            [f"  - `{item}`" for item in candidates]
+            or ["  - none observed"]
+        )
     lines.extend(["", "## Required reconciliation sequence", ""])
     for index, item in enumerate(plan["required_sequence"], 1):
         lines.append(f"{index}. {item}")
@@ -189,7 +290,8 @@ def render_markdown(plan: dict[str, Any]) -> str:
         [
             "",
             "This plan is intentionally read-only. It identifies exact path "
-            "collisions, not functional equivalence or authorization to edit.",
+            "collisions and path/name candidates for functional-equivalence "
+            "review; it does not accept equivalence or authorize edits.",
             "",
         ]
     )

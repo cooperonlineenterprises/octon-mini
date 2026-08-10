@@ -1,0 +1,461 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://project-blueprint.local/schemas/harness-assurance-records.schema.json",
+  "title": "Conditional High-assurance Harness Stores",
+  "description": "Non-authorizing approval evidence, coordination leases, evaluations, and outcome metrics.",
+  "$defs": {
+    "refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:[A-Z][A-Z0-9]*-[0-9]{4}|(?:authority|external|project-blueprint|repo|url):.+)$"
+      }
+    },
+    "strings": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "approval_attestation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "status",
+        "action",
+        "resource_scope",
+        "principal_or_role",
+        "constraints",
+        "authority_source",
+        "observed_by",
+        "observed_at",
+        "valid_from",
+        "valid_until",
+        "evidence_refs",
+        "evidence_fingerprint",
+        "revoked_at",
+        "superseded_by",
+        "permission_grant",
+        "limitations"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^APR-[0-9]{4}$"
+        },
+        "status": {
+          "enum": [
+            "not_assessed",
+            "observed",
+            "expired",
+            "revoked",
+            "superseded"
+          ]
+        },
+        "action": {
+          "type": "string",
+          "minLength": 1
+        },
+        "resource_scope": {
+          "type": "string",
+          "minLength": 1
+        },
+        "principal_or_role": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "constraints": {
+          "$ref": "#/$defs/strings"
+        },
+        "authority_source": {
+          "type": "string",
+          "pattern": "^(?:authority|external):.+$"
+        },
+        "observed_by": {
+          "type": "string",
+          "minLength": 1
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "valid_from": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "valid_until": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "evidence_refs": {
+          "$ref": "#/$defs/refs"
+        },
+        "evidence_fingerprint": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "revoked_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "superseded_by": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^APR-[0-9]{4}$"
+        },
+        "permission_grant": {
+          "const": false
+        },
+        "limitations": {
+          "$ref": "#/$defs/strings"
+        }
+      }
+    },
+    "coordination_lease": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "status",
+        "task_ref",
+        "holder",
+        "base_revision",
+        "write_ownership",
+        "acquired_at",
+        "expires_at",
+        "handback_contract",
+        "conflict_detection",
+        "cancellation_behavior",
+        "partial_result_policy",
+        "permission_grant",
+        "limitations"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^LEASE-[0-9]{4}$"
+        },
+        "status": {
+          "enum": [
+            "not_assessed",
+            "active",
+            "released",
+            "expired",
+            "cancelled"
+          ]
+        },
+        "task_ref": {
+          "type": "string",
+          "pattern": "^TASK-[0-9]{4}$"
+        },
+        "holder": {
+          "type": "string",
+          "minLength": 1
+        },
+        "base_revision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "write_ownership": {
+          "$ref": "#/$defs/strings"
+        },
+        "acquired_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "expires_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "handback_contract": {
+          "type": "string",
+          "minLength": 1
+        },
+        "conflict_detection": {
+          "type": "string",
+          "minLength": 1
+        },
+        "cancellation_behavior": {
+          "type": "string",
+          "minLength": 1
+        },
+        "partial_result_policy": {
+          "type": "string",
+          "minLength": 1
+        },
+        "permission_grant": {
+          "const": false
+        },
+        "limitations": {
+          "$ref": "#/$defs/strings"
+        }
+      }
+    },
+    "evaluation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "status",
+        "subject",
+        "rubric_version",
+        "method",
+        "owner_role",
+        "result",
+        "evidence_refs",
+        "readiness_inference",
+        "limitations"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^EVA-[0-9]{4}$"
+        },
+        "status": {
+          "enum": [
+            "not_assessed",
+            "planned",
+            "in_progress",
+            "completed"
+          ]
+        },
+        "subject": {
+          "type": "string",
+          "minLength": 1
+        },
+        "rubric_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "method": {
+          "type": "string",
+          "minLength": 1
+        },
+        "owner_role": {
+          "type": "string",
+          "minLength": 1
+        },
+        "result": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "evidence_refs": {
+          "$ref": "#/$defs/refs"
+        },
+        "readiness_inference": {
+          "const": false
+        },
+        "limitations": {
+          "$ref": "#/$defs/strings"
+        }
+      }
+    },
+    "metric": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "status",
+        "name",
+        "outcome",
+        "measure",
+        "period",
+        "owner_role",
+        "result",
+        "evidence_refs",
+        "readiness_inference",
+        "limitations"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^MET-[0-9]{4}$"
+        },
+        "status": {
+          "enum": [
+            "not_assessed",
+            "active",
+            "retired"
+          ]
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "outcome": {
+          "type": "string",
+          "minLength": 1
+        },
+        "measure": {
+          "type": "string",
+          "minLength": 1
+        },
+        "period": {
+          "type": "string",
+          "minLength": 1
+        },
+        "owner_role": {
+          "type": "string",
+          "minLength": 1
+        },
+        "result": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "evidence_refs": {
+          "$ref": "#/$defs/refs"
+        },
+        "readiness_inference": {
+          "const": false
+        },
+        "limitations": {
+          "$ref": "#/$defs/strings"
+        }
+      }
+    },
+    "approval_store": {
+      "$ref": "#/$defs/store_approval"
+    },
+    "coordination_store": {
+      "$ref": "#/$defs/store_coordination"
+    },
+    "evaluation_store": {
+      "$ref": "#/$defs/store_evaluation"
+    },
+    "metrics_store": {
+      "$ref": "#/$defs/store_metrics"
+    },
+    "store_approval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "authority",
+        "permission_grant",
+        "attestations"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "harness.approval-attestation-registry.v1"
+        },
+        "authority": {
+          "const": "external_authority_evidence_only_not_an_authorization_channel"
+        },
+        "permission_grant": {
+          "const": false
+        },
+        "attestations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/approval_attestation"
+          }
+        }
+      }
+    },
+    "store_coordination": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "authority",
+        "permission_grant",
+        "leases"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "harness.coordination-registry.v1"
+        },
+        "authority": {
+          "const": "coordination_metadata_only_not_permission"
+        },
+        "permission_grant": {
+          "const": false
+        },
+        "leases": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/coordination_lease"
+          }
+        }
+      }
+    },
+    "store_evaluation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "authority",
+        "permission_grant",
+        "evaluations"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "harness.evaluation-registry.v1"
+        },
+        "authority": {
+          "const": "quality_evidence_only_not_readiness"
+        },
+        "permission_grant": {
+          "const": false
+        },
+        "evaluations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evaluation"
+          }
+        }
+      }
+    },
+    "store_metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "authority",
+        "permission_grant",
+        "metrics"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "harness.metrics-registry.v1"
+        },
+        "authority": {
+          "const": "measurement_definition_only_not_readiness"
+        },
+        "permission_grant": {
+          "const": false
+        },
+        "metrics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/metric"
+          }
+        }
+      }
+    }
+  }
+}

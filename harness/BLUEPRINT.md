@@ -9,6 +9,12 @@ validation commands, and preserves evidence.
 
 Its universal scope is a stable domain-neutral kernel with validated extension
 points, not a claim that one project's policies or domain rules fit another.
+The information and behavior contracts are runtime-neutral. The generated
+snapshot supplies a Python 3.11+ standard-library reference implementation,
+but a project may adopt an equivalent validator in its existing pinned
+toolchain after that implementation passes the same conformance fixtures and
+records a migration. A project must not add Python solely to imitate the
+reference implementation when its governed toolchain can satisfy the contract.
 
 The harness is subordinate to current user, platform, sandbox, tool, legal,
 and applicable repository instructions. It cannot create permission. A tool,
@@ -112,11 +118,21 @@ project-specific validators.
 An extension:
 
 - declares a stable ID, schema version, compatibility range, owner, provenance,
-  config, validator, side effects, and deprecation path;
+  trust class, config, validator, side effects, and deprecation/removal path;
 - returns structured findings through the kernel interface;
 - can add restrictions and checks;
 - cannot weaken the kernel or grant authority; and
 - can be disabled without changing kernel behavior.
+
+Extension code is executable project code, not untrusted data. Enabling it
+requires an accepted trust decision, least-privilege execution, a minimized
+environment, and a read-only enforcement or before/after mutation check.
+
+The extension root is closed: only its README, registry, and roots named by
+that registry are valid immediate children. Likewise, the capability root
+contains only its README and the validated agent, workflow, and skill
+namespaces. Project-specific behavior is added through those registries and
+namespaces, not through unregistered governance files.
 
 ### Layer 5: operational records and evidence
 
@@ -139,6 +155,10 @@ and generated integrity make work resumable and auditable.
    recorded check proves.
 10. Generated projects are independent snapshots and do not inherit authority
     from this blueprint.
+11. Every derived dossier or harness file has one project-local source and one
+    discoverable regeneration command in every profile that enforces it.
+12. A declared read-only command must either execute in an enforced no-write
+    boundary or detect and report any mutation without claiming prevention.
 
 ## 5. Recommended directory structure
 
@@ -155,6 +175,8 @@ and generated integrity make work resumable and auditable.
 │   ├── validators.json
 │   ├── project.json
 │   ├── schemas/                       # local versioned schema snapshot
+│   ├── approvals/                     # conditional attestation metadata
+│   ├── coordination/                  # conditional leases/write ownership
 │   ├── decisions/
 │   ├── tasks/
 │   ├── evidence/                     # standard+
@@ -162,15 +184,17 @@ and generated integrity make work resumable and auditable.
 │   ├── events/                       # standard+
 │   ├── artifacts/                    # standard, when durable outputs matter
 │   ├── extensions/                   # standard+
+│   ├── evaluations/                  # conditional rubric/fixtures/results
+│   ├── metrics/                      # conditional harness outcome measures
 │   ├── checkpoints/                  # high-assurance
 │   ├── state/
 │   │   ├── current.json
 │   │   └── RESUME.md
 │   ├── templates/
-│   ├── generated/                    # high-assurance, derived only
+│   ├── generated/                    # staging in all; HA integrity evidence
 │   ├── scripts/
 │   │   ├── validate.py
-│   │   └── refresh.py                # high-assurance
+│   │   └── refresh.py                # every profile; writes declared derivatives
 │   └── tests/
 │       └── fixtures/
 ├── .agents/                           # high-assurance capability packages
@@ -265,14 +289,28 @@ branches, independent CI, review, and environment gates.
 | observation | `evidence/` | immutable record | what was inspected or executed |
 | review finding | `reviews/` | disposition updates | what a separate pass found |
 | chronology | `events/` | append-only | meaningful transitions |
-| current view | `state/current.json` | compact derived view | what to resume now |
+| approval attestation | `approvals/` | immutable plus revocation/successor | who attested to what, under which external authority |
+| coordination lease | `coordination/` | expiring lifecycle | who owns a write scope and until when |
+| current view | `state/current.json` | project-maintained compact operational index | what to resume now |
 | artifact metadata | `artifacts/registry.json` | lifecycle updates | provenance and promotion |
+| evaluation | `evaluations/` | versioned fixtures and results | whether repeated work meets a declared rubric |
+| harness metric | `metrics/` | generated/observed series | whether the harness improves closure, safety, and resumption |
 | generated integrity | `generated/` | regenerated | point-in-time inventory and results |
 
 Each record declares `schema_version`, stable ID, purpose/title, scope,
 authority source, owner/maintainer, inputs, outputs or links, side effects,
 status, timestamps as applicable, validation, limitations, provenance, and
 successor/deprecation fields where applicable.
+
+Approval records are evidence of an attestation received through a separately
+authorized channel; they cannot manufacture that authority. They identify the
+principal or role, action, resource/scope, constraints, validity window,
+source reference, evidence fingerprint, revocation state, and successor.
+Secret material and reusable credentials are never copied into the record.
+`state/current.json` is a project-maintained source summary, not a generated
+view and not an authorization channel. Its task, decision, evidence, and
+external-authority references must resolve and remain status-consistent;
+updates to owning records require a deliberate compaction update.
 
 ### Task lifecycle
 
@@ -312,6 +350,16 @@ validation and review, data class, retention, destination, required approver,
 fingerprint, and supersession. It stores metadata, not secret or duplicate
 large content.
 
+### Event and recovery discipline
+
+Every event has a globally unique ID, monotonic sequence within its declared
+stream, exact subject reference, timestamp, actor/source, kind, redaction
+status, and evidence links. Validation rejects duplicate or decreasing
+sequence values, unresolved subjects, invalid event kinds, and malformed
+recovery records. Append-only corruption is recovered by preserving the
+damaged bytes as evidence, creating a successor stream/checkpoint, and
+recording the mapping; history is never silently rewritten.
+
 ### Context budgets
 
 - root instructions: routinely readable;
@@ -338,6 +386,23 @@ Every component declares:
 - owner/maintainer; and
 - deprecation or successor.
 
+Agent and workflow records use strict, closed JSON contracts from
+`harness-capability-records.schema.json`; arbitrary workflow state names are
+represented as closed state records with validated references. Generated
+capabilities start as `generated_unadopted_baseline` with
+`permission_grant: false`, unassigned ownership, unassessed license/security
+review, and explicit limitations. Adopting a capability requires a
+project-specific accepted trust and authority decision referenced by
+`adoption_decision_ref`; schema conformance cannot perform that adoption. A
+skill's `SKILL.md` frontmatter contains only `name` and `description`;
+version, trust, review, and update metadata belong in its separate closed JSON
+provenance record.
+
+Project-harness adoption uses `not_assessed`, `in_progress`, `adopted`, and
+`superseded` consistently across the project, policy, context, and current
+state. `adopted` and `superseded` retain the resolved accepted external-authority
+decision as provenance; pre-adoption states keep the decision reference null.
+
 An agent is a constrained task mode. A skill packages a repeated method and
 selectively loaded references. A workflow is a versioned state machine whose
 transitions invoke policy checks and produce evidence. A tool record separates
@@ -353,16 +418,29 @@ For concurrent agents, additionally require a task lease and expiry, shared
 revision base, declared write ownership, handback contract, deterministic
 conflict detection, cancellation behavior, and partial-result rules.
 
-Imported capability packages record upstream source and exact version, license,
-adopted files, local changes, exclusions, security review, trust class, and
-update strategy. Mutable network content is never loaded as instruction.
+A coordination lease is not authority to edit. It only prevents two
+authorized workers from silently claiming the same write scope. Lease
+acquisition, renewal, expiry, cancellation, and handback are validated state
+transitions, and abandoned partial results remain discoverable.
+
+Imported capability packages record upstream source, exact version and
+immutable source fingerprint, license, adopted files, local changes,
+exclusions, security review, trust class, and update strategy. Mutable network
+content is never loaded as instruction.
+
+Capability and schema deprecations name both the first deprecated version and
+the planned removal version. Removal requires a successor, migration fixture,
+and evidence that no live references remain. Capability deprecation and
+removal use the harness-kernel release axis; the capability package's own
+version remains separate provenance.
 
 ## 10. Validation contract
 
 Validation layers are:
 
 1. bootstrap and runtime availability;
-2. syntax and duplicate-key rejection;
+2. selected-profile operational-file inventory, syntax, and duplicate-key
+   rejection;
 3. schema version, ID, path, link, successor, and dependency integrity;
 4. instruction scope and authority classification;
 5. policy, secret, network, filesystem, and external-effect rules;
@@ -372,27 +450,68 @@ Validation layers are:
 9. positive and negative/mutation tests; and
 10. recovery from stale reports, corrupted records, and interrupted refresh.
 
+The validator is modular even when distributed as one standard-library file.
+Kernel, instruction, record, lifecycle, dossier, extension, integrity, and
+project-command checks have separate interfaces and return structured
+findings. A failure in one module must not silently disable unrelated checks.
+
 The command contract is:
 
 ```text
-python3 -B .agent/scripts/validate.py --check
-python3 -B -m unittest discover -s .agent/tests -p 'test_*.py'
-python3 -B .agent/scripts/refresh.py --refresh       # high-assurance only
+python -B .agent/scripts/validate.py --check
+python -B -m unittest discover -s .agent/tests -p "test_*.py"
+python -B .agent/scripts/refresh.py --refresh
 ```
+
+Here `python` is the pinned Python 3.11+ interpreter selected by the project
+environment, not an arbitrary ambient executable. The reference CI provisions
+that launcher on every supported operating system. A project that uses another
+launcher or runtime must adopt and validate an equivalent command contract
+rather than editing only the displayed strings.
 
 Projects may expose aliases such as `make harness-check`, but the authoritative
 commands live in `.agent/validators.json`.
 
 `check` must not write bytecode, caches, reports, indexes, timestamps, or
-lockfiles. `refresh` validates sources first, writes derived files atomically,
-and instructs the operator to run the final read-only check.
+lockfiles. It snapshots repository paths and content before and after
+extension execution and fails if mutation is detected; high-impact projects
+also enforce no-write execution outside the repository trust boundary.
+The source fingerprint excludes `.git`, whose internal metadata is not project
+source. The mutation snapshot separately covers the `.git` pointer plus
+critical HEAD, index, config, packed-ref, loose-ref, and hook paths for normal
+repositories and linked worktrees; it is not a complete Git-object audit.
+Every Git probe runs with `GIT_OPTIONAL_LOCKS=0`; this reduces incidental index
+refreshes but does not turn Git or an untrusted extension into a sandbox.
+`refresh` validates authoritative sources first, transactionally regenerates
+the artifact catalog, path authority, manifest, and profile-specific integrity
+outputs, and then runs the final read-only check.
 
-The portable scaffold validator uses only Python 3.11+ standard-library
+High-Assurance generated validation reports are explicitly scoped to the
+pre-refresh checks they record. Their closed contract contains one result for
+each required check, failures, skips, environment and Git scope, external
+effects, freshness rule, and limitations. A disabled extension is `not_run`,
+never `pass`. The refresh command's final exit status reports the separate
+post-refresh exact-tree check; neither result implies project readiness.
+
+The portable reference validator uses only Python 3.11+ standard-library
 features and validates strict JSON with duplicate-key rejection. JSON is the
 canonical structured format in the domain-neutral kernel because its complete
 grammar can be validated without borrowing another repository's environment.
-An extension may use YAML only when it declares a pinned parser, validates in a
-clean bootstrap, and converts findings through the kernel extension interface.
+An alternate validator is conforming only when it consumes the same schemas,
+passes every valid/invalid/mutation/recovery fixture, preserves read-only and
+redaction behavior, and records its runtime and version in
+`.agent/validators.json`. An extension may use YAML only when it declares a
+pinned parser, validates in a clean bootstrap, and converts findings through
+the kernel extension interface.
+
+Built-in secret detection combines named-assignment patterns for JSON, YAML,
+dotenv, and common source syntax with high-confidence credential formats. It
+scans UTF-8 text files up to its declared 4 MiB limit across tracked,
+untracked, ignored, and generated paths, reports only locations/categories,
+and never echoes candidate values. Binary, larger, encoded, or deliberately
+obfuscated material requires an independently configured dedicated scanner in
+CI when risk warrants. Heuristics are defense in depth, not proof that a
+repository is secret-free.
 
 Generated reports include tool and schema versions, source revision or content
 fingerprint, dirty/untracked/ignored scope, time, environment, checks
@@ -410,8 +529,13 @@ Use for small, early, or low-risk projects. Required:
 - decision and task stores plus templates;
 - compact current state and resumption page;
 - portable read-only validator;
+- project-local derivative source plus refresh command;
 - valid and invalid fixtures with mutation tests; and
 - dossier minimal profile.
+
+The validator requires these operational entry points to remain present; a
+project may extend them but cannot silently delete them and retain Minimal
+conformance.
 
 Exit only when discovery and precedence are clear, analysis versus
 implementation authority is explicit, a task lifecycle can be validated, a
@@ -429,6 +553,10 @@ Use by default for active multi-contributor projects or monorepos. Add:
 - task-closure checklist; and
 - structured dossier traceability and evidence.
 
+The extension registry and Standard operational stores remain required even
+when they are empty or unadopted, so absence cannot silently disable their
+checks.
+
 Exit when an unfamiliar maintainer can execute, validate, review, hand off,
 and resume a real task without undocumented steps.
 
@@ -441,8 +569,15 @@ possible, external effects exist, or audit/reproducibility matters. Add:
 - checkpoints and generated integrity;
 - explicit refresh/check separation and content fingerprints;
 - stronger dossier governance, transition, history, and supersession;
+- conditional approval-attestation, coordination-lease, data-handling,
+  incident/recovery, evaluation, and metrics contracts;
 - CI/mutation/recovery guidance; and
 - environment-specific approval and enforcement hooks.
+
+The governed capability and assurance-store entry points remain required.
+Generated capability baselines may be deprecated or superseded through their
+validated lifecycle, but must not simply disappear with their provenance and
+dependency records.
 
 The profile does not by itself create high assurance. Independent controls,
 adoption decisions, project extensions, and demonstrated acceptance criteria
@@ -463,9 +598,11 @@ are still required.
 6. Record the threat model and authority posture as the first project decision;
    never ship the example ID as accepted fact.
 7. Configure project commands and extension ownership.
-8. Run check and tests in a disposable clean checkout/worktree.
-9. Complete one real task through closure and handoff.
-10. Enable external or high-impact paths only through trusted current
+8. Assess conditional approval, coordination, data, recovery, evaluation, and
+   metric triggers; record every omission with a reason.
+9. Run check and tests in a disposable clean checkout/worktree.
+10. Complete one real task through closure and handoff.
+11. Enable external or high-impact paths only through trusted current
     authorization and independent enforcement.
 
 ### Evolution
@@ -478,6 +615,10 @@ are still required.
 - Generated projects upgrade through a project-specific migration; the
   blueprint never overwrites them.
 - Remove redundant summaries and expired exceptions.
+- Track useful outcome measures such as time-to-orientation, time-to-resume,
+  invalid-transition rejection, stale-evidence detection, closure rework,
+  exception age, and false-positive/false-negative findings. Metrics describe
+  harness performance and never become readiness approval.
 
 Recommended cadence:
 
@@ -533,6 +674,17 @@ Passing these criteria proves the harness is usable and testable. It does not
 prove production safety, security, accessibility, legal compliance,
 organizational approval, or suitability for every project.
 
+Acceptance has two explicit gates:
+
+| Gate | Criteria | Required evidence |
+|---|---|---|
+| Blueprint release automation | 2, 4–10, and 12, plus structural portions of 1, 3, and 14 | cross-profile valid/invalid fixtures, mutation matrix, unchanged-tree checks, stale/partial refresh recovery, extension confinement, secret redaction |
+| Target-project adoption | human portions of 1 and 3, plus 11, 13, and 14 | timed unfamiliar-maintainer exercise, actual platform enforcement, one real task/closure, exact project revision checks, truthful handoff report |
+
+The release suite reports every criterion as `automated_pass`,
+`project_demonstration_required`, or `not_exercised`; it may not summarize a
+partial matrix as complete acceptance.
+
 ## 15. Evidence crosswalk
 
 | Reusable concern | Reference evidence | Blueprint treatment |
@@ -541,11 +693,11 @@ organizational approval, or suitability for every project.
 | Deny-by-default action policy | **Observed — Commerce Foundry** | Core `policy.json`; declarative and explicitly non-authorizing |
 | Typed records and lifecycle control | **Observed — both** | Stable four-digit IDs, schema validation, legal transitions, and closure gates |
 | Path authority and canonical-source classification | **Observed — COE** | Dossier artifact catalog and generated path-authority mirror |
-| Executable validation and mutation tests | **Observed — Commerce Foundry** | Portable read-only validator plus adversarial fixtures |
+| Executable validation and mutation tests | **Observed — Commerce Foundry** | `CF:scripts/validate-local.sh`, `CF:scripts/strict_yaml.py`, and `CF:tests/test_strict_yaml.py` inform the portable validator and adversarial fixtures |
 | Manifest, checksum, and generated evidence | **Observed — COE** | Transactional refresh with shared generation ID and freshness fingerprint |
 | Domain-specific registries and policies | **Observed — both** | Restrictions-only extension API; never kernel constants |
 | Extension compatibility and disable behavior | **Recommendation** | Versioned registry, confined paths, validator protocol, and disable test |
-| Clean-runtime portability | **Inference** | Python 3.11+ standard library, strict JSON, CI runtime matrix |
+| Clean-runtime portability | **Inference** | Strict JSON contracts, Python reference implementation, alternate-runtime conformance suite, CI runtime matrix |
 
 ## 16. Implementation and adoption checklist
 
@@ -561,21 +713,23 @@ organizational approval, or suitability for every project.
 6. Populate intended state, dated current state, findings, plan, risks,
    provenance, evidence, and handoff without collapsing their information
    states.
-7. Run the read-only validator and its mutation tests.
-8. For high assurance, run refresh, then rerun the final read-only check.
+7. Register every dossier representation in the project-local artifact source;
+   run refresh to derive catalog, path authority, and integrity outputs.
+8. Run the read-only validator and its mutation/recovery tests.
 9. Demonstrate one real task lifecycle and a safe handoff.
-10. Record remaining unknowns and limits; do not translate structural success
+10. Record conditional trigger decisions, remaining unknowns, and limits; do
+    not translate structural success
     into a readiness claim.
 
-## 17. Validated guarantees and project-owned obligations
+## 17. Automatically validated baseline and project-owned obligations
 
-| The generated kernel validates | The target project must still decide or prove |
+| Release automation validates | The target project must still decide or prove |
 |---|---|
-| syntax, duplicate keys, schema versions, IDs, links, and legal transitions | actual project facts, owners, requirements, and acceptance criteria |
-| authority cannot be expanded by nested instructions or extensions | who may authorize specific local or external actions |
-| check mode is read-only and refresh outputs are mutually consistent | whether configured commands and environments are appropriate |
-| dossier path roles, traceability structure, and integrity metadata cohere | whether requirements are correct and evidence is substantively sufficient |
-| extension compatibility, confinement, validator response, and disable behavior | which domain extensions are needed and who maintains them |
+| syntax, duplicate keys, kernel/record schemas, schema-kind agreement, IDs, links, and legal transitions for declared stores | actual project facts, owners, requirements, and acceptance criteria |
+| structured instruction and extension rules cannot declare authority expansion; prohibited mutations fail fixtures | who may authorize specific actions and whether the execution platform actually enforces the boundary |
+| the core check writes nothing; extension mutation is detected, while prevention requires an external no-write boundary | whether configured commands, extension code, credentials, and environments are trustworthy |
+| project-local artifact source, derived catalog/path roles, traceability structure, and integrity metadata cohere | whether requirements are correct and evidence is substantively sufficient |
+| extension compatibility, path confinement, typed validator response, unique IDs, trust declaration, and disable behavior | which domain extensions are needed and who maintains or approves them |
 | generated evidence is fresh for its declared byte scope | implementation quality, safety, compliance, legal rights, or release readiness |
 
 The universal claim ends at this boundary: the kernel, contracts, validators,

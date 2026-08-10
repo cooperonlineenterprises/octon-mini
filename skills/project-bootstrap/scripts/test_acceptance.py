@@ -13,11 +13,34 @@ import tempfile
 from pathlib import Path
 
 
-ROOT = Path(__file__).resolve().parents[3]
-SCAFFOLDER = ROOT / "skills/project-bootstrap/scripts/scaffold_project.py"
-PLANNER = ROOT / "skills/project-bootstrap/scripts/plan_adoption.py"
-INSTALLER = ROOT / "skills/project-bootstrap/scripts/install_skill.py"
+SKILL_ROOT = Path(__file__).resolve().parents[1]
+SOURCE_CANDIDATE = SKILL_ROOT.parents[1]
+BUNDLED_CANDIDATE = SKILL_ROOT / "assets/blueprint-source"
+ROOT = (
+    SOURCE_CANDIDATE
+    if (SOURCE_CANDIDATE / "blueprint.json").is_file()
+    else BUNDLED_CANDIDATE
+)
+SCAFFOLDER = SKILL_ROOT / "scripts/scaffold_project.py"
+PLANNER = SKILL_ROOT / "scripts/plan_adoption.py"
+INSTALLER = SKILL_ROOT / "scripts/install_skill.py"
 PROFILES = ("minimal", "standard", "high-assurance")
+ACCEPTANCE_COVERAGE = {
+    1: "project_demonstration_required",
+    2: "automated_pass",
+    3: "project_demonstration_required",
+    4: "automated_pass",
+    5: "automated_pass",
+    6: "automated_pass",
+    7: "automated_pass",
+    8: "automated_pass",
+    9: "automated_pass",
+    10: "automated_pass",
+    11: "project_demonstration_required",
+    12: "automated_pass",
+    13: "project_demonstration_required",
+    14: "project_demonstration_required",
+}
 
 
 def run(command: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
@@ -37,6 +60,13 @@ def snapshot(root: Path) -> dict[str, str]:
         for path in sorted(root.rglob("*"))
         if path.is_file()
     }
+
+
+def write_json(path: Path, value: object) -> None:
+    path.write_text(
+        json.dumps(value, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
 
 
 def require(
@@ -100,7 +130,17 @@ def write_task(target: Path, task_id: str, status: str, previous: str | None, de
         "title": "Acceptance mutation",
         "authority_basis": "authority:synthetic-test",
         "owner": "acceptance-suite",
+        "created_at": "2030-01-02",
+        "updated_at": "2030-01-02",
         "dependencies": dependencies,
+        "scope": "Synthetic acceptance mutation only.",
+        "acceptance_criteria": [],
+        "validation_plan": [],
+        "implementation_result": None,
+        "review_evidence": [],
+        "blocked_by": [],
+        "reopened_by": None,
+        "acceptance_criteria_met": False,
         "closure_evidence": [],
         "external_effects": "none",
         "limitations": [],
@@ -108,6 +148,27 @@ def write_task(target: Path, task_id: str, status: str, previous: str | None, de
     path = target / ".agent/tasks" / f"{task_id}-mutation.md"
     path.write_text(
         "---\n" + json.dumps(value, indent=2) + "\n---\n\n# Mutation\n",
+        encoding="utf-8",
+    )
+
+
+def write_accepted_decision(target: Path, decision_id: str) -> None:
+    template = (target / ".agent/templates/decision.md").read_text(encoding="utf-8")
+    header_end = template.find("\n---\n", 4)
+    value = json.loads(template[4:header_end])
+    value.update(
+        id=decision_id,
+        status="accepted",
+        previous_status="proposed",
+        title="Trust packaged sample restriction extension",
+        authority_source="authority:synthetic-acceptance",
+        owner="acceptance-suite",
+        scope="sample-restriction extension at the generated revision",
+    )
+    path = target / ".agent/decisions" / f"{decision_id}-extension-trust.md"
+    path.write_text(
+        "---\n" + json.dumps(value, indent=2, sort_keys=True)
+        + "\n---\n\n# Synthetic acceptance decision\n",
         encoding="utf-8",
     )
 
@@ -151,6 +212,33 @@ def main() -> int:
                 failures,
             )
 
+        for profile, target in projects.items():
+            source_change = target / f"acceptance-refresh-{profile}.txt"
+            source_change.write_text(
+                "legitimate project-maintained source change\n",
+                encoding="utf-8",
+            )
+            result = check_project(target)
+            require(
+                result.returncode != 0
+                and "stale source fingerprint" in result.stderr,
+                f"{profile} source change did not stale integrity",
+                failures,
+            )
+            result = refresh(target)
+            require(
+                result.returncode == 0,
+                f"{profile} refresh failed: {result.stderr or result.stdout}",
+                failures,
+            )
+            result = check_project(target)
+            require(
+                result.returncode == 0,
+                f"{profile} post-refresh check failed: "
+                f"{result.stderr or result.stdout}",
+                failures,
+            )
+
         nonempty = temp_root / "nonempty"
         nonempty.mkdir()
         sentinel = nonempty / "sentinel.txt"
@@ -165,15 +253,24 @@ def main() -> int:
         require(result.returncode != 0, "control-character name was accepted", failures)
         require(not invalid_name_target.exists(), "invalid-name target was created", failures)
 
-        broken_source = temp_root / "broken-blueprint-source"
+        broken_skill = temp_root / "broken-project-bootstrap"
         shutil.copytree(
-            ROOT,
-            broken_source,
+            SKILL_ROOT,
+            broken_skill,
             ignore=shutil.ignore_patterns(".git", ".DS_Store", "__pycache__", "*.pyc"),
         )
+        broken_source = broken_skill / "assets/blueprint-source"
+        if not broken_source.is_dir():
+            shutil.copytree(
+                ROOT,
+                broken_source,
+                ignore=shutil.ignore_patterns(
+                    ".git", ".DS_Store", "__pycache__", "*.pyc"
+                ),
+            )
         policy_template = (
-            broken_source
-            / "skills/project-bootstrap/assets/templates/core/.agent/policy.json.tmpl"
+            broken_skill
+            / "assets/templates/core/.agent/policy.json.tmpl"
         )
         policy_text = policy_template.read_text(encoding="utf-8")
         policy_template.write_text(
@@ -190,8 +287,8 @@ def main() -> int:
                 sys.executable,
                 "-B",
                 str(
-                    broken_source
-                    / "skills/project-bootstrap/scripts/scaffold_project.py"
+                    broken_skill
+                    / "scripts/scaffold_project.py"
                 ),
                 "--target",
                 str(failed_target),
@@ -236,6 +333,20 @@ def main() -> int:
             require(
                 "AGENTS.md" in plan["collisions"],
                 "adoption planner missed root instruction collision",
+                failures,
+            )
+            require(
+                "AGENTS.md"
+                in plan["functional_equivalent_candidates"][
+                    "repository_instructions"
+                ],
+                "adoption planner missed repository-instruction candidate",
+                failures,
+            )
+            require(
+                "before accepting"
+                in plan["functional_equivalence_limit"].casefold(),
+                "adoption plan treated path/name candidates as accepted equivalents",
                 failures,
             )
 
@@ -286,6 +397,212 @@ def main() -> int:
 
         if "standard" in projects:
             standard = projects["standard"]
+            artifact_path = standard / "project-dossier/acceptance-lifecycle.md"
+            artifact_path.write_text(
+                "# Acceptance lifecycle artifact\n",
+                encoding="utf-8",
+            )
+            artifact_registry_path = (
+                standard
+                / "project-dossier/machine-readable/artifact-registry.json"
+            )
+            artifact_registry = json.loads(
+                artifact_registry_path.read_text(encoding="utf-8")
+            )
+            artifact_registry["artifact_types"].append(
+                {
+                    "id": "TST-9000",
+                    "recommended_name": "Acceptance lifecycle artifact",
+                    "category": "acceptance_test",
+                    "classification": "optional",
+                    "purpose": (
+                        "Exercise project-local dossier artifact maintenance."
+                    ),
+                    "questions": [
+                        "Can a registered artifact be added, renamed, and omitted?"
+                    ],
+                    "intended_audiences": ["maintainers"],
+                    "owner_role": "acceptance_suite",
+                    "required_inputs": ["authority:synthetic-test"],
+                    "downstream_consumers": ["lifecycle acceptance"],
+                    "recommended_formats": ["Markdown"],
+                    "source_of_truth_expectations": (
+                        "The registered Markdown file owns only its synthetic scope."
+                    ),
+                    "dependencies": [],
+                    "creation_timing": "During lifecycle acceptance testing.",
+                    "update_triggers": ["acceptance mutation"],
+                    "review_cadence": "on_change",
+                    "validation_checks": ["registered physical path exists"],
+                    "triggers": ["explicit synthetic acceptance"],
+                    "omission_or_combination": (
+                        "May be omitted only after a not-applicable assessment."
+                    ),
+                    "representative_evidence": ["authority:synthetic-test"],
+                    "profile": "standard",
+                    "applicability": {
+                        "status": "applicable",
+                        "rationale": "Explicit synthetic lifecycle acceptance.",
+                        "assessed_on": "2030-01-02",
+                        "assessed_by": "acceptance_suite",
+                    },
+                }
+            )
+            artifact_registry["representations"].append(
+                {
+                    "id": "REP-9000",
+                    "artifact_type_ids": ["TST-9000"],
+                    "path": "project-dossier/acceptance-lifecycle.md",
+                    "profile": "standard",
+                    "representation_role": "acceptance_test",
+                    "information_state": "current_state",
+                    "authority": "bounded_synthetic_test_source",
+                    "source_direction": "authoritative_edit_source",
+                    "generated": False,
+                    "owner_role": "acceptance_suite",
+                    "review_cadence": "on_change",
+                    "update_triggers": ["acceptance mutation"],
+                    "sensitivity": "internal",
+                    "applicability": {
+                        "status": "applicable",
+                        "rationale": "Physical acceptance artifact is present.",
+                        "assessed_on": "2030-01-02",
+                    },
+                    "review": {
+                        "status": "not_reviewed",
+                        "last_reviewed_on": None,
+                        "basis": "Synthetic acceptance only.",
+                    },
+                    "superseded_by": None,
+                    "legacy_v1_id": None,
+                }
+            )
+            write_json(artifact_registry_path, artifact_registry)
+            result = refresh(standard)
+            require(
+                result.returncode == 0,
+                f"registered artifact add failed: {result.stderr or result.stdout}",
+                failures,
+            )
+            result = check_project(standard)
+            require(
+                result.returncode == 0,
+                f"registered artifact add did not validate: "
+                f"{result.stderr or result.stdout}",
+                failures,
+            )
+
+            renamed_artifact_path = (
+                standard / "project-dossier/acceptance-lifecycle-renamed.md"
+            )
+            artifact_path.rename(renamed_artifact_path)
+            artifact_registry = json.loads(
+                artifact_registry_path.read_text(encoding="utf-8")
+            )
+            next(
+                item
+                for item in artifact_registry["representations"]
+                if item["id"] == "REP-9000"
+            )["path"] = "project-dossier/acceptance-lifecycle-renamed.md"
+            write_json(artifact_registry_path, artifact_registry)
+            result = refresh(standard)
+            require(
+                result.returncode == 0,
+                f"registered artifact rename failed: "
+                f"{result.stderr or result.stdout}",
+                failures,
+            )
+            result = check_project(standard)
+            require(
+                result.returncode == 0,
+                f"registered artifact rename did not validate: "
+                f"{result.stderr or result.stdout}",
+                failures,
+            )
+
+            renamed_artifact_path.unlink()
+            artifact_registry = json.loads(
+                artifact_registry_path.read_text(encoding="utf-8")
+            )
+            artifact_registry["representations"] = [
+                item
+                for item in artifact_registry["representations"]
+                if item["id"] != "REP-9000"
+            ]
+            retained_type = next(
+                item
+                for item in artifact_registry["artifact_types"]
+                if item["id"] == "TST-9000"
+            )
+            retained_type["applicability"] = {
+                "status": "not_applicable",
+                "rationale": "Synthetic lifecycle representation was removed.",
+                "assessed_on": "2030-01-02",
+                "assessed_by": "acceptance_suite",
+            }
+            write_json(artifact_registry_path, artifact_registry)
+            result = refresh(standard)
+            require(
+                result.returncode == 0,
+                f"registered artifact omission failed: "
+                f"{result.stderr or result.stdout}",
+                failures,
+            )
+            result = check_project(standard)
+            require(
+                result.returncode == 0,
+                f"registered artifact omission did not validate: "
+                f"{result.stderr or result.stdout}",
+                failures,
+            )
+            catalog = json.loads(
+                (standard / "project-dossier/ARTIFACT_CATALOG.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            require(
+                any(
+                    item["id"] == "TST-9000"
+                    and item["applicability"]["status"] == "not_applicable"
+                    for item in catalog["artifact_types"]
+                )
+                and all(
+                    item["id"] != "REP-9000"
+                    for item in catalog["representations"]
+                ),
+                "artifact omission erased its not-applicable assessment",
+                failures,
+            )
+
+            unregistered_path = (
+                standard / "project-dossier/unregistered-acceptance.md"
+            )
+            unregistered_path.write_text(
+                "# Unregistered acceptance mutation\n",
+                encoding="utf-8",
+            )
+            before_failed_refresh = snapshot(standard)
+            result = refresh(standard)
+            require(
+                result.returncode != 0
+                and "artifact registry missing project-maintained dossier files"
+                in result.stderr,
+                "refresh invented metadata for an unregistered dossier file",
+                failures,
+            )
+            require(
+                snapshot(standard) == before_failed_refresh,
+                "failed unregistered-file refresh changed project files",
+                failures,
+            )
+            unregistered_path.unlink()
+            result = check_project(standard)
+            require(
+                result.returncode == 0,
+                "unregistered-file refusal did not preserve prior valid state",
+                failures,
+            )
+
             illegal = temp_root / "illegal-transition"
             shutil.copytree(standard, illegal)
             write_task(illegal, "TASK-9001", "proposed", "completed", [])
@@ -324,6 +641,8 @@ def main() -> int:
                     "inspected_evidence": [],
                     "rationale": "Synthetic acceptance mutation.",
                     "owner_role": "acceptance_suite",
+                    "remediation_plan_refs": [],
+                    "limitations": [],
                 }
             ]
             findings_path.write_text(
@@ -375,29 +694,6 @@ def main() -> int:
 
         if "high-assurance" in projects:
             high = projects["high-assurance"]
-            (high / "src").mkdir()
-            (high / "src/domain-neutral-change.txt").write_text(
-                "source change\n", encoding="utf-8"
-            )
-            result = check_project(high)
-            require(
-                result.returncode != 0 and "stale source fingerprint" in result.stderr,
-                "arbitrary source change did not stale integrity",
-                failures,
-            )
-            result = refresh(high)
-            require(
-                result.returncode == 0,
-                f"refresh after source change failed: {result.stderr or result.stdout}",
-                failures,
-            )
-            result = check_project(high)
-            require(
-                result.returncode == 0,
-                f"post-refresh check failed: {result.stderr or result.stdout}",
-                failures,
-            )
-
             registry_path = high / ".agent/extensions/registry.json"
             registry = json.loads(registry_path.read_text(encoding="utf-8"))
             kernel_before = {
@@ -412,7 +708,28 @@ def main() -> int:
                     ".agent/project.json",
                 )
             }
+            write_accepted_decision(high, "DEC-9090")
+            registry["extensions"][0]["enabled"] = True
+            registry["extensions"][0]["owner"] = "acceptance-suite"
+            registry["extensions"][0]["provenance"] = "authority:synthetic-acceptance"
+            registry["extensions"][0]["trust_class"] = "trusted_project_local_code"
+            registry["extensions"][0]["trust_decision_ref"] = "DEC-9090"
+            write_json(registry_path, registry)
+            result = refresh(high)
+            require(
+                result.returncode == 0,
+                f"trusted sample extension failed: {result.stderr or result.stdout}",
+                failures,
+            )
+            result = check_project(high)
+            require(
+                result.returncode == 0,
+                "trusted sample extension did not validate",
+                failures,
+            )
             registry["extensions"][0]["enabled"] = False
+            registry["extensions"][0]["trust_class"] = "unassessed_project_local_code"
+            registry["extensions"][0]["trust_decision_ref"] = None
             registry_path.write_text(
                 json.dumps(registry, indent=2, sort_keys=True) + "\n",
                 encoding="utf-8",
@@ -471,11 +788,45 @@ def main() -> int:
         for failure in failures:
             print(f"- {failure}")
         return 1
+    if set(ACCEPTANCE_COVERAGE) != set(range(1, 15)):
+        print("FAIL: acceptance coverage map is incomplete")
+        return 1
     print("PASS: Project Blueprint acceptance suite")
     print("- profiles: minimal, standard, high-assurance")
     print("- generation: transactional and format-safe")
+    print(
+        "- maintenance: all-profile refresh plus registered "
+        "add, rename, omission, and refusal paths"
+    )
     print("- adoption: read-only planning")
     print("- validator: adversarial authority, lifecycle, reference, secret, extension, and freshness checks")
+    print(
+        "ACCEPTANCE_COVERAGE_JSON="
+        + json.dumps(
+            {
+                "schema_version": "project-blueprint.acceptance-coverage.v1",
+                "criteria": {
+                    str(number): status
+                    for number, status in sorted(ACCEPTANCE_COVERAGE.items())
+                },
+                "scope": "blueprint release automation",
+                "failures": [],
+                "skipped_checks": [
+                    "target-project human demonstrations remain project-owned"
+                ],
+                "limitations": [
+                    "structural automation does not prove project readiness",
+                    "runtime policy text is not an external sandbox",
+                ],
+                "dirty_state": "not_assessed_by_acceptance_suite",
+                "external_effects": "none",
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+    )
+    for number, status in sorted(ACCEPTANCE_COVERAGE.items()):
+        print(f"criterion_{number:02d}={status}")
     return 0
 
 

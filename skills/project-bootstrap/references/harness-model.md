@@ -40,6 +40,12 @@ snapshot. Domain behavior enters only through a registered,
 restrictions-only extension that declares compatibility, confined paths,
 provenance, side effects, and a structured validator.
 
+Each profile has a closed minimum governed-file inventory. Missing router,
+kernel, state, script, schema, template, fixture, store, extension-registry,
+or capability-baseline files are validation failures. Add project-specific
+behavior only inside the validated extension and capability namespaces; do
+not use an unregistered governance path.
+
 ## Adoption boundary
 
 Scaffolding proves only that the baseline files were generated consistently.

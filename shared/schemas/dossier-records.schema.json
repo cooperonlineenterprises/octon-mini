@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://project-blueprint.local/schemas/dossier-records.schema.json",
-  "title": "Project Dossier Structured Record Stores",
-  "description": "Stable field contracts for dossier traceability stores. Empty stores are valid unadopted baselines.",
+  "title": "Project Dossier Structured Stores",
+  "description": "Strict source contracts for traceability, gates, and supersession. Empty stores remain valid unadopted baselines.",
   "$defs": {
     "id4": {
       "type": "string",
@@ -11,74 +11,1016 @@
     "refs": {
       "type": "array",
       "uniqueItems": true,
-      "items": {"$ref": "#/$defs/id4"}
+      "items": {
+        "type": "string",
+        "pattern": "^(?:[A-Z][A-Z0-9]*-[0-9]{4}|(?:authority|external|project-blueprint|repo|url):.+)$"
+      }
+    },
+    "strings": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "review_state": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "last_reviewed_on",
+        "basis"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "not_reviewed",
+            "reviewed",
+            "stale",
+            "not_applicable"
+          ]
+        },
+        "last_reviewed_on": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "basis": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
     },
     "requirement": {
       "type": "object",
-      "additionalProperties": true,
-      "required": ["id", "title", "statement", "status", "owner_role", "basis", "source_refs", "validation"],
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "title",
+        "statement",
+        "status",
+        "owner_role",
+        "basis",
+        "source_refs",
+        "validation",
+        "superseded_by",
+        "limitations"
+      ],
       "properties": {
-        "id": {"type": "string", "pattern": "^REQ-[0-9]{4}$"},
-        "title": {"type": "string", "minLength": 1},
-        "statement": {"type": "string", "minLength": 1},
-        "status": {"enum": ["active", "proposed", "gated", "deferred", "superseded"]},
-        "owner_role": {"type": "string", "minLength": 1},
-        "basis": {"type": "string", "minLength": 1},
-        "source_refs": {"$ref": "#/$defs/refs"},
-        "validation": {"type": "object"}
+        "id": {
+          "type": "string",
+          "pattern": "^REQ-[0-9]{4}$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "statement": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "enum": [
+            "active",
+            "proposed",
+            "gated",
+            "deferred",
+            "superseded"
+          ]
+        },
+        "owner_role": {
+          "type": "string",
+          "minLength": 1
+        },
+        "basis": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_refs": {
+          "$ref": "#/$defs/refs"
+        },
+        "validation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "method",
+            "evidence_refs"
+          ],
+          "properties": {
+            "method": {
+              "type": "string",
+              "minLength": 1
+            },
+            "evidence_refs": {
+              "$ref": "#/$defs/refs"
+            }
+          }
+        },
+        "superseded_by": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^REQ-[0-9]{4}$"
+        },
+        "limitations": {
+          "$ref": "#/$defs/strings"
+        }
       }
     },
     "finding": {
       "type": "object",
-      "additionalProperties": true,
-      "required": ["id", "title", "requirement_refs", "status", "assessed_on", "subject_version", "inspected_evidence", "rationale", "owner_role"],
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "title",
+        "requirement_refs",
+        "status",
+        "assessed_on",
+        "subject_version",
+        "inspected_evidence",
+        "rationale",
+        "owner_role",
+        "remediation_plan_refs",
+        "limitations"
+      ],
       "properties": {
-        "id": {"type": "string", "pattern": "^FIND-[0-9]{4}$"},
-        "requirement_refs": {"$ref": "#/$defs/refs"},
-        "status": {"enum": ["conformant", "compatible", "transitional", "nonconformant", "absent", "not_assessed", "not_applicable"]},
-        "inspected_evidence": {"$ref": "#/$defs/refs"}
+        "id": {
+          "type": "string",
+          "pattern": "^FIND-[0-9]{4}$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "requirement_refs": {
+          "$ref": "#/$defs/refs"
+        },
+        "status": {
+          "enum": [
+            "conformant",
+            "compatible",
+            "transitional",
+            "nonconformant",
+            "absent",
+            "not_assessed",
+            "not_applicable"
+          ]
+        },
+        "assessed_on": {
+          "type": "string",
+          "format": "date"
+        },
+        "subject_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "inspected_evidence": {
+          "$ref": "#/$defs/refs"
+        },
+        "rationale": {
+          "type": "string",
+          "minLength": 1
+        },
+        "owner_role": {
+          "type": "string",
+          "minLength": 1
+        },
+        "remediation_plan_refs": {
+          "$ref": "#/$defs/refs"
+        },
+        "limitations": {
+          "$ref": "#/$defs/strings"
+        }
       }
     },
     "plan_item": {
       "type": "object",
-      "additionalProperties": true,
-      "required": ["id", "title", "objective", "status", "owner_role", "depends_on", "requirement_refs", "finding_refs", "gate_refs", "acceptance_criteria", "evidence_expected"],
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "title",
+        "objective",
+        "status",
+        "owner_role",
+        "depends_on",
+        "requirement_refs",
+        "finding_refs",
+        "gate_refs",
+        "acceptance_criteria",
+        "evidence_expected",
+        "evidence_refs",
+        "blocked_by",
+        "limitations"
+      ],
       "properties": {
-        "id": {"type": "string", "pattern": "^PLAN-[0-9]{4}$"},
-        "status": {"enum": ["planned", "in_progress", "blocked", "completed", "deferred", "cancelled"]},
-        "depends_on": {"$ref": "#/$defs/refs"},
-        "requirement_refs": {"$ref": "#/$defs/refs"},
-        "finding_refs": {"$ref": "#/$defs/refs"},
-        "gate_refs": {"$ref": "#/$defs/refs"}
+        "id": {
+          "type": "string",
+          "pattern": "^PLAN-[0-9]{4}$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "objective": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "enum": [
+            "planned",
+            "in_progress",
+            "blocked",
+            "completed",
+            "deferred",
+            "cancelled"
+          ]
+        },
+        "owner_role": {
+          "type": "string",
+          "minLength": 1
+        },
+        "depends_on": {
+          "$ref": "#/$defs/refs"
+        },
+        "requirement_refs": {
+          "$ref": "#/$defs/refs"
+        },
+        "finding_refs": {
+          "$ref": "#/$defs/refs"
+        },
+        "gate_refs": {
+          "$ref": "#/$defs/refs"
+        },
+        "acceptance_criteria": {
+          "$ref": "#/$defs/strings"
+        },
+        "evidence_expected": {
+          "$ref": "#/$defs/strings"
+        },
+        "evidence_refs": {
+          "$ref": "#/$defs/refs"
+        },
+        "blocked_by": {
+          "$ref": "#/$defs/strings"
+        },
+        "limitations": {
+          "$ref": "#/$defs/strings"
+        }
       }
     },
     "raidq_item": {
       "type": "object",
-      "additionalProperties": true,
-      "required": ["id", "type", "title", "status", "owner_role", "description", "impact", "blocking"],
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "type",
+        "title",
+        "status",
+        "owner_role",
+        "description",
+        "impact",
+        "blocking",
+        "review_on",
+        "resolution_condition",
+        "source_refs",
+        "limitations"
+      ],
       "properties": {
-        "id": {"type": "string", "pattern": "^(?:RISK|ASM|ISSUE|DEP|OQ)-[0-9]{4}$"},
-        "type": {"enum": ["risk", "assumption", "issue", "dependency", "open_question"]},
-        "status": {"enum": ["open", "monitoring", "resolved", "accepted", "invalidated", "closed"]}
+        "id": {
+          "type": "string",
+          "pattern": "^(?:RISK|ASM|ISSUE|DEP|OQ)-[0-9]{4}$"
+        },
+        "type": {
+          "enum": [
+            "risk",
+            "assumption",
+            "issue",
+            "dependency",
+            "open_question"
+          ]
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "enum": [
+            "open",
+            "monitoring",
+            "resolved",
+            "accepted",
+            "invalidated",
+            "closed"
+          ]
+        },
+        "owner_role": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "impact": {
+          "type": "string",
+          "minLength": 1
+        },
+        "blocking": {
+          "type": "boolean"
+        },
+        "review_on": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "resolution_condition": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_refs": {
+          "$ref": "#/$defs/refs"
+        },
+        "limitations": {
+          "$ref": "#/$defs/strings"
+        }
       }
     },
     "source": {
       "type": "object",
-      "additionalProperties": true,
-      "required": ["id", "name", "location", "classification", "observed_on", "intended_use", "limitations", "sensitivity", "accepted_as_project_authority"],
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "location",
+        "classification",
+        "observed_on",
+        "version_or_revision",
+        "intended_use",
+        "limitations",
+        "sensitivity",
+        "rights_or_license",
+        "fresh_until",
+        "accepted_as_project_authority"
+      ],
       "properties": {
-        "id": {"type": "string", "pattern": "^SRC-[0-9]{4}$"},
-        "accepted_as_project_authority": {"type": "boolean"}
+        "id": {
+          "type": "string",
+          "pattern": "^SRC-[0-9]{4}$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "location": {
+          "type": "string",
+          "minLength": 1
+        },
+        "classification": {
+          "type": "string",
+          "minLength": 1
+        },
+        "observed_on": {
+          "type": "string",
+          "format": "date"
+        },
+        "version_or_revision": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "intended_use": {
+          "type": "string",
+          "minLength": 1
+        },
+        "limitations": {
+          "$ref": "#/$defs/strings"
+        },
+        "sensitivity": {
+          "type": "string",
+          "minLength": 1
+        },
+        "rights_or_license": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "fresh_until": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "accepted_as_project_authority": {
+          "type": "boolean"
+        }
       }
     },
     "evidence": {
       "type": "object",
-      "additionalProperties": true,
-      "required": ["id", "title", "type", "subject_version", "produced_at", "method", "scope", "result", "artifact_path", "requirement_refs", "finding_refs", "limitations"],
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "title",
+        "type",
+        "subject_version",
+        "produced_at",
+        "method",
+        "environment",
+        "scope",
+        "result",
+        "artifact_path",
+        "source_refs",
+        "requirement_refs",
+        "finding_refs",
+        "task_refs",
+        "limitations",
+        "fresh_until"
+      ],
       "properties": {
-        "id": {"type": "string", "pattern": "^EVD-[0-9]{4}$"},
-        "requirement_refs": {"$ref": "#/$defs/refs"},
-        "finding_refs": {"$ref": "#/$defs/refs"}
+        "id": {
+          "type": "string",
+          "pattern": "^EVD-[0-9]{4}$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "subject_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "produced_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "method": {
+          "type": "string",
+          "minLength": 1
+        },
+        "environment": {
+          "type": "string",
+          "minLength": 1
+        },
+        "scope": {
+          "type": "string",
+          "minLength": 1
+        },
+        "result": {
+          "enum": [
+            "pass",
+            "fail",
+            "mixed",
+            "not_assessed"
+          ]
+        },
+        "artifact_path": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "source_refs": {
+          "$ref": "#/$defs/refs"
+        },
+        "requirement_refs": {
+          "$ref": "#/$defs/refs"
+        },
+        "finding_refs": {
+          "$ref": "#/$defs/refs"
+        },
+        "task_refs": {
+          "$ref": "#/$defs/refs"
+        },
+        "limitations": {
+          "$ref": "#/$defs/strings"
+        },
+        "fresh_until": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        }
+      }
+    },
+    "gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "title",
+        "status",
+        "owner_role",
+        "requirement_refs",
+        "pass_criteria",
+        "required_evidence",
+        "approval_required",
+        "approval_source",
+        "expires_on",
+        "limitations"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^GATE-[0-9]{4}$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "enum": [
+            "proposed",
+            "not_assessed",
+            "blocked",
+            "passed",
+            "failed",
+            "expired",
+            "waived"
+          ]
+        },
+        "owner_role": {
+          "type": "string",
+          "minLength": 1
+        },
+        "requirement_refs": {
+          "$ref": "#/$defs/refs"
+        },
+        "pass_criteria": {
+          "$ref": "#/$defs/strings"
+        },
+        "required_evidence": {
+          "$ref": "#/$defs/refs"
+        },
+        "approval_required": {
+          "type": "boolean"
+        },
+        "approval_source": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "expires_on": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "limitations": {
+          "$ref": "#/$defs/strings"
+        }
+      }
+    },
+    "supersession": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "superseded_representation_id",
+        "successor_representation_id",
+        "effective_on",
+        "reason",
+        "migration_impact",
+        "retained_history_path",
+        "authority_source"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^SUP-[0-9]{4}$"
+        },
+        "superseded_representation_id": {
+          "type": "string",
+          "pattern": "^REP-[0-9]{4}$"
+        },
+        "successor_representation_id": {
+          "type": "string",
+          "pattern": "^REP-[0-9]{4}$"
+        },
+        "effective_on": {
+          "type": "string",
+          "format": "date"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "migration_impact": {
+          "type": "string",
+          "minLength": 1
+        },
+        "retained_history_path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "authority_source": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "requirements_store": {
+      "$ref": "#/$defs/store_requirements"
+    },
+    "findings_store": {
+      "$ref": "#/$defs/store_findings"
+    },
+    "plan_store": {
+      "$ref": "#/$defs/store_plan"
+    },
+    "raidq_store": {
+      "$ref": "#/$defs/store_raidq"
+    },
+    "sources_store": {
+      "$ref": "#/$defs/store_sources"
+    },
+    "evidence_store": {
+      "$ref": "#/$defs/store_evidence"
+    },
+    "store_requirements": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "document_role",
+        "permission_grant",
+        "project_slug",
+        "scaffold_generated_on",
+        "review",
+        "status_vocabulary",
+        "requirements"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "project.dossier.requirements.v1"
+        },
+        "document_role": {
+          "type": "string",
+          "minLength": 1
+        },
+        "permission_grant": {
+          "const": false
+        },
+        "project_slug": {
+          "type": "string",
+          "minLength": 1
+        },
+        "scaffold_generated_on": {
+          "type": "string",
+          "format": "date"
+        },
+        "review": {
+          "$ref": "#/$defs/review_state"
+        },
+        "status_vocabulary": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "requirements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/requirement"
+          }
+        }
+      }
+    },
+    "store_findings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "document_role",
+        "permission_grant",
+        "project_slug",
+        "scaffold_generated_on",
+        "review",
+        "classification_vocabulary",
+        "findings"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "project.dossier.findings.v1"
+        },
+        "document_role": {
+          "type": "string",
+          "minLength": 1
+        },
+        "permission_grant": {
+          "const": false
+        },
+        "project_slug": {
+          "type": "string",
+          "minLength": 1
+        },
+        "scaffold_generated_on": {
+          "type": "string",
+          "format": "date"
+        },
+        "review": {
+          "$ref": "#/$defs/review_state"
+        },
+        "classification_vocabulary": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/finding"
+          }
+        }
+      }
+    },
+    "store_plan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "document_role",
+        "permission_grant",
+        "project_slug",
+        "scaffold_generated_on",
+        "review",
+        "status_vocabulary",
+        "plan_items"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "project.dossier.plan.v1"
+        },
+        "document_role": {
+          "type": "string",
+          "minLength": 1
+        },
+        "permission_grant": {
+          "const": false
+        },
+        "project_slug": {
+          "type": "string",
+          "minLength": 1
+        },
+        "scaffold_generated_on": {
+          "type": "string",
+          "format": "date"
+        },
+        "review": {
+          "$ref": "#/$defs/review_state"
+        },
+        "status_vocabulary": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "plan_items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/plan_item"
+          }
+        }
+      }
+    },
+    "store_raidq": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "document_role",
+        "permission_grant",
+        "project_slug",
+        "scaffold_generated_on",
+        "review",
+        "items"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "project.dossier.raidq.v1"
+        },
+        "document_role": {
+          "type": "string",
+          "minLength": 1
+        },
+        "permission_grant": {
+          "const": false
+        },
+        "project_slug": {
+          "type": "string",
+          "minLength": 1
+        },
+        "scaffold_generated_on": {
+          "type": "string",
+          "format": "date"
+        },
+        "review": {
+          "$ref": "#/$defs/review_state"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/raidq_item"
+          }
+        }
+      }
+    },
+    "store_sources": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "document_role",
+        "permission_grant",
+        "project_slug",
+        "scaffold_generated_on",
+        "review",
+        "sources"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "project.dossier.sources.v1"
+        },
+        "document_role": {
+          "type": "string",
+          "minLength": 1
+        },
+        "permission_grant": {
+          "const": false
+        },
+        "project_slug": {
+          "type": "string",
+          "minLength": 1
+        },
+        "scaffold_generated_on": {
+          "type": "string",
+          "format": "date"
+        },
+        "review": {
+          "$ref": "#/$defs/review_state"
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/source"
+          }
+        }
+      }
+    },
+    "store_evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "document_role",
+        "permission_grant",
+        "project_slug",
+        "scaffold_generated_on",
+        "review",
+        "evidence"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "project.dossier.evidence-index.v1"
+        },
+        "document_role": {
+          "type": "string",
+          "minLength": 1
+        },
+        "permission_grant": {
+          "const": false
+        },
+        "project_slug": {
+          "type": "string",
+          "minLength": 1
+        },
+        "scaffold_generated_on": {
+          "type": "string",
+          "format": "date"
+        },
+        "review": {
+          "$ref": "#/$defs/review_state"
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evidence"
+          }
+        }
+      }
+    },
+    "quality_gates_store": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "document_role",
+        "permission_grant",
+        "project_slug",
+        "scaffold_generated_on",
+        "review",
+        "readiness",
+        "gates"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "project.dossier.quality-gates.v1"
+        },
+        "document_role": {
+          "type": "string",
+          "minLength": 1
+        },
+        "permission_grant": {
+          "const": false
+        },
+        "project_slug": {
+          "type": "string",
+          "minLength": 1
+        },
+        "scaffold_generated_on": {
+          "type": "string",
+          "format": "date"
+        },
+        "review": {
+          "$ref": "#/$defs/review_state"
+        },
+        "readiness": {
+          "enum": [
+            "not_assessed",
+            "gated",
+            "ready",
+            "not_ready"
+          ]
+        },
+        "gates": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/gate"
+          }
+        }
+      }
+    },
+    "supersession_store": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "document_role",
+        "permission_grant",
+        "project_slug",
+        "current_dossier_version",
+        "effective_on",
+        "records"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "project.dossier.supersession.v1"
+        },
+        "document_role": {
+          "const": "authoritative_dossier_lifecycle"
+        },
+        "permission_grant": {
+          "const": false
+        },
+        "project_slug": {
+          "type": "string",
+          "minLength": 1
+        },
+        "current_dossier_version": {
+          "type": "string",
+          "pattern": "^(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)$"
+        },
+        "effective_on": {
+          "type": "string",
+          "format": "date"
+        },
+        "records": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/supersession"
+          }
+        }
       }
     }
   }

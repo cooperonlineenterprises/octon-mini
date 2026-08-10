@@ -13,13 +13,17 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        python: ["3.11", "3.12", "3.13"]
+        python: ["3.11", "3.12", "3.13", "3.14"]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
           python-version: ${{ matrix.python }}
+      - name: Validate skill package metadata
+        run: python -B skills/project-bootstrap/scripts/validate_skill_package.py
+      - name: Validate reference-evidence registry and citations
+        run: python -B skills/project-bootstrap/scripts/verify_reference_evidence.py
       - name: Validate blueprint source and profile builds
         run: python -B skills/project-bootstrap/scripts/validate_blueprint.py
       - name: Run end-to-end and adversarial acceptance

@@ -32,8 +32,20 @@ valid authority source.
 
 Strict JSON is the canonical machine-readable format. It provides complete,
 duplicate-key-rejecting validation using only Python 3.11+ standard-library
-features. Extensions may add other formats only with a pinned parser and a
-validated adapter.
+features in the bundled reference implementation. Projects may adopt an
+equivalent validator in an existing pinned toolchain only after it passes the
+same conformance fixtures. Extensions may add other formats only with a pinned
+parser and a validated adapter. Generated command contracts use `python` to
+mean the project environment's pinned Python 3.11+ interpreter; the CI matrix
+provisions that launcher on every supported operating system.
+
+Reference citations use repository aliases and are checked against
+`shared/reference-evidence.json`, which records commit identity, authority
+classification, dirty-state qualification, and selected content
+fingerprints. That registry is blueprint provenance; it is never copied into a
+generated project's dossier. For a dirty reference checkout, exact cited bytes
+are fingerprinted while volatile counts of unrelated working-tree paths are
+intentionally not treated as stable provenance.
 
 ## Choose a profile
 
@@ -43,7 +55,9 @@ validated adapter.
   traceability, evidence, reviews, events, artifacts, and extensions.
 - `high-assurance` — agent-operable, sensitive, externally effective, or
   audit-oriented work; adds capabilities, reference extension validation,
-  transactional integrity refresh, checksums, transition, and history.
+  checksums, generated validation evidence, transition, history, and
+  conditional approval, coordination, recovery, evaluation, and metrics
+  contracts.
 
 Profiles are cumulative. Larger profiles add controls for named risks; they do
 not create greater authority or stronger readiness claims.
@@ -74,6 +88,18 @@ mutation tests fail. The generated `.project-blueprint-origin.json` records
 the independent snapshot's source version, profile, transaction ID, and path
 inventory.
 
+Every generated profile also includes a transactional maintenance command:
+
+```text
+python -B .agent/scripts/refresh.py --refresh
+python -B .agent/scripts/validate.py --check
+```
+
+The project-local artifact registry remains authoritative; refresh derives the
+catalog, path-authority map, and integrity manifest without inventing or
+overwriting source artifacts. High Assurance includes checksums and generated
+validation evidence in the same refresh transaction.
+
 ## Plan adoption for an existing project
 
 Do not point the new-project generator at an established repository. Produce a
@@ -85,10 +111,12 @@ python3 skills/project-bootstrap/scripts/plan_adoption.py \
   --profile standard
 ```
 
-The planner reports collisions and functional-equivalent locations without
-reading secrets or modifying the target. Adoption remains a separate,
-project-aware implementation task that preserves existing authority and
-project-specific content.
+The planner reports exact collisions and conservative path/name candidates for
+functional-equivalence review without reading file contents or modifying the
+target. A candidate is not accepted as equivalent until its content and
+authority are inspected. Adoption remains a separate, project-aware
+implementation task that preserves existing authority and project-specific
+content.
 
 ## Use as a Codex skill
 
@@ -114,14 +142,29 @@ cross-project discovery.
 ## Validate and release
 
 ```text
+python3 skills/project-bootstrap/scripts/validate_skill_package.py
+python3 skills/project-bootstrap/scripts/verify_reference_evidence.py
 python3 skills/project-bootstrap/scripts/validate_blueprint.py
 python3 skills/project-bootstrap/scripts/test_acceptance.py
 ```
 
+The no-argument reference check validates the registry and every citation
+against the recorded evidence. When the reference checkouts are available,
+also verify their current commits and cited bytes explicitly:
+
+```text
+python3 skills/project-bootstrap/scripts/verify_reference_evidence.py \
+  --reference-root CF=/absolute/path/to/commerce-foundry \
+  --reference-root COE=/absolute/path/to/cooper-online-enterprises
+```
+
 When the skill entry or UI metadata changes, also run the skill-creator
-`quick_validate.py` against `skills/project-bootstrap`. CI repeats the
-blueprint and acceptance suites on supported Python runtimes and operating
-systems.
+`quick_validate.py` against `skills/project-bootstrap`. The
+repository-contained metadata validator is the reproducible release check;
+`quick_validate.py` is a compatibility check against the installed Codex
+tooling. CI repeats the metadata, internal reference-registry/citation,
+blueprint, and acceptance suites on supported Python runtimes and operating
+systems; CI does not have the external reference checkouts.
 
 See `RELEASE.md`, `CHANGELOG.md`, and `migrations/` for release and upgrade
 rules.

@@ -31,8 +31,10 @@ validation patterns, never facts, permissions, decisions, or readiness claims.
    project-specific decisions.
 9. Configure the target project's threat model, authority posture, project
    command hooks, and only the extensions justified by actual risks.
-10. Run the generated read-only harness check and mutation tests. For a
-    high-assurance profile, refresh derived integrity and rerun the check.
+10. Run the generated read-only harness check and mutation tests. In every
+    profile, refresh derived metadata and integrity after adopting or changing
+    source artifacts, then rerun the check. High Assurance additionally
+    refreshes checksums and generated validation evidence.
 11. Validate dossier paths, links, IDs, traceability, and information-state
     boundaries.
 12. Report what remains unknown, unassessed, skipped, stale, or gated.
@@ -96,8 +98,16 @@ python3 scripts/test_acceptance.py
 Validate a generated target:
 
 ```text
-python3 -B .agent/scripts/validate.py --check
-python3 -B -m unittest discover -s .agent/tests -p 'test_*.py'
+python -B .agent/scripts/validate.py --check
+python -B -m unittest discover -s .agent/tests -p "test_*.py"
+```
+
+After any legitimate source or dossier-artifact change, update the
+project-local artifact registry when physical dossier paths changed, then run:
+
+```text
+python -B .agent/scripts/refresh.py --refresh
+python -B .agent/scripts/validate.py --check
 ```
 
 ## Output contract

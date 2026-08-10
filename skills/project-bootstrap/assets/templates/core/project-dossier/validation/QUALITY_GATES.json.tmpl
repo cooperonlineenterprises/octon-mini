@@ -3,7 +3,12 @@
   "document_role": "proposed_unadopted_quality_gate_baseline",
   "permission_grant": false,
   "project_slug": "{{PROJECT_SLUG}}",
-  "last_reviewed": "{{CREATED_DATE}}",
+  "scaffold_generated_on": "{{CREATED_DATE}}",
+  "review": {
+    "status": "not_reviewed",
+    "last_reviewed_on": null,
+    "basis": "Generated scaffold provenance is not substantive project review."
+  },
   "readiness": "not_assessed",
   "gates": [
     {
@@ -11,8 +16,14 @@
       "title": "Dossier and harness structural integrity",
       "status": "proposed",
       "owner_role": "unassigned",
+      "requirement_refs": [],
+      "pass_criteria": [
+        "Run the declared structural validation on the exact project tree."
+      ],
       "required_evidence": [],
+      "approval_required": false,
       "approval_source": null,
+      "expires_on": null,
       "limitations": ["Structural success does not establish project readiness."]
     }
   ]

@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://project-blueprint.local/schemas/harness-current-state.schema.json",
+  "title": "Project-maintained Compact Operational Index",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "project_slug",
+    "updated_at",
+    "authority",
+    "adoption_status",
+    "active_tasks",
+    "accepted_decisions",
+    "fresh_evidence",
+    "blocked_by",
+    "next_action",
+    "external_effects_authority_refs",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "harness.current-state.v1"
+    },
+    "project_slug": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date"
+    },
+    "authority": {
+      "const": "project_maintained_compact_operational_index_not_permission"
+    },
+    "adoption_status": {
+      "enum": [
+        "not_assessed",
+        "in_progress",
+        "adopted",
+        "superseded"
+      ]
+    },
+    "active_tasks": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^TASK-[0-9]{4}$"
+      }
+    },
+    "accepted_decisions": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^DEC-[0-9]{4}$"
+      }
+    },
+    "fresh_evidence": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^EVD-[0-9]{4}$"
+      }
+    },
+    "blocked_by": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "next_action": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1
+    },
+    "external_effects_authority_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:DEC-[0-9]{4}|(?:authority|external):.+)$"
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  }
+}

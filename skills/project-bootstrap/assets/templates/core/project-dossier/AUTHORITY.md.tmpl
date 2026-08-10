@@ -19,3 +19,19 @@ not create permission.
 Current behavior does not become the intended target merely because it exists.
 Target documentation does not prove implementation. Unresolved conflicts must
 be recorded as findings or open questions.
+
+## Representation authority
+
+- `machine-readable/artifact-registry.json` is the project-local edit source
+  for artifact types, physical representations, applicability, owners, review
+  state, and source direction.
+- `ARTIFACT_CATALOG.json` and
+  `machine-readable/path-authority.json` are generated mirrors.
+- `MANIFEST.json`, `CHECKSUMS.sha256`, and harness integrity reports are
+  point-in-time generated evidence.
+- In Minimal, human-readable requirements, findings, plans, registers, and
+  provenance pages may own their records. In Standard and High-Assurance, the
+  corresponding JSON stores own individual records and Markdown owns method,
+  vocabulary, and explanation.
+- A generation date is scaffold provenance. It is not a review date,
+  observation date, approval, or freshness claim.
