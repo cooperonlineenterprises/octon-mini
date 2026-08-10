@@ -6,11 +6,12 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import runpy
 import shutil
 import subprocess
 import sys
 import tempfile
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 
 
 SKILL_ROOT = Path(__file__).resolve().parents[1]
@@ -239,6 +240,35 @@ def main() -> int:
         print("FAIL: Python 3.11+ is required")
         return 2
     failures: list[str] = []
+    scaffolder_namespace = runpy.run_path(str(SCAFFOLDER))
+    canonical_posix_paths = scaffolder_namespace["canonical_posix_paths"]
+    refresh_path_values = (
+        "project-dossier/ARTIFACT_CATALOG.json",
+        "project-dossier/MANIFEST.json",
+        "project-dossier/machine-readable/path-authority.json",
+    )
+    expected_refresh_paths = sorted(refresh_path_values)
+    windows_native_order = [
+        path.as_posix()
+        for path in sorted(PureWindowsPath(value) for value in refresh_path_values)
+    ]
+    require(
+        windows_native_order != expected_refresh_paths,
+        "cross-platform ordering fixture does not expose Windows path ordering",
+        failures,
+    )
+    require(
+        canonical_posix_paths(
+            PurePosixPath(value) for value in refresh_path_values
+        )
+        == expected_refresh_paths
+        and canonical_posix_paths(
+            PureWindowsPath(value) for value in refresh_path_values
+        )
+        == expected_refresh_paths,
+        "scaffolder path rendering is not deterministic across host platforms",
+        failures,
+    )
     migration_result = run(
         [sys.executable, "-B", str(MIGRATION_TEST)],
         ROOT,

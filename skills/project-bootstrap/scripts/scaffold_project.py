@@ -13,8 +13,9 @@ import secrets
 import subprocess
 import sys
 import tempfile
+from collections.abc import Iterable
 from datetime import date
-from pathlib import Path, PurePosixPath
+from pathlib import Path, PurePath, PurePosixPath
 
 
 GENERATOR_VERSION = "2.0.0"
@@ -51,6 +52,11 @@ HIGH_DERIVED_PATHS = {
     Path(".agent/generated/manifest.json"),
     Path(".agent/generated/validation-report.json"),
 }
+
+
+def canonical_posix_paths(paths: Iterable[PurePath]) -> list[str]:
+    """Render and sort paths identically on every host platform."""
+    return sorted(path.as_posix() for path in paths)
 
 
 def require_runtime() -> None:
@@ -584,7 +590,7 @@ def main() -> int:
             "python -B .agent/scripts/refresh.py --refresh"
         ),
         "HARNESS_REFRESH_WRITES": json.dumps(
-            [path.as_posix() for path in sorted(refresh_writes)]
+            canonical_posix_paths(refresh_writes)
         ),
     }
 
