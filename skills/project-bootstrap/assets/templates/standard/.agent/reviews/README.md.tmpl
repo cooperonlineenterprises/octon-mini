@@ -7,3 +7,22 @@ prove remediation.
 State whether review was independent or self-review. Each finding needs a
 stable ID, severity, exact location, evidence, impact, recommendation, and
 disposition.
+
+When a project adopts a workflow from
+`.agent/workflows/small-team-git.json`, keep these boundaries explicit:
+
+- `solo_hybrid` records `self_review_with_limitations`; a self-PR or hosted
+  review submission does not become independent review.
+- `pair_pr` and `tiny_pr` require at most one eligible peer review. The author
+  never counts as that peer.
+- When established peer-review capacity is absent, the workflow blocks. A
+  separately authorized, time-bounded exception remains an exception and must
+  not be relabeled as approval or peer review.
+- Reviewer availability, hosted permissions, and required-check state come
+  from current project evidence, never this template.
+- Review completion does not authorize publication, merge, remote cleanup, or
+  release.
+
+Risk may require a separately authorized qualified reviewer even for solo
+work. That is an additive risk control, not a change to the human team band or
+an automatic reason to select a larger harness profile.

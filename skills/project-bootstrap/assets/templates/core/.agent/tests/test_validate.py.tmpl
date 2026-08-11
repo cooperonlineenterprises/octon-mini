@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import hashlib
 import importlib.util
 import json
@@ -10,6 +11,7 @@ import sys
 import tempfile
 import unittest
 from unittest import mock
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 
@@ -207,6 +209,155 @@ def configured_python_command(argv: list[str] | None = None) -> dict[str, object
             "external_effects": [],
         },
     }
+
+
+def rfc3339(value: datetime) -> str:
+    return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def collaboration_value(
+    writers: int,
+    *,
+    solo_preference: str = "direct",
+    review_capacity: int | None = None,
+    concurrent_humans: int | None = None,
+    concurrent_agents: int = 0,
+    active_humans: int | None = None,
+    include_declared: bool = True,
+    include_observed: bool = True,
+) -> dict[str, object]:
+    now = datetime.now(timezone.utc)
+    review_capacity = (
+        (1 if writers >= 2 else 0)
+        if review_capacity is None
+        else review_capacity
+    )
+    concurrent_humans = (
+        (1 if writers > 0 else 0)
+        if concurrent_humans is None
+        else concurrent_humans
+    )
+    active_humans = writers if active_humans is None else active_humans
+    unsupported = writers > 5
+    if unsupported:
+        team_band = "unsupported_team_size"
+        selection_status = "unsupported_team_size"
+        base = None
+        modifiers: list[str] = []
+        review_mode = "not_assessed"
+        integration = None
+    elif writers == 0:
+        team_band = "no_write_capable_human"
+        selection_status = "blocked_no_writer"
+        base = None
+        modifiers = []
+        review_mode = "not_assessed"
+        integration = None
+    else:
+        team_band = "solo" if writers == 1 else "pair" if writers == 2 else "tiny"
+        selection_status = "recommended"
+        modifiers = (
+            ["concurrent_work"]
+            if concurrent_humans + concurrent_agents > 1
+            else []
+        )
+        if writers == 1:
+            base = (
+                "solo_hybrid"
+                if solo_preference == "reviewable" or modifiers
+                else "solo_direct"
+            )
+            review_mode = "self_review" if base == "solo_hybrid" else "none"
+        else:
+            base = "pair_pr" if writers == 2 else "tiny_pr"
+            review_mode = (
+                "one_peer_when_available"
+                if review_capacity >= 1
+                else "block_when_peer_unavailable"
+            )
+        integration = "not_applicable" if base == "solo_direct" else "squash_merge"
+    confidence = "confirmed" if include_declared and include_observed else "inferred"
+    return {
+        "schema_version": "harness.collaboration-profile.v1",
+        "permission_grant": False,
+        "assessment_status": "assessed",
+        "confidence": confidence,
+        "declared_write_capable_humans": writers if include_declared else None,
+        "observed_repository_access": {
+            "write_capable_humans": writers if include_observed else None,
+            "read_only_humans": 7 if include_observed else None,
+            "bots_or_automation": 11 if include_observed else None,
+        },
+        "active_contributors": {
+            "human_count": active_humans,
+            "bots_or_automation_count": 13,
+            "window_days": 90,
+        },
+        "independent_review_capacity": review_capacity,
+        "expected_concurrent_repository_writers": {
+            "humans": concurrent_humans,
+            "agents_or_automation": concurrent_agents,
+        },
+        "external_contribution_mode": "closed",
+        "solo_integration_preference": solo_preference,
+        "evidence": [
+            {
+                "kind": "project_owned_observation",
+                "source_ref": "repo:synthetic-collaboration-observation",
+                "supports": sorted(VALIDATOR.COLLABORATION_EVIDENCE_SUPPORTS),
+                "observed_at": rfc3339(now - timedelta(minutes=2)),
+                "fresh_until": rfc3339(now + timedelta(days=30)),
+                "limitations": ["synthetic aggregate fixture; contains no identities"],
+            }
+        ],
+        "assessed_at": rfc3339(now - timedelta(minutes=1)),
+        "reassess_after": rfc3339(now + timedelta(days=14)),
+        "conflicting_signals": [],
+        "limitations": [],
+        "team_band": team_band,
+        "workflow_selection": {
+            "status": selection_status,
+            "base_workflow": base,
+            "modifiers": modifiers,
+            "review_mode": review_mode,
+            "integration_method": integration,
+            "adoption_decision_ref": None,
+        },
+    }
+
+
+def set_collaboration(test_root: Path, value: dict[str, object]) -> None:
+    path = test_root / ".agent/project.json"
+    project = VALIDATOR.load_json(path)
+    project["collaboration_profile"] = value
+    write_json(path, project)
+
+
+def collaboration_findings(test_root: Path) -> list[str]:
+    records, record_errors = VALIDATOR.collect_records(test_root)
+    return record_errors + VALIDATOR.check_collaboration_profile(test_root, records)
+
+
+def write_workflow_decision(test_root: Path, decision_id: str = "DEC-9096") -> None:
+    decision = VALIDATOR.parse_json_header(
+        test_root / ".agent/templates/decision.md"
+    )
+    decision.update(
+        id=decision_id,
+        status="accepted",
+        previous_status="proposed",
+        title="Adopt the synthetic small-team workflow",
+        authority_source="authority:synthetic-workflow-owner",
+        owner="test_suite",
+        scope="synthetic small-team workflow adoption",
+    )
+    path = test_root / ".agent/decisions" / f"{decision_id}-workflow.md"
+    path.write_text(
+        "---\n"
+        + json.dumps(decision, indent=2, sort_keys=True)
+        + "\n---\n\n# Synthetic workflow decision\n",
+        encoding="utf-8",
+    )
 
 
 def adopt_harness(
@@ -430,6 +581,351 @@ class HarnessValidatorTests(unittest.TestCase):
             self.assertTrue(any("unsupported schema keyword" in item for item in findings))
         finally:
             temporary.cleanup()
+
+    def test_collaboration_baseline_is_unknown_non_authorizing_and_reportable(self) -> None:
+        project = VALIDATOR.load_json(ROOT / ".agent/project.json")
+        profile = project["collaboration_profile"]
+        self.assertEqual(profile["assessment_status"], "not_assessed")
+        self.assertIs(profile["permission_grant"], False)
+        self.assertEqual(profile["team_band"], "unknown")
+        self.assertIsNone(profile["workflow_selection"]["base_workflow"])
+        records, record_errors = VALIDATOR.collect_records(ROOT)
+        self.assertEqual(record_errors, [])
+        self.assertEqual(VALIDATOR.check_collaboration_profile(ROOT, records), [])
+        before = snapshot(ROOT)
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-I",
+                "-B",
+                ".agent/scripts/validate.py",
+                "--assess-collaboration",
+            ],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        after = snapshot(ROOT)
+        self.assertEqual(result.returncode, 0, result.stderr or result.stdout)
+        self.assertEqual(before, after)
+        report = json.loads(result.stdout)
+        self.assertIs(report["permission_grant"], False)
+        self.assertEqual(report["team_band"], "unknown")
+        self.assertEqual(report["status"], "not_assessed")
+        self.assertNotIn("adoption_decision_ref", report["recommendation"])
+        self.assertIn("grants no permission", report["non_authorization"])
+
+    def test_solo_pair_tiny_and_unsupported_topologies_are_classified(self) -> None:
+        cases = (
+            (1, "direct", "solo", "solo_direct", []),
+            (1, "reviewable", "solo", "solo_hybrid", []),
+            (2, "direct", "pair", "pair_pr", []),
+            (3, "direct", "tiny", "tiny_pr", []),
+            (5, "direct", "tiny", "tiny_pr", []),
+            (6, "direct", "unsupported_team_size", None, []),
+        )
+        for writers, preference, band, workflow, modifiers in cases:
+            with self.subTest(writers=writers, preference=preference):
+                temporary, test_root = clone()
+                try:
+                    original_profile = VALIDATOR.load_json(
+                        test_root / ".agent/project.json"
+                    )["project"]["profile"]
+                    value = collaboration_value(
+                        writers,
+                        solo_preference=preference,
+                    )
+                    set_collaboration(test_root, value)
+                    self.assertEqual(collaboration_findings(test_root), [])
+                    report, report_errors = VALIDATOR.derive_collaboration_assessment(
+                        value
+                    )
+                    self.assertEqual(report_errors, [])
+                    self.assertEqual(report["team_band"], band)
+                    self.assertEqual(
+                        report["recommendation"]["base_workflow"], workflow
+                    )
+                    self.assertEqual(
+                        report["recommendation"]["modifiers"], modifiers
+                    )
+                    if writers == 6:
+                        self.assertEqual(report["status"], "unsupported_team_size")
+                    current_profile = VALIDATOR.load_json(
+                        test_root / ".agent/project.json"
+                    )["project"]["profile"]
+                    self.assertEqual(current_profile, original_profile)
+                finally:
+                    temporary.cleanup()
+
+    def test_inferred_unknown_stale_conflicted_and_no_writer_states_fail_safe(self) -> None:
+        temporary, test_root = clone()
+        try:
+            inferred = collaboration_value(1, include_observed=False)
+            set_collaboration(test_root, inferred)
+            self.assertEqual(collaboration_findings(test_root), [])
+            report, errors = VALIDATOR.derive_collaboration_assessment(inferred)
+            self.assertEqual(errors, [])
+            self.assertEqual(report["confidence"], "inferred")
+            self.assertEqual(report["recommendation"]["base_workflow"], "solo_direct")
+
+            unknown = collaboration_value(1)
+            unknown["declared_write_capable_humans"] = None
+            unknown["observed_repository_access"] = {
+                "write_capable_humans": None,
+                "read_only_humans": None,
+                "bots_or_automation": None,
+            }
+            unknown["confidence"] = "unknown"
+            unknown["team_band"] = "unknown"
+            unknown["workflow_selection"] = {
+                "status": "blocked_unknown",
+                "base_workflow": None,
+                "modifiers": [],
+                "review_mode": "not_assessed",
+                "integration_method": None,
+                "adoption_decision_ref": None,
+            }
+            set_collaboration(test_root, unknown)
+            self.assertEqual(collaboration_findings(test_root), [])
+
+            stale = collaboration_value(1)
+            stale["assessed_at"] = rfc3339(
+                datetime.now(timezone.utc) - timedelta(days=2)
+            )
+            stale["reassess_after"] = rfc3339(
+                datetime.now(timezone.utc) - timedelta(days=1)
+            )
+            stale["evidence"][0]["observed_at"] = rfc3339(
+                datetime.now(timezone.utc) - timedelta(days=3)
+            )
+            stale_findings_value = copy.deepcopy(stale)
+            set_collaboration(test_root, stale_findings_value)
+            self.assertTrue(
+                any("does not fail closed" in item for item in collaboration_findings(test_root))
+            )
+            stale["workflow_selection"] = {
+                "status": "blocked_stale",
+                "base_workflow": None,
+                "modifiers": [],
+                "review_mode": "not_assessed",
+                "integration_method": None,
+                "adoption_decision_ref": None,
+            }
+            set_collaboration(test_root, stale)
+            self.assertEqual(collaboration_findings(test_root), [])
+
+            conflicted = collaboration_value(1)
+            conflicted["observed_repository_access"]["write_capable_humans"] = 2
+            conflicted["confidence"] = "conflicted"
+            conflicted["conflicting_signals"] = [
+                "declared_vs_observed_write_capable_humans"
+            ]
+            conflicted["team_band"] = "unknown"
+            conflicted["workflow_selection"] = {
+                "status": "blocked_conflicted",
+                "base_workflow": None,
+                "modifiers": [],
+                "review_mode": "not_assessed",
+                "integration_method": None,
+                "adoption_decision_ref": None,
+            }
+            set_collaboration(test_root, conflicted)
+            self.assertEqual(collaboration_findings(test_root), [])
+
+            no_writer = collaboration_value(0)
+            set_collaboration(test_root, no_writer)
+            self.assertEqual(collaboration_findings(test_root), [])
+        finally:
+            temporary.cleanup()
+
+    def test_bots_activity_review_capacity_and_concurrent_agents_are_independent(self) -> None:
+        temporary, test_root = clone()
+        try:
+            solo = collaboration_value(1)
+            solo["observed_repository_access"]["read_only_humans"] = 25
+            solo["observed_repository_access"]["bots_or_automation"] = 50
+            solo["active_contributors"]["bots_or_automation_count"] = 75
+            set_collaboration(test_root, solo)
+            self.assertEqual(collaboration_findings(test_root), [])
+            report, _ = VALIDATOR.derive_collaboration_assessment(solo)
+            self.assertEqual(report["team_band"], "solo")
+            self.assertEqual(report["counts"]["observed_write_capable_humans"], 1)
+
+            dormant_pair = collaboration_value(2, active_humans=1)
+            set_collaboration(test_root, dormant_pair)
+            self.assertEqual(collaboration_findings(test_root), [])
+            report, _ = VALIDATOR.derive_collaboration_assessment(dormant_pair)
+            self.assertEqual(report["team_band"], "pair")
+
+            concurrent = collaboration_value(1, concurrent_agents=1)
+            set_collaboration(test_root, concurrent)
+            self.assertEqual(collaboration_findings(test_root), [])
+            report, _ = VALIDATOR.derive_collaboration_assessment(concurrent)
+            self.assertEqual(report["team_band"], "solo")
+            self.assertEqual(report["recommendation"]["base_workflow"], "solo_hybrid")
+            self.assertEqual(report["recommendation"]["modifiers"], ["concurrent_work"])
+
+            no_peer = collaboration_value(2, review_capacity=0)
+            set_collaboration(test_root, no_peer)
+            self.assertEqual(collaboration_findings(test_root), [])
+            report, _ = VALIDATOR.derive_collaboration_assessment(no_peer)
+            self.assertEqual(
+                report["recommendation"]["review_mode"],
+                "block_when_peer_unavailable",
+            )
+            one_peer = collaboration_value(5, review_capacity=1)
+            set_collaboration(test_root, one_peer)
+            self.assertEqual(collaboration_findings(test_root), [])
+            report, _ = VALIDATOR.derive_collaboration_assessment(one_peer)
+            self.assertEqual(
+                report["recommendation"]["review_mode"],
+                "one_peer_when_available",
+            )
+        finally:
+            temporary.cleanup()
+
+    def test_workflow_adoption_requires_an_accepted_decision_but_never_permission(self) -> None:
+        temporary, test_root = clone()
+        try:
+            value = collaboration_value(2)
+            value["workflow_selection"]["adoption_decision_ref"] = "DEC-9096"
+            set_collaboration(test_root, value)
+            self.assertTrue(
+                any("set before workflow adoption" in item for item in collaboration_findings(test_root))
+            )
+
+            value["workflow_selection"]["status"] = "adopted"
+            value["workflow_selection"]["adoption_decision_ref"] = None
+            set_collaboration(test_root, value)
+            self.assertTrue(
+                any("lacks a resolving accepted" in item for item in collaboration_findings(test_root))
+            )
+
+            write_workflow_decision(test_root)
+            value["workflow_selection"]["adoption_decision_ref"] = "DEC-9096"
+            set_collaboration(test_root, value)
+            self.assertEqual(collaboration_findings(test_root), [])
+            stored = VALIDATOR.load_json(test_root / ".agent/project.json")
+            self.assertIs(stored["collaboration_profile"]["permission_grant"], False)
+            self.assertIs(
+                VALIDATOR.load_json(test_root / ".agent/policy.json")["permission_grant"],
+                False,
+            )
+        finally:
+            temporary.cleanup()
+
+    def test_exact_git_workflow_operation_crosswalk_and_enterprise_exclusion(self) -> None:
+        tools = VALIDATOR.load_json(ROOT / ".agent/tools.json")
+        self.assertEqual(VALIDATOR.check_tool_operation_contract(tools), [])
+        self.assertEqual(VALIDATOR.check_git_workflows(ROOT), [])
+        self.assertEqual(
+            [item["id"] for item in tools["tools"]["git"]["operations"]],
+            list(VALIDATOR.GIT_OPERATION_IDS),
+        )
+        workflows = VALIDATOR.load_json(
+            ROOT / ".agent/workflows/small-team-git.json"
+        )
+        self.assertEqual(
+            workflows["supported_base_workflows"],
+            list(VALIDATOR.SUPPORTED_BASE_WORKFLOWS),
+        )
+        self.assertFalse(
+            set(workflows["workflows"])
+            & set(workflows["excluded_enterprise_workflows"])
+        )
+        self.assertTrue(
+            all(
+                item["review"]["maximum_required_peer_approvals"] <= 1
+                for item in workflows["workflows"].values()
+            )
+        )
+
+    def test_unsafe_git_and_enterprise_workflow_mutations_fail_closed(self) -> None:
+        mutations = (
+            ("pull", "authority_class", "task_scoped", "must remain explicitly prohibited"),
+            ("force_push", "normal_workflow", True, "must remain explicitly prohibited"),
+            (
+                "delete_merged_branch",
+                "authority_class",
+                "destructive_current_authorization",
+                "bounded normal cleanup path",
+            ),
+            (
+                "create_annotated_tag",
+                "authority_class",
+                "task_scoped",
+                "requires separate release authority",
+            ),
+        )
+        for operation_id, field, replacement, expected in mutations:
+            with self.subTest(operation=operation_id):
+                temporary, test_root = clone()
+                try:
+                    path = test_root / ".agent/tools.json"
+                    tools = VALIDATOR.load_json(path)
+                    operation = next(
+                        item
+                        for item in tools["tools"]["git"]["operations"]
+                        if item["id"] == operation_id
+                    )
+                    operation[field] = replacement
+                    write_json(path, tools)
+                    findings = VALIDATOR.check_tool_operation_contract(tools)
+                    self.assertTrue(any(expected in item for item in findings), findings)
+                finally:
+                    temporary.cleanup()
+
+        temporary, test_root = clone()
+        try:
+            path = test_root / ".agent/tools.json"
+            tools = VALIDATOR.load_json(path)
+            force_with_lease = next(
+                item
+                for item in tools["tools"]["git"]["operations"]
+                if item["id"] == "force_push_with_lease"
+            )
+            force_with_lease["safeguards"].remove(
+                "default_branch_history_replacement_is_forbidden"
+            )
+            write_json(path, tools)
+            findings = VALIDATOR.check_tool_operation_contract(tools)
+            self.assertTrue(
+                any("non-default branch authority and lease" in item for item in findings),
+                findings,
+            )
+        finally:
+            temporary.cleanup()
+
+        temporary, test_root = clone()
+        try:
+            path = test_root / ".agent/workflows/small-team-git.json"
+            workflows = VALIDATOR.load_json(path)
+            workflows["workflows"]["solo_direct"]["steps"][0]["operations"].append(
+                "pull"
+            )
+            workflows["workflows"]["gitflow"] = copy.deepcopy(
+                workflows["workflows"]["solo_direct"]
+            )
+            write_json(path, workflows)
+            findings = VALIDATOR.check_git_workflows(test_root)
+            self.assertTrue(any("non-normal operation pull" in item for item in findings))
+            self.assertTrue(any("unknown workflow gitflow" in item for item in findings))
+        finally:
+            temporary.cleanup()
+
+    def test_collaboration_derivation_and_ordinary_check_make_no_network_calls(self) -> None:
+        with mock.patch.object(
+            VALIDATOR.subprocess,
+            "run",
+            side_effect=AssertionError("network or subprocess execution is prohibited"),
+        ):
+            report, errors = VALIDATOR.derive_collaboration_assessment(
+                collaboration_value(1)
+            )
+            self.assertEqual(errors, [])
+            self.assertEqual(report["status"], "recommended")
+            self.assertEqual(VALIDATOR.check(ROOT), [])
 
     def test_origin_versions_and_migration_provenance_are_cross_checked(self) -> None:
         temporary, test_root = clone()
@@ -2646,7 +3142,7 @@ class HarnessValidatorTests(unittest.TestCase):
             )
 
             mutated = json.loads(json.dumps(original))
-            mutated["extensions"][0]["requires_core"] = "^3.0.0"
+            mutated["extensions"][0]["requires_core"] = "^2.0.0"
             write_json(path, mutated)
             self.assertTrue(
                 any(

@@ -1249,6 +1249,162 @@ def validate_v2_project_command(value: Any, location: str) -> dict[str, Any]:
     return command
 
 
+def validate_v2_project_output(project: Any) -> dict[str, Any]:
+    """Validate the historical v2 project contract without mutable v3 schemas."""
+    value = expect_object(project, "$.live.project")
+    require_exact_keys(
+        value,
+        PROJECT_V1_KEYS | {"project_checks"},
+        "$.live.project",
+    )
+    if value["schema_version"] != "harness.project.v2":
+        raise MigrationError(
+            "$.live.project.schema_version: expected harness.project.v2"
+        )
+    identity = expect_object(value["project"], "$.live.project.project")
+    require_exact_keys(identity, PROJECT_IDENTITY_KEYS, "$.live.project.project")
+    for field in ("id", "name"):
+        expect_nonempty_string(identity[field], f"$.live.project.project.{field}")
+    if identity["repository_root"] != ".":
+        raise MigrationError("$.live.project.project.repository_root: must be '.'")
+    if identity["profile"] not in PROFILE_VALUES:
+        raise MigrationError("$.live.project.project.profile: invalid profile")
+    if identity["blueprint_version"] != TO_VERSION:
+        raise MigrationError(
+            f"$.live.project.project.blueprint_version: expected {TO_VERSION}"
+        )
+    if identity["adoption_status"] not in {
+        "not_assessed",
+        "in_progress",
+        "adopted",
+        "superseded",
+    }:
+        raise MigrationError("$.live.project.project.adoption_status: invalid")
+    decision = identity["adoption_decision_ref"]
+    if decision is not None and (
+        not isinstance(decision, str)
+        or not re.fullmatch(r"^DEC-[0-9]{4}$", decision)
+    ):
+        raise MigrationError(
+            "$.live.project.project.adoption_decision_ref: invalid"
+        )
+    if identity["adoption_status"] in {"not_assessed", "in_progress"}:
+        if decision is not None:
+            raise MigrationError(
+                "$.live.project.project: pre-adoption status requires a null "
+                "adoption decision"
+            )
+    elif decision is None:
+        raise MigrationError(
+            "$.live.project.project: adopted/superseded status requires a decision"
+        )
+
+    paths = expect_object(value["paths"], "$.live.project.paths")
+    require_exact_keys(paths, PROJECT_PATH_KEYS, "$.live.project.paths")
+    for field in ("source", "tests", "generated", "instruction_roots"):
+        entries = expect_string_array(paths[field], f"$.live.project.paths.{field}")
+        for index, entry in enumerate(entries):
+            validate_portable_relative_path(
+                entry,
+                f"$.live.project.paths.{field}[{index}]",
+            )
+    exclusions = paths["fingerprint_exclusions"]
+    if not isinstance(exclusions, list):
+        raise MigrationError(
+            "$.live.project.paths.fingerprint_exclusions: expected an array"
+        )
+    for index, raw in enumerate(exclusions):
+        location = f"$.live.project.paths.fingerprint_exclusions[{index}]"
+        exclusion = expect_object(raw, location)
+        require_exact_keys(exclusion, {"path", "reason"}, location)
+        validate_portable_relative_path(exclusion["path"], f"{location}.path")
+        expect_nonempty_string(exclusion["reason"], f"{location}.reason")
+
+    commands = expect_object(value["commands"], "$.live.project.commands")
+    require_exact_keys(commands, set(PROJECT_HOOKS), "$.live.project.commands")
+    for hook in PROJECT_HOOKS:
+        validate_v2_project_command(
+            commands[hook],
+            f"$.live.project.commands.{hook}",
+        )
+    if value["project_checks"] != PROJECT_CHECKS_CONTRACT:
+        raise MigrationError("$.live.project.project_checks: v2 contract changed")
+    extensions = expect_object(value["extensions"], "$.live.project.extensions")
+    require_exact_keys(
+        extensions,
+        {"registry", "registry_required_in_profile"},
+        "$.live.project.extensions",
+    )
+    if extensions != {
+        "registry": ".agent/extensions/registry.json",
+        "registry_required_in_profile": "standard_or_higher",
+    }:
+        raise MigrationError("$.live.project.extensions: v2 contract changed")
+    if value["mutable_work_status"] != "prohibited_here":
+        raise MigrationError("$.live.project.mutable_work_status: invalid")
+    return value
+
+
+def validate_v2_validators_output(validators: Any) -> dict[str, Any]:
+    """Validate the historical v2 validator contract without mutable v3 schemas."""
+    value = expect_object(validators, "$.live.validators")
+    require_exact_keys(value, VALIDATORS_KEYS, "$.live.validators")
+    if (
+        value["schema_version"] != "harness.validators.v2"
+        or value["validator_version"] != TO_VERSION
+    ):
+        raise MigrationError(
+            "$.live.validators: expected the frozen 2.0.0 validator contract"
+        )
+    runtime = expect_object(value["runtime"], "$.live.validators.runtime")
+    if runtime != {
+        "executable": "python",
+        "minimum_version": "3.11",
+        "dependencies": "standard_library_only",
+        "bytecode_and_cache_writes": "prohibited_for_check",
+    }:
+        raise MigrationError("$.live.validators.runtime: v2 runtime contract changed")
+    commands = expect_object(value["commands"], "$.live.validators.commands")
+    require_exact_keys(
+        commands,
+        set(V2_FIXED_VALIDATOR_COMMANDS) | {"refresh"},
+        "$.live.validators.commands",
+    )
+    for name, expected in V2_FIXED_VALIDATOR_COMMANDS.items():
+        actual = validate_validator_command(
+            commands[name],
+            f"$.live.validators.commands.{name}",
+        )
+        if actual != expected:
+            raise MigrationError(
+                f"$.live.validators.commands.{name}: v2 command changed"
+            )
+    refresh = validate_validator_command(
+        commands["refresh"],
+        "$.live.validators.commands.refresh",
+    )
+    if refresh["run"] != "python -B .agent/scripts/refresh.py --refresh":
+        raise MigrationError(
+            "$.live.validators.commands.refresh.run: v2 command changed"
+        )
+    if not isinstance(refresh["writes"], list):
+        raise MigrationError(
+            "$.live.validators.commands.refresh.writes: expected a path array"
+        )
+    for index, item in enumerate(refresh["writes"]):
+        validate_portable_relative_path(
+            item,
+            f"$.live.validators.commands.refresh.writes[{index}]",
+        )
+    if value["required_core_checks"] != V2_REQUIRED_CORE_CHECKS:
+        raise MigrationError(
+            "$.live.validators.required_core_checks: v2 contract changed"
+        )
+    if value["limitations"] != VALIDATOR_LIMITATIONS:
+        raise MigrationError("$.live.validators.limitations: v2 contract changed")
+    return value
+
+
 def validate_migration_event(event: Any, origin_profile: str) -> dict[str, Any]:
     value = expect_object(event, "$.migration")
     require_exact_keys(value, MIGRATION_KEYS, "$.migration")
@@ -1988,6 +2144,10 @@ def validate_migrated_live(live: Any) -> None:
     dossier_schema = load_current_schema("dossier-records.schema.json")
     kernel_schema = load_current_schema("harness-kernel.schema.json")
     origin_schema = load_current_schema("project-blueprint-origin.schema.json")
+    # Project and validator records are intentionally absent from the current
+    # kernel-schema checks below. Their historical v2 contracts are frozen in
+    # validate_v2_project_output and validate_v2_validators_output so a later
+    # breaking kernel release cannot retroactively invalidate this migration.
     errors: list[str] = []
     errors.extend(
         validate_schema(
@@ -2014,22 +2174,6 @@ def validate_migrated_live(live: Any) -> None:
             root_schema=dossier_schema,
         )
     )
-    errors.extend(
-        validate_schema(
-            value["project"],
-            {"$ref": "#/$defs/project"},
-            "$.live.project",
-            root_schema=kernel_schema,
-        )
-    )
-    errors.extend(
-        validate_schema(
-            value["validators"],
-            {"$ref": "#/$defs/validators"},
-            "$.live.validators",
-            root_schema=kernel_schema,
-        )
-    )
     errors.extend(validate_schema(value["origin"], origin_schema, "$.live.origin"))
     if errors:
         raise MigrationError("migrated records fail current schemas: " + "; ".join(errors))
@@ -2042,20 +2186,8 @@ def validate_migrated_live(live: Any) -> None:
         raise MigrationError("$.live.origin: mixed live v1/v2 authority is prohibited")
     if value["plan"].get("schema_version") != "project.dossier.plan.v2":
         raise MigrationError("$.live.plan: mixed live v1/v2 authority is prohibited")
-    project = expect_object(value["project"], "$.live.project")
-    if (
-        project.get("schema_version") != "harness.project.v2"
-        or project.get("project", {}).get("blueprint_version") != TO_VERSION
-    ):
-        raise MigrationError("$.live.project: mixed live v1/v2 authority is prohibited")
-    validators = expect_object(value["validators"], "$.live.validators")
-    if (
-        validators.get("schema_version") != "harness.validators.v2"
-        or validators.get("validator_version") != TO_VERSION
-    ):
-        raise MigrationError(
-            "$.live.validators: mixed live v1/v2 authority is prohibited"
-        )
+    project = validate_v2_project_output(value["project"])
+    validators = validate_v2_validators_output(value["validators"])
     if any(task.get("schema_version") != "harness.task.v2" for task in value["tasks"]):
         raise MigrationError("$.live.tasks: mixed live v1/v2 authority is prohibited")
     identity = expect_object(project["project"], "$.live.project.project")
@@ -2064,70 +2196,6 @@ def validate_migrated_live(live: Any) -> None:
         or identity["profile"] != origin["profile"]
     ):
         raise MigrationError("$.live: project and origin identity/profile differ")
-    if identity["adoption_status"] in {"not_assessed", "in_progress"}:
-        if identity["adoption_decision_ref"] is not None:
-            raise MigrationError(
-                "$.live.project.project: pre-adoption status requires a null "
-                "adoption decision"
-            )
-    elif identity["adoption_decision_ref"] is None:
-        raise MigrationError(
-            "$.live.project.project: adopted/superseded status requires a decision"
-        )
-    if project["project_checks"] != PROJECT_CHECKS_CONTRACT:
-        raise MigrationError("$.live.project.project_checks: v2 contract changed")
-    commands = expect_object(project["commands"], "$.live.project.commands")
-    require_exact_keys(commands, set(PROJECT_HOOKS), "$.live.project.commands")
-    for hook in PROJECT_HOOKS:
-        validate_v2_project_command(
-            commands[hook], f"$.live.project.commands.{hook}"
-        )
-
-    runtime = expect_object(validators["runtime"], "$.live.validators.runtime")
-    if runtime != {
-        "executable": "python",
-        "minimum_version": "3.11",
-        "dependencies": "standard_library_only",
-        "bytecode_and_cache_writes": "prohibited_for_check",
-    }:
-        raise MigrationError("$.live.validators.runtime: v2 runtime contract changed")
-    validator_commands = expect_object(
-        validators["commands"], "$.live.validators.commands"
-    )
-    require_exact_keys(
-        validator_commands,
-        set(V2_FIXED_VALIDATOR_COMMANDS) | {"refresh"},
-        "$.live.validators.commands",
-    )
-    for name, expected in V2_FIXED_VALIDATOR_COMMANDS.items():
-        actual = validate_validator_command(
-            validator_commands[name], f"$.live.validators.commands.{name}"
-        )
-        if actual != expected:
-            raise MigrationError(
-                f"$.live.validators.commands.{name}: v2 command changed"
-            )
-    refresh = validate_validator_command(
-        validator_commands["refresh"], "$.live.validators.commands.refresh"
-    )
-    if refresh["run"] != "python -B .agent/scripts/refresh.py --refresh":
-        raise MigrationError(
-            "$.live.validators.commands.refresh.run: v2 command changed"
-        )
-    if not isinstance(refresh["writes"], list):
-        raise MigrationError(
-            "$.live.validators.commands.refresh.writes: expected a path array"
-        )
-    for index, item in enumerate(refresh["writes"]):
-        validate_portable_relative_path(
-            item, f"$.live.validators.commands.refresh.writes[{index}]"
-        )
-    if validators["required_core_checks"] != V2_REQUIRED_CORE_CHECKS:
-        raise MigrationError(
-            "$.live.validators.required_core_checks: v2 contract changed"
-        )
-    if validators["limitations"] != VALIDATOR_LIMITATIONS:
-        raise MigrationError("$.live.validators.limitations: v2 contract changed")
     for index, task in enumerate(value["tasks"]):
         if isinstance(task, dict):
             validate_task_transition(task, V2_LIFECYCLE, f"$.live.tasks[{index}]")

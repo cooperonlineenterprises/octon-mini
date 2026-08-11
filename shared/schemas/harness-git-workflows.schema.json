@@ -1,0 +1,266 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://project-blueprint.local/schemas/harness-git-workflows.schema.json",
+  "title": "Provider-neutral Small-team Git Workflows",
+  "description": "Closed workflow portfolio for one to five write-capable humans. It is non-authorizing and has no enterprise fallback.",
+  "$defs": {
+    "operation_ids": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_]*$"
+      }
+    },
+    "step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "operations"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "operations": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          }
+        }
+      }
+    },
+    "review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "maximum_required_peer_approvals",
+        "when_capacity_absent"
+      ],
+      "properties": {
+        "mode": {
+          "enum": [
+            "none",
+            "self_review_with_limitations",
+            "one_peer_when_available"
+          ]
+        },
+        "maximum_required_peer_approvals": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "when_capacity_absent": {
+          "enum": [
+            "not_applicable",
+            "block"
+          ]
+        }
+      }
+    },
+    "workflow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "team_band",
+        "branch_strategy",
+        "pull_request",
+        "steps",
+        "review",
+        "integration_methods",
+        "cleanup_operations",
+        "risk_controls_are_additive"
+      ],
+      "properties": {
+        "team_band": {
+          "enum": [
+            "solo",
+            "pair",
+            "tiny"
+          ]
+        },
+        "branch_strategy": {
+          "enum": [
+            "bounded_default_branch",
+            "short_lived_task_branch"
+          ]
+        },
+        "pull_request": {
+          "enum": [
+            "not_required",
+            "optional_self_pr",
+            "required"
+          ]
+        },
+        "steps": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/step"
+          }
+        },
+        "review": {
+          "$ref": "#/$defs/review"
+        },
+        "integration_methods": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "not_applicable",
+              "merge_commit",
+              "squash_merge",
+              "rebase_then_fast_forward"
+            ]
+          }
+        },
+        "cleanup_operations": {
+          "$ref": "#/$defs/operation_ids"
+        },
+        "risk_controls_are_additive": {
+          "const": true
+        }
+      }
+    }
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "permission_grant",
+    "provider_neutral",
+    "operation_catalog_ref",
+    "supported_base_workflows",
+    "supported_modifiers",
+    "maximum_supported_write_capable_humans",
+    "workflows",
+    "modifiers",
+    "unsupported_state",
+    "excluded_enterprise_workflows"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "harness.git-workflows.v1"
+    },
+    "permission_grant": {
+      "const": false
+    },
+    "provider_neutral": {
+      "const": true
+    },
+    "operation_catalog_ref": {
+      "const": ".agent/tools.json"
+    },
+    "supported_base_workflows": {
+      "const": [
+        "solo_direct",
+        "solo_hybrid",
+        "pair_pr",
+        "tiny_pr"
+      ]
+    },
+    "supported_modifiers": {
+      "const": [
+        "concurrent_work"
+      ]
+    },
+    "maximum_supported_write_capable_humans": {
+      "const": 5
+    },
+    "workflows": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "solo_direct",
+        "solo_hybrid",
+        "pair_pr",
+        "tiny_pr"
+      ],
+      "properties": {
+        "solo_direct": {
+          "$ref": "#/$defs/workflow"
+        },
+        "solo_hybrid": {
+          "$ref": "#/$defs/workflow"
+        },
+        "pair_pr": {
+          "$ref": "#/$defs/workflow"
+        },
+        "tiny_pr": {
+          "$ref": "#/$defs/workflow"
+        }
+      }
+    },
+    "modifiers": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "concurrent_work"
+      ],
+      "properties": {
+        "concurrent_work": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "requirements",
+            "operations"
+          ],
+          "properties": {
+            "requirements": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "operations": {
+              "$ref": "#/$defs/operation_ids"
+            }
+          }
+        }
+      }
+    },
+    "unsupported_state": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "result",
+        "threshold",
+        "enterprise_fallback"
+      ],
+      "properties": {
+        "result": {
+          "const": "unsupported_team_size"
+        },
+        "threshold": {
+          "const": 5
+        },
+        "enterprise_fallback": {
+          "const": false
+        }
+      }
+    },
+    "excluded_enterprise_workflows": {
+      "const": [
+        "gitflow",
+        "merge_queue",
+        "release_train",
+        "stacked_pr_dependency_train",
+        "fork_first_internal",
+        "multi_level_codeowners_approval",
+        "multiple_mandatory_approval_stages",
+        "dedicated_release_manager_handoff",
+        "organization_wide_ruleset_orchestration",
+        "multi_environment_promotion_pipeline",
+        "enterprise_issue_or_portfolio_governance"
+      ]
+    }
+  }
+}

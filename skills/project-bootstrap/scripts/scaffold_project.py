@@ -18,8 +18,8 @@ from datetime import date
 from pathlib import Path, PurePath, PurePosixPath
 
 
-GENERATOR_VERSION = "2.0.0"
-KERNEL_VERSION = "2.0.0"
+GENERATOR_VERSION = "3.0.0"
+KERNEL_VERSION = "3.0.0"
 PROFILE_LAYERS = {
     "minimal": ("core",),
     "standard": ("core", "standard"),
@@ -410,9 +410,9 @@ def configure_high_assurance_extension(stage: Path) -> None:
         {
             "id": "sample-restriction",
             "enabled": False,
-            "version": "2.0.0",
+            "version": "3.0.0",
             "path": ".agent/extensions/sample-restriction",
-            "requires_core": "^2.0.0",
+            "requires_core": "^3.0.0",
             "config": ".agent/extensions/sample-restriction/config.json",
             "validator": ".agent/extensions/sample-restriction/validate.py",
             "owner": "unassigned",

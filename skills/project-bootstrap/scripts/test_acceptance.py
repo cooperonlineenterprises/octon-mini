@@ -6,6 +6,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import runpy
 import shutil
 import subprocess
@@ -25,8 +26,95 @@ ROOT = (
 SCAFFOLDER = SKILL_ROOT / "scripts/scaffold_project.py"
 PLANNER = SKILL_ROOT / "scripts/plan_adoption.py"
 INSTALLER = SKILL_ROOT / "scripts/install_skill.py"
-MIGRATION_TEST = SKILL_ROOT / "scripts/test_migration_1_0_1_to_2_0_0.py"
+MIGRATION_TESTS = (
+    SKILL_ROOT / "scripts/test_migration_1_0_1_to_2_0_0.py",
+    SKILL_ROOT / "scripts/test_migration_2_0_0_to_3_0_0.py",
+)
 PROFILES = ("minimal", "standard", "high-assurance")
+SUPPORTED_WORKFLOWS = ("solo_direct", "solo_hybrid", "pair_pr", "tiny_pr")
+GIT_OPERATION_IDS = (
+    "status",
+    "diff",
+    "show_current_revision",
+    "list_branches",
+    "list_worktrees",
+    "inspect_remote_configuration",
+    "list_tags",
+    "compare_revisions",
+    "create_branch",
+    "switch_branch",
+    "stage_paths",
+    "unstage_paths",
+    "create_worktree",
+    "remove_clean_worktree",
+    "delete_merged_branch",
+    "create_commit",
+    "fast_forward_branch",
+    "merge_branch",
+    "abort_merge",
+    "rebase_branch",
+    "continue_rebase",
+    "abort_rebase",
+    "revert_commit",
+    "fetch_remote",
+    "push_branch",
+    "delete_remote_branch",
+    "create_annotated_tag",
+    "push_tag",
+    "force_push_with_lease",
+    "reset_hard",
+    "clean_untracked",
+    "discard_worktree_changes",
+    "delete_unmerged_branch",
+    "remove_dirty_worktree",
+    "delete_or_move_tag",
+    "pull",
+    "force_push",
+)
+HOSTED_OPERATION_IDS = (
+    "observe_change_checks",
+    "open_pull_request",
+    "submit_pull_request_review",
+    "merge_pull_request",
+)
+COLLABORATION_BASELINE = {
+    "schema_version": "harness.collaboration-profile.v1",
+    "permission_grant": False,
+    "assessment_status": "not_assessed",
+    "confidence": "unknown",
+    "declared_write_capable_humans": None,
+    "observed_repository_access": {
+        "write_capable_humans": None,
+        "read_only_humans": None,
+        "bots_or_automation": None,
+    },
+    "active_contributors": {
+        "human_count": None,
+        "bots_or_automation_count": None,
+        "window_days": None,
+    },
+    "independent_review_capacity": None,
+    "expected_concurrent_repository_writers": {
+        "humans": None,
+        "agents_or_automation": None,
+    },
+    "external_contribution_mode": "unknown",
+    "solo_integration_preference": "unknown",
+    "evidence": [],
+    "assessed_at": None,
+    "reassess_after": None,
+    "conflicting_signals": [],
+    "limitations": ["generated_unassessed_baseline"],
+    "team_band": "unknown",
+    "workflow_selection": {
+        "status": "not_assessed",
+        "base_workflow": None,
+        "modifiers": [],
+        "review_mode": "not_assessed",
+        "integration_method": None,
+        "adoption_decision_ref": None,
+    },
+}
 PRODUCTION_EXTENSIONS = {
     "operations-observability",
     "security-supply-chain",
@@ -117,6 +205,19 @@ def check_project(target: Path) -> subprocess.CompletedProcess[str]:
             "-B",
             ".agent/scripts/validate.py",
             "--check",
+        ],
+        target,
+    )
+
+
+def assess_collaboration(target: Path) -> subprocess.CompletedProcess[str]:
+    return run(
+        [
+            sys.executable,
+            "-I",
+            "-B",
+            ".agent/scripts/validate.py",
+            "--assess-collaboration",
         ],
         target,
     )
@@ -277,14 +378,57 @@ def main() -> int:
         "scaffolder path rendering is not deterministic across host platforms",
         failures,
     )
-    migration_result = run(
-        [sys.executable, "-B", str(MIGRATION_TEST)],
-        ROOT,
+    migration_labels = (
+        "1.0.1 to 2.0.0",
+        "2.0.0 to 3.0.0",
+    )
+    for migration_test, migration_label in zip(
+        MIGRATION_TESTS,
+        migration_labels,
+        strict=True,
+    ):
+        migration_result = run(
+            [sys.executable, "-B", str(migration_test)],
+            ROOT,
+        )
+        require(
+            migration_result.returncode == 0,
+            f"executable {migration_label} migration fixtures failed: "
+            f"{migration_result.stderr or migration_result.stdout}",
+            failures,
+        )
+
+    ci_workflow = (ROOT / ".github/workflows/validate.yml").read_text(
+        encoding="utf-8"
+    )
+    ci_push_block = re.search(
+        r"(?ms)^  push:\n(?P<body>.*?)(?=^  [A-Za-z_][^:\n]*:|\Z)",
+        ci_workflow,
     )
     require(
-        migration_result.returncode == 0,
-        "executable 1.0.1 to 2.0.0 migration fixtures failed: "
-        f"{migration_result.stderr or migration_result.stdout}",
+        ci_push_block is not None
+        and ci_push_block.group("body") == "    branches:\n      - main\n"
+        and re.search(r"(?m)^  pull_request:\s*$", ci_workflow) is not None,
+        "source CI does not limit push validation to main while retaining PR validation",
+        failures,
+    )
+    require(
+        (
+            "concurrency:\n"
+            "  group: ${{ github.workflow }}-${{ "
+            "github.event.pull_request.number || github.ref }}\n"
+            "  cancel-in-progress: ${{ github.event_name == 'pull_request' }}"
+        ) in ci_workflow,
+        "source CI concurrency can discard required non-PR release evidence",
+        failures,
+    )
+    require(
+        "permissions:\n  contents: read" in ci_workflow
+        and "actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803"
+        in ci_workflow
+        and "actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1"
+        in ci_workflow,
+        "source CI weakened read-only permissions or pinned action revisions",
         failures,
     )
     with tempfile.TemporaryDirectory(prefix="project-blueprint-acceptance-") as temp:
@@ -351,6 +495,156 @@ def main() -> int:
                     for command in project_json["commands"].values()
                 ),
                 f"{profile} generation fabricated project adoption or command assessment",
+                failures,
+            )
+            require(
+                project_json["project"]["profile"] == profile
+                and project_json["collaboration_profile"]
+                == COLLABORATION_BASELINE,
+                f"{profile} generation coupled assurance selection to team size or "
+                "fabricated collaboration observations",
+                failures,
+            )
+            workflow_paths = (
+                target / ".agent/workflows/README.md",
+                target / ".agent/workflows/github-adapter.md",
+                target / ".agent/workflows/small-team-git.json",
+                target / ".agent/templates/pull-request.md",
+            )
+            require(
+                all(path.is_file() for path in workflow_paths),
+                f"{profile} generation lacks a complete small-team workflow package",
+                failures,
+            )
+            tools_json = json.loads(
+                (target / ".agent/tools.json").read_text(encoding="utf-8")
+            )
+            workflow_json = json.loads(
+                (target / ".agent/workflows/small-team-git.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            git_ids = tuple(
+                operation["id"]
+                for operation in tools_json["tools"]["git"]["operations"]
+            )
+            hosted_ids = tuple(
+                operation["id"]
+                for operation in tools_json["tools"]["hosted_change"]["operations"]
+            )
+            require(
+                tools_json["schema_version"] == "harness.tools.v2"
+                and git_ids == GIT_OPERATION_IDS
+                and hosted_ids == HOSTED_OPERATION_IDS
+                and tools_json["tools"]["git"]["unknown_operations"] == "deny"
+                and tools_json["tools"]["hosted_change"]["unknown_operations"]
+                == "deny",
+                f"{profile} generated an incomplete or open Git operation vocabulary",
+                failures,
+            )
+            operation_catalog = set(git_ids) | set(hosted_ids)
+            referenced_operations = {
+                operation
+                for workflow in workflow_json["workflows"].values()
+                for step in workflow["steps"]
+                for operation in step["operations"]
+            }
+            referenced_operations.update(
+                operation
+                for workflow in workflow_json["workflows"].values()
+                for operation in workflow["cleanup_operations"]
+            )
+            referenced_operations.update(
+                workflow_json["modifiers"]["concurrent_work"]["operations"]
+            )
+            require(
+                tuple(workflow_json["supported_base_workflows"])
+                == SUPPORTED_WORKFLOWS
+                and tuple(workflow_json["workflows"]) == SUPPORTED_WORKFLOWS
+                and workflow_json["supported_modifiers"] == ["concurrent_work"]
+                and workflow_json["maximum_supported_write_capable_humans"] == 5
+                and workflow_json["unsupported_state"]
+                == {
+                    "result": "unsupported_team_size",
+                    "threshold": 5,
+                    "enterprise_fallback": False,
+                }
+                and referenced_operations <= operation_catalog
+                and not ({"pull", "force_push"} & referenced_operations),
+                f"{profile} workflow portfolio is incomplete or references unsafe operations",
+                failures,
+            )
+            require(
+                {
+                    "gitflow",
+                    "merge_queue",
+                    "release_train",
+                    "stacked_pr_dependency_train",
+                    "fork_first_internal",
+                    "multi_level_codeowners_approval",
+                    "multiple_mandatory_approval_stages",
+                    "dedicated_release_manager_handoff",
+                    "organization_wide_ruleset_orchestration",
+                    "multi_environment_promotion_pipeline",
+                    "enterprise_issue_or_portfolio_governance",
+                }
+                == set(workflow_json["excluded_enterprise_workflows"]),
+                f"{profile} workflow portfolio failed to exclude enterprise workflows",
+                failures,
+            )
+            assessor_before = snapshot(target)
+            assessment_result = assess_collaboration(target)
+            assessor_after = snapshot(target)
+            try:
+                assessment_report = json.loads(assessment_result.stdout)
+            except json.JSONDecodeError:
+                assessment_report = {}
+            require(
+                assessment_result.returncode == 0
+                and assessment_report.get("permission_grant") is False
+                and assessment_report.get("status") == "not_assessed"
+                and assessment_report.get("team_band") == "unknown"
+                and assessment_report.get("recommendation", {}).get("base_workflow")
+                is None
+                and "grants no permission"
+                in assessment_report.get("non_authorization", ""),
+                f"{profile} collaboration assessor selected or authorized a workflow: "
+                f"{assessment_result.stderr or assessment_result.stdout}",
+                failures,
+            )
+            require(
+                assessor_before == assessor_after,
+                f"{profile} collaboration assessment wrote project state",
+                failures,
+            )
+            require(
+                not (target / ".github").exists(),
+                f"{profile} generation fabricated adopted GitHub configuration",
+                failures,
+            )
+            leaked_paths: list[str] = []
+            for generated_path in target.rglob("*"):
+                if not generated_path.is_file():
+                    continue
+                try:
+                    generated_text = generated_path.read_text(
+                        encoding="utf-8"
+                    ).casefold()
+                except UnicodeDecodeError:
+                    continue
+                if any(
+                    marker in generated_text
+                    for marker in (
+                        "jamesryancooper",
+                        "cooperonlineenterprises",
+                        "github.com/cooperonlineenterprises/project-blueprint",
+                    )
+                ):
+                    leaked_paths.append(generated_path.relative_to(target).as_posix())
+            require(
+                not leaked_paths,
+                f"{profile} generated current-repository identities or hosted facts: "
+                + ", ".join(leaked_paths),
                 failures,
             )
             extension_registry_path = target / ".agent/extensions/registry.json"
@@ -1224,16 +1518,17 @@ def main() -> int:
         "add, rename, omission, and refusal paths"
     )
     print(
-        "- migration: executable idempotence, exact rollback evidence, and "
-        "fail-closed ambiguity coverage"
+        "- migration: both version transitions preserve executable idempotence, "
+        "exact rollback evidence, and fail-closed ambiguity coverage"
     )
     print(
         "- adoption: read-only planning/checks plus separately explicit, "
         "fingerprint-bound project-check evidence"
     )
     print(
-        "- validator: adversarial authority, dependency readiness/frontier, "
-        "lifecycle, reference, secret, extension, and freshness checks"
+        "- validator: adversarial authority, collaboration classification, "
+        "small-team Git workflows, dependency readiness/frontier, lifecycle, "
+        "reference, secret, extension, and freshness checks"
     )
     print(
         "- production controls: disabled/unassessed defaults, strict fixture "

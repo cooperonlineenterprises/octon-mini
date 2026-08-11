@@ -1,6 +1,6 @@
 {
-  "schema_version": "harness.validators.v2",
-  "validator_version": "2.0.0",
+  "schema_version": "harness.validators.v3",
+  "validator_version": "3.0.0",
   "runtime": {
     "executable": "python",
     "minimum_version": "3.11",
@@ -11,6 +11,7 @@
     "bootstrap": {"run": "python --version", "writes": []},
     "check": {"run": "python -B .agent/scripts/validate.py --check", "writes": []},
     "ready_frontier": {"run": "python -B .agent/scripts/validate.py --ready-frontier", "writes": []},
+    "collaboration_assessment": {"run": "python -B .agent/scripts/validate.py --assess-collaboration", "writes": []},
     "test": {"run": "python -B -m unittest discover -s .agent/tests -p \"test_*.py\"", "writes": []},
     "project_checks": {
       "run": "python -B .agent/scripts/run_project_checks.py --write-evidence",
@@ -30,6 +31,8 @@
     "authority_and_nested_instruction_invariants",
     "identifiers_references_and_lifecycles",
     "dependency_readiness_and_ready_frontier",
+    "collaboration_topology_and_workflow_selection",
+    "small_team_git_workflow_and_operation_contract",
     "project_command_assessment_and_current_evidence",
     "dossier_catalog_path_authority_and_traceability",
     "extension_compatibility_confinement_and_validator_protocol",

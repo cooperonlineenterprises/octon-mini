@@ -17,7 +17,7 @@
         ".agent",
         ".agents"
       ],
-      "kernel_version": "2.0.0",
+      "kernel_version": "3.0.0",
       "kernel_files": [
         ".agent/policy.json",
         ".agent/context.json",
@@ -27,6 +27,14 @@
         ".agent/validators.json",
         ".agent/project.json"
       ],
+      "collaboration_workflow_file": ".agent/workflows/small-team-git.json",
+      "supported_base_workflows": [
+        "solo_direct",
+        "solo_hybrid",
+        "pair_pr",
+        "tiny_pr"
+      ],
+      "maximum_supported_write_capable_humans": 5,
       "extension_api": "harness.extension.v1",
       "canonical_structured_format": "strict_json"
     }

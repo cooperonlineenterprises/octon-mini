@@ -3,9 +3,63 @@
 All notable blueprint contract changes are recorded here. Project-specific
 snapshots do not upgrade automatically.
 
+## 3.0.0 — Unreleased
+
+Small-team Git and provider-neutral change-integration workflows for one to
+five write-capable humans.
+
+This unreleased source change also records accepted source-only decisions
+`SRC-DEC-0001` and `SRC-DEC-0002`. They do not become generated-project
+defaults and create no permission.
+
+### Added
+
+- a privacy-minimizing, evidence-dated collaboration profile that separates
+  declared authority, observed access, activity, review capacity, concurrent
+  writers, and external contribution mode without storing identities or
+  granting permission;
+- closed `solo_direct`, `solo_hybrid`, `pair_pr`, and `tiny_pr` workflow
+  contracts plus a cross-profile `concurrent_work` modifier and an explicit
+  `unsupported_team_size` result above five write-capable humans;
+- a provider-neutral semantic Git and hosted-change operation catalog with
+  distinct effect and authority classes, safe cleanup, conflict, tag, and
+  force-with-lease boundaries, and fail-closed unknown operations;
+- read-only collaboration assessment reporting, generated mutation coverage,
+  and all-profile acceptance tests for topology, freshness, non-authorization,
+  workflow completeness, and enterprise-workflow exclusion; and
+- an executable, idempotent `2.0.0` to `3.0.0` reference migration that seeds
+  an unknown collaboration state without inferring people or adopting a
+  workflow.
+
+### Changed
+
+- assurance-profile selection now depends on project risk and control needs,
+  not contributor count; team size selects only the base collaboration
+  workflow;
+- generated projects include the same complete small-team portfolio in every
+  profile while GitHub-specific adoption remains optional and inactive;
+- source CI validates feature work through `pull_request` and validates
+  `push` only on `main`, with cancellation limited to superseded PR runs; and
+- the blueprint, generator, harness kernel, project, tools, and validator
+  contracts advance to their 3.0.0/v3-or-v2 forms.
+
+### Migration note
+
+This is a breaking change. Generated 2.0.0 snapshots remain independent.
+Project-specific migration must preserve existing authority and decisions,
+reassess collaboration from current project-owned evidence, and adopt a base
+workflow through a separate accepted decision. Structural migration alone
+does not establish readiness, permission, or a suitable workflow.
+
 ## 2.0.0 — 2026-08-10
 
 Dependency-gated development progression for the domain-neutral kernel.
+
+Under accepted source decision `SRC-DEC-0002`, `2.0.0` is a completed
+historical release. Its selected but still-uncreated future annotated
+`v2.0.0` tag target is exactly
+`ef8f352ca32a7fbdf1131726263ff545cdd8b08a`. This changelog does not claim
+that the tag already exists.
 
 ### Added
 
@@ -61,7 +115,13 @@ plan, project-command, or evidence files over live project authority. The
 reference migrator validates a closed representative bundle; it is not an
 in-place target-project upgrader and does not run project commands.
 
-## 1.0.1 — 2026-07-27
+## 1.0.1 — 2026-08-10
+
+Historical status correction under `SRC-DEC-0002`: this version was committed
+as `d94550a8acf57841eac9458897410391722beb4b` on 2026-08-10 and is retained
+as an untagged, superseded source milestone rather than a completed tagged
+release. Its content and migration compatibility remain supported; no
+`v1.0.1` tag is to be created.
 
 Release-blocker remediation for the stable domain-neutral kernel.
 

@@ -19,6 +19,8 @@ Generation transfers structure, schemas, vocabulary, and validation patterns.
 It does not transfer:
 
 - project facts or implementation status;
+- collaborator identities, maintainer counts, access observations, activity,
+  reviewer capacity, or hosted repository settings;
 - decisions or approvals;
 - permissions or standing authorization;
 - legal, privacy, security, or compliance conclusions;
@@ -107,10 +109,13 @@ Unresolved or unknown template variables are validation failures.
 
 Every profile generates the seven-file governance kernel, compact current
 state, task and decision templates, a read-only validator, and positive and
-negative tests. It also generates a project-check evidence store and an
-explicit project-check writer. The validator exposes both a full read-only
-check and a read-only ready-frontier derivation; neither command executes
-project hooks. Larger profiles add operational records, project-extension
+negative tests. It also generates a project-check evidence store, an explicit
+project-check writer, an unassessed privacy-minimized collaboration profile,
+and the same provider-neutral small-team Git workflow portfolio. The validator
+exposes a full read-only check, a read-only ready-frontier derivation, and a
+separately invoked read-only collaboration assessment; none executes project
+hooks. The collaboration assessment reads stored aggregate observations and
+writes nothing. Larger profiles add operational records, project-extension
 contracts, capability packages, and generated-integrity tooling.
 
 The selected profile also defines a closed minimum operational-file
@@ -142,6 +147,12 @@ The scaffold validator must:
   transitions, plan and task acyclicity, dependency-gated readiness,
   reciprocal plan/task links, structured blockers, dossier traceability,
   nested instructions, extension compatibility, and path authority;
+- validate collaboration evidence, freshness, confidence, team-band and
+  workflow-selection coherence without counting read-only people, bots,
+  automation, or activity as write authority;
+- reject unknown, stale, conflicting, no-writer, and over-five workflow
+  selection failures safely, reject enterprise workflow identifiers, and
+  require every workflow operation to resolve to the closed tool catalog;
 - derive an unordered ready frontier only from completed hard dependencies,
   passed or validly waived gates, resolved structured blockers, reciprocal
   links, and populated readiness contracts;
@@ -155,6 +166,43 @@ The generator may create initial empty stores and unassessed configuration. It
 must not create an accepted decision, completed task, passing evidence record,
 human approval, or readiness certification. A generated empty ready frontier
 does not establish project adoption or permission.
+
+## Collaboration and Git workflow rules
+
+Every generated profile begins with `assessment_status: not_assessed`, unknown
+confidence and team band, null counts and times, empty evidence/conflicts, and
+no workflow. This is the only transferable collaboration state. Templates
+never contain current-blueprint collaborator facts, project identities,
+reviewers, providers, hosted settings, or accepted workflow decisions.
+
+The supported human bands are exactly one (`solo`), two (`pair`), and three to
+five (`tiny`) write-capable humans. Zero is blocked; more than five is
+`unsupported_team_size` and has no enterprise fallback. Bots, automation,
+read-only access, and recent activity do not change the human band. Expected
+simultaneous human or agent work may add `concurrent_work` without changing
+human count.
+
+The base portfolio is exactly `solo_direct`, `solo_hybrid`, `pair_pr`, and
+`tiny_pr`. It is provider-neutral, non-authorizing, and available in every
+profile. Unknown, expired, or conflicting evidence cannot silently select a
+workflow. Adoption requires a resolving accepted project-owned decision, but
+that decision grants no local mutation, network, publication, review,
+integration, release, or destructive authority. Project risks may add controls
+without changing the team band or automatically selecting an assurance
+profile.
+
+GitHub is an optional integration boundary. Generation does not imply an
+account, provider, credential, reviewer, branch protection, required check,
+environment, release, successful CI result, or hosted permission. Any hosted
+observation is gathered separately through an explicit read-only network
+action; any push or PR publication remains explicitly authorized external
+mutation.
+
+The generated portfolio excludes GitFlow, merge queues, release trains,
+stacked-PR dependency trains, fork-first internal contribution, multi-level
+CODEOWNERS approval, multiple mandatory approval stages, dedicated release
+manager handoffs, organization-wide ruleset orchestration, multi-environment
+promotion pipelines, and enterprise issue or portfolio governance.
 
 ## Project-command and adoption evidence rules
 

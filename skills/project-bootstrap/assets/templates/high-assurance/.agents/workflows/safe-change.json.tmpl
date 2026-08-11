@@ -5,7 +5,7 @@
   "adoption_status": "generated_unadopted_baseline",
   "adoption_decision_ref": null,
   "permission_grant": false,
-  "purpose": "Deliver one authorized repository-local change with reviewable evidence.",
+  "purpose": "Deliver one authorized repository-local change with reviewable evidence while applying any separately adopted small-team Git workflow.",
   "scope": "current_task",
   "authority": {
     "source": "current_task_and_applicable_instructions",
@@ -23,7 +23,9 @@
     "optional": [
       "accepted_decision_refs",
       "current_state_refs",
-      "coordination_lease"
+      "coordination_lease",
+      "adopted_small_team_git_workflow",
+      "concurrent_work_modifier"
     ]
   },
   "outputs": {
@@ -71,7 +73,8 @@
       "actions": [
         "inspect_repository",
         "classify_side_effects",
-        "create_or_select_task"
+        "create_or_select_task",
+        "confirm_collaboration_workflow_is_adopted_or_remains_unselected"
       ],
       "agent_ref": null,
       "gate": "authority_and_dependency_readiness_confirmed",
@@ -87,7 +90,8 @@
       ],
       "actions": [
         "make_bounded_changes",
-        "update_tests"
+        "update_tests",
+        "follow_adopted_small_team_git_workflow_when_applicable"
       ],
       "agent_ref": null,
       "gate": null,
@@ -103,7 +107,8 @@
       ],
       "actions": [
         "run_scoped_checks",
-        "run_harness_check"
+        "run_harness_check",
+        "verify_git_workflow_state_without_inferring_hosted_controls"
       ],
       "agent_ref": null,
       "gate": null,
@@ -133,7 +138,8 @@
       "actions": [
         "record_evidence",
         "update_current_state",
-        "close_task"
+        "close_task",
+        "record_actual_git_and_hosted_effects"
       ],
       "agent_ref": null,
       "gate": "acceptance_criteria_met",
@@ -185,7 +191,10 @@
     "execution_starts_only_from_dependency_ready_frontier",
     "dates_never_satisfy_dependencies_or_select_priority",
     "read_only_validation_never_writes",
-    "external_effect_requires_explicit_gate"
+    "external_effect_requires_explicit_gate",
+    "collaboration_workflow_never_creates_permission",
+    "team_size_never_selects_an_assurance_profile",
+    "risk_controls_remain_additive_to_the_team_workflow"
   ],
   "validation": "harness_and_project_closure_commands",
   "owner": "unassigned",
@@ -213,6 +222,7 @@
   "removal_version": null,
   "successor": null,
   "limitations": [
-    "Project-specific commands, maintainer, trust, and acceptance evidence remain unassessed."
+    "Project-specific commands, maintainer, trust, and acceptance evidence remain unassessed.",
+    "No Git workflow, GitHub provider, hosted setting, reviewer, check, merge method, or publication authority is adopted by this generated capability."
   ]
 }

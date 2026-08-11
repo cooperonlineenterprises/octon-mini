@@ -1,5 +1,5 @@
 {
-  "schema_version": "harness.tools.v1",
+  "schema_version": "harness.tools.v2",
   "permission_grant": false,
   "declarative_only": true,
   "real_enforcement_boundary": [
@@ -21,9 +21,302 @@
     },
     "git": {
       "availability": "optional",
-      "allowed": ["status", "diff"],
-      "task_scoped": ["add", "commit", "branch"],
-      "explicit_current_authorization": ["push", "force_push", "remote_mutation"]
+      "unknown_operations": "deny",
+      "operations": [
+        {
+          "id": "status",
+          "effects": ["read_only_observation"],
+          "authority_class": "allowed",
+          "normal_workflow": true,
+          "safeguards": ["disable_optional_locks_when_used_by_read_only_validation"]
+        },
+        {
+          "id": "diff",
+          "effects": ["read_only_observation"],
+          "authority_class": "allowed",
+          "normal_workflow": true,
+          "safeguards": ["inspect_only_the_declared_task_scope"]
+        },
+        {
+          "id": "show_current_revision",
+          "effects": ["read_only_observation"],
+          "authority_class": "allowed",
+          "normal_workflow": true,
+          "safeguards": ["report_unborn_or_detached_head_explicitly"]
+        },
+        {
+          "id": "list_branches",
+          "effects": ["read_only_observation"],
+          "authority_class": "allowed",
+          "normal_workflow": true,
+          "safeguards": ["distinguish_local_from_remote_tracking_references"]
+        },
+        {
+          "id": "list_worktrees",
+          "effects": ["read_only_observation"],
+          "authority_class": "allowed",
+          "normal_workflow": true,
+          "safeguards": ["treat_worktree_metadata_as_observation_not_write_authority"]
+        },
+        {
+          "id": "inspect_remote_configuration",
+          "effects": ["read_only_observation"],
+          "authority_class": "allowed",
+          "normal_workflow": true,
+          "safeguards": ["redact_credentials_and_embedded_tokens"]
+        },
+        {
+          "id": "list_tags",
+          "effects": ["read_only_observation"],
+          "authority_class": "allowed",
+          "normal_workflow": true,
+          "safeguards": ["do_not_infer_release_status_from_tag_presence_alone"]
+        },
+        {
+          "id": "compare_revisions",
+          "effects": ["read_only_observation"],
+          "authority_class": "allowed",
+          "normal_workflow": true,
+          "safeguards": ["name_both_exact_revisions_and_the_comparison_basis"]
+        },
+        {
+          "id": "create_branch",
+          "effects": ["local_reference_mutation"],
+          "authority_class": "task_scoped",
+          "normal_workflow": true,
+          "safeguards": ["use_an_exact_non_default_short_lived_branch_name", "start_from_the_declared_base_revision"]
+        },
+        {
+          "id": "switch_branch",
+          "effects": ["local_reference_mutation", "working_tree_or_index_mutation"],
+          "authority_class": "task_scoped",
+          "normal_workflow": true,
+          "safeguards": ["preserve_unrelated_work_or_stop", "do_not_force_switch"]
+        },
+        {
+          "id": "stage_paths",
+          "effects": ["working_tree_or_index_mutation"],
+          "authority_class": "task_scoped",
+          "normal_workflow": true,
+          "safeguards": ["stage_only_exact_reviewed_paths", "inspect_the_staged_diff_before_commit"]
+        },
+        {
+          "id": "unstage_paths",
+          "effects": ["working_tree_or_index_mutation"],
+          "authority_class": "task_scoped",
+          "normal_workflow": true,
+          "safeguards": ["unstage_only_exact_paths", "preserve_working_tree_content"]
+        },
+        {
+          "id": "create_worktree",
+          "effects": ["local_reference_mutation", "working_tree_or_index_mutation"],
+          "authority_class": "task_scoped",
+          "normal_workflow": true,
+          "safeguards": ["use_an_exact_declared_workspace_target", "bind_to_one_task_branch_and_shared_base_revision", "do_not_force"]
+        },
+        {
+          "id": "remove_clean_worktree",
+          "effects": ["local_reference_mutation", "working_tree_or_index_mutation"],
+          "authority_class": "task_scoped",
+          "normal_workflow": true,
+          "safeguards": ["target_an_exact_clean_worktree", "require_handback_complete", "do_not_force"]
+        },
+        {
+          "id": "delete_merged_branch",
+          "effects": ["local_reference_mutation"],
+          "authority_class": "task_scoped",
+          "normal_workflow": true,
+          "safeguards": ["require_fully_integrated_status", "require_non_current_non_default_branch", "do_not_force"]
+        },
+        {
+          "id": "create_commit",
+          "effects": ["local_reference_mutation", "repository_history_mutation"],
+          "authority_class": "task_scoped",
+          "normal_workflow": true,
+          "safeguards": ["commit_only_the_reviewed_index", "record_validation_and_known_limitations"]
+        },
+        {
+          "id": "fast_forward_branch",
+          "effects": ["local_reference_mutation", "working_tree_or_index_mutation", "repository_history_mutation"],
+          "authority_class": "task_scoped",
+          "normal_workflow": true,
+          "safeguards": ["require_a_clean_understood_worktree", "allow_only_fast_forward_update", "stop_on_divergence"]
+        },
+        {
+          "id": "merge_branch",
+          "effects": ["local_reference_mutation", "working_tree_or_index_mutation", "repository_history_mutation"],
+          "authority_class": "task_scoped",
+          "normal_workflow": true,
+          "safeguards": ["name_the_exact_source_and_destination", "follow_the_one_adopted_integration_method", "validate_after_conflict_resolution"]
+        },
+        {
+          "id": "abort_merge",
+          "effects": ["local_reference_mutation", "working_tree_or_index_mutation"],
+          "authority_class": "task_scoped",
+          "normal_workflow": true,
+          "safeguards": ["require_an_active_merge", "preserve_preexisting_unrelated_work", "record_the_unresolved_conflict"]
+        },
+        {
+          "id": "rebase_branch",
+          "effects": ["local_reference_mutation", "working_tree_or_index_mutation", "repository_history_mutation"],
+          "authority_class": "exceptional_current_authorization",
+          "normal_workflow": true,
+          "safeguards": ["require_exact_current_history_replacement_authority", "require_a_non_default_short_lived_branch", "name_the_exact_upstream", "require_a_clean_understood_worktree", "use_force_push_with_lease_if_published_history_must_be_replaced"]
+        },
+        {
+          "id": "continue_rebase",
+          "effects": ["local_reference_mutation", "working_tree_or_index_mutation", "repository_history_mutation"],
+          "authority_class": "exceptional_current_authorization",
+          "normal_workflow": true,
+          "safeguards": ["retain_the_original_exact_authority_and_scope", "resolve_only_understood_declared_conflicts", "validate_after_resolution"]
+        },
+        {
+          "id": "abort_rebase",
+          "effects": ["local_reference_mutation", "working_tree_or_index_mutation"],
+          "authority_class": "task_scoped",
+          "normal_workflow": true,
+          "safeguards": ["require_an_active_rebase", "preserve_preexisting_unrelated_work", "record_the_unresolved_conflict"]
+        },
+        {
+          "id": "revert_commit",
+          "effects": ["local_reference_mutation", "working_tree_or_index_mutation", "repository_history_mutation"],
+          "authority_class": "task_scoped",
+          "normal_workflow": true,
+          "safeguards": ["name_the_exact_commit", "prefer_additive_reversal_over_published_history_replacement", "validate_the_reverted_state"]
+        },
+        {
+          "id": "fetch_remote",
+          "effects": ["local_reference_mutation", "network_access"],
+          "authority_class": "explicit_current_authorization",
+          "normal_workflow": true,
+          "safeguards": ["require_network_access_for_the_current_task", "name_the_exact_remote_and_refspec", "perform_no_implicit_integration_or_prune"]
+        },
+        {
+          "id": "push_branch",
+          "effects": ["network_access", "external_publication"],
+          "authority_class": "explicit_current_authorization",
+          "normal_workflow": true,
+          "safeguards": ["require_exact_repository_remote_and_ref", "publish_no_implicit_tags", "do_not_force"]
+        },
+        {
+          "id": "delete_remote_branch",
+          "effects": ["network_access", "external_publication"],
+          "authority_class": "explicit_current_authorization",
+          "normal_workflow": true,
+          "safeguards": ["require_exact_repository_remote_and_ref", "require_non_default_fully_integrated_branch", "require_explicit_remote_cleanup_scope"]
+        },
+        {
+          "id": "create_annotated_tag",
+          "effects": ["local_reference_mutation"],
+          "authority_class": "separate_release_authorization",
+          "normal_workflow": false,
+          "safeguards": ["name_the_exact_tag_and_validated_revision", "require_a_clean_release_subject", "treat_published_tags_as_immutable"]
+        },
+        {
+          "id": "push_tag",
+          "effects": ["network_access", "external_publication"],
+          "authority_class": "separate_release_authorization",
+          "normal_workflow": false,
+          "safeguards": ["name_the_exact_repository_remote_tag_and_revision", "publish_no_other_refs", "never_move_a_published_tag"]
+        },
+        {
+          "id": "force_push_with_lease",
+          "effects": ["repository_history_mutation", "network_access", "external_publication"],
+          "authority_class": "exceptional_current_authorization",
+          "normal_workflow": false,
+          "safeguards": ["require_exact_current_history_replacement_authority", "require_a_non_default_short_lived_branch", "require_the_expected_remote_object_lease", "name_the_exact_repository_remote_and_ref", "document_reason_and_observed_result", "default_branch_history_replacement_is_forbidden"]
+        },
+        {
+          "id": "reset_hard",
+          "effects": ["local_reference_mutation", "working_tree_or_index_mutation", "repository_history_mutation", "destructive_recovery"],
+          "authority_class": "destructive_current_authorization",
+          "normal_workflow": false,
+          "safeguards": ["require_an_exact_target_revision", "preserve_or_inventory_displaced_work", "require_explicit_current_destructive_authority"]
+        },
+        {
+          "id": "clean_untracked",
+          "effects": ["working_tree_or_index_mutation", "destructive_recovery"],
+          "authority_class": "destructive_current_authorization",
+          "normal_workflow": false,
+          "safeguards": ["inventory_exact_targets_with_a_dry_run", "preserve_unrelated_files", "require_explicit_current_destructive_authority"]
+        },
+        {
+          "id": "discard_worktree_changes",
+          "effects": ["working_tree_or_index_mutation", "destructive_recovery"],
+          "authority_class": "destructive_current_authorization",
+          "normal_workflow": false,
+          "safeguards": ["name_exact_paths", "preserve_or_record_displaced_work", "require_explicit_current_destructive_authority"]
+        },
+        {
+          "id": "delete_unmerged_branch",
+          "effects": ["local_reference_mutation", "destructive_recovery"],
+          "authority_class": "destructive_current_authorization",
+          "normal_workflow": false,
+          "safeguards": ["require_exact_non_current_non_default_branch", "preserve_recoverable_revision_evidence", "require_explicit_current_destructive_authority"]
+        },
+        {
+          "id": "remove_dirty_worktree",
+          "effects": ["local_reference_mutation", "working_tree_or_index_mutation", "destructive_recovery"],
+          "authority_class": "destructive_current_authorization",
+          "normal_workflow": false,
+          "safeguards": ["require_an_exact_worktree_target", "preserve_or_inventory_partial_results", "require_explicit_current_destructive_authority"]
+        },
+        {
+          "id": "delete_or_move_tag",
+          "effects": ["local_reference_mutation", "destructive_recovery"],
+          "authority_class": "destructive_current_authorization",
+          "normal_workflow": false,
+          "safeguards": ["require_exact_tag_and_release_state", "never_move_a_published_tag", "require_explicit_current_release_and_destructive_authority"]
+        },
+        {
+          "id": "pull",
+          "effects": ["local_reference_mutation", "working_tree_or_index_mutation", "repository_history_mutation", "network_access"],
+          "authority_class": "prohibited",
+          "normal_workflow": false,
+          "safeguards": ["composite_operation_prohibited_use_fetch_then_explicit_integration"]
+        },
+        {
+          "id": "force_push",
+          "effects": ["repository_history_mutation", "network_access", "external_publication"],
+          "authority_class": "prohibited",
+          "normal_workflow": false,
+          "safeguards": ["raw_force_push_prohibited_use_force_push_with_lease_only_when_exceptionally_authorized"]
+        }
+      ]
+    },
+    "hosted_change": {
+      "availability": "optional",
+      "unknown_operations": "deny",
+      "operations": [
+        {
+          "id": "observe_change_checks",
+          "effects": ["read_only_observation", "network_access"],
+          "authority_class": "explicit_current_authorization",
+          "normal_workflow": true,
+          "safeguards": ["require_current_platform_and_task_scoped_network_access", "do_not_infer_required_checks_or_success_from_availability"]
+        },
+        {
+          "id": "open_pull_request",
+          "effects": ["network_access", "external_publication"],
+          "authority_class": "explicit_current_authorization",
+          "normal_workflow": true,
+          "safeguards": ["require_exact_repository_base_and_head_refs", "publish_only_reviewed_non_secret_content", "do_not_imply_review_or_merge_authority"]
+        },
+        {
+          "id": "submit_pull_request_review",
+          "effects": ["network_access", "external_publication"],
+          "authority_class": "explicit_current_authorization",
+          "normal_workflow": true,
+          "safeguards": ["require_exact_repository_and_pull_request", "state_self_or_peer_review_truthfully", "do_not_claim_independence_or_approval_capacity_without_evidence"]
+        },
+        {
+          "id": "merge_pull_request",
+          "effects": ["repository_history_mutation", "network_access", "external_publication"],
+          "authority_class": "explicit_current_authorization",
+          "normal_workflow": true,
+          "safeguards": ["require_exact_repository_pull_request_and_current_merge_authority", "require_the_one_adopted_integration_method", "require_current_validation_and_review_state"]
+        }
+      ]
     }
   },
   "evidence": {

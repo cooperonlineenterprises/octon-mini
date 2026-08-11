@@ -1,5 +1,5 @@
 {
-  "schema_version": "harness.project.v2",
+  "schema_version": "harness.project.v3",
   "project": {
     "id": "{{PROJECT_SLUG}}",
     "name": {{PROJECT_NAME_JSON}},
@@ -8,6 +8,44 @@
     "blueprint_version": "{{BLUEPRINT_VERSION}}",
     "adoption_status": "not_assessed",
     "adoption_decision_ref": null
+  },
+  "collaboration_profile": {
+    "schema_version": "harness.collaboration-profile.v1",
+    "permission_grant": false,
+    "assessment_status": "not_assessed",
+    "confidence": "unknown",
+    "declared_write_capable_humans": null,
+    "observed_repository_access": {
+      "write_capable_humans": null,
+      "read_only_humans": null,
+      "bots_or_automation": null
+    },
+    "active_contributors": {
+      "human_count": null,
+      "bots_or_automation_count": null,
+      "window_days": null
+    },
+    "independent_review_capacity": null,
+    "expected_concurrent_repository_writers": {
+      "humans": null,
+      "agents_or_automation": null
+    },
+    "external_contribution_mode": "unknown",
+    "solo_integration_preference": "unknown",
+    "evidence": [],
+    "assessed_at": null,
+    "reassess_after": null,
+    "conflicting_signals": [],
+    "limitations": ["generated_unassessed_baseline"],
+    "team_band": "unknown",
+    "workflow_selection": {
+      "status": "not_assessed",
+      "base_workflow": null,
+      "modifiers": [],
+      "review_mode": "not_assessed",
+      "integration_method": null,
+      "adoption_decision_ref": null
+    }
   },
   "paths": {
     "source": [],

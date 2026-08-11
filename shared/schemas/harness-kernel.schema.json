@@ -36,6 +36,381 @@
         }
       }
     },
+    "tool_operation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "effects",
+        "authority_class",
+        "normal_workflow",
+        "safeguards"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "effects": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "read_only_observation",
+              "local_reference_mutation",
+              "working_tree_or_index_mutation",
+              "repository_history_mutation",
+              "network_access",
+              "external_publication",
+              "destructive_recovery"
+            ]
+          }
+        },
+        "authority_class": {
+          "enum": [
+            "allowed",
+            "task_scoped",
+            "explicit_current_authorization",
+            "separate_release_authorization",
+            "exceptional_current_authorization",
+            "destructive_current_authorization",
+            "prohibited"
+          ]
+        },
+        "normal_workflow": {
+          "type": "boolean"
+        },
+        "safeguards": {
+          "$ref": "#/$defs/strings"
+        }
+      }
+    },
+    "operation_catalog": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "availability",
+        "unknown_operations",
+        "operations"
+      ],
+      "properties": {
+        "availability": {
+          "enum": [
+            "required",
+            "optional",
+            "unavailable"
+          ]
+        },
+        "unknown_operations": {
+          "const": "deny"
+        },
+        "operations": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/tool_operation"
+          }
+        }
+      }
+    },
+    "collaboration_evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "source_ref",
+        "supports",
+        "observed_at",
+        "fresh_until",
+        "limitations"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "owner_declaration",
+            "hosted_access_snapshot",
+            "repository_activity_snapshot",
+            "concurrency_declaration",
+            "contribution_surface_snapshot",
+            "project_owned_observation"
+          ]
+        },
+        "source_ref": {
+          "type": "string",
+          "pattern": "^(?:(?:DEC|EVD)-[0-9]{4}|(?:authority|external|repo):.+)$"
+        },
+        "supports": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "declared_write_capable_humans",
+              "observed_repository_access",
+              "active_contributors",
+              "independent_review_capacity",
+              "expected_concurrent_repository_writers",
+              "external_contribution_mode",
+              "solo_integration_preference"
+            ]
+          }
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "fresh_until": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "limitations": {
+          "$ref": "#/$defs/strings"
+        }
+      }
+    },
+    "collaboration_profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "permission_grant",
+        "assessment_status",
+        "confidence",
+        "declared_write_capable_humans",
+        "observed_repository_access",
+        "active_contributors",
+        "independent_review_capacity",
+        "expected_concurrent_repository_writers",
+        "external_contribution_mode",
+        "solo_integration_preference",
+        "evidence",
+        "assessed_at",
+        "reassess_after",
+        "conflicting_signals",
+        "limitations",
+        "team_band",
+        "workflow_selection"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "harness.collaboration-profile.v1"
+        },
+        "permission_grant": {
+          "const": false
+        },
+        "assessment_status": {
+          "enum": [
+            "not_assessed",
+            "assessed"
+          ]
+        },
+        "confidence": {
+          "enum": [
+            "confirmed",
+            "inferred",
+            "conflicted",
+            "unknown"
+          ]
+        },
+        "declared_write_capable_humans": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "observed_repository_access": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "write_capable_humans",
+            "read_only_humans",
+            "bots_or_automation"
+          ],
+          "properties": {
+            "write_capable_humans": {
+              "type": ["integer", "null"],
+              "minimum": 0
+            },
+            "read_only_humans": {
+              "type": ["integer", "null"],
+              "minimum": 0
+            },
+            "bots_or_automation": {
+              "type": ["integer", "null"],
+              "minimum": 0
+            }
+          }
+        },
+        "active_contributors": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "human_count",
+            "bots_or_automation_count",
+            "window_days"
+          ],
+          "properties": {
+            "human_count": {
+              "type": ["integer", "null"],
+              "minimum": 0
+            },
+            "bots_or_automation_count": {
+              "type": ["integer", "null"],
+              "minimum": 0
+            },
+            "window_days": {
+              "type": ["integer", "null"],
+              "minimum": 1,
+              "maximum": 365
+            }
+          }
+        },
+        "independent_review_capacity": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "expected_concurrent_repository_writers": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "humans",
+            "agents_or_automation"
+          ],
+          "properties": {
+            "humans": {
+              "type": ["integer", "null"],
+              "minimum": 0
+            },
+            "agents_or_automation": {
+              "type": ["integer", "null"],
+              "minimum": 0
+            }
+          }
+        },
+        "external_contribution_mode": {
+          "enum": [
+            "closed",
+            "invitation_only",
+            "open",
+            "unknown"
+          ]
+        },
+        "solo_integration_preference": {
+          "enum": [
+            "direct",
+            "reviewable",
+            "unknown"
+          ]
+        },
+        "evidence": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/collaboration_evidence"
+          }
+        },
+        "assessed_at": {
+          "type": ["string", "null"],
+          "format": "date-time"
+        },
+        "reassess_after": {
+          "type": ["string", "null"],
+          "format": "date-time"
+        },
+        "conflicting_signals": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "declared_vs_observed_write_capable_humans",
+              "review_capacity_evidence_conflict",
+              "concurrency_evidence_conflict",
+              "external_contribution_evidence_conflict"
+            ]
+          }
+        },
+        "limitations": {
+          "$ref": "#/$defs/strings"
+        },
+        "team_band": {
+          "enum": [
+            "unknown",
+            "no_write_capable_human",
+            "solo",
+            "pair",
+            "tiny",
+            "unsupported_team_size"
+          ]
+        },
+        "workflow_selection": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "base_workflow",
+            "modifiers",
+            "review_mode",
+            "integration_method",
+            "adoption_decision_ref"
+          ],
+          "properties": {
+            "status": {
+              "enum": [
+                "not_assessed",
+                "blocked_unknown",
+                "blocked_stale",
+                "blocked_conflicted",
+                "blocked_no_writer",
+                "recommended",
+                "adopted",
+                "unsupported_team_size"
+              ]
+            },
+            "base_workflow": {
+              "enum": [
+                null,
+                "solo_direct",
+                "solo_hybrid",
+                "pair_pr",
+                "tiny_pr"
+              ]
+            },
+            "modifiers": {
+              "type": "array",
+              "uniqueItems": true,
+              "maxItems": 1,
+              "items": {
+                "const": "concurrent_work"
+              }
+            },
+            "review_mode": {
+              "enum": [
+                "not_assessed",
+                "none",
+                "self_review",
+                "one_peer_when_available",
+                "block_when_peer_unavailable"
+              ]
+            },
+            "integration_method": {
+              "enum": [
+                null,
+                "not_applicable",
+                "merge_commit",
+                "squash_merge",
+                "rebase_then_fast_forward"
+              ]
+            },
+            "adoption_decision_ref": {
+              "type": ["string", "null"],
+              "pattern": "^DEC-[0-9]{4}$"
+            }
+          }
+        }
+      }
+    },
     "policy": {
       "type": "object",
       "additionalProperties": false,
@@ -307,7 +682,7 @@
           "const": "harness.schema.v1"
         },
         "kernel_version": {
-          "const": "2.0.0"
+          "const": "3.0.0"
         },
         "compatibility": {
           "type": "object"
@@ -426,7 +801,7 @@
       ],
       "properties": {
         "schema_version": {
-          "const": "harness.tools.v1"
+          "const": "harness.tools.v2"
         },
         "permission_grant": {
           "const": false
@@ -443,7 +818,8 @@
           "required": [
             "filesystem",
             "shell",
-            "git"
+            "git",
+            "hosted_change"
           ],
           "properties": {
             "filesystem": {
@@ -467,22 +843,10 @@
               }
             },
             "git": {
-              "type": "object",
-              "additionalProperties": false,
-              "required": [
-                "availability",
-                "allowed",
-                "task_scoped",
-                "explicit_current_authorization"
-              ],
-              "properties": {
-                "availability": {"const": "optional"},
-                "allowed": {"$ref": "#/$defs/strings"},
-                "task_scoped": {"$ref": "#/$defs/strings"},
-                "explicit_current_authorization": {
-                  "$ref": "#/$defs/strings"
-                }
-              }
+              "$ref": "#/$defs/operation_catalog"
+            },
+            "hosted_change": {
+              "$ref": "#/$defs/operation_catalog"
             }
           }
         },
@@ -515,7 +879,7 @@
       ],
       "properties": {
         "schema_version": {
-          "const": "harness.validators.v2"
+          "const": "harness.validators.v3"
         },
         "validator_version": {
           "type": "string",
@@ -545,6 +909,7 @@
           "required": [
             "bootstrap",
             "check",
+            "collaboration_assessment",
             "ready_frontier",
             "test",
             "project_checks",
@@ -557,6 +922,9 @@
               "$ref": "#/$defs/command"
             },
             "check": {
+              "$ref": "#/$defs/command"
+            },
+            "collaboration_assessment": {
               "$ref": "#/$defs/command"
             },
             "ready_frontier": {
@@ -593,6 +961,7 @@
       "required": [
         "schema_version",
         "project",
+        "collaboration_profile",
         "paths",
         "commands",
         "project_checks",
@@ -601,7 +970,7 @@
       ],
       "properties": {
         "schema_version": {
-          "const": "harness.project.v2"
+          "const": "harness.project.v3"
         },
         "project": {
           "type": "object",
@@ -651,6 +1020,9 @@
               "pattern": "^DEC-[0-9]{4}$"
             }
           }
+        },
+        "collaboration_profile": {
+          "$ref": "#/$defs/collaboration_profile"
         },
         "paths": {
           "type": "object",

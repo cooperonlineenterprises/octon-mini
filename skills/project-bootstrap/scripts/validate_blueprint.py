@@ -55,6 +55,7 @@ REQUIRED_PATHS = (
     ".gitignore",
     "AGENTS.md",
     "CHANGELOG.md",
+    "GIT_WORKFLOW.md",
     "README.md",
     "RELEASE.md",
     "VERSION",
@@ -67,6 +68,7 @@ REQUIRED_PATHS = (
     "migrations/0.2.0-to-1.0.0.md",
     "migrations/1.0.0-to-1.0.1.md",
     "migrations/1.0.1-to-2.0.0.md",
+    "migrations/2.0.0-to-3.0.0.md",
     "pyproject.toml",
     "shared/GENERATION_CONTRACT.md",
     "shared/reference-evidence.json",
@@ -79,6 +81,7 @@ REQUIRED_PATHS = (
     "shared/schemas/harness-capability-records.schema.json",
     "shared/schemas/harness-current-state.schema.json",
     "shared/schemas/harness-extension-registry.schema.json",
+    "shared/schemas/harness-git-workflows.schema.json",
     "shared/schemas/harness-kernel.schema.json",
     "shared/schemas/harness-project-check-evidence.schema.json",
     "shared/schemas/harness-record.schema.json",
@@ -92,10 +95,12 @@ REQUIRED_PATHS = (
     "skills/project-bootstrap/references/profile-selection.md",
     "skills/project-bootstrap/scripts/install_skill.py",
     "skills/project-bootstrap/scripts/migrate_1_0_1_to_2_0_0.py",
+    "skills/project-bootstrap/scripts/migrate_2_0_0_to_3_0_0.py",
     "skills/project-bootstrap/scripts/plan_adoption.py",
     "skills/project-bootstrap/scripts/scaffold_project.py",
     "skills/project-bootstrap/scripts/test_acceptance.py",
     "skills/project-bootstrap/scripts/test_migration_1_0_1_to_2_0_0.py",
+    "skills/project-bootstrap/scripts/test_migration_2_0_0_to_3_0_0.py",
     "skills/project-bootstrap/scripts/validate_blueprint.py",
     "skills/project-bootstrap/scripts/validate_skill_package.py",
     "skills/project-bootstrap/scripts/verify_reference_evidence.py",
@@ -115,6 +120,16 @@ REQUIRED_PATHS = (
     "skills/project-bootstrap/fixtures/migrations/1.0.1-to-2.0.0/invalid/nonreciprocal-plan-task-link.json",
     "skills/project-bootstrap/fixtures/migrations/1.0.1-to-2.0.0/invalid/task-cycle.json",
     "skills/project-bootstrap/fixtures/migrations/1.0.1-to-2.0.0/invalid/unsafe-explicit-command.json",
+    "skills/project-bootstrap/fixtures/migrations/2.0.0-to-3.0.0/README.md",
+    "skills/project-bootstrap/fixtures/migrations/2.0.0-to-3.0.0/valid/v2-minimal.json",
+    "skills/project-bootstrap/fixtures/migrations/2.0.0-to-3.0.0/valid/expectations.json",
+    "skills/project-bootstrap/fixtures/migrations/2.0.0-to-3.0.0/invalid/adopted-legacy-git-policy.json",
+    "skills/project-bootstrap/fixtures/migrations/2.0.0-to-3.0.0/invalid/divergent-legacy-tools.json",
+    "skills/project-bootstrap/fixtures/migrations/2.0.0-to-3.0.0/invalid/fabricated-collaboration-evidence.json",
+    "skills/project-bootstrap/fixtures/migrations/2.0.0-to-3.0.0/invalid/fabricated-workflow-adoption.json",
+    "skills/project-bootstrap/fixtures/migrations/2.0.0-to-3.0.0/invalid/mixed-live-project-version.json",
+    "skills/project-bootstrap/fixtures/migrations/2.0.0-to-3.0.0/invalid/mixed-live-validator-version.json",
+    "skills/project-bootstrap/fixtures/migrations/2.0.0-to-3.0.0/invalid/nonexternal-migration-authority.json",
 )
 DOSSIER_HEADINGS = (
     "## 1. Executive summary",
@@ -146,10 +161,14 @@ REQUIRED_KERNEL = {
     ".agent/state/RESUME.md",
     ".agent/templates/task.md",
     ".agent/templates/decision.md",
+    ".agent/templates/pull-request.md",
     ".agent/scripts/validate.py",
     ".agent/scripts/refresh.py",
     ".agent/scripts/run_project_checks.py",
     ".agent/tests/test_validate.py",
+    ".agent/workflows/README.md",
+    ".agent/workflows/github-adapter.md",
+    ".agent/workflows/small-team-git.json",
     "project-dossier/README.md",
     "project-dossier/AUTHORITY.md",
     "project-dossier/CANONICAL_SOURCE_MAP.md",
@@ -452,6 +471,20 @@ def validate_config_and_schemas(issues: list[str]) -> None:
         ".agent/project.json",
     }:
         issues.append("blueprint.json kernel files do not match the seven-file kernel")
+    harness = config.get("modules", {}).get("harness", {})
+    if harness.get("collaboration_workflow_file") != (
+        ".agent/workflows/small-team-git.json"
+    ):
+        issues.append("blueprint.json collaboration workflow path mismatch")
+    if harness.get("supported_base_workflows") != [
+        "solo_direct",
+        "solo_hybrid",
+        "pair_pr",
+        "tiny_pr",
+    ]:
+        issues.append("blueprint.json small-team workflow vocabulary mismatch")
+    if harness.get("maximum_supported_write_capable_humans") != 5:
+        issues.append("blueprint.json maximum supported team size must be five")
 
     for path in sorted((ROOT / "shared/schemas").glob("*.schema.json")):
         try:
@@ -686,8 +719,8 @@ def validate_skill_and_release(issues: list[str]) -> None:
     if "$project-bootstrap" not in openai:
         issues.append("agents/openai.yaml does not invoke $project-bootstrap")
     version = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
-    if version != "2.0.0":
-        issues.append(f"release VERSION must be 2.0.0, found {version!r}")
+    if version != "3.0.0":
+        issues.append(f"release VERSION must be 3.0.0, found {version!r}")
     for path in ("CHANGELOG.md", "RELEASE.md"):
         if version not in (ROOT / path).read_text(encoding="utf-8"):
             issues.append(f"{path} lacks the {version} release")
@@ -770,6 +803,27 @@ def validate_ci_contract(issues: list[str]) -> None:
     except OSError as error:
         issues.append(f"cannot read CI workflow: {error}")
         return
+    push_block = re.search(
+        r"(?ms)^  push:\n(?P<body>.*?)(?=^  [A-Za-z_][^:\n]*:|\Z)",
+        workflow,
+    )
+    if (
+        push_block is None
+        or push_block.group("body") != "    branches:\n      - main\n"
+    ):
+        issues.append("CI workflow push validation must target only main")
+    if re.search(r"(?m)^  pull_request:\s*$", workflow) is None:
+        issues.append("CI workflow must retain pull-request validation")
+    expected_concurrency = (
+        "concurrency:\n"
+        "  group: ${{ github.workflow }}-${{ "
+        "github.event.pull_request.number || github.ref }}\n"
+        "  cancel-in-progress: ${{ github.event_name == 'pull_request' }}"
+    )
+    if expected_concurrency not in workflow:
+        issues.append(
+            "CI workflow concurrency must cancel only superseded pull-request runs"
+        )
     required_snippets = {
         "read-only contents permission": "permissions:\n  contents: read",
         "three-OS matrix": (
@@ -814,6 +868,15 @@ def validate_executable_contracts(issues: list[str]) -> None:
             ],
             ROOT,
             "1.0.1 to 2.0.0 migration fixtures",
+        ),
+        (
+            [
+                sys.executable,
+                "-B",
+                str(SKILL_ROOT / "scripts/test_migration_2_0_0_to_3_0_0.py"),
+            ],
+            ROOT,
+            "2.0.0 to 3.0.0 migration fixtures",
         ),
         (
             [

@@ -1,0 +1,15 @@
+{
+  "description": "A legacy input may not smuggle inferred collaboration facts into the v2 project contract.",
+  "expected_error": "closed keys differ",
+  "operations": [
+    {
+      "op": "add",
+      "path": ["live", "project", "collaboration_profile"],
+      "value": {
+        "assessment_status": "assessed",
+        "declared_write_capable_humans": 1
+      }
+    }
+  ],
+  "schema_version": "project-blueprint.migration-invalid-mutation.2.0.0-to-3.0.0.v1"
+}

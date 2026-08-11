@@ -19,7 +19,7 @@ from typing import Any
 
 sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parents[2]
-KERNEL_VERSION = "2.0.0"
+KERNEL_VERSION = "3.0.0"
 KERNEL_FILES = (
     ".agent/policy.json",
     ".agent/context.json",
@@ -49,6 +49,7 @@ CORE_OPERATIONAL_FILES = {
     ".agent/state/current.json",
     ".agent/tasks/README.md",
     ".agent/templates/decision.md",
+    ".agent/templates/pull-request.md",
     ".agent/templates/task.md",
     ".agent/tests/fixtures/invalid/duplicate-key.json",
     ".agent/tests/fixtures/invalid/event-sequence.jsonl",
@@ -59,6 +60,9 @@ CORE_OPERATIONAL_FILES = {
     ".agent/tests/test_validate.py",
     ".agent/tools.json",
     ".agent/validators.json",
+    ".agent/workflows/README.md",
+    ".agent/workflows/github-adapter.md",
+    ".agent/workflows/small-team-git.json",
 }
 STANDARD_OPERATIONAL_FILES = CORE_OPERATIONAL_FILES | {
     ".agent/artifacts/registry.json",
@@ -138,6 +142,7 @@ REQUIRED_SCHEMA_FILES = {
     ".agent/schemas/harness-capability-records.schema.json",
     ".agent/schemas/harness-current-state.schema.json",
     ".agent/schemas/harness-extension-registry.schema.json",
+    ".agent/schemas/harness-git-workflows.schema.json",
     ".agent/schemas/harness-kernel.schema.json",
     ".agent/schemas/harness-project-check-evidence.schema.json",
     ".agent/schemas/harness-record.schema.json",
@@ -427,6 +432,126 @@ EXPECTED_LIFECYCLES = {
     },
 }
 
+SUPPORTED_BASE_WORKFLOWS = (
+    "solo_direct",
+    "solo_hybrid",
+    "pair_pr",
+    "tiny_pr",
+)
+SUPPORTED_WORKFLOW_MODIFIERS = ("concurrent_work",)
+MAXIMUM_SUPPORTED_WRITE_CAPABLE_HUMANS = 5
+COLLABORATION_EVIDENCE_SUPPORTS = {
+    "declared_write_capable_humans",
+    "observed_repository_access",
+    "active_contributors",
+    "independent_review_capacity",
+    "expected_concurrent_repository_writers",
+    "external_contribution_mode",
+    "solo_integration_preference",
+}
+EXCLUDED_ENTERPRISE_WORKFLOW_IDS = (
+    "gitflow",
+    "merge_queue",
+    "release_train",
+    "stacked_pr_dependency_train",
+    "fork_first_internal",
+    "multi_level_codeowners_approval",
+    "multiple_mandatory_approval_stages",
+    "dedicated_release_manager_handoff",
+    "organization_wide_ruleset_orchestration",
+    "multi_environment_promotion_pipeline",
+    "enterprise_issue_or_portfolio_governance",
+)
+GIT_OPERATION_IDS = (
+    "status",
+    "diff",
+    "show_current_revision",
+    "list_branches",
+    "list_worktrees",
+    "inspect_remote_configuration",
+    "list_tags",
+    "compare_revisions",
+    "create_branch",
+    "switch_branch",
+    "stage_paths",
+    "unstage_paths",
+    "create_worktree",
+    "remove_clean_worktree",
+    "delete_merged_branch",
+    "create_commit",
+    "fast_forward_branch",
+    "merge_branch",
+    "abort_merge",
+    "rebase_branch",
+    "continue_rebase",
+    "abort_rebase",
+    "revert_commit",
+    "fetch_remote",
+    "push_branch",
+    "delete_remote_branch",
+    "create_annotated_tag",
+    "push_tag",
+    "force_push_with_lease",
+    "reset_hard",
+    "clean_untracked",
+    "discard_worktree_changes",
+    "delete_unmerged_branch",
+    "remove_dirty_worktree",
+    "delete_or_move_tag",
+    "pull",
+    "force_push",
+)
+HOSTED_CHANGE_OPERATION_IDS = (
+    "observe_change_checks",
+    "open_pull_request",
+    "submit_pull_request_review",
+    "merge_pull_request",
+)
+GIT_EFFECTS = {
+    "read_only_observation",
+    "local_reference_mutation",
+    "working_tree_or_index_mutation",
+    "repository_history_mutation",
+    "network_access",
+    "external_publication",
+    "destructive_recovery",
+}
+GIT_AUTHORITY_CLASSES = {
+    "allowed",
+    "task_scoped",
+    "explicit_current_authorization",
+    "separate_release_authorization",
+    "exceptional_current_authorization",
+    "destructive_current_authorization",
+    "prohibited",
+}
+EXPECTED_GIT_CATALOG_SHA256 = (
+    "568adc992d3cf270a80daedc1b1537ef03da38fcfc37365587b9765f864eaf5a"
+)
+EXPECTED_HOSTED_CHANGE_CATALOG_SHA256 = (
+    "f47ecdf0e8dbe5dc24b2211fb38f614fc41b7697cc07dfe2ec946e209d5503b0"
+)
+EXPECTED_GIT_WORKFLOW_SHA256 = (
+    "9619f00e485c4769ee87195a73c46de219839704b5e5995727e824a54c568ea5"
+)
+EXPECTED_REQUIRED_CORE_CHECKS = [
+    "python_runtime_floor",
+    "strict_json_and_duplicate_keys",
+    "schemas_and_versions",
+    "authority_and_nested_instruction_invariants",
+    "identifiers_references_and_lifecycles",
+    "dependency_readiness_and_ready_frontier",
+    "collaboration_topology_and_workflow_selection",
+    "small_team_git_workflow_and_operation_contract",
+    "project_command_assessment_and_current_evidence",
+    "dossier_catalog_path_authority_and_traceability",
+    "extension_compatibility_confinement_and_validator_protocol",
+    "unresolved_generation_placeholders",
+    "redacted_secret_detection",
+    "repository_symlinks_and_host_metadata",
+    "generated_integrity_freshness_when_present",
+]
+
 
 class DuplicateKeyError(ValueError):
     """Raised when strict JSON encounters a repeated object key."""
@@ -497,6 +622,752 @@ def freshness_deadline(value: Any) -> datetime | None:
         ).astimezone()
     except ValueError:
         return None
+
+
+def _collaboration_baseline_errors(profile: dict[str, Any]) -> list[str]:
+    """Require an unassessed profile to remain fact-free and non-selecting."""
+    errors: list[str] = []
+    expected_nulls = {
+        "declared_write_capable_humans": None,
+        "independent_review_capacity": None,
+        "assessed_at": None,
+        "reassess_after": None,
+    }
+    for field, expected in expected_nulls.items():
+        if profile.get(field) is not expected:
+            errors.append(f"collaboration_profile.{field} must remain null before assessment")
+    if profile.get("confidence") != "unknown":
+        errors.append("collaboration_profile confidence must be unknown before assessment")
+    if profile.get("team_band") != "unknown":
+        errors.append("collaboration_profile team_band must be unknown before assessment")
+    if profile.get("external_contribution_mode") != "unknown":
+        errors.append(
+            "collaboration_profile external_contribution_mode must be unknown before assessment"
+        )
+    if profile.get("solo_integration_preference") != "unknown":
+        errors.append(
+            "collaboration_profile solo_integration_preference must be unknown before assessment"
+        )
+    for field, keys in (
+        (
+            "observed_repository_access",
+            ("write_capable_humans", "read_only_humans", "bots_or_automation"),
+        ),
+        (
+            "active_contributors",
+            ("human_count", "bots_or_automation_count", "window_days"),
+        ),
+        (
+            "expected_concurrent_repository_writers",
+            ("humans", "agents_or_automation"),
+        ),
+    ):
+        value = profile.get(field, {})
+        if not isinstance(value, dict) or any(value.get(key) is not None for key in keys):
+            errors.append(f"collaboration_profile.{field} must remain unknown before assessment")
+    if profile.get("evidence") != []:
+        errors.append("collaboration_profile evidence must be empty before assessment")
+    if profile.get("conflicting_signals") != []:
+        errors.append(
+            "collaboration_profile conflicting_signals must be empty before assessment"
+        )
+    limitations = profile.get("limitations", [])
+    if "generated_unassessed_baseline" not in limitations:
+        errors.append(
+            "collaboration_profile unassessed baseline must disclose its generated limitation"
+        )
+    selection = profile.get("workflow_selection", {})
+    if selection != {
+        "status": "not_assessed",
+        "base_workflow": None,
+        "modifiers": [],
+        "review_mode": "not_assessed",
+        "integration_method": None,
+        "adoption_decision_ref": None,
+    }:
+        errors.append(
+            "collaboration_profile unassessed baseline must not select or adopt a workflow"
+        )
+    return errors
+
+
+def derive_collaboration_assessment(
+    profile: dict[str, Any],
+    *,
+    now: datetime | None = None,
+) -> tuple[dict[str, Any], list[str]]:
+    """Derive a non-authorizing small-team classification from aggregate facts."""
+    now = now or datetime.now().astimezone()
+    errors: list[str] = []
+    limitations: list[str] = []
+    assessment_status = profile.get("assessment_status")
+    declared = profile.get("declared_write_capable_humans")
+    access = profile.get("observed_repository_access", {})
+    observed = access.get("write_capable_humans") if isinstance(access, dict) else None
+    active = profile.get("active_contributors", {})
+    concurrency = profile.get("expected_concurrent_repository_writers", {})
+    review_capacity = profile.get("independent_review_capacity")
+    external_mode = profile.get("external_contribution_mode")
+    solo_preference = profile.get("solo_integration_preference")
+    conflicts = profile.get("conflicting_signals", [])
+    evidence = profile.get("evidence", [])
+
+    report: dict[str, Any] = {
+        "schema_version": "harness.collaboration-assessment.v1",
+        "permission_grant": False,
+        "assessment_status": assessment_status,
+        "confidence": "unknown",
+        "counts": {
+            "declared_write_capable_humans": declared,
+            "observed_write_capable_humans": observed,
+            "observed_read_only_humans_excluded": (
+                access.get("read_only_humans") if isinstance(access, dict) else None
+            ),
+            "observed_bots_or_automation_excluded": (
+                access.get("bots_or_automation") if isinstance(access, dict) else None
+            ),
+            "active_human_contributors": (
+                active.get("human_count") if isinstance(active, dict) else None
+            ),
+            "active_bots_or_automation_excluded": (
+                active.get("bots_or_automation_count")
+                if isinstance(active, dict)
+                else None
+            ),
+            "active_contributor_window_days": (
+                active.get("window_days") if isinstance(active, dict) else None
+            ),
+            "independent_review_capacity": review_capacity,
+            "expected_concurrent_humans": (
+                concurrency.get("humans") if isinstance(concurrency, dict) else None
+            ),
+            "expected_concurrent_agents_or_automation": (
+                concurrency.get("agents_or_automation")
+                if isinstance(concurrency, dict)
+                else None
+            ),
+        },
+        "team_band": "unknown",
+        "status": "not_assessed",
+        "recommendation": {
+            "base_workflow": None,
+            "modifiers": [],
+            "review_mode": "not_assessed",
+            "integration_method": None,
+        },
+        "limitations": limitations,
+        "non_authorization": (
+            "This assessment classifies aggregate observations only; it grants no "
+            "permission and never adopts or publishes a workflow."
+        ),
+    }
+    if assessment_status != "assessed":
+        limitations.append("collaboration_profile_not_assessed")
+        return report, errors
+
+    if not isinstance(declared, (int, type(None))) or isinstance(declared, bool):
+        errors.append("collaboration_profile declared writer count is invalid")
+        declared = None
+    if not isinstance(observed, (int, type(None))) or isinstance(observed, bool):
+        errors.append("collaboration_profile observed writer count is invalid")
+        observed = None
+    writer_signals = [value for value in (declared, observed) if isinstance(value, int)]
+    declared_conflict = (
+        isinstance(declared, int)
+        and isinstance(observed, int)
+        and declared != observed
+    )
+    listed_declared_conflict = (
+        "declared_vs_observed_write_capable_humans" in conflicts
+        if isinstance(conflicts, list)
+        else False
+    )
+    if declared_conflict != listed_declared_conflict:
+        errors.append(
+            "collaboration_profile declared/observed disagreement must be recorded exactly"
+        )
+    has_conflict = declared_conflict or bool(conflicts)
+    if has_conflict:
+        expected_confidence = "conflicted"
+    elif len(writer_signals) == 2:
+        expected_confidence = "confirmed"
+    elif len(writer_signals) == 1:
+        expected_confidence = "inferred"
+    else:
+        expected_confidence = "unknown"
+    report["confidence"] = expected_confidence
+    if profile.get("confidence") != expected_confidence:
+        errors.append(
+            "collaboration_profile confidence is inconsistent with declared and observed signals"
+        )
+
+    missing_signals: list[str] = []
+    if not writer_signals:
+        missing_signals.append("write_capable_human_signal")
+    if isinstance(observed, int) and isinstance(access, dict):
+        for key in ("read_only_humans", "bots_or_automation"):
+            if not isinstance(access.get(key), int):
+                missing_signals.append(f"observed_repository_access.{key}")
+    if not isinstance(active, dict) or any(
+        not isinstance(active.get(key), int)
+        for key in ("human_count", "bots_or_automation_count", "window_days")
+    ):
+        missing_signals.append("active_contributors")
+    if not isinstance(review_capacity, int) or isinstance(review_capacity, bool):
+        missing_signals.append("independent_review_capacity")
+    concurrent_humans = concurrency.get("humans") if isinstance(concurrency, dict) else None
+    concurrent_agents = (
+        concurrency.get("agents_or_automation") if isinstance(concurrency, dict) else None
+    )
+    if (
+        not isinstance(concurrent_humans, int)
+        or isinstance(concurrent_humans, bool)
+        or not isinstance(concurrent_agents, int)
+        or isinstance(concurrent_agents, bool)
+    ):
+        missing_signals.append("expected_concurrent_repository_writers")
+    if external_mode in {None, "unknown"}:
+        missing_signals.append("external_contribution_mode")
+
+    assessed_at = freshness_deadline(profile.get("assessed_at"))
+    reassess_after = freshness_deadline(profile.get("reassess_after"))
+    if assessed_at is None:
+        missing_signals.append("assessed_at")
+    if reassess_after is None:
+        missing_signals.append("reassess_after")
+    if assessed_at is not None and assessed_at > now:
+        errors.append("collaboration_profile assessed_at may not be in the future")
+    if (
+        assessed_at is not None
+        and reassess_after is not None
+        and reassess_after <= assessed_at
+    ):
+        errors.append("collaboration_profile reassess_after must follow assessed_at")
+
+    required_supports: set[str] = {
+        "active_contributors",
+        "independent_review_capacity",
+        "expected_concurrent_repository_writers",
+        "external_contribution_mode",
+    }
+    if isinstance(declared, int):
+        required_supports.add("declared_write_capable_humans")
+    if isinstance(observed, int):
+        required_supports.add("observed_repository_access")
+
+    stale = reassess_after is not None and reassess_after < now
+    supported_by_fresh_evidence: set[str] = set()
+    if not isinstance(evidence, list) or not evidence:
+        missing_signals.append("evidence")
+    else:
+        for index, item in enumerate(evidence):
+            if not isinstance(item, dict):
+                continue
+            observed_at = freshness_deadline(item.get("observed_at"))
+            fresh_until = freshness_deadline(item.get("fresh_until"))
+            if observed_at is None or fresh_until is None:
+                continue
+            if fresh_until <= observed_at:
+                errors.append(
+                    f"collaboration_profile.evidence[{index}] fresh_until must follow observed_at"
+                )
+            if assessed_at is not None and observed_at > assessed_at:
+                errors.append(
+                    f"collaboration_profile.evidence[{index}] was observed after assessed_at"
+                )
+            if fresh_until < now:
+                stale = True
+            else:
+                supports = item.get("supports", [])
+                if isinstance(supports, list):
+                    supported_by_fresh_evidence.update(
+                        value
+                        for value in supports
+                        if value in COLLABORATION_EVIDENCE_SUPPORTS
+                    )
+    missing_evidence = sorted(required_supports - supported_by_fresh_evidence)
+    if missing_evidence:
+        limitations.extend(f"missing_fresh_evidence:{item}" for item in missing_evidence)
+
+    unsupported = any(
+        value > MAXIMUM_SUPPORTED_WRITE_CAPABLE_HUMANS
+        for value in writer_signals
+    )
+    writer_count: int | None
+    if unsupported:
+        writer_count = max(writer_signals)
+    elif has_conflict or not writer_signals:
+        writer_count = None
+    else:
+        writer_count = writer_signals[0]
+
+    if unsupported:
+        band = "unsupported_team_size"
+    elif writer_count == 0:
+        band = "no_write_capable_human"
+    elif writer_count == 1:
+        band = "solo"
+    elif writer_count == 2:
+        band = "pair"
+    elif isinstance(writer_count, int) and 3 <= writer_count <= 5:
+        band = "tiny"
+    else:
+        band = "unknown"
+    report["team_band"] = band
+
+    if band == "solo":
+        required_supports.add("solo_integration_preference")
+        if solo_preference not in {"direct", "reviewable"}:
+            missing_signals.append("solo_integration_preference")
+        if "solo_integration_preference" not in supported_by_fresh_evidence:
+            missing_evidence = sorted(
+                set(missing_evidence) | {"solo_integration_preference"}
+            )
+            marker = "missing_fresh_evidence:solo_integration_preference"
+            if marker not in limitations:
+                limitations.append(marker)
+
+    if isinstance(concurrent_humans, int) and isinstance(writer_count, int):
+        if concurrent_humans > writer_count:
+            errors.append(
+                "collaboration_profile concurrent human writers exceed write-capable humans"
+            )
+
+    is_unknown = bool(missing_signals or missing_evidence) or expected_confidence == "unknown"
+    if unsupported:
+        status = "unsupported_team_size"
+        limitations.append("teams_larger_than_five_are_outside_supported_scope")
+    elif stale:
+        status = "blocked_stale"
+        limitations.append("collaboration_evidence_or_reassessment_is_stale")
+    elif has_conflict:
+        status = "blocked_conflicted"
+        limitations.append("collaboration_signals_conflict")
+    elif is_unknown:
+        status = "blocked_unknown"
+        limitations.extend(f"missing_signal:{item}" for item in sorted(set(missing_signals)))
+    elif band == "no_write_capable_human":
+        status = "blocked_no_writer"
+        limitations.append("no_write_capable_human_is_established")
+    else:
+        status = "recommended"
+
+    recommendation = report["recommendation"]
+    if status == "recommended":
+        total_concurrency = int(concurrent_humans) + int(concurrent_agents)
+        modifiers = ["concurrent_work"] if total_concurrency > 1 else []
+        if band == "solo":
+            base = (
+                "solo_hybrid"
+                if solo_preference == "reviewable" or modifiers
+                else "solo_direct"
+            )
+            review_mode = "self_review" if base == "solo_hybrid" else "none"
+        elif band == "pair":
+            base = "pair_pr"
+            review_mode = (
+                "one_peer_when_available"
+                if int(review_capacity) >= 1
+                else "block_when_peer_unavailable"
+            )
+        else:
+            base = "tiny_pr"
+            review_mode = (
+                "one_peer_when_available"
+                if int(review_capacity) >= 1
+                else "block_when_peer_unavailable"
+            )
+        stored_integration = profile.get("workflow_selection", {}).get(
+            "integration_method"
+        )
+        if base == "solo_direct":
+            integration = "not_applicable"
+        elif stored_integration in {
+            "merge_commit",
+            "squash_merge",
+            "rebase_then_fast_forward",
+        }:
+            integration = stored_integration
+        else:
+            integration = None
+            limitations.append("integration_method_requires_project_choice")
+        recommendation.update(
+            base_workflow=base,
+            modifiers=modifiers,
+            review_mode=review_mode,
+            integration_method=integration,
+        )
+    report["status"] = status
+    report["limitations"] = list(dict.fromkeys(limitations))
+    return report, errors
+
+
+def check_collaboration_profile(
+    root: Path,
+    records: dict[str, tuple[dict[str, Any], str]],
+) -> list[str]:
+    """Check stored assessment coherence and project-owned workflow adoption."""
+    try:
+        project = load_json(root / ".agent/project.json")
+    except (OSError, ValueError, json.JSONDecodeError) as error:
+        return [f".agent/project.json: {error}"]
+    if not isinstance(project, dict):
+        return [".agent/project.json: expected object"]
+    profile = project.get("collaboration_profile")
+    if not isinstance(profile, dict):
+        return [".agent/project.json: collaboration_profile must be an object"]
+    if profile.get("permission_grant") is not False:
+        return [".agent/project.json: collaboration_profile cannot grant permission"]
+    if profile.get("assessment_status") == "not_assessed":
+        return [f".agent/project.json: {item}" for item in _collaboration_baseline_errors(profile)]
+
+    report, errors = derive_collaboration_assessment(profile)
+    result = [f".agent/project.json: {item}" for item in errors]
+    if profile.get("team_band") != report["team_band"]:
+        result.append(
+            ".agent/project.json: stored team_band differs from aggregate collaboration signals"
+        )
+    selection = profile.get("workflow_selection", {})
+    derived_status = report["status"]
+    stored_status = selection.get("status") if isinstance(selection, dict) else None
+    if derived_status == "recommended":
+        if stored_status not in {"recommended", "adopted"}:
+            result.append(
+                ".agent/project.json: fresh supported topology must be recommended or deliberately adopted"
+            )
+        recommendation = report["recommendation"]
+        for field in ("base_workflow", "modifiers", "review_mode"):
+            if selection.get(field) != recommendation[field]:
+                result.append(
+                    f".agent/project.json: workflow_selection.{field} differs from topology-derived workflow"
+                )
+        integration = selection.get("integration_method")
+        if recommendation["base_workflow"] == "solo_direct":
+            if integration != "not_applicable":
+                result.append(
+                    ".agent/project.json: solo_direct integration_method must be not_applicable"
+                )
+        elif integration not in {
+            "merge_commit",
+            "squash_merge",
+            "rebase_then_fast_forward",
+        }:
+            result.append(
+                ".agent/project.json: reviewable workflow requires one documented integration method"
+            )
+    else:
+        if stored_status != derived_status:
+            result.append(
+                ".agent/project.json: workflow_selection status does not fail closed for the assessment"
+            )
+        if any(
+            (
+                selection.get("base_workflow") is not None,
+                selection.get("modifiers") != [],
+                selection.get("review_mode") != "not_assessed",
+                selection.get("integration_method") is not None,
+                selection.get("adoption_decision_ref") is not None,
+            )
+        ):
+            result.append(
+                ".agent/project.json: blocked or unsupported assessment must not select a workflow"
+            )
+
+    decision_ref = selection.get("adoption_decision_ref")
+    if stored_status == "adopted":
+        record = records.get(decision_ref) if isinstance(decision_ref, str) else None
+        if (
+            record is None
+            or not str(decision_ref).startswith("DEC-")
+            or record[0].get("status") != "accepted"
+            or not str(record[0].get("authority_source", "")).startswith(
+                ("authority:", "external:")
+            )
+        ):
+            result.append(
+                ".agent/project.json: adopted workflow lacks a resolving accepted project-owned decision"
+            )
+    elif decision_ref is not None:
+        result.append(
+            ".agent/project.json: workflow adoption decision is set before workflow adoption"
+        )
+
+    for index, evidence in enumerate(profile.get("evidence", [])):
+        if not isinstance(evidence, dict):
+            continue
+        source_ref = evidence.get("source_ref")
+        if isinstance(source_ref, str) and source_ref.startswith(("DEC-", "EVD-")):
+            record = records.get(source_ref)
+            if record is None:
+                result.append(
+                    f".agent/project.json: unresolved collaboration evidence source {source_ref}"
+                )
+            elif source_ref.startswith("DEC-") and (
+                record[0].get("status") != "accepted"
+                or not str(record[0].get("authority_source", "")).startswith(
+                    ("authority:", "external:")
+                )
+            ):
+                result.append(
+                    f".agent/project.json: collaboration decision source {source_ref} is not accepted authority"
+                )
+    return list(dict.fromkeys(result))
+
+
+def _contract_digest(value: Any) -> str:
+    return hashlib.sha256(
+        json.dumps(value, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+
+
+def check_tool_operation_contract(tools: dict[str, Any]) -> list[str]:
+    """Enforce the exact closed Git and hosted-change operation vocabulary."""
+    errors: list[str] = []
+    catalogs = tools.get("tools", {}) if isinstance(tools, dict) else {}
+    git = catalogs.get("git", {}) if isinstance(catalogs, dict) else {}
+    hosted = catalogs.get("hosted_change", {}) if isinstance(catalogs, dict) else {}
+    for name, catalog, expected_ids, expected_digest in (
+        ("git", git, GIT_OPERATION_IDS, EXPECTED_GIT_CATALOG_SHA256),
+        (
+            "hosted_change",
+            hosted,
+            HOSTED_CHANGE_OPERATION_IDS,
+            EXPECTED_HOSTED_CHANGE_CATALOG_SHA256,
+        ),
+    ):
+        if not isinstance(catalog, dict):
+            errors.append(f".agent/tools.json: {name} operation catalog must be an object")
+            continue
+        if catalog.get("availability") != "optional":
+            errors.append(f".agent/tools.json: {name} availability must remain optional")
+        if catalog.get("unknown_operations") != "deny":
+            errors.append(f".agent/tools.json: {name} unknown operations must fail closed")
+        operations = catalog.get("operations", [])
+        if not isinstance(operations, list):
+            errors.append(f".agent/tools.json: {name}.operations must be an array")
+            continue
+        ids = [item.get("id") for item in operations if isinstance(item, dict)]
+        if ids != list(expected_ids):
+            errors.append(
+                f".agent/tools.json: {name} operation vocabulary or ordering differs from the kernel"
+            )
+        if len(ids) != len(set(ids)):
+            errors.append(f".agent/tools.json: {name} operation IDs must be unique")
+        for index, operation in enumerate(operations):
+            if not isinstance(operation, dict):
+                continue
+            effects = operation.get("effects", [])
+            authority = operation.get("authority_class")
+            if (
+                not isinstance(effects, list)
+                or not effects
+                or len(effects) != len(set(effects))
+                or any(effect not in GIT_EFFECTS for effect in effects)
+            ):
+                errors.append(
+                    f".agent/tools.json: {name}.operations[{index}] has invalid effects"
+                )
+            if authority not in GIT_AUTHORITY_CLASSES:
+                errors.append(
+                    f".agent/tools.json: {name}.operations[{index}] has invalid authority_class"
+                )
+        if _contract_digest(catalog) != expected_digest:
+            errors.append(
+                f".agent/tools.json: {name} effects, authority, workflow status, or safeguards differ from the versioned contract"
+            )
+
+    by_id = {
+        item.get("id"): item
+        for item in git.get("operations", [])
+        if isinstance(item, dict) and isinstance(item.get("id"), str)
+    } if isinstance(git, dict) else {}
+    for legacy in ("branch", "remote_mutation"):
+        if legacy in by_id:
+            errors.append(f".agent/tools.json: vague legacy Git operation {legacy} is prohibited")
+    for prohibited in ("pull", "force_push"):
+        operation = by_id.get(prohibited, {})
+        if (
+            operation.get("authority_class") != "prohibited"
+            or operation.get("normal_workflow") is not False
+        ):
+            errors.append(
+                f".agent/tools.json: {prohibited} must remain explicitly prohibited"
+            )
+    fetch = by_id.get("fetch_remote", {})
+    if (
+        fetch.get("effects") != ["local_reference_mutation", "network_access"]
+        or fetch.get("authority_class") != "explicit_current_authorization"
+        or "perform_no_implicit_integration_or_prune" not in fetch.get("safeguards", [])
+    ):
+        errors.append(
+            ".agent/tools.json: fetch_remote must be authorized network/local-ref observation without implicit integration"
+        )
+    force_with_lease = by_id.get("force_push_with_lease", {})
+    if (
+        force_with_lease.get("authority_class")
+        != "exceptional_current_authorization"
+        or force_with_lease.get("normal_workflow") is not False
+        or not {
+            "require_exact_current_history_replacement_authority",
+            "require_a_non_default_short_lived_branch",
+            "require_the_expected_remote_object_lease",
+            "name_the_exact_repository_remote_and_ref",
+            "default_branch_history_replacement_is_forbidden",
+        }.issubset(set(force_with_lease.get("safeguards", [])))
+    ):
+        errors.append(
+            ".agent/tools.json: force_push_with_lease lacks exact non-default branch authority and lease safeguards"
+        )
+    for tag_operation in ("create_annotated_tag", "push_tag"):
+        operation = by_id.get(tag_operation, {})
+        if (
+            operation.get("authority_class") != "separate_release_authorization"
+            or operation.get("normal_workflow") is not False
+        ):
+            errors.append(
+                f".agent/tools.json: {tag_operation} requires separate release authority"
+            )
+    for safe_cleanup in ("remove_clean_worktree", "delete_merged_branch"):
+        operation = by_id.get(safe_cleanup, {})
+        if (
+            operation.get("authority_class") != "task_scoped"
+            or operation.get("normal_workflow") is not True
+        ):
+            errors.append(
+                f".agent/tools.json: {safe_cleanup} must remain the bounded normal cleanup path"
+            )
+    for destructive in (
+        "reset_hard",
+        "clean_untracked",
+        "discard_worktree_changes",
+        "delete_unmerged_branch",
+        "remove_dirty_worktree",
+        "delete_or_move_tag",
+    ):
+        operation = by_id.get(destructive, {})
+        if (
+            operation.get("authority_class") != "destructive_current_authorization"
+            or operation.get("normal_workflow") is not False
+            or "destructive_recovery" not in operation.get("effects", [])
+        ):
+            errors.append(
+                f".agent/tools.json: {destructive} must remain exceptional destructive recovery"
+            )
+    return list(dict.fromkeys(errors))
+
+
+def check_git_workflows(root: Path) -> list[str]:
+    """Validate the complete provider-neutral one-to-five-person workflow portfolio."""
+    path = root / ".agent/workflows/small-team-git.json"
+    try:
+        value = load_json(path)
+        schema = load_schema(root, "harness-git-workflows.schema.json")
+        tools = load_json(root / ".agent/tools.json")
+    except (OSError, ValueError, json.JSONDecodeError) as error:
+        return [f".agent/workflows/small-team-git.json: {error}"]
+    errors = [
+        f".agent/workflows/small-team-git.json: {item}"
+        for item in validate_schema(value, schema)
+    ]
+    if not isinstance(value, dict) or not isinstance(tools, dict):
+        return errors
+    if _contract_digest(value) != EXPECTED_GIT_WORKFLOW_SHA256:
+        errors.append(
+            ".agent/workflows/small-team-git.json: workflow portfolio differs from the versioned contract"
+        )
+    if value.get("supported_base_workflows") != list(SUPPORTED_BASE_WORKFLOWS):
+        errors.append(
+            ".agent/workflows/small-team-git.json: supported workflow vocabulary/order mismatch"
+        )
+    if value.get("supported_modifiers") != list(SUPPORTED_WORKFLOW_MODIFIERS):
+        errors.append(
+            ".agent/workflows/small-team-git.json: concurrent modifier contract mismatch"
+        )
+    if value.get("maximum_supported_write_capable_humans") != 5:
+        errors.append(
+            ".agent/workflows/small-team-git.json: maximum supported team size must remain five"
+        )
+    if value.get("excluded_enterprise_workflows") != list(
+        EXCLUDED_ENTERPRISE_WORKFLOW_IDS
+    ):
+        errors.append(
+            ".agent/workflows/small-team-git.json: enterprise workflow exclusions mismatch"
+        )
+    unsupported = value.get("unsupported_state", {})
+    if unsupported != {
+        "result": "unsupported_team_size",
+        "threshold": 5,
+        "enterprise_fallback": False,
+    }:
+        errors.append(
+            ".agent/workflows/small-team-git.json: unsupported team size must not select an enterprise fallback"
+        )
+
+    tool_root = tools.get("tools", {})
+    git_operations = {
+        item.get("id"): item
+        for item in tool_root.get("git", {}).get("operations", [])
+        if isinstance(item, dict) and isinstance(item.get("id"), str)
+    } if isinstance(tool_root, dict) else {}
+    hosted_operations = {
+        item.get("id"): item
+        for item in tool_root.get("hosted_change", {}).get("operations", [])
+        if isinstance(item, dict) and isinstance(item.get("id"), str)
+    } if isinstance(tool_root, dict) else {}
+    operation_catalog = {**git_operations, **hosted_operations}
+    workflows = value.get("workflows", {})
+    referenced: list[tuple[str, str]] = []
+    if isinstance(workflows, dict):
+        for workflow_id, workflow in workflows.items():
+            if workflow_id not in SUPPORTED_BASE_WORKFLOWS:
+                errors.append(
+                    f".agent/workflows/small-team-git.json: unknown workflow {workflow_id}"
+                )
+            if not isinstance(workflow, dict):
+                continue
+            review = workflow.get("review", {})
+            if isinstance(review, dict) and review.get(
+                "maximum_required_peer_approvals", 0
+            ) > 1:
+                errors.append(
+                    f".agent/workflows/small-team-git.json: {workflow_id} requires more than one peer approval"
+                )
+            for step in workflow.get("steps", []):
+                if not isinstance(step, dict):
+                    continue
+                for operation_id in step.get("operations", []):
+                    referenced.append((f"{workflow_id}.{step.get('id')}", operation_id))
+            for operation_id in workflow.get("cleanup_operations", []):
+                referenced.append((f"{workflow_id}.cleanup", operation_id))
+    modifier = value.get("modifiers", {}).get("concurrent_work", {})
+    if isinstance(modifier, dict):
+        for operation_id in modifier.get("operations", []):
+            referenced.append(("concurrent_work", operation_id))
+    for location, operation_id in referenced:
+        operation = operation_catalog.get(operation_id)
+        if operation is None:
+            errors.append(
+                f".agent/workflows/small-team-git.json: {location} references unknown operation {operation_id}"
+            )
+            continue
+        if (
+            operation.get("authority_class") in {
+                "prohibited",
+                "destructive_current_authorization",
+            }
+            or operation.get("normal_workflow") is not True
+        ):
+            errors.append(
+                f".agent/workflows/small-team-git.json: {location} uses non-normal operation {operation_id}"
+            )
+    if any(
+        operation_id in {"pull", "force_push"}
+        for _, operation_id in referenced
+    ):
+        errors.append(
+            ".agent/workflows/small-team-git.json: composite pull and raw force-push are prohibited workflow steps"
+        )
+    return list(dict.fromkeys(errors))
 
 
 def hash_file(path: Path) -> str:
@@ -1709,6 +2580,7 @@ def check_kernel(root: Path) -> list[str]:
         "tests",
         "tools.json",
         "validators.json",
+        "workflows",
     }
     agent_root = root / ".agent"
     if agent_root.is_dir():
@@ -1919,6 +2791,10 @@ def check_kernel(root: Path) -> list[str]:
             "run": "python -B .agent/scripts/validate.py --ready-frontier",
             "writes": [],
         },
+        "collaboration_assessment": {
+            "run": "python -B .agent/scripts/validate.py --assess-collaboration",
+            "writes": [],
+        },
         "test": {
             "run": (
                 "python -B -m unittest discover -s .agent/tests "
@@ -1951,6 +2827,7 @@ def check_kernel(root: Path) -> list[str]:
     if (
         validators.get("validator_version") != KERNEL_VERSION
         or commands != expected_commands
+        or validators.get("required_core_checks") != EXPECTED_REQUIRED_CORE_CHECKS
     ):
         errors.append(".agent/validators.json: core command contract mismatch")
     tools = values.get(".agent/tools.json", {})
@@ -1961,41 +2838,39 @@ def check_kernel(root: Path) -> list[str]:
         is False
     ):
         errors.append(".agent/tools.json: availability/authority boundary invalid")
-    if tools.get("tools") != {
-        "filesystem": {
+    tool_catalogs = tools.get("tools", {})
+    if (
+        not isinstance(tool_catalogs, dict)
+        or tool_catalogs.get("filesystem")
+        != {
             "availability": "required",
             "allowed": ["read_relevant", "write_requested_repository_paths"],
             "denied": [
                 "write_outside_declared_workspace",
                 "follow_untrusted_symlink",
             ],
-        },
-        "shell": {
+        }
+        or tool_catalogs.get("shell")
+        != {
             "availability": "required",
             "allowed": ["declared_validation", "scoped_local_commands"],
             "denied": ["undeclared_external_effect", "secret_in_command"],
-        },
-        "git": {
-            "availability": "optional",
-            "allowed": ["status", "diff"],
-            "task_scoped": ["add", "commit", "branch"],
-            "explicit_current_authorization": [
-                "push",
-                "force_push",
-                "remote_mutation",
-            ],
-        },
-    } or tools.get("evidence") != {
+        }
+        or tools.get("evidence") != {
         "record_material_commands": True,
         "redact_secret_values": True,
         "tool_availability_implies_permission": False,
-    } or tools.get("real_enforcement_boundary") != [
-        "platform_and_sandbox_permissions",
-        "operating_system_and_workspace_access",
-        "credential_scope",
-        "protected_remote_controls",
-    ]:
+        }
+        or tools.get("real_enforcement_boundary")
+        != [
+            "platform_and_sandbox_permissions",
+            "operating_system_and_workspace_access",
+            "credential_scope",
+            "protected_remote_controls",
+        ]
+    ):
         errors.append(".agent/tools.json: safety vocabulary differs from kernel")
+    errors.extend(check_tool_operation_contract(tools))
     project_id = project.get("project", {}).get("id")
     if (
         not isinstance(project_id, str)
@@ -5399,6 +6274,8 @@ def check_sources(root: Path = ROOT) -> list[str]:
     records, record_errors = collect_records(root)
     errors.extend(record_errors)
     errors.extend(check_origin(root, records))
+    errors.extend(check_collaboration_profile(root, records))
+    errors.extend(check_git_workflows(root))
     errors.extend(check_references_and_lifecycle(root, records))
     errors.extend(check_plan_and_traceability(records))
     errors.extend(check_current_state(root, records))
@@ -5425,7 +6302,35 @@ def main() -> int:
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--check", action="store_true")
     mode.add_argument("--ready-frontier", action="store_true")
+    mode.add_argument("--assess-collaboration", action="store_true")
     args = parser.parse_args()
+    if args.assess_collaboration:
+        try:
+            project = load_json(ROOT / ".agent/project.json")
+            kernel_schema = load_schema(ROOT, "harness-kernel.schema.json")
+        except (OSError, ValueError, json.JSONDecodeError) as error:
+            print(f"[FAIL] .agent/project.json: {safe_diagnostic(error)}", file=sys.stderr)
+            return 1
+        schema_errors = validate_schema(
+            project,
+            {"$ref": "#/$defs/project"},
+            root_schema=kernel_schema,
+        )
+        profile = project.get("collaboration_profile") if isinstance(project, dict) else None
+        if schema_errors or not isinstance(profile, dict):
+            for error in schema_errors:
+                print(f"[FAIL] .agent/project.json: {safe_diagnostic(error)}", file=sys.stderr)
+            if not isinstance(profile, dict):
+                print(
+                    "[FAIL] .agent/project.json: collaboration_profile must be an object",
+                    file=sys.stderr,
+                )
+            return 1
+        report, report_errors = derive_collaboration_assessment(profile)
+        for error in report_errors:
+            print(f"[FAIL] {safe_diagnostic(error)}", file=sys.stderr)
+        print(json.dumps(report, indent=2, sort_keys=True))
+        return 1 if report_errors else 0
     if args.ready_frontier:
         errors = check_sources()
         for error in errors:

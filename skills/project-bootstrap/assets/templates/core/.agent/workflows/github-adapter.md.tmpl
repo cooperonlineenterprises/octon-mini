@@ -1,0 +1,65 @@
+# Optional GitHub Adapter Guide
+
+> Inactive example only. This file is not `.github/` configuration, grants no
+> permission, and does not assert that GitHub, a repository, credentials,
+> reviewers, checks, branch protection, merge methods, environments, releases,
+> or any other hosted setting exists.
+
+The core small-team workflows are provider-neutral. A project may map their
+hosted-change operations to GitHub only through a project-owned accepted
+decision and current authority for each external action. Structural adoption
+does not authorize a push, pull request, review, merge, remote branch deletion,
+release, or settings change.
+
+## Adoption inputs
+
+Before adopting a GitHub mapping, record project-owned values for:
+
+- the exact repository and default branch;
+- the selected base workflow and optional `concurrent_work` modifier;
+- whether branch publication and PR creation are authorized for the current
+  task;
+- the CI workflow and check names actually observed after configuration;
+- established independent-review capacity and current eligibility;
+- exactly one integration method;
+- local and remote branch-cleanup rules; and
+- evidence time, freshness deadline, limitations, and accepted decision ref.
+
+Do not infer any value from this example. A null, unknown, stale, or
+conflicting adoption input remains unresolved.
+
+## Provider mapping
+
+| Provider-neutral operation | Example GitHub behavior |
+|---|---|
+| `observe_change_checks` | Read the exact PR or commit checks without claiming they are required or successful. |
+| `open_pull_request` | Open a PR for exact base/head refs after separately authorized branch publication. |
+| `submit_pull_request_review` | Submit an exact review while stating self versus peer review truthfully. |
+| `merge_pull_request` | Merge the exact PR with the one adopted method only after current validation, review, and merge authority are established. |
+
+These mappings are examples, not adopted settings. GitHub branch protection,
+rulesets, required checks, merge-method availability, automatic branch
+deletion, and permissions live at the hosted enforcement boundary and must be
+verified independently. Repository files can recommend restrictions but
+cannot create or prove those controls.
+
+## Lightweight small-team guidance
+
+- `solo_direct` does not require a PR. If GitHub is used, CI may run after the
+  authorized default-branch push.
+- `solo_hybrid` may use a self-PR. Record self-review limitations outside any
+  implication of independent approval.
+- `pair_pr` and `tiny_pr` require a PR and block when required review capacity
+  is absent. Never add more than one required peer approval.
+- Use lightweight path ownership only when project evidence shows it improves
+  reviewer selection; do not generate a CODEOWNERS hierarchy.
+- If CI runs on both branch pushes and PR events, restrict ordinary push
+  validation to the default branch so an open PR update does not run the same
+  full suite twice.
+- Concurrency may cancel superseded PR runs, but should preserve required
+  default-branch and release evidence.
+
+Copying an example into `.github/` is a separate repository mutation. Applying
+branch protection, rulesets, merge settings, or any other hosted setting is a
+separate external mutation. Both require explicit current authority and
+project-specific validation.

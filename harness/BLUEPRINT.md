@@ -97,7 +97,7 @@ each:
 | `.agent/lifecycle.json` | legal task, decision, and artifact transitions |
 | `.agent/tools.json` | availability, allowed operations, constraints, and evidence |
 | `.agent/validators.json` | named check, test, refresh, and closure commands |
-| `.agent/project.json` | stable project profile and project command hooks |
+| `.agent/project.json` | stable project profile, collaboration assessment, workflow adoption, and project command hooks |
 
 `project.json` must not become a second status report. Mutable work status
 belongs in tasks and `.agent/state/current.json`.
@@ -113,7 +113,9 @@ a recurring job, quality boundary, or role-separation need justifies them.
 
 ### Layer 4: project profile and extensions
 
-`.agent/project.json` declares stable repository facts and command hooks.
+`.agent/project.json` declares stable repository facts, a current
+privacy-minimized collaboration assessment, any adopted small-team workflow,
+and command hooks.
 `.agent/extensions/` owns domain registries, build or release rules, and
 project-specific validators.
 
@@ -172,6 +174,14 @@ resumable and auditable.
     boundary or detect and report any mutation without claiming prevention.
 13. Hard dependencies, satisfied gates, resolved structured blockers, and
     reciprocal plan/task links determine work readiness; dates never do.
+14. Collaboration observations, workflow recommendations, and workflow records
+    are non-authorizing; only a project-owned accepted decision may adopt a
+    workflow, and it still cannot authorize an operation.
+15. Human team size selects only the base collaboration workflow. It never
+    selects an assurance profile or grants access, approval, review capacity,
+    publication authority, or release authority.
+16. More than five write-capable humans is explicitly unsupported and never
+    falls through to an enterprise workflow.
 
 ## 5. Recommended directory structure
 
@@ -187,6 +197,8 @@ resumable and auditable.
 │   ├── tools.json
 │   ├── validators.json
 │   ├── project.json
+│   ├── workflows/
+│   │   └── small-team-git.json        # provider-neutral, non-authorizing
 │   ├── schemas/                       # local versioned schema snapshot
 │   ├── approvals/                     # conditional attestation metadata
 │   ├── coordination/                  # conditional leases/write ownership
@@ -296,10 +308,121 @@ Policy text is declarative defense in depth, not a sandbox. Real enforcement
 belongs to platform permissions, least-privilege credentials, protected
 branches, independent CI, review, and environment gates.
 
+### 7.1 Collaboration topology and small-team workflow selection
+
+The current collaboration assessment and selected workflow are owned by the
+closed `collaboration_profile` in `.agent/project.json`. This is a compact
+project-governance assessment, not mutable task status. It stores aggregate
+counts and evidence references, never collaborator identities. Detailed
+observations remain in project-owned evidence or current-state sources.
+
+The independent signals are:
+
+- the project owner's declared number of write-capable human maintainers;
+- observed repository access split into write-capable humans, read-only
+  humans, and bots or automation;
+- active human and automated contributors over an explicit 1–365 day window;
+- the number of eligible independent reviewers currently available;
+- expected simultaneous human and agent or automation repository writers;
+- whether external contribution is closed, invitation-only, open, or unknown;
+  and
+- whether a solo maintainer prefers direct or reviewable integration.
+
+Read-only people, bots, and automation never count as human maintainers.
+Activity does not erase dormant write-capable access. Access observation is
+evidence about topology, not a grant of access or permission. Evidence names
+its kind, safe reference, supported signals, observation time, freshness
+deadline, and limitations. The assessment records `confirmed`, `inferred`,
+`conflicted`, or `unknown` confidence; disagreement remains explicit.
+
+The read-only collaboration command derives a classification from the stored
+aggregate without writing, networking, executing hooks, or adopting it:
+
+```text
+python -B .agent/scripts/validate.py --assess-collaboration
+```
+
+It is not part of ordinary `--check`. A project may gather hosted observations
+separately under explicit network authority, or rely entirely on project-owned
+observations. Unknown, expired, or conflicting evidence blocks selection.
+
+Team-band derivation is closed:
+
+| Effective write-capable humans | Team band | Base workflow |
+|---|---|---|
+| 0 | `no_write_capable_human` | blocked |
+| 1 | `solo` | `solo_direct` or `solo_hybrid` |
+| 2 | `pair` | `pair_pr` |
+| 3–5 | `tiny` | `tiny_pr` |
+| More than 5 | `unsupported_team_size` | none |
+
+One fresh writer signal can support only `inferred` confidence when every
+other required signal is explicit and fresh. Equal declared and observed
+writer counts support `confirmed`; disagreement is `conflicted`. Any credible
+count above five produces `unsupported_team_size` even when other counts
+conflict, preventing selection of an undersized workflow.
+
+The four supported workflows are complete but deliberately lightweight:
+
+- `solo_direct`: for one human who prefers direct integration and expects no
+  simultaneous writer. Inspect the revision and worktree, make a bounded
+  change on the default branch, validate locally, stage and commit, publish
+  only with explicit current authority, then observe CI. Substantial or
+  high-risk work escalates to `solo_hybrid` and may add stronger risk controls.
+- `solo_hybrid`: create and switch to a short-lived task branch, make the
+  bounded change, validate, stage and commit, optionally publish a self-PR,
+  observe CI, perform self-review with limitations, integrate using the one
+  project-adopted method, and safely clean up the branch.
+- `pair_pr`: create a short-lived task branch, validate and commit, publish a
+  PR under current authority, observe CI, obtain one peer review when an
+  eligible reviewer is available, integrate with the one adopted method, and
+  safely clean up. If capacity is absent, record the limitation and block
+  rather than fabricate an approval.
+- `tiny_pr`: use the same short-lived branch, PR, CI, integration, and cleanup
+  lifecycle for three to five humans. At most one peer approval may be
+  required. Lightweight ownership guidance is optional and must address an
+  observed coordination need; it never becomes a multi-level approval system.
+
+Any supported band with simultaneous writers applies the `concurrent_work`
+modifier. Each task uses its own branch or worktree, records a shared base
+revision and declared write scope, detects conflicts deterministically, and
+defines cancellation, handback, and partial-result behavior. Agents and
+automation change only this modifier, never the human team band. A
+High-Assurance coordination lease is an optional stronger realization when a
+named risk warrants it; the modifier itself applies in every profile.
+
+`.agent/workflows/small-team-git.json` is the provider-neutral, non-authorizing
+workflow source. Every operation it uses resolves to the ordered catalogs in
+`.agent/tools.json`. A recommendation does not adopt a workflow. Adoption
+requires a resolving accepted project-owned `DEC-####`, but neither the
+decision nor the workflow grants permission to edit, fetch, push, publish a
+PR, replace history, create a release tag, or perform recovery.
+
+Team size selects only the base workflow. Project risk independently adds
+validation, review, protected enforcement, external-effect gates, or qualified
+specialists. It never changes the team band and does not automatically select
+Standard or High Assurance.
+
+GitHub integration is optional. Repository-local contracts never imply a
+provider, account, credential, reviewer, branch protection, required check,
+environment, release, successful CI run, or hosted permission. Provider
+publication remains an explicitly authorized external action.
+
+The portfolio expressly excludes GitFlow with long-lived development/release/
+hotfix branches, merge queues or batch integration, release trains, stacked-PR
+dependency trains, fork-first internal contribution, multi-level CODEOWNERS
+approval hierarchies, multiple mandatory approval stages, dedicated release
+manager handoffs, organization-wide ruleset orchestration, multi-environment
+promotion pipelines, and enterprise issue-triage or portfolio governance.
+Simple PRs, CI, one-peer review, and risk-justified branch protection remain
+valid small-team controls.
+
 ## 8. Record and state model
 
 | Concern | Store | Mutability | Meaning |
 |---|---|---|---|
+| collaboration topology and adoption | `project.json` | reassessed project source plus accepted decision reference | which small-team workflow fits without creating permission |
+| provider-neutral Git workflow | `workflows/small-team-git.json` | versioned kernel contract | complete supported steps and explicit enterprise exclusions |
 | durable intent | `decisions/` | immutable plus successor | why a lasting choice exists |
 | active work | `tasks/` | lifecycle updates | what is being done |
 | observation | `evidence/` | immutable record | what was inspected or executed |
@@ -472,9 +595,29 @@ def validate(context: ValidationContext) -> list[Finding]:
     ...
 ```
 
-For concurrent agents, additionally require a task lease and expiry, shared
-revision base, declared write ownership, handback contract, deterministic
-conflict detection, cancellation behavior, and partial-result rules.
+The Git and hosted-change catalogs are ordered, closed, and fail unknown
+operations. Every operation declares one or more effects from
+`read_only_observation`, `local_reference_mutation`,
+`working_tree_or_index_mutation`, `repository_history_mutation`,
+`network_access`, `external_publication`, and `destructive_recovery`; its
+authority class; whether it is a normal workflow step; and exact safeguards.
+Authority classes are `allowed`, `task_scoped`,
+`explicit_current_authorization`, `separate_release_authorization`,
+`exceptional_current_authorization`, `destructive_current_authorization`, and
+`prohibited`.
+
+Composite `pull` is not modeled as harmless. Raw force-push is prohibited.
+Exceptional history replacement is force-with-lease only, exact-ref scoped,
+currently authorized, and confined to a non-default short-lived branch.
+Release tags require separate release authority. Branch and worktree deletion
+require safe-state evidence. Destructive recovery is never a normal workflow
+step, and every workflow operation reference must resolve to the catalog.
+
+For concurrent work in any profile, require a shared revision base, declared
+write ownership, handback contract, deterministic conflict detection,
+cancellation behavior, and partial-result rules. High Assurance may
+additionally require a task lease and expiry when the project risk assessment
+justifies mechanical coordination.
 
 A coordination lease is not authority to edit. It only prevents two
 authorized workers from silently claiming the same write scope. Lease
@@ -605,6 +748,8 @@ Use for small, early, or low-risk projects. Required:
 - portable read-only validator;
 - unassessed target-project hook contracts and a separately explicit evidence
   writer;
+- the full provider-neutral small-team Git workflow portfolio and unassessed
+  collaboration profile;
 - project-local derivative source plus refresh command;
 - valid and invalid fixtures with mutation tests; and
 - dossier minimal profile.
@@ -620,7 +765,8 @@ environment.
 
 ### Standard
 
-Use by default for active multi-contributor projects or monorepos. Add:
+Use when structured traceability, durable review evidence, project extensions,
+or comparable coordination risks justify it. Add:
 
 - evidence and review stores/templates;
 - meaningful transition events;
@@ -641,8 +787,9 @@ and resume a real task without undocumented steps.
 
 ### High assurance or agent-operable
 
-Use when agents operate across sessions, concurrent work or sensitive data is
-possible, external effects exist, or audit/reproducibility matters. Add:
+Use when sensitive data, material external effects, protected enforcement,
+long-lived agent operation, role separation, or audit/reproducibility needs
+justify it. Add:
 
 - constrained reviewer agent, routed review skill, and safe-change workflow;
 - checkpoints and generated integrity;
@@ -670,6 +817,10 @@ The profile does not by itself create high assurance. Independent controls,
 adoption decisions, project extensions, and demonstrated acceptance criteria
 are still required.
 
+All three profiles support `solo_direct`, `solo_hybrid`, `pair_pr`, `tiny_pr`,
+and the `concurrent_work` modifier. Human count alone never selects Standard or
+High Assurance, and concurrency alone does not require a coordination lease.
+
 ## 12. Adoption and evolution
 
 ### Initial adoption
@@ -679,25 +830,29 @@ are still required.
 2. Identify actual sandbox, Git, CI, secret, cloud, and human enforcement
    boundaries.
 3. Choose read-only, per-task mutation, or standing reversible local posture.
-4. Preview and generate the smallest justified profile.
-5. Inspect the target repository and resolve every template sentinel from
+4. Assess collaboration from project-owned, fresh, privacy-minimized evidence;
+   derive the team band and recommendation without granting permission. Adopt
+   a supported workflow only through a separate accepted project decision.
+5. Preview and generate the smallest risk-justified profile.
+6. Inspect the target repository and resolve every template sentinel from
    evidence or mark it explicitly not applicable with a reason.
-6. Record the threat model and authority posture as the first project decision;
+7. Record the threat model and authority posture as a project decision;
    never ship the example ID as accepted fact.
-7. Assess every project command; configure applicable hooks with direct argv,
+8. Assess every project command; configure applicable hooks with direct argv,
    owners, freshness, version probes, and declared effects, or record an owned
    `not_applicable` rationale.
-8. Assess extension needs and ownership. Operations/observability and
+9. Assess extension needs and ownership. Operations/observability and
    security/supply-chain packages remain disabled until a project trust
    decision and project-owned records justify deliberate adoption.
-9. Assess conditional approval, coordination, data, recovery, evaluation, and
+10. Assess conditional approval, coordination, data, recovery, evaluation, and
    metric triggers; record every omission with a reason and every applicable
    High-Assurance control with current evidence.
-10. Run the read-only check and mutation tests in a disposable clean
+11. Run the read-only check and mutation tests in a disposable clean
     checkout/worktree; run configured project hooks only through the explicit
     evidence writer after confirming authority for declared effects.
-11. Complete one real task through closure and handoff.
-12. Enable external or high-impact paths only through trusted current
+12. Complete one real task through closure and handoff using the adopted
+    small-team workflow and its concurrency modifier when applicable.
+13. Enable external or high-impact paths only through trusted current
     authorization and independent enforcement.
 
 ### Evolution
@@ -773,6 +928,11 @@ A harness is complete only when these demonstrations pass:
     trigger assessment.
 14. Final reporting states scope, failures, skipped checks, limitations, dirty
     state, and external effects without overclaiming.
+15. Fresh solo, pair, and tiny-team assessments select only the supported
+    provider-neutral workflows; unknown, stale, conflicted, zero-writer, and
+    over-five states fail safely; concurrency does not change human count;
+    every workflow operation resolves; and enterprise workflow identifiers are
+    absent or rejected.
 
 Passing these criteria proves the harness is usable and testable. It does not
 prove production safety, security, accessibility, legal compliance,
@@ -782,7 +942,7 @@ Acceptance has two explicit gates:
 
 | Gate | Criteria | Required evidence |
 |---|---|---|
-| Blueprint release automation | 2, 4–10, and 12, plus structural portions of 1, 3, and 14 | cross-profile valid/invalid fixtures, mutation matrix, unchanged-tree checks, stale/partial refresh recovery, extension confinement, secret redaction |
+| Blueprint release automation | 2, 4–10, 12, and 15, plus structural portions of 1, 3, and 14 | cross-profile valid/invalid fixtures, collaboration and workflow matrices, operation-reference coverage, unchanged-tree checks, stale/partial refresh recovery, extension confinement, secret redaction |
 | Target-project adoption | human portions of 1 and 3, plus 11, 13, and 14 | timed unfamiliar-maintainer exercise, actual platform enforcement, one real task/closure, exact project revision checks, truthful handoff report |
 
 The release suite reports every criterion as `automated_pass`,
@@ -812,20 +972,24 @@ partial matrix as complete acceptance.
 3. Inspect `.project-blueprint-origin.json`, the artifact catalog, and all
    proposed or unassessed sentinels.
 4. Read applicable project instructions and classify real authority sources.
-5. Adopt project scope, commands, owners, and extension needs through accepted
+5. Record fresh aggregate collaboration evidence, derive the team band, and
+   adopt a supported workflow through an accepted project decision; do not
+   treat the assessment or decision as operation authority.
+6. Adopt project scope, commands, owners, and extension needs through accepted
    project decisions; generation supplies none of them.
-6. Populate intended state, dated current state, findings, plan, risks,
+7. Populate intended state, dated current state, findings, plan, risks,
    provenance, evidence, and handoff without collapsing their information
    states.
-7. Build hard plan/task dependency graphs, reciprocal plan/task links,
+8. Build hard plan/task dependency graphs, reciprocal plan/task links,
    structured gates and blockers, then derive the ready frontier before
    selecting planned work. Use valid direction rather than dates to choose
    among independent ready items.
-8. Register every dossier representation in the project-local artifact source;
+9. Register every dossier representation in the project-local artifact source;
    run refresh to derive catalog, path authority, and integrity outputs.
-9. Run the read-only validator and its mutation/recovery tests.
-10. Demonstrate one real dependency-gated task lifecycle and a safe handoff.
-11. Record conditional trigger decisions, remaining unknowns, and limits; do
+10. Run the read-only validator and its mutation/recovery tests.
+11. Demonstrate one real dependency-gated task lifecycle through the adopted
+    Git workflow and a safe handoff.
+12. Record conditional trigger decisions, remaining unknowns, and limits; do
     not translate structural success
     into a readiness claim.
 
@@ -834,6 +998,7 @@ partial matrix as complete acceptance.
 | Release automation validates | The target project must still decide or prove |
 |---|---|
 | syntax, duplicate keys, kernel/record schemas, schema-kind agreement, IDs, links, legal transitions, dependency cycles/readiness, and reciprocal plan/task links for declared stores | actual project facts, owners, requirements, acceptance criteria, and priority among independent ready items |
+| closed collaboration bands, workflow mappings, freshness/conflict failures, review-capacity caps, operation references, and enterprise exclusions | actual maintainer topology, reviewer availability, workflow adoption, hosted settings, and permission for any Git or provider action |
 | structured instruction and extension rules cannot declare authority expansion; prohibited mutations fail fixtures | who may authorize specific actions and whether the execution platform actually enforces the boundary |
 | the core check writes nothing and executes no project hook; explicit project-check evidence is schema-valid, fingerprint-bound, and fresh; extension or hook mutation is detected after execution | whether configured commands and extension code are authorized and trustworthy, and whether an external sandbox or no-write boundary is required |
 | project-local artifact source, derived catalog/path roles, traceability structure, and integrity metadata cohere | whether requirements are correct and evidence is substantively sufficient |
