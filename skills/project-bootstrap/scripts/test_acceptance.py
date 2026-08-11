@@ -49,14 +49,22 @@ ACCEPTANCE_COVERAGE = {
 }
 
 
-def run(command: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
+def run(
+    command: list[str],
+    cwd: Path,
+    *,
+    env_overrides: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess[str]:
+    environment = {**os.environ, "PYTHONDONTWRITEBYTECODE": "1"}
+    if env_overrides:
+        environment.update(env_overrides)
     return subprocess.run(
         command,
         cwd=cwd,
         capture_output=True,
         text=True,
         check=False,
-        env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
+        env=environment,
     )
 
 
@@ -281,6 +289,35 @@ def main() -> int:
     )
     with tempfile.TemporaryDirectory(prefix="project-blueprint-acceptance-") as temp:
         temp_root = Path(temp)
+        legacy_console_target = temp_root / "legacy-console-dry-run"
+        legacy_console_result = run(
+            [
+                sys.executable,
+                "-B",
+                str(SCAFFOLDER),
+                "--target",
+                str(legacy_console_target),
+                "--project-name",
+                "Legacy console α",
+                "--profile",
+                "minimal",
+                "--dry-run",
+            ],
+            ROOT,
+            env_overrides={"PYTHONIOENCODING": "cp1252"},
+        )
+        require(
+            legacy_console_result.returncode == 0
+            and "Legacy console \\u03b1" in legacy_console_result.stdout,
+            "scaffolder diagnostics failed safely encoded CP-1252 dry run: "
+            f"{legacy_console_result.stderr or legacy_console_result.stdout}",
+            failures,
+        )
+        require(
+            not legacy_console_target.exists(),
+            "legacy-console dry run wrote the target",
+            failures,
+        )
         projects: dict[str, Path] = {}
         names = {
             "minimal": 'A "Quoted" Project: [α]',

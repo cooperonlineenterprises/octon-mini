@@ -59,6 +59,14 @@ def canonical_posix_paths(paths: Iterable[PurePath]) -> list[str]:
     return sorted(path.as_posix() for path in paths)
 
 
+def configure_console_output() -> None:
+    """Keep diagnostics writable when the host console has a legacy codec."""
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if callable(reconfigure):
+            reconfigure(errors="backslashreplace")
+
+
 def require_runtime() -> None:
     if sys.version_info < (3, 11):
         raise ValueError(
@@ -533,6 +541,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> int:
+    configure_console_output()
     args = parse_args()
     target = args.target.expanduser()
     try:
