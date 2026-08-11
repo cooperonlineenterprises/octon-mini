@@ -16,7 +16,10 @@ local schema snapshot.
 Use by default for active multi-contributor projects. It adds evidence,
 reviews, events, artifact metadata, project extensions, closure guidance,
 structured requirements, findings, plans, RAIDQ, sources, and machine-readable
-evidence stores. These start empty and unadopted.
+evidence stores. It also supplies independently adoptable operations and
+observability plus security and supply-chain extension contracts. These
+extensions start disabled and `not_assessed`; they contain no provider, tool,
+control, evidence, approval, or readiness fact.
 
 ## High assurance
 
@@ -31,8 +34,12 @@ governance, supply-chain inventory, and bounded context packs. Their presence
 does not establish applicability; activate, combine, or mark them not
 applicable through the appropriate project records and artifact registry with
 an evidence-based rationale.
-The enabled sample restriction extension proves the versioned interface and
-can be disabled without a kernel change.
+An adopted High-Assurance project must have every conditional and optional
+trigger assessed, with applicable controls owned and supported by current
+evidence. The disabled sample restriction extension proves the versioned
+interface and can be deliberately trusted, enabled, and disabled without a
+kernel change. The two production-control extension packages remain optional
+entry points rather than automatic controls.
 
 Choose a larger profile because a trigger exists, not because more files appear
 more complete.

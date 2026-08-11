@@ -65,7 +65,8 @@
       "id": "scope",
       "kind": "action",
       "requires": [
-        "current_task"
+        "current_task",
+        "dependency_ready_frontier"
       ],
       "actions": [
         "inspect_repository",
@@ -73,7 +74,7 @@
         "create_or_select_task"
       ],
       "agent_ref": null,
-      "gate": "authority_confirmed_by_applicable_source",
+      "gate": "authority_and_dependency_readiness_confirmed",
       "on_success": "implement",
       "on_failure": "blocked",
       "on_actionable_findings": null
@@ -181,6 +182,8 @@
   ],
   "invariants": [
     "authority_never_expands_across_transition",
+    "execution_starts_only_from_dependency_ready_frontier",
+    "dates_never_satisfy_dependencies_or_select_priority",
     "read_only_validation_never_writes",
     "external_effect_requires_explicit_gate"
   ],

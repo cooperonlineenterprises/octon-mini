@@ -1,0 +1,18 @@
+{
+  "schema_version": "project-blueprint.migration-invalid-case.v1",
+  "base": "../valid/v1-standard.json",
+  "operations": [
+    {
+      "op": "replace",
+      "path": [
+        "classification",
+        "plans",
+        "PLAN-0002",
+        "depends_on",
+        "TASK-0002"
+      ],
+      "value": "advisory"
+    }
+  ],
+  "expected_error": "plan link PLAN-0002 is not reciprocal"
+}

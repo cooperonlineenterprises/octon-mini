@@ -1,5 +1,5 @@
 {
-  "schema_version": "harness.project.v1",
+  "schema_version": "harness.project.v2",
   "project": {
     "id": "{{PROJECT_SLUG}}",
     "name": {{PROJECT_NAME_JSON}},
@@ -17,10 +17,85 @@
     "fingerprint_exclusions": []
   },
   "commands": {
-    "project_test": {"status": "not_assessed", "run": null},
-    "project_lint": {"status": "not_assessed", "run": null},
-    "project_build": {"status": "not_assessed", "run": null},
-    "project_closure": {"status": "not_assessed", "run": null}
+    "project_test": {
+      "status": "not_assessed",
+      "owner": null,
+      "rationale": null,
+      "tool_name": null,
+      "argv": null,
+      "version_argv": null,
+      "timeout_seconds": null,
+      "evidence_freshness_days": null,
+      "side_effects": {
+        "classification": "not_assessed",
+        "repository_write_paths": [],
+        "external_effects": []
+      }
+    },
+    "project_lint": {
+      "status": "not_assessed",
+      "owner": null,
+      "rationale": null,
+      "tool_name": null,
+      "argv": null,
+      "version_argv": null,
+      "timeout_seconds": null,
+      "evidence_freshness_days": null,
+      "side_effects": {
+        "classification": "not_assessed",
+        "repository_write_paths": [],
+        "external_effects": []
+      }
+    },
+    "project_build": {
+      "status": "not_assessed",
+      "owner": null,
+      "rationale": null,
+      "tool_name": null,
+      "argv": null,
+      "version_argv": null,
+      "timeout_seconds": null,
+      "evidence_freshness_days": null,
+      "side_effects": {
+        "classification": "not_assessed",
+        "repository_write_paths": [],
+        "external_effects": []
+      }
+    },
+    "project_closure": {
+      "status": "not_assessed",
+      "owner": null,
+      "rationale": null,
+      "tool_name": null,
+      "argv": null,
+      "version_argv": null,
+      "timeout_seconds": null,
+      "evidence_freshness_days": null,
+      "side_effects": {
+        "classification": "not_assessed",
+        "repository_write_paths": [],
+        "external_effects": []
+      }
+    }
+  },
+  "project_checks": {
+    "evidence_schema": ".agent/schemas/harness-project-check-evidence.schema.json",
+    "evidence_store": ".agent/project-checks/evidence.json",
+    "writer_argv": [
+      "python",
+      "-B",
+      ".agent/scripts/run_project_checks.py",
+      "--write-evidence"
+    ],
+    "adoption_verification_argv": [
+      "python",
+      "-B",
+      ".agent/scripts/run_project_checks.py",
+      "--write-evidence",
+      "--verify-adoption"
+    ],
+    "execution": "explicit_writer_only",
+    "shell_interpretation": false
   },
   "extensions": {
     "registry": ".agent/extensions/registry.json",

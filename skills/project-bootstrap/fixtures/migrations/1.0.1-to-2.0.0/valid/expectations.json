@@ -1,0 +1,86 @@
+{
+  "schema_version": "project-blueprint.migration-expectations.1.0.1-to-2.0.0.v1",
+  "project_adoption_status": "not_assessed",
+  "project_command_statuses": {
+    "project_test": "configured",
+    "project_lint": "not_applicable",
+    "project_build": "not_assessed",
+    "project_closure": "not_assessed"
+  },
+  "project_command_actions": {
+    "project_test": "explicit_v2_assessment",
+    "project_lint": "explicit_v2_assessment",
+    "project_build": "preserve_not_assessed",
+    "project_closure": "preserve_not_assessed"
+  },
+  "validator_command_names": [
+    "adoption_verify",
+    "bootstrap",
+    "check",
+    "closure",
+    "project_checks",
+    "ready_frontier",
+    "refresh",
+    "test"
+  ],
+  "task_ids": [
+    "TASK-0001",
+    "TASK-0002"
+  ],
+  "plan_ids": [
+    "PLAN-0001",
+    "PLAN-0002"
+  ],
+  "task_hard_dependencies": {
+    "TASK-0001": [],
+    "TASK-0002": [
+      "TASK-0001"
+    ]
+  },
+  "task_plan_item_refs": {
+    "TASK-0001": [],
+    "TASK-0002": [
+      "PLAN-0002"
+    ]
+  },
+  "plan_hard_dependencies": {
+    "PLAN-0001": [],
+    "PLAN-0002": [
+      "PLAN-0001"
+    ]
+  },
+  "plan_task_refs": {
+    "PLAN-0001": [],
+    "PLAN-0002": [
+      "TASK-0002"
+    ]
+  },
+  "advisory_relationships": [
+    {
+      "source_record": "PLAN-0002",
+      "source_field": "depends_on",
+      "target_ref": "REQ-0002",
+      "classification": "advisory",
+      "live_readiness_effect": "none"
+    },
+    {
+      "source_record": "TASK-0002",
+      "source_field": "dependencies",
+      "target_ref": "REQ-0001",
+      "classification": "advisory",
+      "live_readiness_effect": "none"
+    }
+  ],
+  "preserved_task_authority": {
+    "TASK-0001": "authority:DEC-0042",
+    "TASK-0002": "authority:DEC-0042"
+  },
+  "origin_migration_ids": [
+    "MIG-0001",
+    "MIG-0002"
+  ],
+  "origin_authority_sources": [
+    "authority:DEC-0099",
+    "authority:DEC-0100"
+  ]
+}

@@ -1,0 +1,187 @@
+{
+  "schema_version": "harness.extension-test-scenario.v1",
+  "config": {
+    "schema_version": "harness.security-supply-chain-config.v1",
+    "extension_id": "security-supply-chain",
+    "adoption": {
+      "status": "adopted",
+      "owner": "security_owner",
+      "assessed_on": "2026-08-10",
+      "decision_ref": "DEC-9101",
+      "rationale": "Project-owned test fixture for the extension contract."
+    },
+    "records_path": ".agent/extensions/security-supply-chain/records.json",
+    "records_schema_path": ".agent/extensions/security-supply-chain/records.schema.json",
+    "evidence_sources": {
+      "harness_directory": ".agent/evidence",
+      "dossier_index": "project-dossier/machine-readable/evidence-index.json"
+    },
+    "validator_behavior": {
+      "unknown_safety_values": "fail_closed",
+      "external_actions": "never",
+      "filesystem_writes": "prohibited",
+      "network_access": "denied",
+      "time_basis": "system_utc_for_freshness_only"
+    },
+    "permission_grant": false,
+    "authority_effect": "restrictions_only"
+  },
+  "records": {
+    "schema_version": "harness.security-supply-chain-records.v1",
+    "extension_id": "security-supply-chain",
+    "document_role": "project_maintained_authoritative_store",
+    "permission_grant": false,
+    "authority_effect": "restrictions_only",
+    "control_assessments": {
+      "assets_data_and_trust": {
+        "status": "applicable",
+        "owner": "security_owner",
+        "assessed_on": "2026-08-10",
+        "rationale": "The synthetic fixture exercises linked asset, data-class, and trust-boundary declarations.",
+        "evidence_refs": ["EVD-9101"]
+      },
+      "threat_modeling": {
+        "status": "not_applicable",
+        "owner": "security_owner",
+        "assessed_on": "2026-08-10",
+        "rationale": "No threat conclusion is represented by this contract fixture.",
+        "evidence_refs": ["EVD-9101"]
+      },
+      "security_controls": {
+        "status": "not_applicable",
+        "owner": "security_owner",
+        "assessed_on": "2026-08-10",
+        "rationale": "No implemented control is represented by this contract fixture.",
+        "evidence_refs": ["EVD-9101"]
+      },
+      "security_checks": {
+        "status": "not_applicable",
+        "owner": "security_owner",
+        "assessed_on": "2026-08-10",
+        "rationale": "No scanner or check execution is represented by this contract fixture.",
+        "evidence_refs": ["EVD-9101"]
+      },
+      "dependency_and_vendor_inventory": {
+        "status": "not_applicable",
+        "owner": "security_owner",
+        "assessed_on": "2026-08-10",
+        "rationale": "No dependency or vendor is represented by this contract fixture.",
+        "evidence_refs": ["EVD-9101"]
+      },
+      "sbom_provenance": {
+        "status": "not_applicable",
+        "owner": "security_owner",
+        "assessed_on": "2026-08-10",
+        "rationale": "No SBOM is represented by this contract fixture.",
+        "evidence_refs": ["EVD-9101"]
+      },
+      "vulnerability_management": {
+        "status": "not_applicable",
+        "owner": "security_owner",
+        "assessed_on": "2026-08-10",
+        "rationale": "No vulnerability handling conclusion is represented by this contract fixture.",
+        "evidence_refs": ["EVD-9101"]
+      },
+      "artifact_provenance_signing_and_verification": {
+        "status": "not_applicable",
+        "owner": "security_owner",
+        "assessed_on": "2026-08-10",
+        "rationale": "No artifact signing or verification is represented by this contract fixture.",
+        "evidence_refs": ["EVD-9101"]
+      },
+      "license_and_rights": {
+        "status": "not_applicable",
+        "owner": "security_owner",
+        "assessed_on": "2026-08-10",
+        "rationale": "No legal or rights conclusion is represented by this contract fixture.",
+        "evidence_refs": ["EVD-9101"]
+      }
+    },
+    "records": [
+      {
+        "id": "DCLASS-0001",
+        "kind": "data_class",
+        "status": "active",
+        "owner": "data_owner",
+        "scope": "Synthetic internal data classification.",
+        "review": {
+          "status": "current",
+          "cadence_days": 90,
+          "last_reviewed_on": "2026-08-10",
+          "next_review_on": "2099-12-31"
+        },
+        "evidence_refs": ["EVD-9101"],
+        "exception_refs": [],
+        "limitations": ["Synthetic fixture only; no project data is described."],
+        "details": {
+          "name": "synthetic-internal-data",
+          "classification": "internal",
+          "handling_requirements": ["Keep within the synthetic fixture scope."],
+          "retention": "No retention because no real data exists.",
+          "deletion": "Delete the disposable fixture with its temporary directory.",
+          "minimization": "The fixture contains no personal or production data.",
+          "rights_basis": null
+        }
+      },
+      {
+        "id": "TRUST-0001",
+        "kind": "trust_boundary",
+        "status": "verified",
+        "owner": "security_owner",
+        "scope": "Synthetic local validation boundary.",
+        "review": {
+          "status": "current",
+          "cadence_days": 90,
+          "last_reviewed_on": "2026-08-10",
+          "next_review_on": "2099-12-31"
+        },
+        "evidence_refs": ["EVD-9101"],
+        "exception_refs": [],
+        "limitations": ["Write detection is not sandbox isolation."],
+        "details": {
+          "name": "synthetic-local-boundary",
+          "from_scope": "extension fixture declarations",
+          "to_scope": "read-only validator process",
+          "allowed_flows": ["Read fixture JSON and emit structured findings."],
+          "authentication_expectation": "No authentication is used by the isolated local fixture.",
+          "enforcement_ref": "repo:.agent/scripts/validate.py"
+        }
+      },
+      {
+        "id": "ASSET-0001",
+        "kind": "asset",
+        "status": "active",
+        "owner": "security_owner",
+        "scope": "Synthetic extension fixture asset.",
+        "review": {
+          "status": "current",
+          "cadence_days": 90,
+          "last_reviewed_on": "2026-08-10",
+          "next_review_on": "2099-12-31"
+        },
+        "evidence_refs": ["EVD-9101"],
+        "exception_refs": [],
+        "limitations": ["Synthetic fixture only; no production asset exists."],
+        "details": {
+          "name": "synthetic-validator-fixture",
+          "asset_type": "code",
+          "criticality": "low",
+          "data_class_refs": ["DCLASS-0001"],
+          "trust_boundary_refs": ["TRUST-0001"],
+          "custodian_role": "test_maintainer"
+        }
+      }
+    ],
+    "limitations": ["Synthetic validator fixture; it is not security, legal, or supply-chain evidence."]
+  },
+  "evidence_index": {
+    "evidence": [
+      {
+        "id": "EVD-9101",
+        "result": "pass",
+        "fresh_until": "2099-12-31T23:59:59Z"
+      }
+    ]
+  },
+  "expected_codes": []
+}

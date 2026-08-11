@@ -29,6 +29,7 @@ endpoints, or domain constants from this blueprint or another project.
 - tool contracts: `.agent/tools.json`;
 - commands and checks: `.agent/validators.json`;
 - stable project hooks: `.agent/project.json`;
+- explicit target-project check evidence: `.agent/project-checks/evidence.json`;
 - active work: `.agent/tasks/`;
 - durable intent: `.agent/decisions/`;
 - direct observation: `.agent/evidence/`;
@@ -40,6 +41,13 @@ snapshot. Domain behavior enters only through a registered,
 restrictions-only extension that declares compatibility, confined paths,
 provenance, side effects, and a structured validator.
 
+Task `dependencies` are hard `TASK-####` prerequisites. Entering or re-entering
+execution passes through `ready`, which requires completed dependencies,
+satisfied gates, resolved structured blockers, and reciprocal plan links. Use
+the read-only ready-frontier command to identify eligible work; current
+direction or an accepted priority/value/risk decision chooses among independent
+items, never a date-based inference.
+
 Each profile has a closed minimum governed-file inventory. Missing router,
 kernel, state, script, schema, template, fixture, store, extension-registry,
 or capability-baseline files are validation failures. Add project-specific
@@ -50,6 +58,14 @@ not use an unregistered governance path.
 
 Scaffolding proves only that the baseline files were generated consistently.
 Target-project adoption must inspect actual scope and risks, resolve or
-explicitly classify sentinels, record the authority posture, configure real
-commands, run read-only checks and mutation tests in a clean environment, and
-complete a real task lifecycle.
+explicitly classify sentinels, record the authority posture, assess every
+target-project hook, execute configured hooks only through the explicit
+shell-free evidence writer, run read-only checks and mutation tests in a clean
+environment, and complete a real task lifecycle. Structural conformance,
+project-harness adoption, and demonstrated target-project readiness are
+separate conclusions.
+
+Standard and High Assurance include disabled, unassessed operations and
+observability plus security and supply-chain extensions. Their strict records
+can support production-governance adoption, but their presence or successful
+validation proves neither external execution nor a qualified conclusion.

@@ -1,0 +1,515 @@
+{
+  "schema_version": "project-blueprint.migration-input.1.0.1-to-2.0.0.v1",
+  "migration": {
+    "schema_version": "project-blueprint.migration.v1",
+    "id": "MIG-0002",
+    "from_blueprint_version": "1.0.1",
+    "to_blueprint_version": "2.0.0",
+    "generator_version": "2.0.0",
+    "migrated_on": "2026-08-10",
+    "from_profile": "standard",
+    "to_profile": "standard",
+    "migration_guide": "migrations/1.0.1-to-2.0.0.md",
+    "authority_source": "authority:DEC-0100",
+    "evidence_refs": [
+      "EVD-0100"
+    ],
+    "limitations": [
+      "Full target-project validation remains required after record migration."
+    ]
+  },
+  "classification": {
+    "tasks": {
+      "TASK-0001": {
+        "dependencies": {},
+        "additional_plan_item_refs": [],
+        "additional_gate_refs": [],
+        "additional_blocking_refs": []
+      },
+      "TASK-0002": {
+        "dependencies": {
+          "TASK-0001": "hard_task_dependency",
+          "PLAN-0002": "plan_item_ref",
+          "REQ-0001": "advisory"
+        },
+        "additional_plan_item_refs": [],
+        "additional_gate_refs": [],
+        "additional_blocking_refs": []
+      }
+    },
+    "plans": {
+      "PLAN-0001": {
+        "depends_on": {},
+        "additional_task_refs": [],
+        "additional_gate_refs": [],
+        "additional_blocking_refs": []
+      },
+      "PLAN-0002": {
+        "depends_on": {
+          "PLAN-0001": "hard_plan_dependency",
+          "TASK-0002": "task_ref",
+          "REQ-0002": "advisory"
+        },
+        "additional_task_refs": [],
+        "additional_gate_refs": [],
+        "additional_blocking_refs": []
+      }
+    },
+    "project_commands": {
+      "project_test": {
+        "action": "explicit_v2_assessment",
+        "assessment": {
+          "status": "configured",
+          "owner": "delivery_owner",
+          "rationale": "Fixture-only assessment used to verify argv migration without execution.",
+          "tool_name": "python",
+          "argv": [
+            "python",
+            "-B",
+            "-m",
+            "unittest",
+            "discover",
+            "-s",
+            "tests"
+          ],
+          "version_argv": [
+            "python",
+            "--version"
+          ],
+          "timeout_seconds": 900,
+          "evidence_freshness_days": 30,
+          "side_effects": {
+            "classification": "read_only",
+            "repository_write_paths": [],
+            "external_effects": []
+          }
+        }
+      },
+      "project_lint": {
+        "action": "explicit_v2_assessment",
+        "assessment": {
+          "status": "not_applicable",
+          "owner": "delivery_owner",
+          "rationale": "The fixture records a justified non-applicable branch without asserting a target-project conclusion.",
+          "tool_name": null,
+          "argv": null,
+          "version_argv": null,
+          "timeout_seconds": null,
+          "evidence_freshness_days": null,
+          "side_effects": {
+            "classification": "not_applicable",
+            "repository_write_paths": [],
+            "external_effects": []
+          }
+        }
+      },
+      "project_build": {
+        "action": "preserve_not_assessed",
+        "assessment": null
+      },
+      "project_closure": {
+        "action": "preserve_not_assessed",
+        "assessment": null
+      }
+    }
+  },
+  "live": {
+    "lifecycle": {
+      "schema_version": "harness.lifecycle.v1",
+      "task": {
+        "initial": "proposed",
+        "terminal": [
+          "completed",
+          "cancelled"
+        ],
+        "transitions": {
+          "proposed": [
+            "ready",
+            "cancelled"
+          ],
+          "ready": [
+            "in_progress",
+            "cancelled"
+          ],
+          "in_progress": [
+            "validating",
+            "blocked",
+            "cancelled"
+          ],
+          "validating": [
+            "in_progress",
+            "review",
+            "blocked"
+          ],
+          "review": [
+            "in_progress",
+            "completed",
+            "blocked"
+          ],
+          "blocked": [
+            "in_progress",
+            "cancelled"
+          ],
+          "completed": [
+            "reopened"
+          ],
+          "reopened": [
+            "in_progress",
+            "cancelled"
+          ],
+          "cancelled": []
+        },
+        "gates": {
+          "ready": [
+            "scope",
+            "authority_basis",
+            "acceptance_criteria",
+            "validation_plan"
+          ],
+          "completed": [
+            "acceptance_criteria_met",
+            "closure_evidence",
+            "limitations_recorded",
+            "external_effects_disclosed"
+          ]
+        }
+      },
+      "decision": {
+        "initial": "proposed",
+        "terminal": [
+          "rejected",
+          "superseded",
+          "deprecated"
+        ],
+        "transitions": {
+          "proposed": [
+            "accepted",
+            "rejected"
+          ],
+          "accepted": [
+            "superseded",
+            "deprecated"
+          ],
+          "rejected": [],
+          "superseded": [],
+          "deprecated": []
+        },
+        "immutable_meaning_after": "accepted",
+        "successor_required_for": [
+          "superseded",
+          "materially_changed_accepted_decision"
+        ]
+      },
+      "artifact": {
+        "initial": "scratch",
+        "terminal": [
+          "archived"
+        ],
+        "transitions": {
+          "scratch": [
+            "draft",
+            "archived"
+          ],
+          "draft": [
+            "reviewed",
+            "archived"
+          ],
+          "reviewed": [
+            "draft",
+            "approved",
+            "archived"
+          ],
+          "approved": [
+            "final",
+            "archived"
+          ],
+          "final": [
+            "archived"
+          ],
+          "archived": []
+        }
+      }
+    },
+    "origin": {
+      "schema_version": "project-blueprint.origin.v1",
+      "blueprint": "project-blueprint",
+      "blueprint_version": "1.0.1",
+      "generator_version": "1.0.1",
+      "generation_id": "11111111111111111111111111111111",
+      "profile": "standard",
+      "generated_on": "2026-08-01",
+      "project_name": "Migration Fixture Project",
+      "project_slug": "migration-fixture-project",
+      "harness_kernel_version": "1.0.1",
+      "authority": "Generation provenance only; does not grant permission or establish project facts, decisions, implementation, or readiness.",
+      "initial_generation": {
+        "blueprint_version": "1.0.0",
+        "generator_version": "1.0.0",
+        "generation_id": "11111111111111111111111111111111",
+        "generated_on": "2026-08-01",
+        "profile": "standard"
+      },
+      "migration_history": [
+        {
+          "schema_version": "project-blueprint.migration.v1",
+          "id": "MIG-0001",
+          "from_blueprint_version": "1.0.0",
+          "to_blueprint_version": "1.0.1",
+          "generator_version": "1.0.1",
+          "migrated_on": "2026-08-05",
+          "from_profile": "standard",
+          "to_profile": "standard",
+          "migration_guide": "migrations/1.0.0-to-1.0.1.md",
+          "authority_source": "authority:DEC-0099",
+          "evidence_refs": [
+            "EVD-0099"
+          ],
+          "limitations": [
+            "Fixture history retained for authority-preservation coverage."
+          ]
+        }
+      ],
+      "generated_paths": [
+        ".agent/lifecycle.json",
+        ".agent/project.json",
+        ".agent/tasks/TASK-0001-predecessor.md",
+        ".agent/tasks/TASK-0002-dependent.md",
+        ".agent/validators.json",
+        "project-dossier/machine-readable/plan.json"
+      ]
+    },
+    "project": {
+      "schema_version": "harness.project.v1",
+      "project": {
+        "id": "migration-fixture-project",
+        "name": "Migration Fixture Project",
+        "repository_root": ".",
+        "profile": "standard",
+        "blueprint_version": "1.0.1",
+        "adoption_status": "not_assessed",
+        "adoption_decision_ref": null
+      },
+      "paths": {
+        "source": [],
+        "tests": [],
+        "generated": [
+          ".agent/generated"
+        ],
+        "instruction_roots": [
+          "AGENTS.md"
+        ],
+        "fingerprint_exclusions": []
+      },
+      "commands": {
+        "project_test": {
+          "status": "not_assessed",
+          "run": null
+        },
+        "project_lint": {
+          "status": "not_assessed",
+          "run": null
+        },
+        "project_build": {
+          "status": "not_assessed",
+          "run": null
+        },
+        "project_closure": {
+          "status": "not_assessed",
+          "run": null
+        }
+      },
+      "extensions": {
+        "registry": ".agent/extensions/registry.json",
+        "registry_required_in_profile": "standard_or_higher"
+      },
+      "mutable_work_status": "prohibited_here"
+    },
+    "tasks": [
+      {
+        "schema_version": "harness.task.v1",
+        "id": "TASK-0001",
+        "status": "proposed",
+        "previous_status": null,
+        "title": "Establish predecessor contract",
+        "authority_basis": "authority:DEC-0042",
+        "owner": "delivery_owner",
+        "created_at": "2026-08-01",
+        "updated_at": "2026-08-01",
+        "dependencies": [],
+        "scope": "Define the predecessor fixture record without executing project work.",
+        "acceptance_criteria": [
+          "The record remains a non-authorizing migration fixture."
+        ],
+        "validation_plan": [
+          "Validate the migrated record against the v2 task schema."
+        ],
+        "implementation_result": null,
+        "review_evidence": [],
+        "blocked_by": [],
+        "reopened_by": null,
+        "acceptance_criteria_met": false,
+        "closure_evidence": [],
+        "external_effects": "not_assessed",
+        "limitations": [
+          "Fixture content is not a target-project fact."
+        ]
+      },
+      {
+        "schema_version": "harness.task.v1",
+        "id": "TASK-0002",
+        "status": "proposed",
+        "previous_status": null,
+        "title": "Reconcile mixed legacy relationships",
+        "authority_basis": "authority:DEC-0042",
+        "owner": "delivery_owner",
+        "created_at": "2026-08-02",
+        "updated_at": "2026-08-02",
+        "dependencies": [
+          "TASK-0001",
+          "PLAN-0002",
+          "REQ-0001"
+        ],
+        "scope": "Classify one hard prerequisite, one plan link, and one advisory relationship.",
+        "acceptance_criteria": [
+          "Hard and advisory relationships have distinct v2 representations."
+        ],
+        "validation_plan": [
+          "Check hard dependency and reciprocal plan-link semantics."
+        ],
+        "implementation_result": null,
+        "review_evidence": [],
+        "blocked_by": [],
+        "reopened_by": null,
+        "acceptance_criteria_met": false,
+        "closure_evidence": [],
+        "external_effects": "not_assessed",
+        "limitations": [
+          "The proposed status intentionally makes no execution-readiness claim."
+        ]
+      }
+    ],
+    "plan": {
+      "schema_version": "project.dossier.plan.v1",
+      "document_role": "project_maintained_migration_fixture",
+      "permission_grant": false,
+      "project_slug": "migration-fixture-project",
+      "scaffold_generated_on": "2026-08-01",
+      "review": {
+        "status": "not_reviewed",
+        "last_reviewed_on": null,
+        "basis": "Fixture provenance is not substantive project review."
+      },
+      "status_vocabulary": [
+        "planned",
+        "in_progress",
+        "blocked",
+        "completed",
+        "deferred",
+        "cancelled"
+      ],
+      "plan_items": [
+        {
+          "id": "PLAN-0001",
+          "title": "Predecessor plan fixture",
+          "objective": "Represent a hard plan predecessor without making a readiness claim.",
+          "status": "planned",
+          "owner_role": "planning_owner",
+          "depends_on": [],
+          "requirement_refs": [],
+          "finding_refs": [],
+          "gate_refs": [],
+          "acceptance_criteria": [
+            "The migrated plan item validates against the v2 schema."
+          ],
+          "evidence_expected": [
+            "Migration fixture test result."
+          ],
+          "evidence_refs": [],
+          "blocked_by": [],
+          "limitations": [
+            "Planned fixture state is not permission to execute."
+          ]
+        },
+        {
+          "id": "PLAN-0002",
+          "title": "Dependent plan fixture",
+          "objective": "Separate a hard plan edge, reciprocal task link, and advisory relationship.",
+          "status": "planned",
+          "owner_role": "planning_owner",
+          "depends_on": [
+            "PLAN-0001",
+            "TASK-0002",
+            "REQ-0002"
+          ],
+          "requirement_refs": [],
+          "finding_refs": [],
+          "gate_refs": [],
+          "acceptance_criteria": [
+            "Only PLAN-0001 remains a hard plan dependency."
+          ],
+          "evidence_expected": [
+            "Deterministic migration and idempotence results."
+          ],
+          "evidence_refs": [],
+          "blocked_by": [],
+          "limitations": [
+            "The advisory requirement reference does not affect readiness."
+          ]
+        }
+      ]
+    },
+    "validators": {
+      "schema_version": "harness.validators.v1",
+      "validator_version": "1.0.1",
+      "runtime": {
+        "executable": "python",
+        "minimum_version": "3.11",
+        "dependencies": "standard_library_only",
+        "bytecode_and_cache_writes": "prohibited_for_check"
+      },
+      "commands": {
+        "bootstrap": {
+          "run": "python --version",
+          "writes": []
+        },
+        "check": {
+          "run": "python -B .agent/scripts/validate.py --check",
+          "writes": []
+        },
+        "test": {
+          "run": "python -B -m unittest discover -s .agent/tests -p \"test_*.py\"",
+          "writes": []
+        },
+        "refresh": {
+          "run": "python -B .agent/scripts/refresh.py --refresh",
+          "writes": [
+            "project-dossier/ARTIFACT_CATALOG.json",
+            "project-dossier/MANIFEST.json",
+            "project-dossier/machine-readable/path-authority.json"
+          ]
+        },
+        "closure": {
+          "run": "configure_during_project_adoption",
+          "writes": "not_assessed"
+        }
+      },
+      "required_core_checks": [
+        "python_runtime_floor",
+        "strict_json_and_duplicate_keys",
+        "schemas_and_versions",
+        "authority_and_nested_instruction_invariants",
+        "identifiers_references_and_lifecycles",
+        "dossier_catalog_path_authority_and_traceability",
+        "extension_compatibility_confinement_and_validator_protocol",
+        "unresolved_generation_placeholders",
+        "redacted_secret_detection",
+        "repository_symlinks_and_host_metadata",
+        "generated_integrity_freshness_when_present"
+      ],
+      "limitations": [
+        "structural_checks_do_not_prove_project_readiness",
+        "repository_policy_is_not_runtime_sandbox_enforcement"
+      ]
+    }
+  }
+}

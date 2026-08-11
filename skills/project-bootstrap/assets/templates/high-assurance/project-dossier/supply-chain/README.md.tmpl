@@ -20,3 +20,9 @@ If a trigger applies, inventory exact sources and versions, licenses and
 rights, trust and update assumptions, vulnerabilities, local modifications,
 and verification. Generate an SBOM from declared dependency sources where
 practical; do not edit a generated SBOM independently.
+
+The optional `.agent/extensions/security-supply-chain/` package provides
+strict project-owned declarations and evidence-reference validation for these
+concerns. It starts disabled and unassessed; it does not run scanners, create
+or verify an SBOM or signature, perform legal review, or certify security or
+rights.

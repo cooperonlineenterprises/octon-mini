@@ -16,6 +16,38 @@
         "pattern": "^(?:[A-Z][A-Z0-9]*-[0-9]{4}|(?:authority|external|project-blueprint|repo|url):.+)$"
       }
     },
+    "task_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^TASK-[0-9]{4}$"
+      }
+    },
+    "plan_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^PLAN-[0-9]{4}$"
+      }
+    },
+    "gate_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^GATE-[0-9]{4}$"
+      }
+    },
+    "blocking_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:TASK|PLAN|GATE|DEC|RISK|ASM|ISSUE|DEP|OQ)-[0-9]{4}$"
+      }
+    },
     "strings": {
       "type": "array",
       "uniqueItems": true,
@@ -209,9 +241,11 @@
         "status",
         "owner_role",
         "depends_on",
+        "task_refs",
         "requirement_refs",
         "finding_refs",
         "gate_refs",
+        "blocking_refs",
         "acceptance_criteria",
         "evidence_expected",
         "evidence_refs",
@@ -246,7 +280,10 @@
           "minLength": 1
         },
         "depends_on": {
-          "$ref": "#/$defs/refs"
+          "$ref": "#/$defs/plan_refs"
+        },
+        "task_refs": {
+          "$ref": "#/$defs/task_refs"
         },
         "requirement_refs": {
           "$ref": "#/$defs/refs"
@@ -255,7 +292,10 @@
           "$ref": "#/$defs/refs"
         },
         "gate_refs": {
-          "$ref": "#/$defs/refs"
+          "$ref": "#/$defs/gate_refs"
+        },
+        "blocking_refs": {
+          "$ref": "#/$defs/blocking_refs"
         },
         "acceptance_criteria": {
           "$ref": "#/$defs/strings"
@@ -769,7 +809,7 @@
       ],
       "properties": {
         "schema_version": {
-          "const": "project.dossier.plan.v1"
+          "const": "project.dossier.plan.v2"
         },
         "document_role": {
           "type": "string",

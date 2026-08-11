@@ -13,12 +13,13 @@ import secrets
 import subprocess
 import sys
 import tempfile
+from collections.abc import Iterable
 from datetime import date
-from pathlib import Path, PurePosixPath
+from pathlib import Path, PurePath, PurePosixPath
 
 
-GENERATOR_VERSION = "1.0.1"
-KERNEL_VERSION = "1.0.1"
+GENERATOR_VERSION = "2.0.0"
+KERNEL_VERSION = "2.0.0"
 PROFILE_LAYERS = {
     "minimal": ("core",),
     "standard": ("core", "standard"),
@@ -51,6 +52,19 @@ HIGH_DERIVED_PATHS = {
     Path(".agent/generated/manifest.json"),
     Path(".agent/generated/validation-report.json"),
 }
+
+
+def canonical_posix_paths(paths: Iterable[PurePath]) -> list[str]:
+    """Render and sort paths identically on every host platform."""
+    return sorted(path.as_posix() for path in paths)
+
+
+def configure_console_output() -> None:
+    """Keep diagnostics writable when the host console has a legacy codec."""
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if callable(reconfigure):
+            reconfigure(errors="backslashreplace")
 
 
 def require_runtime() -> None:
@@ -354,7 +368,7 @@ def selected_artifact_registry(
         "schema_version": "project-dossier.artifact-registry.v2",
         "document_role": "authoritative_project_local_artifact_metadata",
         "permission_grant": False,
-        "dossier_version": "1.0.1",
+        "dossier_version": blueprint_version(),
         "profile": profile,
         "project_slug": project_slug,
         "generated_on": created,
@@ -384,13 +398,21 @@ def configure_high_assurance_extension(stage: Path) -> None:
     registry = load_json(registry_path)
     if not isinstance(registry, dict):
         raise ValueError("extension registry must be an object")
-    registry["extensions"] = [
+    extensions = registry.get("extensions")
+    if not isinstance(extensions, list):
+        raise ValueError("extension registry extensions must be an array")
+    if any(
+        isinstance(item, dict) and item.get("id") == "sample-restriction"
+        for item in extensions
+    ):
+        raise ValueError("sample-restriction extension is already registered")
+    extensions.append(
         {
             "id": "sample-restriction",
             "enabled": False,
-            "version": "1.0.1",
+            "version": "2.0.0",
             "path": ".agent/extensions/sample-restriction",
-            "requires_core": "^1.0.0",
+            "requires_core": "^2.0.0",
             "config": ".agent/extensions/sample-restriction/config.json",
             "validator": ".agent/extensions/sample-restriction/validate.py",
             "owner": "unassigned",
@@ -405,7 +427,7 @@ def configure_high_assurance_extension(stage: Path) -> None:
             "removal_version": None,
             "successor": None,
         }
-    ]
+    )
     registry["limitations"] = [
         "Reference extension only; project adoption must assess actual needs."
     ]
@@ -519,6 +541,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> int:
+    configure_console_output()
     args = parse_args()
     target = args.target.expanduser()
     try:
@@ -576,7 +599,7 @@ def main() -> int:
             "python -B .agent/scripts/refresh.py --refresh"
         ),
         "HARNESS_REFRESH_WRITES": json.dumps(
-            [path.as_posix() for path in sorted(refresh_writes)]
+            canonical_posix_paths(refresh_writes)
         ),
     }
 

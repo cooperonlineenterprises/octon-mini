@@ -1056,10 +1056,10 @@
       "recommended_name": "Dependency-aware implementation or delivery plan",
       "category": "planning",
       "classification": "core",
-      "purpose": "Define future work, dependencies, gates, ownership, rollback, and closure evidence.",
+      "purpose": "Define future work as a hard-dependency graph with gates, structured blockers, ownership, reciprocal execution-task links, rollback, and closure evidence.",
       "questions": [
         "What remains?",
-        "In what order?",
+        "Which work is dependency-ready now?",
         "What proves completion and what stops or rolls back the work?"
       ],
       "intended_audiences": [
@@ -1103,8 +1103,11 @@
       "validation_checks": [
         "dependency_graph_acyclic",
         "references_resolve",
-        "completion_links_evidence",
-        "authority_not_implied"
+        "readiness_derived_from_completed_predecessors_passed_or_waived_gates_and_resolved_blockers",
+        "plan_task_links_reciprocal",
+        "completion_links_tasks_and_evidence",
+        "authority_not_implied",
+        "timeline_not_used_as_readiness_or_priority"
       ],
       "triggers": [
         "all_projects"
@@ -1531,7 +1534,8 @@
         "status": "not_assessed",
         "rationale": "Generation does not establish trigger applicability.",
         "assessed_on": null,
-        "assessed_by": null
+        "assessed_by": null,
+        "evidence_refs": []
       }
     },
     {
@@ -1607,7 +1611,8 @@
         "status": "not_assessed",
         "rationale": "Generation does not establish trigger applicability.",
         "assessed_on": null,
-        "assessed_by": null
+        "assessed_by": null,
+        "evidence_refs": []
       }
     },
     {
@@ -1682,7 +1687,8 @@
         "status": "not_assessed",
         "rationale": "Generation does not establish trigger applicability.",
         "assessed_on": null,
-        "assessed_by": null
+        "assessed_by": null,
+        "evidence_refs": []
       }
     },
     {
@@ -1748,7 +1754,8 @@
         "status": "not_assessed",
         "rationale": "Generation does not establish trigger applicability.",
         "assessed_on": null,
-        "assessed_by": null
+        "assessed_by": null,
+        "evidence_refs": []
       }
     },
     {
@@ -1821,7 +1828,8 @@
         "status": "not_assessed",
         "rationale": "Generation does not establish trigger applicability.",
         "assessed_on": null,
-        "assessed_by": null
+        "assessed_by": null,
+        "evidence_refs": []
       }
     },
     {
@@ -1892,7 +1900,8 @@
         "status": "not_assessed",
         "rationale": "Generation does not establish trigger applicability.",
         "assessed_on": null,
-        "assessed_by": null
+        "assessed_by": null,
+        "evidence_refs": []
       }
     },
     {
@@ -1967,7 +1976,8 @@
         "status": "not_assessed",
         "rationale": "Generation does not establish trigger applicability.",
         "assessed_on": null,
-        "assessed_by": null
+        "assessed_by": null,
+        "evidence_refs": []
       }
     },
     {
@@ -2044,7 +2054,8 @@
         "status": "not_assessed",
         "rationale": "Generation does not establish trigger applicability.",
         "assessed_on": null,
-        "assessed_by": null
+        "assessed_by": null,
+        "evidence_refs": []
       }
     },
     {
@@ -2117,7 +2128,8 @@
         "status": "not_assessed",
         "rationale": "Generation does not establish trigger applicability.",
         "assessed_on": null,
-        "assessed_by": null
+        "assessed_by": null,
+        "evidence_refs": []
       }
     },
     {
@@ -2184,7 +2196,8 @@
         "status": "not_assessed",
         "rationale": "Generation does not establish trigger applicability.",
         "assessed_on": null,
-        "assessed_by": null
+        "assessed_by": null,
+        "evidence_refs": []
       }
     }
   ],
@@ -2785,6 +2798,7 @@
       "review_cadence": "on_dependency_or_status_change",
       "update_triggers": [
         "finding_change",
+        "dependency_change",
         "gate_change",
         "plan_status_change"
       ],
@@ -2819,6 +2833,8 @@
       "update_triggers": [
         "plan_item_added",
         "dependency_change",
+        "gate_or_blocker_change",
+        "task_link_change",
         "status_change"
       ],
       "sensitivity": "internal",

@@ -1,0 +1,195 @@
+{
+  "schema_version": "harness.extension-test-scenario.v1",
+  "config": {
+    "schema_version": "harness.operations-observability-config.v1",
+    "extension_id": "operations-observability",
+    "adoption": {
+      "status": "adopted",
+      "owner": "operations_owner",
+      "assessed_on": "2026-08-10",
+      "decision_ref": "DEC-9001",
+      "rationale": "Project-owned test fixture for the extension contract."
+    },
+    "records_path": ".agent/extensions/operations-observability/records.json",
+    "records_schema_path": ".agent/extensions/operations-observability/records.schema.json",
+    "evidence_sources": {
+      "harness_directory": ".agent/evidence",
+      "dossier_index": "project-dossier/machine-readable/evidence-index.json"
+    },
+    "validator_behavior": {
+      "unknown_safety_values": "fail_closed",
+      "external_actions": "never",
+      "filesystem_writes": "prohibited",
+      "network_access": "denied",
+      "time_basis": "system_utc_for_freshness_only"
+    },
+    "permission_grant": false,
+    "authority_effect": "restrictions_only"
+  },
+  "records": {
+    "schema_version": "harness.operations-observability-records.v1",
+    "extension_id": "operations-observability",
+    "document_role": "project_maintained_authoritative_store",
+    "permission_grant": false,
+    "authority_effect": "restrictions_only",
+    "control_assessments": {
+      "environment_and_promotion": {
+        "status": "applicable",
+        "owner": "operations_owner",
+        "assessed_on": "2026-08-10",
+        "rationale": "The synthetic fixture exercises promotion between two declared environments.",
+        "evidence_refs": ["EVD-9001"]
+      },
+      "deployment_release_and_rollback": {
+        "status": "not_applicable",
+        "owner": "operations_owner",
+        "assessed_on": "2026-08-10",
+        "rationale": "No release execution is represented by this contract fixture.",
+        "evidence_refs": ["EVD-9001"]
+      },
+      "reliability_and_slo": {
+        "status": "not_applicable",
+        "owner": "operations_owner",
+        "assessed_on": "2026-08-10",
+        "rationale": "No service objective is represented by this contract fixture.",
+        "evidence_refs": ["EVD-9001"]
+      },
+      "telemetry_and_logging": {
+        "status": "not_applicable",
+        "owner": "operations_owner",
+        "assessed_on": "2026-08-10",
+        "rationale": "No telemetry implementation is represented by this contract fixture.",
+        "evidence_refs": ["EVD-9001"]
+      },
+      "alerting_and_escalation": {
+        "status": "not_applicable",
+        "owner": "operations_owner",
+        "assessed_on": "2026-08-10",
+        "rationale": "No alert integration is represented by this contract fixture.",
+        "evidence_refs": ["EVD-9001"]
+      },
+      "incident_response": {
+        "status": "not_applicable",
+        "owner": "operations_owner",
+        "assessed_on": "2026-08-10",
+        "rationale": "No incident process is represented by this contract fixture.",
+        "evidence_refs": ["EVD-9001"]
+      },
+      "backup_restore_and_recovery": {
+        "status": "not_applicable",
+        "owner": "operations_owner",
+        "assessed_on": "2026-08-10",
+        "rationale": "No recovery process is represented by this contract fixture.",
+        "evidence_refs": ["EVD-9001"]
+      },
+      "provider_outage": {
+        "status": "not_applicable",
+        "owner": "operations_owner",
+        "assessed_on": "2026-08-10",
+        "rationale": "No provider is represented by this contract fixture.",
+        "evidence_refs": ["EVD-9001"]
+      },
+      "operational_exercises": {
+        "status": "not_applicable",
+        "owner": "operations_owner",
+        "assessed_on": "2026-08-10",
+        "rationale": "No operational exercise is represented by this contract fixture.",
+        "evidence_refs": ["EVD-9001"]
+      },
+      "retirement_and_deactivation": {
+        "status": "not_applicable",
+        "owner": "operations_owner",
+        "assessed_on": "2026-08-10",
+        "rationale": "No retirement is represented by this contract fixture.",
+        "evidence_refs": ["EVD-9001"]
+      }
+    },
+    "records": [
+      {
+        "id": "OENV-0001",
+        "kind": "environment",
+        "status": "active",
+        "owner": "operations_owner",
+        "scope": "Synthetic development environment declaration.",
+        "review": {
+          "status": "current",
+          "cadence_days": 90,
+          "last_reviewed_on": "2026-08-10",
+          "next_review_on": "2099-12-31"
+        },
+        "evidence_refs": ["EVD-9001"],
+        "exception_refs": [],
+        "limitations": ["Synthetic fixture only; no environment exists."],
+        "details": {
+          "name": "synthetic-development",
+          "classification": "development",
+          "promotion_role": "source",
+          "provider_ref": null,
+          "data_classes": ["internal"],
+          "deployment_interface": "Synthetic declaration only; no executable command.",
+          "retirement_status": "not_planned"
+        }
+      },
+      {
+        "id": "OENV-0002",
+        "kind": "environment",
+        "status": "active",
+        "owner": "operations_owner",
+        "scope": "Synthetic destination environment declaration.",
+        "review": {
+          "status": "current",
+          "cadence_days": 90,
+          "last_reviewed_on": "2026-08-10",
+          "next_review_on": "2099-12-31"
+        },
+        "evidence_refs": ["EVD-9001"],
+        "exception_refs": [],
+        "limitations": ["Synthetic fixture only; no environment exists."],
+        "details": {
+          "name": "synthetic-destination",
+          "classification": "staging",
+          "promotion_role": "destination",
+          "provider_ref": null,
+          "data_classes": ["internal"],
+          "deployment_interface": "Synthetic declaration only; no executable command.",
+          "retirement_status": "not_planned"
+        }
+      },
+      {
+        "id": "OPROM-0001",
+        "kind": "promotion_path",
+        "status": "verified",
+        "owner": "operations_owner",
+        "scope": "Synthetic promotion declaration.",
+        "review": {
+          "status": "current",
+          "cadence_days": 90,
+          "last_reviewed_on": "2026-08-10",
+          "next_review_on": "2099-12-31"
+        },
+        "evidence_refs": ["EVD-9001"],
+        "exception_refs": [],
+        "limitations": ["Synthetic fixture only; no promotion ran."],
+        "details": {
+          "from_environment_ref": "OENV-0001",
+          "to_environment_ref": "OENV-0002",
+          "required_gate_refs": [],
+          "release_owner": "release_owner",
+          "rollback_required": true,
+          "stop_conditions": ["Stop on any failed declared gate."]
+        }
+      }
+    ],
+    "limitations": ["Synthetic validator fixture; it is not operational evidence."]
+  },
+  "evidence_index": {
+    "evidence": [
+      {
+        "id": "EVD-9001",
+        "result": "pass",
+        "fresh_until": "2099-12-31T23:59:59Z"
+      }
+    ]
+  },
+  "expected_codes": []
+}

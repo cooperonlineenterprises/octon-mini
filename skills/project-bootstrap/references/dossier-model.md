@@ -22,6 +22,12 @@ unique within their typed namespace and never silently reused. Prefer
 structured requirements, findings, plans, sources, and evidence when the
 standard or high-assurance profile applies.
 
+Treat plan `depends_on` edges as hard `PLAN-####` prerequisites. Derive the
+ready frontier from completed predecessors, passed or validly waived gates,
+resolved structured blockers, populated acceptance/evidence contracts, and
+reciprocal plan/task links. Dates remain provenance, freshness, expiry, or
+explicit external constraints and never determine readiness or priority.
+
 `machine-readable/artifact-registry.json` is the authoritative project-local
 metadata source, initially seeded from the blueprint taxonomy. Maintain
 artifact types, representations, source direction, applicability, ownership,

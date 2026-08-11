@@ -1,0 +1,27 @@
+{
+  "schema_version": "project-blueprint.migration-invalid-case.v1",
+  "base": "../valid/v1-standard.json",
+  "operations": [
+    {
+      "op": "replace",
+      "path": [
+        "live",
+        "tasks",
+        0,
+        "status"
+      ],
+      "value": "in_progress"
+    },
+    {
+      "op": "replace",
+      "path": [
+        "live",
+        "tasks",
+        0,
+        "previous_status"
+      ],
+      "value": "blocked"
+    }
+  ],
+  "expected_error": "illegal task transition 'blocked' -> 'in_progress'"
+}

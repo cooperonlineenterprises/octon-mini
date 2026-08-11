@@ -1,0 +1,12 @@
+{
+  "schema_version": "harness.extension-test-mutation.v1",
+  "base": "valid.json",
+  "mutations": [
+    {
+      "document": "records",
+      "pointer": "/records/2/details/to_environment_ref",
+      "value": "OENV-9999"
+    }
+  ],
+  "expected_codes": ["OPS-BROKEN-REFERENCE"]
+}

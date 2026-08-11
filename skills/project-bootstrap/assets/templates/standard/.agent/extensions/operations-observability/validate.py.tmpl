@@ -1,0 +1,661 @@
+#!/usr/bin/env python3
+"""Read-only validator for operations and observability declarations."""
+
+from __future__ import annotations
+
+import argparse
+import datetime as dt
+import json
+import re
+import sys
+from pathlib import Path, PurePosixPath
+from typing import Any
+
+
+EXTENSION_ID = "operations-observability"
+SCHEMA_VERSION = "harness.extension-findings.v1"
+PLACEHOLDER_VALUES = {"", "unassigned", "unknown", "not_assessed", "not_recorded"}
+
+KIND_PREFIX = {
+    "environment": "OENV",
+    "promotion_path": "OPROM",
+    "release": "OREL",
+    "sli": "OSLI",
+    "slo": "OSLO",
+    "telemetry": "OTEL",
+    "alert": "OALT",
+    "incident_response": "OIRP",
+    "recovery": "ORCV",
+    "provider_outage": "OOUT",
+    "exercise": "OEXR",
+    "retirement": "ORET",
+    "exception": "OEXC",
+}
+
+KIND_ASSESSMENT = {
+    "environment": "environment_and_promotion",
+    "promotion_path": "environment_and_promotion",
+    "release": "deployment_release_and_rollback",
+    "sli": "reliability_and_slo",
+    "slo": "reliability_and_slo",
+    "telemetry": "telemetry_and_logging",
+    "alert": "alerting_and_escalation",
+    "incident_response": "incident_response",
+    "recovery": "backup_restore_and_recovery",
+    "provider_outage": "provider_outage",
+    "exercise": "operational_exercises",
+    "retirement": "retirement_and_deactivation",
+}
+
+ASSESSMENT_KINDS = {
+    "environment_and_promotion": {"environment", "promotion_path"},
+    "deployment_release_and_rollback": {"release"},
+    "reliability_and_slo": {"sli", "slo"},
+    "telemetry_and_logging": {"telemetry"},
+    "alerting_and_escalation": {"alert"},
+    "incident_response": {"incident_response"},
+    "backup_restore_and_recovery": {"recovery"},
+    "provider_outage": {"provider_outage"},
+    "operational_exercises": {"exercise"},
+    "retirement_and_deactivation": {"retirement"},
+}
+
+DETAIL_FIELDS = {
+    "environment": {
+        "name", "classification", "promotion_role", "provider_ref",
+        "data_classes", "deployment_interface", "retirement_status",
+    },
+    "promotion_path": {
+        "from_environment_ref", "to_environment_ref", "required_gate_refs",
+        "release_owner", "rollback_required", "stop_conditions",
+    },
+    "release": {
+        "environment_ref", "source_revision_or_fingerprint",
+        "promotion_path_ref", "rollback_release_ref", "released_at",
+        "external_effects",
+    },
+    "sli": {
+        "service_scope", "measure", "unit", "good_event_definition",
+        "valid_event_definition", "telemetry_ref", "calculation_window",
+    },
+    "slo": {
+        "sli_ref", "target_ratio", "measurement_window",
+        "error_budget_policy", "breach_response",
+    },
+    "telemetry": {
+        "signals", "coverage_scope", "collection_status", "retention_policy",
+        "redaction_policy", "provider_ref",
+    },
+    "alert": {
+        "condition", "telemetry_refs", "escalation_roles", "response_target",
+        "notification_channel_ref",
+    },
+    "incident_response": {
+        "severity_model", "activation_conditions", "commander_role",
+        "communication_constraints", "evidence_capture",
+        "postincident_review_required",
+    },
+    "recovery": {
+        "recovery_type", "protected_scope", "rto_minutes", "rpo_minutes",
+        "backup_method", "restore_method", "last_exercise_ref",
+    },
+    "provider_outage": {
+        "provider_ref", "dependency_scope", "detection", "fallback",
+        "decision_owner", "recovery_conditions",
+    },
+    "exercise": {
+        "exercise_type", "procedure_refs", "performed_at", "result",
+        "fresh_until", "external_effects",
+    },
+    "retirement": {
+        "target_refs", "deactivation_method", "data_disposition",
+        "access_revocation", "evidence_retention", "completed_at",
+    },
+    "exception": {
+        "applies_to_refs", "reason", "risk", "accepted_by_role",
+        "authority_ref", "expires_on", "exception_status",
+        "compensating_controls",
+    },
+}
+
+KIND_STATUSES = {
+    "environment": {"proposed", "active", "retiring", "retired"},
+    "promotion_path": {"proposed", "active", "verified", "retired"},
+    "release": {"proposed", "deployed", "failed", "rolled_back", "retired"},
+    "sli": {"proposed", "active", "verified", "retired"},
+    "slo": {"proposed", "active", "verified", "retired"},
+    "telemetry": {"proposed", "implemented", "verified", "retired"},
+    "alert": {"proposed", "active", "verified", "retired"},
+    "incident_response": {"proposed", "active", "verified", "retired"},
+    "recovery": {"proposed", "implemented", "verified", "retired"},
+    "provider_outage": {"proposed", "active", "verified", "retired"},
+    "exercise": {"exercised", "failed"},
+    "retirement": {"proposed", "active", "completed", "failed"},
+    "exception": {"proposed", "active", "retired"},
+}
+
+EVIDENCE_REQUIRED_STATUSES = {
+    "active", "implemented", "verified", "exercised", "deployed",
+    "completed", "failed", "rolled_back", "retired",
+}
+
+INTERNAL_REFERENCE_FIELDS = {
+    "from_environment_ref", "to_environment_ref", "environment_ref",
+    "promotion_path_ref", "rollback_release_ref", "telemetry_ref",
+    "telemetry_refs", "sli_ref", "last_exercise_ref", "procedure_refs",
+    "target_refs", "applies_to_refs",
+}
+
+
+class DuplicateKeyError(ValueError):
+    """Raised when strict JSON contains a duplicate object key."""
+
+
+def loads_json(raw: str) -> Any:
+    def reject_duplicates(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+        result: dict[str, Any] = {}
+        for key, value in pairs:
+            if key in result:
+                raise DuplicateKeyError(f"duplicate JSON key: {key}")
+            result[key] = value
+        return result
+
+    return json.loads(
+        raw,
+        object_pairs_hook=reject_duplicates,
+        parse_constant=lambda value: (_ for _ in ()).throw(
+            ValueError(f"non-finite JSON number: {value}")
+        ),
+    )
+
+
+def load_json(path: Path) -> Any:
+    return loads_json(path.read_text(encoding="utf-8"))
+
+
+def parse_date(value: str) -> dt.date:
+    if not re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", value):
+        raise ValueError("date must use YYYY-MM-DD")
+    return dt.date.fromisoformat(value)
+
+
+def parse_datetime(value: str) -> dt.datetime:
+    if not isinstance(value, str) or "T" not in value:
+        raise ValueError("date-time must be an ISO 8601 timestamp")
+    parsed = dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
+    if parsed.tzinfo is None:
+        raise ValueError("date-time must include a UTC offset")
+    return parsed.astimezone(dt.timezone.utc)
+
+
+def schema_type_matches(value: Any, expected: str) -> bool:
+    return {
+        "object": isinstance(value, dict),
+        "array": isinstance(value, list),
+        "string": isinstance(value, str),
+        "null": value is None,
+        "boolean": isinstance(value, bool),
+        "integer": isinstance(value, int) and not isinstance(value, bool),
+        "number": isinstance(value, (int, float)) and not isinstance(value, bool),
+    }.get(expected, False)
+
+
+def resolve_ref(root_schema: dict[str, Any], reference: str) -> dict[str, Any]:
+    if not reference.startswith("#/"):
+        raise ValueError(f"unsupported schema reference: {reference}")
+    current: Any = root_schema
+    for component in reference[2:].split("/"):
+        current = current[component.replace("~1", "/").replace("~0", "~")]
+    if not isinstance(current, dict):
+        raise ValueError(f"schema reference is not an object: {reference}")
+    return current
+
+
+def validate_schema(
+    value: Any,
+    schema: dict[str, Any],
+    *,
+    root_schema: dict[str, Any] | None = None,
+    path: str = "$",
+) -> list[str]:
+    root_schema = root_schema or schema
+    if "$ref" in schema:
+        return validate_schema(
+            value,
+            resolve_ref(root_schema, schema["$ref"]),
+            root_schema=root_schema,
+            path=path,
+        )
+    errors: list[str] = []
+    expected = schema.get("type")
+    if expected is not None:
+        choices = expected if isinstance(expected, list) else [expected]
+        if not any(schema_type_matches(value, item) for item in choices):
+            return [f"{path}: expected {' or '.join(choices)}"]
+    if "const" in schema and value != schema["const"]:
+        errors.append(f"{path}: value must equal {schema['const']!r}")
+    if "enum" in schema and value not in schema["enum"]:
+        errors.append(f"{path}: unknown or disallowed value {value!r}")
+    if isinstance(value, dict):
+        properties = schema.get("properties", {})
+        required = schema.get("required", [])
+        for name in required:
+            if name not in value:
+                errors.append(f"{path}: missing required property {name!r}")
+        if schema.get("additionalProperties") is False:
+            for name in value:
+                if name not in properties:
+                    errors.append(f"{path}: unknown property {name!r}")
+        for name, child in value.items():
+            if name in properties:
+                errors.extend(
+                    validate_schema(
+                        child,
+                        properties[name],
+                        root_schema=root_schema,
+                        path=f"{path}.{name}",
+                    )
+                )
+    if isinstance(value, list):
+        if len(value) < schema.get("minItems", 0):
+            errors.append(f"{path}: too few items")
+        if schema.get("uniqueItems"):
+            encoded = [json.dumps(item, sort_keys=True) for item in value]
+            if len(encoded) != len(set(encoded)):
+                errors.append(f"{path}: items must be unique")
+        item_schema = schema.get("items")
+        if isinstance(item_schema, dict):
+            for index, child in enumerate(value):
+                errors.extend(
+                    validate_schema(
+                        child,
+                        item_schema,
+                        root_schema=root_schema,
+                        path=f"{path}[{index}]",
+                    )
+                )
+    if isinstance(value, str):
+        if len(value) < schema.get("minLength", 0):
+            errors.append(f"{path}: string is too short")
+        pattern = schema.get("pattern")
+        if isinstance(pattern, str) and re.search(pattern, value) is None:
+            errors.append(f"{path}: value does not match required pattern")
+        try:
+            if schema.get("format") == "date":
+                parse_date(value)
+            elif schema.get("format") == "date-time":
+                parse_datetime(value)
+        except ValueError as error:
+            errors.append(f"{path}: {error}")
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        if "minimum" in schema and value < schema["minimum"]:
+            errors.append(f"{path}: value is below the minimum")
+        if "maximum" in schema and value > schema["maximum"]:
+            errors.append(f"{path}: value exceeds the maximum")
+    return errors
+
+
+class FindingSet:
+    def __init__(self) -> None:
+        self._items: dict[tuple[str, str | None], dict[str, str]] = {}
+
+    def add(
+        self,
+        code: str,
+        message: str,
+        path: str | None = None,
+        record_id: str | None = None,
+    ) -> None:
+        key = (code, path)
+        if key in self._items:
+            if message not in self._items[key]["message"]:
+                self._items[key]["message"] += "; " + message
+            return
+        finding = {"code": code, "severity": "error", "message": message}
+        if path is not None:
+            finding["path"] = path
+        if record_id is not None:
+            finding["record_id"] = record_id
+        self._items[key] = finding
+
+    def values(self) -> list[dict[str, str]]:
+        return [self._items[key] for key in sorted(self._items)]
+
+
+def relative(path: Path, root: Path) -> str:
+    try:
+        return path.relative_to(root).as_posix()
+    except ValueError:
+        return path.as_posix()
+
+
+def project_root(config_path: Path) -> tuple[Path, Path]:
+    config_path = config_path.resolve(strict=True)
+    extension_root = config_path.parent
+    if extension_root.name != EXTENSION_ID:
+        raise ValueError("config must be inside the operations-observability extension root")
+    if extension_root.parent.name != "extensions" or extension_root.parent.parent.name != ".agent":
+        raise ValueError("extension root must be .agent/extensions/operations-observability")
+    return extension_root.parent.parent.parent, extension_root
+
+
+def confined_project_path(root: Path, extension_root: Path, value: str) -> Path:
+    pure = PurePosixPath(value)
+    if pure.is_absolute() or ".." in pure.parts or "\\" in value:
+        raise ValueError("path must be a confined repository-relative POSIX path")
+    candidate = (root / pure).resolve(strict=False)
+    if candidate != extension_root / pure.name:
+        raise ValueError("path must resolve directly inside the registered extension root")
+    return candidate
+
+
+def parse_markdown_header(path: Path) -> dict[str, Any]:
+    raw = path.read_text(encoding="utf-8")
+    if not raw.startswith("---\n"):
+        raise ValueError("missing JSON frontmatter")
+    end = raw.find("\n---", 4)
+    if end < 0:
+        raise ValueError("unterminated JSON frontmatter")
+    value = loads_json(raw[4:end])
+    if not isinstance(value, dict):
+        raise ValueError("JSON frontmatter must be an object")
+    return value
+
+
+def collect_evidence(
+    root: Path,
+    config: dict[str, Any],
+    findings: FindingSet,
+) -> dict[str, dict[str, Any]]:
+    evidence: dict[str, dict[str, Any]] = {}
+    sources = config["evidence_sources"]
+    directory = root / sources["harness_directory"]
+    index_path = root / sources["dossier_index"]
+    candidates: list[tuple[dict[str, Any], str]] = []
+    if directory.is_dir():
+        for path in sorted(directory.glob("EVD-*.md")):
+            try:
+                candidates.append((parse_markdown_header(path), relative(path, root)))
+            except (OSError, UnicodeDecodeError, ValueError, json.JSONDecodeError) as error:
+                findings.add("OPS-EVIDENCE", str(error), relative(path, root))
+    if index_path.is_file():
+        try:
+            index = load_json(index_path)
+            entries = index.get("evidence") if isinstance(index, dict) else None
+            if not isinstance(entries, list):
+                raise ValueError("evidence index must contain an evidence array")
+            for offset, item in enumerate(entries):
+                if not isinstance(item, dict):
+                    findings.add(
+                        "OPS-EVIDENCE",
+                        "evidence entry must be an object",
+                        f"{relative(index_path, root)}:evidence[{offset}]",
+                    )
+                    continue
+                candidates.append((item, f"{relative(index_path, root)}:evidence[{offset}]"))
+        except (OSError, UnicodeDecodeError, ValueError, json.JSONDecodeError) as error:
+            findings.add("OPS-EVIDENCE", str(error), relative(index_path, root))
+    for item, location in candidates:
+        evidence_id = item.get("id")
+        if not isinstance(evidence_id, str) or re.fullmatch(r"EVD-[0-9]{4}", evidence_id) is None:
+            findings.add("OPS-EVIDENCE", "invalid evidence ID", location)
+            continue
+        if evidence_id in evidence:
+            findings.add("OPS-EVIDENCE", f"duplicate evidence ID {evidence_id}", location)
+            continue
+        result = item.get("result")
+        fresh_until = item.get("fresh_until")
+        if result not in {"pass", "fail", "mixed", "not_run", "not_assessed"}:
+            findings.add("OPS-EVIDENCE", "unknown evidence result", location, evidence_id)
+            continue
+        if fresh_until is not None:
+            try:
+                if "T" in fresh_until:
+                    parse_datetime(fresh_until)
+                else:
+                    parse_date(fresh_until)
+            except (TypeError, ValueError) as error:
+                findings.add("OPS-EVIDENCE", f"invalid freshness: {error}", location, evidence_id)
+                continue
+        evidence[evidence_id] = {
+            "result": result,
+            "fresh_until": fresh_until,
+            "location": location,
+        }
+    return evidence
+
+
+def evidence_is_current(item: dict[str, Any], today: dt.date, now: dt.datetime) -> bool:
+    fresh_until = item.get("fresh_until")
+    if not isinstance(fresh_until, str):
+        return False
+    if "T" in fresh_until:
+        return parse_datetime(fresh_until) >= now
+    return parse_date(fresh_until) >= today
+
+
+def check_evidence_refs(
+    refs: list[str],
+    evidence: dict[str, dict[str, Any]],
+    findings: FindingSet,
+    path: str,
+    *,
+    require_positive: bool = False,
+    record_id: str | None = None,
+) -> None:
+    today = dt.datetime.now(dt.timezone.utc).date()
+    now = dt.datetime.now(dt.timezone.utc)
+    positive = False
+    for reference in refs:
+        item = evidence.get(reference)
+        if item is None:
+            findings.add("OPS-BROKEN-REFERENCE", f"unresolved evidence reference {reference}", path, record_id)
+            continue
+        try:
+            current = evidence_is_current(item, today, now)
+        except ValueError:
+            current = False
+        if not current:
+            findings.add("OPS-STALE-EVIDENCE", f"evidence {reference} is stale or lacks a freshness limit", path, record_id)
+        if item["result"] in {"not_run", "not_assessed"}:
+            findings.add("OPS-EVIDENCE", f"evidence {reference} does not record an executed or observed result", path, record_id)
+        if current and item["result"] == "pass":
+            positive = True
+    if require_positive and not positive:
+        findings.add("OPS-EVIDENCE", "asserted status requires at least one current passing evidence record", path, record_id)
+
+
+def check_adoption(config: dict[str, Any], records: dict[str, Any], findings: FindingSet) -> None:
+    adoption = config["adoption"]
+    status = adoption["status"]
+    owner = adoption["owner"]
+    decision = adoption["decision_ref"]
+    assessed_on = adoption["assessed_on"]
+    rationale = adoption["rationale"]
+    if status != "adopted":
+        findings.add(
+            "OPS-ADOPTION",
+            "extension validation may be enabled only after deliberate project adoption",
+            "config.json:adoption",
+        )
+    if status == "not_assessed":
+        if owner is not None or decision is not None or assessed_on is not None:
+            findings.add("OPS-ADOPTION", "not_assessed adoption must not claim owner, decision, or assessment date", "config.json:adoption")
+        if records["document_role"] != "unadopted_authoritative_store_candidate":
+            findings.add("OPS-ADOPTION", "unassessed configuration requires an unadopted record-store role", "records.json:document_role")
+        return
+    if (
+        not isinstance(owner, str)
+        or owner.strip().lower() in PLACEHOLDER_VALUES
+        or not isinstance(decision, str)
+        or not isinstance(assessed_on, str)
+        or rationale.lower().startswith("generated")
+    ):
+        findings.add("OPS-ADOPTION", "assessed adoption requires assigned ownership, date, accepted decision reference, and project rationale", "config.json:adoption")
+    if records["document_role"] != "project_maintained_authoritative_store":
+        findings.add("OPS-ADOPTION", "assessed adoption requires the project-maintained record-store role", "records.json:document_role")
+    assessments = records["control_assessments"]
+    if status == "adopted" and any(item["status"] == "not_assessed" for item in assessments.values()):
+        findings.add("OPS-ADOPTION", "adopted extension cannot retain an unassessed control area", "records.json:control_assessments")
+    if status == "not_applicable":
+        if any(item["status"] != "not_applicable" for item in assessments.values()):
+            findings.add("OPS-ADOPTION", "not-applicable extension requires every control area to be assessed not applicable", "records.json:control_assessments")
+        if records["records"]:
+            findings.add("OPS-ADOPTION", "not-applicable extension cannot retain active control records", "records.json:records")
+
+
+def check_records(
+    records: dict[str, Any],
+    evidence: dict[str, dict[str, Any]],
+    findings: FindingSet,
+    adopted: bool,
+) -> None:
+    assessments = records["control_assessments"]
+    for name, assessment in assessments.items():
+        path = f"records.json:control_assessments.{name}"
+        if assessment["status"] == "not_assessed":
+            if assessment["owner"] is not None or assessment["assessed_on"] is not None or assessment["evidence_refs"]:
+                findings.add("OPS-ASSESSMENT", "not_assessed control area must not claim owner, date, or evidence", path)
+        else:
+            owner = assessment["owner"]
+            if not isinstance(owner, str) or owner.strip().lower() in PLACEHOLDER_VALUES:
+                findings.add("OPS-ASSESSMENT", "assessed control area requires an assigned owner", path)
+            if assessment["assessed_on"] is None or not assessment["evidence_refs"]:
+                findings.add("OPS-ASSESSMENT", "assessed control area requires a date and evidence", path)
+            check_evidence_refs(assessment["evidence_refs"], evidence, findings, path)
+
+    ids: dict[str, dict[str, Any]] = {}
+    kinds_present: dict[str, set[str]] = {name: set() for name in ASSESSMENT_KINDS}
+    for index, record in enumerate(records["records"]):
+        path = f"records.json:records[{index}]"
+        record_id = record["id"]
+        kind = record["kind"]
+        if record_id in ids:
+            findings.add("OPS-DUPLICATE-ID", f"duplicate record ID {record_id}", path, record_id)
+        else:
+            ids[record_id] = record
+        expected_prefix = KIND_PREFIX[kind]
+        if not record_id.startswith(expected_prefix + "-"):
+            findings.add("OPS-RECORD", f"{kind} record must use the {expected_prefix}-#### namespace", path, record_id)
+        if record["status"] not in KIND_STATUSES[kind]:
+            findings.add("OPS-RECORD", f"status {record['status']!r} is invalid for {kind}", path, record_id)
+        owner = record["owner"]
+        if owner.strip().lower() in PLACEHOLDER_VALUES:
+            findings.add("OPS-RECORD", "record owner must be assigned", path, record_id)
+        detail_keys = set(record["details"])
+        if detail_keys != DETAIL_FIELDS[kind]:
+            missing = sorted(DETAIL_FIELDS[kind] - detail_keys)
+            extra = sorted(detail_keys - DETAIL_FIELDS[kind])
+            findings.add("OPS-RECORD", f"detail contract mismatch; missing={missing}, extra={extra}", path, record_id)
+        assessment_name = KIND_ASSESSMENT.get(kind)
+        if assessment_name is not None:
+            kinds_present[assessment_name].add(kind)
+            if assessments[assessment_name]["status"] != "applicable":
+                findings.add("OPS-ASSESSMENT", f"{kind} record requires applicable {assessment_name} assessment", path, record_id)
+        review = record["review"]
+        if record["status"] in EVIDENCE_REQUIRED_STATUSES:
+            check_evidence_refs(record["evidence_refs"], evidence, findings, path, require_positive=True, record_id=record_id)
+            if review["status"] != "current" or review["last_reviewed_on"] is None or review["next_review_on"] is None:
+                findings.add("OPS-REVIEW", "asserted status requires a current dated review", path, record_id)
+            elif parse_date(review["next_review_on"]) < dt.datetime.now(dt.timezone.utc).date():
+                findings.add("OPS-STALE-REVIEW", "record review is stale", path, record_id)
+        else:
+            check_evidence_refs(record["evidence_refs"], evidence, findings, path, record_id=record_id)
+
+    for assessment_name, required_kinds in ASSESSMENT_KINDS.items():
+        if assessments[assessment_name]["status"] == "applicable":
+            missing = required_kinds - kinds_present[assessment_name]
+            if adopted and missing:
+                findings.add("OPS-ASSESSMENT", f"applicable control area lacks required record kinds: {sorted(missing)}", f"records.json:control_assessments.{assessment_name}")
+
+    for record_id, record in ids.items():
+        path = f"records.json:{record_id}"
+        details = record["details"]
+        for field in INTERNAL_REFERENCE_FIELDS:
+            value = details.get(field)
+            references = value if isinstance(value, list) else ([] if value is None else [value])
+            for reference in references:
+                if reference not in ids:
+                    findings.add("OPS-BROKEN-REFERENCE", f"unresolved internal reference {reference}", path, record_id)
+        for reference in record["exception_refs"]:
+            if reference not in ids or ids[reference]["kind"] != "exception":
+                findings.add("OPS-BROKEN-REFERENCE", f"unresolved exception reference {reference}", path, record_id)
+        if record["kind"] == "promotion_path" and details.get("from_environment_ref") == details.get("to_environment_ref"):
+            findings.add("OPS-RECORD", "promotion path endpoints must differ", path, record_id)
+        if record["kind"] == "exercise":
+            expected = "failed" if details["result"] == "fail" else "exercised"
+            if record["status"] != expected:
+                findings.add("OPS-RECORD", f"exercise result requires status {expected}", path, record_id)
+            if parse_datetime(details["fresh_until"]) < dt.datetime.now(dt.timezone.utc):
+                findings.add("OPS-STALE-REVIEW", "operational exercise is stale", path, record_id)
+        if record["kind"] == "exception":
+            expected_status = {"proposed": "proposed", "accepted": "active", "expired": "retired", "revoked": "retired"}[details["exception_status"]]
+            if record["status"] != expected_status:
+                findings.add("OPS-RECORD", f"exception status requires record status {expected_status}", path, record_id)
+            if details["exception_status"] == "accepted" and parse_date(details["expires_on"]) < dt.datetime.now(dt.timezone.utc).date():
+                findings.add("OPS-STALE-REVIEW", "accepted exception is expired", path, record_id)
+
+
+def validate(config_argument: Path) -> list[dict[str, str]]:
+    findings = FindingSet()
+    try:
+        root, extension_root = project_root(config_argument)
+    except (OSError, ValueError) as error:
+        findings.add("OPS-CONFIG", str(error), str(config_argument))
+        return findings.values()
+    config_path = extension_root / "config.json"
+    config_schema_path = extension_root / "config.schema.json"
+    try:
+        config = load_json(config_path)
+        config_schema = load_json(config_schema_path)
+    except (OSError, UnicodeDecodeError, ValueError, json.JSONDecodeError) as error:
+        findings.add("OPS-CONFIG", str(error), relative(config_path, root))
+        return findings.values()
+    if isinstance(config, dict):
+        if config.get("permission_grant") is not False or config.get("authority_effect") != "restrictions_only":
+            findings.add("OPS-AUTHORITY", "extension configuration cannot grant or expand authority", relative(config_path, root))
+    schema_errors = validate_schema(config, config_schema)
+    for error in schema_errors:
+        findings.add("OPS-CONFIG-SCHEMA", error, relative(config_path, root))
+    if schema_errors or not isinstance(config, dict):
+        return findings.values()
+    try:
+        records_path = confined_project_path(root, extension_root, config["records_path"])
+        records_schema_path = confined_project_path(root, extension_root, config["records_schema_path"])
+        records = load_json(records_path)
+        records_schema = load_json(records_schema_path)
+    except (OSError, UnicodeDecodeError, ValueError, json.JSONDecodeError) as error:
+        findings.add("OPS-RECORDS", str(error), relative(extension_root, root))
+        return findings.values()
+    if isinstance(records, dict):
+        if records.get("permission_grant") is not False or records.get("authority_effect") != "restrictions_only":
+            findings.add("OPS-AUTHORITY", "extension records cannot grant or expand authority", relative(records_path, root))
+    record_schema_errors = validate_schema(records, records_schema)
+    for error in record_schema_errors:
+        findings.add("OPS-RECORDS-SCHEMA", error, relative(records_path, root))
+    if record_schema_errors or not isinstance(records, dict):
+        return findings.values()
+    evidence = collect_evidence(root, config, findings)
+    check_adoption(config, records, findings)
+    check_records(records, evidence, findings, config["adoption"]["status"] == "adopted")
+    return findings.values()
+
+
+def main() -> int:
+    if sys.version_info < (3, 11):
+        print("Python 3.11+ is required.", file=sys.stderr)
+        return 2
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--config", required=True, type=Path)
+    args = parser.parse_args()
+    findings = validate(args.config)
+    print(json.dumps({
+        "schema_version": SCHEMA_VERSION,
+        "extension_id": EXTENSION_ID,
+        "findings": findings,
+    }, sort_keys=True))
+    return 1 if findings else 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

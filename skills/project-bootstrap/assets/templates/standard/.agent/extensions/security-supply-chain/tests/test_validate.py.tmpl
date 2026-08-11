@@ -1,0 +1,173 @@
+from __future__ import annotations
+
+import copy
+import json
+import os
+import subprocess
+import sys
+import tempfile
+import unittest
+from pathlib import Path
+from typing import Any
+
+
+EXTENSION_ROOT = Path(__file__).resolve().parents[1]
+FIXTURES = EXTENSION_ROOT / "tests" / "fixtures"
+
+
+def source(path: Path) -> Path:
+    if path.is_file():
+        return path
+    template = path.with_name(path.name + ".tmpl")
+    if template.is_file():
+        return template
+    raise FileNotFoundError(path)
+
+
+def load_json(path: Path) -> Any:
+    return json.loads(source(path).read_text(encoding="utf-8"))
+
+
+def set_pointer(document: Any, pointer: str, value: Any) -> None:
+    if not pointer.startswith("/"):
+        raise ValueError("fixture mutation pointer must be absolute")
+    current = document
+    components = [part.replace("~1", "/").replace("~0", "~") for part in pointer[1:].split("/")]
+    for component in components[:-1]:
+        current = current[int(component)] if isinstance(current, list) else current[component]
+    final = components[-1]
+    if isinstance(current, list):
+        current[int(final)] = value
+    else:
+        current[final] = value
+
+
+def scenario(name: str) -> dict[str, Any]:
+    value = load_json(FIXTURES / name)
+    base = value.get("base")
+    if base is not None:
+        result = copy.deepcopy(scenario(base))
+        for mutation in value["mutations"]:
+            set_pointer(result[mutation["document"]], mutation["pointer"], mutation["value"])
+        result["expected_codes"] = value["expected_codes"]
+        return result
+    return value
+
+
+def write_json(path: Path, value: Any) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def materialize(root: Path, value: dict[str, Any]) -> Path:
+    extension = root / ".agent/extensions/security-supply-chain"
+    extension.mkdir(parents=True)
+    write_json(extension / "config.json", value["config"])
+    write_json(extension / "records.json", value["records"])
+    for name in ("config.schema.json", "records.schema.json"):
+        (extension / name).write_text(source(EXTENSION_ROOT / name).read_text(encoding="utf-8"), encoding="utf-8")
+    write_json(root / "project-dossier/machine-readable/evidence-index.json", value["evidence_index"])
+    (root / ".agent/evidence").mkdir(parents=True)
+    return extension / "config.json"
+
+
+def generated_baseline() -> dict[str, Any]:
+    return {
+        "config": load_json(EXTENSION_ROOT / "config.json"),
+        "records": load_json(EXTENSION_ROOT / "records.json"),
+        "evidence_index": {"evidence": []},
+        "expected_codes": [],
+    }
+
+
+def snapshot(root: Path) -> dict[str, tuple[str, int, int] | tuple[str, ...]]:
+    result: dict[str, tuple[str, int, int] | tuple[str, ...]] = {}
+    for path in sorted(root.rglob("*")):
+        relative = path.relative_to(root).as_posix()
+        if path.is_dir():
+            result[relative] = ("directory",)
+        else:
+            stat = path.stat()
+            result[relative] = (path.read_bytes().hex(), stat.st_mode, stat.st_mtime_ns)
+    return result
+
+
+def run_validator(root: Path, config: Path) -> tuple[subprocess.CompletedProcess[str], dict[str, Any]]:
+    validator = source(EXTENSION_ROOT / "validate.py")
+    environment = {
+        key: os.environ[key]
+        for key in ("PATH", "SYSTEMROOT", "WINDIR")
+        if key in os.environ
+    }
+    environment.update(PYTHONDONTWRITEBYTECODE="1", PYTHONIOENCODING="utf-8")
+    result = subprocess.run(
+        [sys.executable, "-I", "-B", str(validator), "--config", str(config)],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=False,
+        env=environment,
+    )
+    response = json.loads(result.stdout)
+    return result, response
+
+
+class SecuritySupplyChainExtensionTests(unittest.TestCase):
+    def test_generated_unassessed_baseline_fails_if_validator_is_enabled(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="security-extension-test-") as temporary:
+            root = Path(temporary)
+            config = materialize(root, generated_baseline())
+            result, response = run_validator(root, config)
+            self.assertEqual(result.returncode, 1, response)
+            self.assertIn(
+                "SEC-ADOPTION",
+                {item["code"] for item in response["findings"]},
+            )
+
+    def test_valid_adopted_fixture_is_valid(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="security-extension-test-") as temporary:
+            root = Path(temporary)
+            config = materialize(root, scenario("valid.json"))
+            result, response = run_validator(root, config)
+            self.assertEqual(result.returncode, 0, response)
+            self.assertEqual(response["findings"], [])
+
+    def test_adversarial_fixtures_fail_closed(self) -> None:
+        names = (
+            "invalid.json",
+            "stale-evidence.json",
+            "broken-reference.json",
+            "authority-mutation.json",
+        )
+        for name in names:
+            with self.subTest(name=name), tempfile.TemporaryDirectory(prefix="security-extension-test-") as temporary:
+                value = scenario(name)
+                root = Path(temporary)
+                config = materialize(root, value)
+                result, response = run_validator(root, config)
+                codes = {item["code"] for item in response["findings"]}
+                self.assertEqual(result.returncode, 1, response)
+                self.assertTrue(set(value["expected_codes"]).issubset(codes), response)
+
+    def test_validation_is_read_only(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="security-extension-test-") as temporary:
+            root = Path(temporary)
+            config = materialize(root, scenario("valid.json"))
+            before = snapshot(root)
+            result, response = run_validator(root, config)
+            after = snapshot(root)
+            self.assertEqual(result.returncode, 0, response)
+            self.assertEqual(before, after)
+
+    def test_response_protocol_is_closed_and_non_authorizing(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="security-extension-test-") as temporary:
+            root = Path(temporary)
+            config = materialize(root, generated_baseline())
+            _, response = run_validator(root, config)
+            self.assertEqual(set(response), {"schema_version", "extension_id", "findings"})
+            self.assertEqual(response["schema_version"], "harness.extension-findings.v1")
+            self.assertEqual(response["extension_id"], "security-supply-chain")
+
+
+if __name__ == "__main__":
+    unittest.main()

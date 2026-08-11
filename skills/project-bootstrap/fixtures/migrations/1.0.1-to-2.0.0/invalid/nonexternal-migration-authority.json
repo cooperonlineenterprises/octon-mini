@@ -1,0 +1,15 @@
+{
+  "schema_version": "project-blueprint.migration-invalid-case.v1",
+  "base": "../valid/v1-standard.json",
+  "operations": [
+    {
+      "op": "replace",
+      "path": [
+        "migration",
+        "authority_source"
+      ],
+      "value": "repo:local-prose"
+    }
+  ],
+  "expected_error": "expected externally grounded authority: or external: reference"
+}

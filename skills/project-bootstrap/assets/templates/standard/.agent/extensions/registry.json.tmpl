@@ -4,5 +4,46 @@
   "extension_api": "harness.extension.v1",
   "permission_grant": false,
   "execution_boundary": "trusted_project_local_code_with_least_environment_and_post_execution_write_detection; external sandbox required for strong isolation",
-  "extensions": []
+  "extensions": [
+    {
+      "id": "operations-observability",
+      "enabled": false,
+      "version": "1.0.0",
+      "path": ".agent/extensions/operations-observability",
+      "requires_core": "^2.0.0",
+      "config": ".agent/extensions/operations-observability/config.json",
+      "validator": ".agent/extensions/operations-observability/validate.py",
+      "owner": "unassigned",
+      "provenance": "generated_unadopted_baseline",
+      "trust_class": "unassessed_project_local_code",
+      "trust_decision_ref": null,
+      "side_effects": "none",
+      "network_access": "denied",
+      "filesystem_writes": "prohibited",
+      "authority_effect": "restrictions_only",
+      "deprecated_at": null,
+      "removal_version": null,
+      "successor": null
+    },
+    {
+      "id": "security-supply-chain",
+      "enabled": false,
+      "version": "1.0.0",
+      "path": ".agent/extensions/security-supply-chain",
+      "requires_core": "^2.0.0",
+      "config": ".agent/extensions/security-supply-chain/config.json",
+      "validator": ".agent/extensions/security-supply-chain/validate.py",
+      "owner": "unassigned",
+      "provenance": "generated_unadopted_baseline",
+      "trust_class": "unassessed_project_local_code",
+      "trust_decision_ref": null,
+      "side_effects": "none",
+      "network_access": "denied",
+      "filesystem_writes": "prohibited",
+      "authority_effect": "restrictions_only",
+      "deprecated_at": null,
+      "removal_version": null,
+      "successor": null
+    }
+  ]
 }

@@ -1,0 +1,31 @@
+{
+  "schema_version": "project-blueprint.migration-invalid-case.v1",
+  "base": "../valid/v1-standard.json",
+  "operations": [
+    {
+      "op": "replace",
+      "path": [
+        "live",
+        "tasks",
+        0,
+        "dependencies"
+      ],
+      "value": [
+        "TASK-0002"
+      ]
+    },
+    {
+      "op": "replace",
+      "path": [
+        "classification",
+        "tasks",
+        "TASK-0001",
+        "dependencies"
+      ],
+      "value": {
+        "TASK-0002": "hard_task_dependency"
+      }
+    }
+  ],
+  "expected_error": "task dependency cycle"
+}

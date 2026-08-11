@@ -225,6 +225,14 @@
             "string",
             "null"
           ]
+        },
+        "evidence_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^EVD-[0-9]{4}$"
+          }
         }
       }
     },

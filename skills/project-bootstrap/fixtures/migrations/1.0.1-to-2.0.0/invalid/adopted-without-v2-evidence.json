@@ -1,0 +1,27 @@
+{
+  "schema_version": "project-blueprint.migration-invalid-case.v1",
+  "base": "../valid/v1-standard.json",
+  "operations": [
+    {
+      "op": "replace",
+      "path": [
+        "live",
+        "project",
+        "project",
+        "adoption_status"
+      ],
+      "value": "adopted"
+    },
+    {
+      "op": "replace",
+      "path": [
+        "live",
+        "project",
+        "project",
+        "adoption_decision_ref"
+      ],
+      "value": "DEC-0042"
+    }
+  ],
+  "expected_error": "requires project-specific v2 evidence and adoption re-verification"
+}

@@ -1,0 +1,46 @@
+# Project-check evidence
+
+This directory contains project-owned execution evidence. It is not generated
+proof of readiness, permission, approval, security, compliance, or production
+safety.
+
+`.agent/project-checks/evidence.json` is an append-only record store written
+only by the explicit command below:
+
+```text
+python -B .agent/scripts/run_project_checks.py --write-evidence
+```
+
+The writer executes only hooks deliberately marked `configured` in
+`.agent/project.json`. Commands and version probes are argv arrays and are
+passed directly to the operating system without `shell=True`. Hooks marked
+`not_applicable` or `not_assessed` are recorded as skipped and never executed.
+
+The writer records the exact argv, observed tool-version output, executable
+fingerprint, source revision and fingerprint, Git dirty/untracked/ignored
+scope, environment metadata, start/end times, outcome, skipped checks,
+declared possible external effects, output hashes, repository mutations, and
+limitations. It stores no command output. Repository mutation detection is
+after-the-fact evidence and is not sandbox isolation or write prevention.
+External effects remain `not_assessed` because repository-local code cannot
+prove what an external system did.
+
+The evidence path is excluded only from the project-check subject fingerprint,
+so appending evidence does not immediately stale itself. Command configuration
+and all other managed project source remain fingerprint-bound. The evidence
+store remains inside ordinary manifest and integrity scope.
+
+To run the checks, refresh generated integrity, and then apply the read-only
+adoption validator, use:
+
+```text
+python -B .agent/scripts/run_project_checks.py \
+  --write-evidence --verify-adoption
+```
+
+`--verify-adoption` invokes the existing explicit refresh writer after the
+evidence append, then invokes `validate.py --check`. It does not convert a
+passing result into a readiness or certification claim. A hook that declares
+repository writes or possible external effects additionally requires
+`--acknowledge-side-effects`; that flag acknowledges execution risk but grants
+no authority.

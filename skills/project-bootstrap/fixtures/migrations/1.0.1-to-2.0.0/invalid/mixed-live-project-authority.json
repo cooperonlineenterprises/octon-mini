@@ -1,0 +1,16 @@
+{
+  "schema_version": "project-blueprint.migration-invalid-case.v1",
+  "base": "../valid/v1-standard.json",
+  "operations": [
+    {
+      "op": "replace",
+      "path": [
+        "live",
+        "project",
+        "schema_version"
+      ],
+      "value": "harness.project.v2"
+    }
+  ],
+  "expected_error": "mixed live v1/v2 authority is prohibited"
+}

@@ -8,3 +8,17 @@ file owns planning method, dependency explanation, and summary.
 
 No project-specific plan has been accepted. Build the first plan only after
 requirements, current state, findings, risks, and approval gates are inspected.
+
+`depends_on` is the hard `PLAN-####` precedence graph. Readiness is derived,
+not stored: a planned item is on the ready frontier only when every predecessor
+is completed, every gate is passed or waived, each structured blocker is
+resolved, and its acceptance and expected-evidence contracts are populated.
+When structured plan items are present, execution tasks link reciprocally
+through `task_refs` and `plan_item_refs`; Minimal can derive its executable
+frontier from the task graph while retaining plan explanation in Markdown.
+
+Calendar dates may record evidence freshness, gate expiry, or a genuine
+external constraint. They never satisfy a dependency, place an item on the
+ready frontier, or choose among independent ready items. When several items
+are ready, current operator direction or an accepted priority/value/risk
+decision supplies the selection basis.
