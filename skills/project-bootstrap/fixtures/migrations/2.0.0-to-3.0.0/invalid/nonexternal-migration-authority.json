@@ -1,0 +1,12 @@
+{
+  "description": "Migration authority must come from an accepted authority channel.",
+  "expected_error": "invalid version, authority, evidence, or profile",
+  "operations": [
+    {
+      "op": "replace",
+      "path": ["migration", "authority_source"],
+      "value": "made_up_by_migrator"
+    }
+  ],
+  "schema_version": "project-blueprint.migration-invalid-mutation.2.0.0-to-3.0.0.v1"
+}

@@ -1,0 +1,15 @@
+{
+  "description": "A legacy input may not introduce an adopted v3 workflow record.",
+  "expected_error": "closed keys differ",
+  "operations": [
+    {
+      "op": "add",
+      "path": ["live", "git_workflows"],
+      "value": {
+        "adoption_decision_ref": "DEC-9999",
+        "status": "adopted"
+      }
+    }
+  ],
+  "schema_version": "project-blueprint.migration-invalid-mutation.2.0.0-to-3.0.0.v1"
+}

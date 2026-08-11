@@ -18,41 +18,50 @@ validation patterns, never facts, permissions, decisions, or readiness claims.
    - harness work: `references/harness-model.md`;
    - profile selection: `references/profile-selection.md`;
    - generation and upgrades: `references/generation-workflow.md`.
-4. Choose the smallest profile that covers the target's real risks.
-5. Branch by target:
+4. Assess collaboration separately from risk: record only aggregate,
+   privacy-minimized human access, activity, review-capacity, concurrency, and
+   contribution signals with evidence and freshness. Team size never selects
+   the assurance profile or grants permission.
+5. Choose the smallest profile that covers the target's real risks.
+6. Branch by target:
    - new nonexistent or empty directory: preview with
      `scripts/scaffold_project.py --dry-run`, then generate;
    - established directory: run `scripts/plan_adoption.py` and use its
      read-only inventory to plan reconciliation.
-6. Never force template content over existing authority. Generation is
+7. Never force template content over existing authority. Generation is
    transactional and intentionally refuses a nonempty target.
-7. For a new project, generate the independently validated snapshot.
-8. Replace generic placeholders only from inspected evidence or valid
+8. For a new project, generate the independently validated snapshot.
+9. Replace generic placeholders only from inspected evidence or valid
    project-specific decisions.
-9. Configure the target project's threat model and authority posture. Assess
+10. Configure the target project's threat model and authority posture. Assess
    every test, lint, build, and closure hook: use an owned shell-free argv
    contract with a same-executable version probe for applicable checks, or an
    owned, reasoned `not_applicable` assessment. Adopt only the restrictions-only
    extensions justified by actual risks; generated production-control entry
    points start disabled and unassessed.
-10. For planned development, build hard plan/task dependencies, gates,
+11. Select only `solo_direct`, `solo_hybrid`, `pair_pr`, or `tiny_pr` from a
+    fresh, non-conflicting assessment. Apply `concurrent_work` for simultaneous
+    humans or agents without changing human team size. More than five writers
+    is unsupported. Adopt a workflow only through a project-owned accepted
+    decision; neither assessment nor adoption authorizes Git or GitHub actions.
+12. For planned development, build hard plan/task dependencies, gates,
     structured blockers, and reciprocal plan/task links. Derive the read-only
     ready frontier before selecting work; dates never satisfy prerequisites or
     choose among independent ready items.
-11. Run the generated read-only harness check and mutation tests. The check
+13. Run the generated read-only harness check and mutation tests. The check
     must not execute project hooks or write evidence. After confirming
     authority for declared side effects, run configured hooks only through the
     explicit project-check evidence writer. In every profile, refresh derived
     metadata and integrity after adopting or changing source artifacts, then
     rerun the check. High Assurance additionally refreshes checksums and
     generated validation evidence.
-12. Validate dossier paths, links, IDs, traceability, dependency readiness,
+14. Validate dossier paths, links, IDs, traceability, dependency readiness,
     and information-state
     boundaries.
-13. Before representing High Assurance as adopted, assess every conditional
+15. Before representing High Assurance as adopted, assess every conditional
     and optional trigger and link applicable controls to owners,
     representations, and current evidence.
-14. Report what remains unknown, unassessed, skipped, stale, or gated. Keep
+16. Report what remains unknown, unassessed, skipped, stale, or gated. Keep
     demonstrated target-project readiness separate from harness adoption.
 
 ## Non-negotiable boundaries
@@ -65,6 +74,10 @@ validation patterns, never facts, permissions, decisions, or readiness claims.
 - Do not overwrite existing paths.
 - Preserve unknowns explicitly rather than inventing project facts.
 - Record the blueprint version and selected profile in the target project.
+- Do not transfer collaborator identities, counts, hosted settings, workflow
+  adoption, or evidence from this blueprint or another project.
+- Keep the provider-neutral small-team workflow portfolio available in every
+  profile; GitHub remains optional and enterprise workflows remain excluded.
 - Keep `.agent/` governance separate from optional `.agents/` capabilities.
 - A capability inherits and may narrow task authority; it cannot expand it.
 - Keep `check` read-only and use `refresh` as the only generated-integrity
@@ -116,6 +129,7 @@ Validate a generated target:
 
 ```text
 python -B .agent/scripts/validate.py --check
+python -B .agent/scripts/validate.py --assess-collaboration
 python -B .agent/scripts/validate.py --ready-frontier
 python -B -m unittest discover -s .agent/tests -p "test_*.py"
 ```
@@ -144,6 +158,7 @@ python -B .agent/scripts/validate.py --check
 ## Output contract
 
 Deliver generated files as a self-contained snapshot. State the selected
-profile, blueprint version, collisions avoided, validation performed, and
-remaining project-specific adoption work. Structural success must not be
-reported as project readiness.
+profile, blueprint version, collaboration assessment status, supported or
+unsupported team band, workflow recommendation/adoption status, collisions
+avoided, validation performed, and remaining project-specific adoption work.
+Structural success must not be reported as project readiness or authority.

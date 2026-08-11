@@ -28,7 +28,9 @@ endpoints, or domain constants from this blueprint or another project.
 - state transitions: `.agent/lifecycle.json`;
 - tool contracts: `.agent/tools.json`;
 - commands and checks: `.agent/validators.json`;
-- stable project hooks: `.agent/project.json`;
+- stable project hooks, collaboration assessment, and workflow adoption:
+  `.agent/project.json`;
+- provider-neutral workflow definitions: `.agent/workflows/small-team-git.json`;
 - explicit target-project check evidence: `.agent/project-checks/evidence.json`;
 - active work: `.agent/tasks/`;
 - durable intent: `.agent/decisions/`;
@@ -53,6 +55,35 @@ kernel, state, script, schema, template, fixture, store, extension-registry,
 or capability-baseline files are validation failures. Add project-specific
 behavior only inside the validated extension and capability namespaces; do
 not use an unregistered governance path.
+
+## Collaboration and Git workflow boundary
+
+Every profile includes the same four base workflows: `solo_direct`,
+`solo_hybrid`, `pair_pr`, and `tiny_pr`. Classify one, two, and three-to-five
+write-capable humans as `solo`, `pair`, and `tiny`; zero blocks, and more than
+five is explicitly unsupported. Read-only humans, bots, automation, and recent
+activity do not alter the write-capable-human count. Simultaneous humans or
+agents add `concurrent_work` without changing the human band.
+
+Assessment requires project-owned evidence, observation and freshness times,
+limitations, and `confirmed`, `inferred`, `conflicted`, or `unknown`
+confidence. Unknown, stale, or conflicting state selects nothing. Store only
+aggregate counts and safe references, never collaborator identities. The
+read-only assessment command reads the stored aggregate, writes nothing, uses
+no network, and never runs under ordinary `--check`.
+
+A recommendation cannot adopt or authorize a workflow. Adoption requires an
+accepted project-owned decision, and each Git or hosted operation still follows
+its own authority class. The workflow catalog is provider-neutral and every
+operation reference resolves to the exact, fail-closed catalogs in
+`.agent/tools.json`. GitHub is optional and generated projects assert no hosted
+reviewer, check, protection, environment, release, credential, permission, or
+CI fact.
+
+Do not add GitFlow, merge queues, release trains, stacked-PR trains, fork-first
+internal contribution, approval hierarchies or stages, dedicated release
+manager handoffs, organization-wide rulesets, multi-environment promotion, or
+enterprise issue/portfolio governance.
 
 ## Adoption boundary
 

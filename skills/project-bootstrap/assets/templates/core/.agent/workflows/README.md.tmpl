@@ -1,0 +1,115 @@
+# Small-Team Git Workflows
+
+This directory defines provider-neutral workflows for one to five
+write-capable human maintainers. It grants no permission. A workflow may be
+used only after a fresh, non-conflicting collaboration assessment and a
+project-owned accepted decision select it. Tool availability, a collaborator
+count, a workflow record, or a branch name is not authority to edit, publish,
+review, merge, delete, or release anything.
+
+The closed machine-readable portfolio is
+`small-team-git.json`. Its operation IDs resolve through
+`.agent/tools.json`; unknown operations fail closed. `pull` and raw
+`force_push` are prohibited because they hide integration or bypass a known
+remote revision. External publication, hosted changes, exceptional history
+replacement, destructive recovery, and releases retain their distinct current
+authority requirements.
+
+## Selection boundary
+
+Team topology selects only a base collaboration workflow:
+
+| Assessed topology | Base workflow |
+|---|---|
+| One write-capable human, no expected concurrent writers | `solo_direct` |
+| One write-capable human seeking reviewable integration | `solo_hybrid` |
+| Two write-capable humans | `pair_pr` |
+| Three to five write-capable humans | `tiny_pr` |
+| More than five write-capable humans | `unsupported_team_size` |
+
+Unknown, stale, or conflicting topology selects nothing. Read-only access and
+bots do not increase the human-maintainer count. Activity does not erase
+dormant write authority. Expected simultaneous human or agent work adds only
+the `concurrent_work` modifier; agents do not increase the human team band.
+
+Risk, external effects, and assurance remain separate axes. They may add
+self-review, qualified review, stronger validation, protected execution, or an
+external-authority gate without changing the team band. Team size alone never
+selects Standard or High Assurance.
+
+## `solo_direct`
+
+Use only for one writer with no expected concurrent writers. Inspect the
+working tree and exact revision, explicitly fetch and fast-forward when remote
+state must be observed, stop on divergence, make one bounded change, run local
+validation, stage exact reviewed paths, commit, recheck remote state, and
+publish only with current authority. Observe CI after publication. A failed CI
+run leaves the work incomplete; fix forward or create a validated revert
+rather than replace published default-branch history. Substantial or risky
+work escalates to `solo_hybrid` through a project-owned decision or current
+direction within existing authority.
+
+## `solo_hybrid`
+
+Refresh the declared base, create a short-lived task branch, make and validate
+the bounded change, stage exact paths, commit, and optionally publish a
+self-PR. Observe CI and record a self-review that states its lack of
+independence and remaining test gaps. Select exactly one integration method
+during project adoption, resolve only understood in-scope conflicts, validate
+again after resolution, integrate, and remove only fully integrated local or
+explicitly authorized remote branches. A self-PR does not create peer approval
+or merge authority.
+
+## `pair_pr`
+
+Use a short-lived task branch and PR. Local validation precedes publication;
+CI and one peer review apply when an eligible independent reviewer is
+available. If established review capacity is temporarily unavailable, the
+workflow blocks. A project-specific exception, if separately authorized,
+must be time-bounded and recorded as an exception rather than relabeled peer
+review. Findings or failed CI return the work to implementation. Adopt exactly
+one integration method and clean branches only after successful integration.
+
+## `tiny_pr`
+
+Use the same branch, PR, CI, finding loop, integration, and cleanup discipline
+as `pair_pr`. Require at most one peer approval. Lightweight subsystem
+ownership may guide reviewer selection when the project has evidence that it
+helps, but it must not become a multi-level ownership or approval hierarchy.
+
+## Integration and conflict handling
+
+Project adoption selects exactly one of `merge_commit`, `squash_merge`, or
+`rebase_then_fast_forward` for each adopted branch/PR workflow. Do not enable
+several methods and choose opportunistically. Rebase replaces history: it
+requires exact current authority, a non-default short-lived branch, and a
+named upstream. Rebase before publication when practical. Replacing already
+published task-branch history additionally requires an exact expected remote
+object lease and `force_push_with_lease`; raw force-push and default-branch
+history replacement are prohibited.
+
+On a conflict, identify the exact files and declared write scope. Resolve only
+understood in-scope changes and rerun relevant validation. Abort and block when
+the conflict is unrelated, ownership is unclear, or correctness cannot be
+established. Never discard another worker's changes to make integration pass.
+
+## Concurrent-work modifier
+
+When humans or agents may write simultaneously, use a branch or worktree per
+task, record the shared base revision and declared write scope, detect overlap
+before integration, and define cancellation, handback, and partial-result
+rules. Remove only an exact clean worktree after handback. Coordination
+metadata prevents silent collisions; it creates no permission.
+
+## Deliberately unsupported workflows
+
+The portfolio does not support GitFlow, merge queues, release trains,
+stacked-PR dependency trains, fork-first internal contribution, multi-level
+CODEOWNERS approval, multiple mandatory approval stages, dedicated release
+manager handoffs, organization-wide ruleset orchestration, multi-environment
+promotion pipelines, or enterprise issue/portfolio governance. Simple CI,
+PRs, one-peer review, and project-appropriate branch protection remain valid
+small-team controls.
+
+See `github-adapter.md` only when a project is considering GitHub. That guide
+is an inactive example and does not assert any hosted configuration.

@@ -101,6 +101,7 @@ def main() -> int:
             "blueprint.json",
             "CHANGELOG.md",
             "RELEASE.md",
+            "GIT_WORKFLOW.md",
             ".gitignore",
             "AGENTS.md",
             "README.md",

@@ -1,0 +1,12 @@
+{
+  "description": "The exact v2 Git vocabulary may not be widened or reinterpreted.",
+  "expected_error": "ambiguous, adopted, divergent, or mixed legacy Git policy",
+  "operations": [
+    {
+      "op": "replace",
+      "path": ["live", "tools", "tools", "git", "task_scoped"],
+      "value": ["add", "commit", "branch", "rebase"]
+    }
+  ],
+  "schema_version": "project-blueprint.migration-invalid-mutation.2.0.0-to-3.0.0.v1"
+}

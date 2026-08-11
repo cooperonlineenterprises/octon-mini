@@ -15,6 +15,28 @@
       active reviewed representations, and current evidence references.
 - [ ] Repository, operational, and external current state was directly
       inspected and dated.
+- [ ] Collaboration topology was assessed from fresh project-owned aggregate
+      evidence: declared human writers, observed write/read-only/bot access,
+      active contributors and window, independent review capacity, expected
+      human/agent concurrency, external contribution mode, and solo integration
+      preference. No unnecessary identities were stored.
+- [ ] Human team band was derived without counting read-only people, bots,
+      automation, or activity as write authority; declared/observed conflicts
+      remain explicit and stale or unknown evidence selects nothing.
+- [ ] The result is `solo`, `pair`, `tiny`, a blocked zero-writer state, or
+      explicit `unsupported_team_size` above five; no enterprise fallback was
+      inferred and team size did not select the assurance profile.
+- [ ] Any `solo_direct`, `solo_hybrid`, `pair_pr`, or `tiny_pr` adoption links
+      a project-owned accepted decision. `concurrent_work` was added when
+      simultaneous humans or agents are expected, without changing human count.
+      Neither assessment nor adoption was treated as permission.
+- [ ] Review mode does not require more than one peer or exceed established
+      independent-review capacity; unavailable capacity blocks pair/tiny review
+      rather than fabricating an approver.
+- [ ] The one adopted integration method, safe cleanup behavior, and every
+      referenced Git/hosted operation were reviewed against the closed tool
+      catalog. GitHub settings, checks, protection, reviewers, and CI success
+      were not inferred from templates.
 - [ ] Requirements, findings, plan items, RAIDQ entries, and evidence use
       stable references.
 - [ ] Every project test, lint, build, and closure hook was configured with a

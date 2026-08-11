@@ -49,11 +49,12 @@ intentionally not treated as stable provenance.
 
 ## Choose a profile
 
-- `minimal` — small, early, or low-risk initiatives needing the complete
-  authority, definition, state, plan, validation, and handoff kernel.
-- `standard` — the default for active multi-contributor work; adds structured
-  traceability, evidence, reviews, events, artifacts, extensions, and disabled,
-  unassessed operations/observability and security/supply-chain entry points.
+- `minimal` — early or low-risk initiatives needing the complete authority,
+  definition, state, plan, validation, handoff, and small-team Git workflow
+  kernel.
+- `standard` — work whose traceability or review risks justify structured
+  evidence, reviews, events, artifacts, extensions, and disabled, unassessed
+  operations/observability and security/supply-chain entry points.
 - `high-assurance` — agent-operable, sensitive, externally effective, or
   audit-oriented work; adds capabilities, reference extension validation,
   checksums, generated validation evidence, transition, history, mechanically
@@ -61,7 +62,45 @@ intentionally not treated as stable provenance.
   coordination, recovery, evaluation, and metrics contracts.
 
 Profiles are cumulative. Larger profiles add controls for named risks; they do
-not create greater authority or stronger readiness claims.
+not create greater authority or stronger readiness claims. Human team size
+does not select a profile.
+
+## Assess collaboration and select a workflow
+
+Every profile includes the same provider-neutral Git workflow portfolio. The
+project-owned `collaboration_profile` in `.agent/project.json` records only
+privacy-minimized counts, evidence references, freshness, confidence, and an
+optional accepted workflow decision. It never records collaborator identities,
+grants repository access, or authorizes an operation. Generated profiles begin
+fully unknown and do not select a workflow.
+
+| Write-capable humans | Team band | Supported base workflow |
+|---|---|---|
+| 0 | `no_write_capable_human` | none; assessment is blocked |
+| 1 | `solo` | `solo_direct` or `solo_hybrid` |
+| 2 | `pair` | `pair_pr` |
+| 3–5 | `tiny` | `tiny_pr` |
+| More than 5 | `unsupported_team_size` | none; no enterprise fallback |
+
+Read-only people, bots, automation, and activity counts do not increase or
+reduce the human team band. Simultaneous human or agent work adds the
+`concurrent_work` modifier without changing that band. Unknown, stale, or
+conflicting evidence blocks selection. A recommendation remains
+non-authorizing; adoption additionally requires a project-owned accepted
+`DEC-####` reference.
+
+The collaboration-assessment command declared in `.agent/validators.json` is
+read-only and prints an assessment without adopting it:
+
+```text
+python -B .agent/scripts/validate.py --assess-collaboration
+```
+
+It reads only the aggregate project-owned observations already stored in
+`.agent/project.json` and is not invoked by ordinary `validate.py --check`.
+Gathering hosted observations is a separate explicit, optional network action;
+GitHub remains optional, and generated content never asserts reviewers,
+checks, protection, credentials, settings, or CI success.
 
 ## Generate a new project foundation
 
@@ -175,6 +214,19 @@ rollback evidence, rejects ambiguity and mixed authority, and never runs
 project commands. It is not an in-place target-project upgrader; live projects
 still require an authorized, project-specific reconciliation.
 
+The breaking `2.0.0` to `3.0.0` transition adds the closed collaboration
+assessment, small-team workflow portfolio, and exact Git/hosted-operation
+catalog. Its executable migration starts collaboration as unknown and adopts
+no workflow:
+
+```text
+python3 -B skills/project-bootstrap/scripts/test_migration_2_0_0_to_3_0_0.py
+```
+
+Existing project authority and accepted decisions require project-specific
+reconciliation; activity or legacy Git vocabulary is never converted into a
+maintainer count, permission, or workflow adoption.
+
 ## Use as a Codex skill
 
 The repository-local skill is at `skills/project-bootstrap`. Validate it in
@@ -202,6 +254,7 @@ cross-project discovery.
 python3 skills/project-bootstrap/scripts/validate_skill_package.py
 python3 skills/project-bootstrap/scripts/verify_reference_evidence.py
 python3 -B skills/project-bootstrap/scripts/test_migration_1_0_1_to_2_0_0.py
+python3 -B skills/project-bootstrap/scripts/test_migration_2_0_0_to_3_0_0.py
 python3 skills/project-bootstrap/scripts/validate_blueprint.py
 python3 skills/project-bootstrap/scripts/test_acceptance.py
 ```

@@ -1,0 +1,285 @@
+{
+  "legacy_git_policy_classification": "canonical_unadopted_baseline",
+  "live": {
+    "origin": {
+      "authority": "Generation provenance only; does not grant permission or establish project facts, decisions, implementation, or readiness.",
+      "blueprint": "project-blueprint",
+      "blueprint_version": "2.0.0",
+      "generated_on": "2026-08-10",
+      "generated_paths": [
+        ".agent/project.json",
+        ".agent/tools.json",
+        ".agent/validators.json"
+      ],
+      "generation_id": "0123456789abcdef0123456789abcdef",
+      "generator_version": "2.0.0",
+      "harness_kernel_version": "2.0.0",
+      "initial_generation": {
+        "blueprint_version": "2.0.0",
+        "generated_on": "2026-08-10",
+        "generation_id": "0123456789abcdef0123456789abcdef",
+        "generator_version": "2.0.0",
+        "profile": "minimal"
+      },
+      "migration_history": [],
+      "profile": "minimal",
+      "project_name": "Migration Fixture",
+      "project_slug": "migration-fixture",
+      "schema_version": "project-blueprint.origin.v1"
+    },
+    "project": {
+      "commands": {
+        "project_build": {
+          "argv": null,
+          "evidence_freshness_days": null,
+          "owner": null,
+          "rationale": null,
+          "side_effects": {
+            "classification": "not_assessed",
+            "external_effects": [],
+            "repository_write_paths": []
+          },
+          "status": "not_assessed",
+          "timeout_seconds": null,
+          "tool_name": null,
+          "version_argv": null
+        },
+        "project_closure": {
+          "argv": null,
+          "evidence_freshness_days": null,
+          "owner": null,
+          "rationale": null,
+          "side_effects": {
+            "classification": "not_assessed",
+            "external_effects": [],
+            "repository_write_paths": []
+          },
+          "status": "not_assessed",
+          "timeout_seconds": null,
+          "tool_name": null,
+          "version_argv": null
+        },
+        "project_lint": {
+          "argv": null,
+          "evidence_freshness_days": null,
+          "owner": null,
+          "rationale": null,
+          "side_effects": {
+            "classification": "not_assessed",
+            "external_effects": [],
+            "repository_write_paths": []
+          },
+          "status": "not_assessed",
+          "timeout_seconds": null,
+          "tool_name": null,
+          "version_argv": null
+        },
+        "project_test": {
+          "argv": null,
+          "evidence_freshness_days": null,
+          "owner": null,
+          "rationale": null,
+          "side_effects": {
+            "classification": "not_assessed",
+            "external_effects": [],
+            "repository_write_paths": []
+          },
+          "status": "not_assessed",
+          "timeout_seconds": null,
+          "tool_name": null,
+          "version_argv": null
+        }
+      },
+      "extensions": {
+        "registry": ".agent/extensions/registry.json",
+        "registry_required_in_profile": "standard_or_higher"
+      },
+      "mutable_work_status": "prohibited_here",
+      "paths": {
+        "fingerprint_exclusions": [],
+        "generated": [
+          ".agent/generated"
+        ],
+        "instruction_roots": [
+          "AGENTS.md"
+        ],
+        "source": [],
+        "tests": []
+      },
+      "project": {
+        "adoption_decision_ref": null,
+        "adoption_status": "not_assessed",
+        "blueprint_version": "2.0.0",
+        "id": "migration-fixture",
+        "name": "Migration Fixture",
+        "profile": "minimal",
+        "repository_root": "."
+      },
+      "project_checks": {
+        "adoption_verification_argv": [
+          "python",
+          "-B",
+          ".agent/scripts/run_project_checks.py",
+          "--write-evidence",
+          "--verify-adoption"
+        ],
+        "evidence_schema": ".agent/schemas/harness-project-check-evidence.schema.json",
+        "evidence_store": ".agent/project-checks/evidence.json",
+        "execution": "explicit_writer_only",
+        "shell_interpretation": false,
+        "writer_argv": [
+          "python",
+          "-B",
+          ".agent/scripts/run_project_checks.py",
+          "--write-evidence"
+        ]
+      },
+      "schema_version": "harness.project.v2"
+    },
+    "tools": {
+      "declarative_only": true,
+      "evidence": {
+        "record_material_commands": true,
+        "redact_secret_values": true,
+        "tool_availability_implies_permission": false
+      },
+      "permission_grant": false,
+      "real_enforcement_boundary": [
+        "platform_and_sandbox_permissions",
+        "operating_system_and_workspace_access",
+        "credential_scope",
+        "protected_remote_controls"
+      ],
+      "schema_version": "harness.tools.v1",
+      "tools": {
+        "filesystem": {
+          "allowed": [
+            "read_relevant",
+            "write_requested_repository_paths"
+          ],
+          "availability": "required",
+          "denied": [
+            "write_outside_declared_workspace",
+            "follow_untrusted_symlink"
+          ]
+        },
+        "git": {
+          "allowed": [
+            "status",
+            "diff"
+          ],
+          "availability": "optional",
+          "explicit_current_authorization": [
+            "push",
+            "force_push",
+            "remote_mutation"
+          ],
+          "task_scoped": [
+            "add",
+            "commit",
+            "branch"
+          ]
+        },
+        "shell": {
+          "allowed": [
+            "declared_validation",
+            "scoped_local_commands"
+          ],
+          "availability": "required",
+          "denied": [
+            "undeclared_external_effect",
+            "secret_in_command"
+          ]
+        }
+      }
+    },
+    "validators": {
+      "commands": {
+        "adoption_verify": {
+          "run": "python -B .agent/scripts/run_project_checks.py --write-evidence --verify-adoption",
+          "writes": "project_check_evidence_and_profile_refresh_outputs"
+        },
+        "bootstrap": {
+          "run": "python --version",
+          "writes": []
+        },
+        "check": {
+          "run": "python -B .agent/scripts/validate.py --check",
+          "writes": []
+        },
+        "closure": {
+          "run": "configure_during_project_adoption",
+          "writes": "not_assessed"
+        },
+        "project_checks": {
+          "run": "python -B .agent/scripts/run_project_checks.py --write-evidence",
+          "writes": [
+            ".agent/project-checks/evidence.json"
+          ]
+        },
+        "ready_frontier": {
+          "run": "python -B .agent/scripts/validate.py --ready-frontier",
+          "writes": []
+        },
+        "refresh": {
+          "run": "python -B .agent/scripts/refresh.py --refresh",
+          "writes": [
+            "project-dossier/ARTIFACT_CATALOG.json",
+            "project-dossier/MANIFEST.json",
+            "project-dossier/machine-readable/path-authority.json"
+          ]
+        },
+        "test": {
+          "run": "python -B -m unittest discover -s .agent/tests -p \"test_*.py\"",
+          "writes": []
+        }
+      },
+      "limitations": [
+        "structural_checks_do_not_prove_project_readiness",
+        "repository_policy_is_not_runtime_sandbox_enforcement"
+      ],
+      "required_core_checks": [
+        "python_runtime_floor",
+        "strict_json_and_duplicate_keys",
+        "schemas_and_versions",
+        "authority_and_nested_instruction_invariants",
+        "identifiers_references_and_lifecycles",
+        "dependency_readiness_and_ready_frontier",
+        "project_command_assessment_and_current_evidence",
+        "dossier_catalog_path_authority_and_traceability",
+        "extension_compatibility_confinement_and_validator_protocol",
+        "unresolved_generation_placeholders",
+        "redacted_secret_detection",
+        "repository_symlinks_and_host_metadata",
+        "generated_integrity_freshness_when_present"
+      ],
+      "runtime": {
+        "bytecode_and_cache_writes": "prohibited_for_check",
+        "dependencies": "standard_library_only",
+        "executable": "python",
+        "minimum_version": "3.11"
+      },
+      "schema_version": "harness.validators.v2",
+      "validator_version": "2.0.0"
+    }
+  },
+  "migration": {
+    "authority_source": "authority:synthetic-migration-owner",
+    "evidence_refs": [
+      "EVD-3000"
+    ],
+    "from_blueprint_version": "2.0.0",
+    "from_profile": "minimal",
+    "generator_version": "3.0.0",
+    "id": "MIG-3000",
+    "limitations": [
+      "Reference fixture only; live projects require project-specific reconciliation."
+    ],
+    "migrated_on": "2026-08-11",
+    "migration_guide": "migrations/2.0.0-to-3.0.0.md",
+    "schema_version": "project-blueprint.migration.v1",
+    "to_blueprint_version": "3.0.0",
+    "to_profile": "minimal"
+  },
+  "schema_version": "project-blueprint.migration-input.2.0.0-to-3.0.0.v1"
+}

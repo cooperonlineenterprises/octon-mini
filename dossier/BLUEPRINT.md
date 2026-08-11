@@ -1,6 +1,6 @@
 # Universal Project Dossier Blueprint
 
-Blueprint version: 2.0.0
+Blueprint version: 3.0.0
 Reference-analysis date: 2026-08-10
 
 This document defines a domain-neutral project dossier for software, product,
@@ -132,6 +132,16 @@ representations may not both claim authority.
 **[Inferred] [Recommended]**
 Use `unknown`, `not_assessed`, `not_applicable`, and `gated` rather than
 inventing facts or interpreting absence as failure.
+
+### 2.10 Collaboration topology remains harness governance
+
+**[Recommended]** The dossier may provide dated, privacy-minimized evidence
+about repository access, activity, reviewer capacity, concurrency, or external
+contribution. The authoritative current collaboration assessment and any
+adopted Git workflow belong in `.agent/project.json`, not in dossier prose.
+Neither an observation nor a workflow decision grants repository permission.
+Human team size selects only a base collaboration workflow; dossier and harness
+profiles remain independently selected from project risk and assurance needs.
 
 ## 3. Reference-dossier crosswalk
 
@@ -1293,7 +1303,9 @@ refreshable in every profile.
 
 ### Standard dossier
 
-Default for active, multi-contributor, multi-session, or agent-assisted work.
+Use when active work needs structured traceability, durable evidence and review
+records, or comparable information-governance controls. Contributor count by
+itself is not a profile trigger.
 
 Adds:
 
@@ -1310,8 +1322,10 @@ Adds:
 ### High-assurance or agent-operable dossier
 
 Appropriate when external effects, sensitive information, regulated work,
-multiple environments, concurrent agents, long-lived handoff, audit, or
-reproducibility applies.
+multiple environments, protected coordination, long-lived agent operation or
+handoff, audit, or reproducibility applies. Ordinary small-team concurrency by
+itself is handled by the harness workflow modifier and does not require this
+profile.
 
 Adds every triggered conditional artifact plus:
 

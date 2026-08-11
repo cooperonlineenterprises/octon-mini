@@ -1,0 +1,12 @@
+{
+  "description": "An adopted or unclassified vague legacy Git policy cannot be mapped automatically.",
+  "expected_error": "adopted or divergent vague Git policy",
+  "operations": [
+    {
+      "op": "replace",
+      "path": ["legacy_git_policy_classification"],
+      "value": "adopted_or_divergent"
+    }
+  ],
+  "schema_version": "project-blueprint.migration-invalid-mutation.2.0.0-to-3.0.0.v1"
+}
