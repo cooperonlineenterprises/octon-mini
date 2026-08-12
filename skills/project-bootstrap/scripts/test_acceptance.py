@@ -433,9 +433,32 @@ def main() -> int:
             "concurrency:\n"
             "  group: ${{ github.workflow }}-${{ "
             "github.event.pull_request.number || github.ref }}\n"
-            "  cancel-in-progress: ${{ github.event_name == 'pull_request' }}"
+            "  cancel-in-progress: ${{ github.event_name == 'pull_request' || "
+            "github.ref == 'refs/heads/main' }}"
         ) in ci_workflow,
-        "source CI concurrency can discard required non-PR release evidence",
+        "source CI concurrency does not isolate uncancelled manual release evidence",
+        failures,
+    )
+    require(
+        "workflow_dispatch:" in ci_workflow
+        and (
+            "pull-request-gate:\n    name: required\n"
+            "    if: github.event_name == 'pull_request'"
+        ) in ci_workflow
+        and (
+            "main-smoke:\n    name: main-smoke\n"
+            "    if: github.event_name == 'push' && "
+            "github.ref == 'refs/heads/main'"
+        ) in ci_workflow
+        and (
+            "full-matrix:\n    name: full / ${{ matrix.os }} / Python "
+            "${{ matrix.python }}\n"
+            "    if: github.event_name == 'workflow_dispatch'"
+        ) in ci_workflow
+        and ci_workflow.count(
+            "python -B skills/project-bootstrap/scripts/test_acceptance.py"
+        ) == 2,
+        "source CI does not preserve the tiered routine/manual validation boundary",
         failures,
     )
     require(

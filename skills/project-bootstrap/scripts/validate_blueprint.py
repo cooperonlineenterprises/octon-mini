@@ -871,20 +871,46 @@ def validate_ci_contract(issues: list[str]) -> None:
         "concurrency:\n"
         "  group: ${{ github.workflow }}-${{ "
         "github.event.pull_request.number || github.ref }}\n"
-        "  cancel-in-progress: ${{ github.event_name == 'pull_request' }}"
+        "  cancel-in-progress: ${{ github.event_name == 'pull_request' || "
+        "github.ref == 'refs/heads/main' }}"
     )
     if expected_concurrency not in workflow:
         issues.append(
-            "CI workflow concurrency must cancel only superseded pull-request runs"
+            "CI workflow concurrency must cancel superseded pull-request and "
+            "main smoke runs without cancelling manual release matrices"
         )
     required_snippets = {
         "read-only contents permission": "permissions:\n  contents: read",
-        "three-OS matrix": (
+        "manual full-matrix trigger": "workflow_dispatch:",
+        "stable pull-request gate": (
+            "pull-request-gate:\n    name: required\n"
+            "    if: github.event_name == 'pull_request'"
+        ),
+        "minimum-runtime pull-request gate": 'python-version: "3.11"',
+        "main smoke gate": (
+            "main-smoke:\n    name: main-smoke\n"
+            "    if: github.event_name == 'push' && "
+            "github.ref == 'refs/heads/main'"
+        ),
+        "current-runtime main smoke": 'python-version: "3.14"',
+        "manual-only full matrix": (
+            "full-matrix:\n    name: full / ${{ matrix.os }} / Python "
+            "${{ matrix.python }}\n"
+            "    if: github.event_name == 'workflow_dispatch'"
+        ),
+        "three-OS release matrix": (
             "os: [ubuntu-latest, macos-latest, windows-latest]"
         ),
-        "Python 3.11-3.14 matrix": (
+        "Python 3.11-3.14 release matrix": (
             'python: ["3.11", "3.12", "3.13", "3.14"]'
         ),
+        "routine cancellation": (
+            "cancel-in-progress: ${{ github.event_name == 'pull_request' || "
+            "github.ref == 'refs/heads/main' }}"
+        ),
+        "routine timeout": "timeout-minutes: 20",
+        "main timeout": "timeout-minutes: 15",
+        "release timeout": "timeout-minutes: 30",
         "pinned checkout action": (
             "actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803"
         ),
@@ -909,6 +935,14 @@ def validate_ci_contract(issues: list[str]) -> None:
     for label, snippet in required_snippets.items():
         if snippet not in workflow:
             issues.append(f"CI workflow lacks {label}")
+    acceptance_command = (
+        "python -B skills/project-bootstrap/scripts/test_acceptance.py"
+    )
+    if workflow.count(acceptance_command) != 2:
+        issues.append(
+            "CI workflow must run acceptance exactly in the pull-request gate "
+            "and manually dispatched full matrix"
+        )
 
 
 def validate_executable_contracts(issues: list[str]) -> None:
