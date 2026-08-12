@@ -1,0 +1,74 @@
+{
+  "schema_version": "project-blueprint.architecture-proof.v1",
+  "id": "PROOF-0000",
+  "proof_kind": "adversarial_fixture_pack",
+  "status": "template",
+  "permission_grant": false,
+  "production_readiness_inference": false,
+  "title": "Replace with the adversarial fixture pack",
+  "hypothesis": "Replace with the invariant the fixtures attempt to falsify.",
+  "subject": {
+    "identifier": "not_assessed",
+    "version_or_revision": "not_assessed",
+    "configuration": "not_assessed"
+  },
+  "environment": {
+    "description": "not_assessed",
+    "source_revision": "not_assessed",
+    "toolchain_versions": [
+      "not_assessed"
+    ]
+  },
+  "acceptance_criteria": [
+    "Replace with the required response for every declared adversarial class."
+  ],
+  "stop_criteria": [
+    "Stop when a critical fixture demonstrates an unsafe or authority-expanding path."
+  ],
+  "adversarial_cases": [
+    {
+      "id": "CASE-0000",
+      "condition": "Replace with the first representative adversarial condition.",
+      "expected_behavior": "Replace with the exact safe result.",
+      "result": "not_run",
+      "evidence_refs": [
+        "not_assessed"
+      ]
+    }
+  ],
+  "method": [
+    "Replace with deterministic fixture execution and result-capture steps."
+  ],
+  "evidence_refs": [
+    "not_assessed"
+  ],
+  "failures": [
+    "not_assessed"
+  ],
+  "skipped_checks": [
+    "All checks remain unassessed in this source-only template."
+  ],
+  "cleanup_or_rollback": {
+    "strategy": "Replace with isolation teardown and retained failure evidence.",
+    "status": "not_assessed",
+    "evidence_refs": [
+      "not_assessed"
+    ],
+    "residual_effects": [
+      "not_assessed"
+    ]
+  },
+  "limitations": [
+    "A fixture pack covers only its declared threat and failure classes."
+  ],
+  "conclusion": "not_assessed",
+  "non_proven_implications": [
+    "Passing fixtures do not prove absence of undiscovered failures or production readiness."
+  ],
+  "decision_refs": [
+    "not_assessed"
+  ],
+  "owner": "unassigned",
+  "created_on": null,
+  "completed_on": null
+}

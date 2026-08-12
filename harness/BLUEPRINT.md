@@ -182,6 +182,8 @@ resumable and auditable.
     publication authority, or release authority.
 16. More than five write-capable humans is explicitly unsupported and never
     falls through to an enterprise workflow.
+17. Semantic information roles do not replace aggregate-specific lifecycles,
+    grant action authority, or establish readiness by themselves.
 
 ## 5. Recommended directory structure
 
@@ -419,6 +421,19 @@ valid small-team controls.
 
 ## 8. Record and state model
 
+The semantic crosswalk is orthogonal to every record lifecycle:
+`authoritative` names the declared source for a bounded concern; `observed`
+names a dated inspection; `inferred` names a conclusion from disclosed
+premises; `proposed` names unaccepted content; `derived` names a reproducible
+projection; `historical` and `superseded` name retained noncurrent content;
+`stale` names content beyond its freshness or validity boundary; `unknown`
+names an unestablished fact; and `intentionally_omitted` names a disclosed,
+deliberate exclusion. This vocabulary is not a universal status enum. Each
+task, decision, artifact, capability, approval, and extension keeps its own
+closed status and transition contract. A display projection never writes back
+to its sources, and no semantic role grants action authority or establishes
+readiness by itself.
+
 | Concern | Store | Mutability | Meaning |
 |---|---|---|---|
 | collaboration topology and adoption | `project.json` | reassessed project source plus accepted decision reference | which small-team workflow fits without creating permission |
@@ -440,6 +455,11 @@ Each record declares `schema_version`, stable ID, purpose/title, scope,
 authority source, owner/maintainer, inputs, outputs or links, side effects,
 status, timestamps as applicable, validation, limitations, provenance, and
 successor/deprecation fields where applicable.
+
+Consequential evidence additionally states the implications it does not prove.
+A passing check therefore remains bounded to its exact subject, method,
+environment, time, and scope; it cannot silently become approval, compliance,
+provider truth, or production readiness.
 
 Task `dependencies` are hard `TASK-####` prerequisites. `plan_item_refs` and
 plan-item `task_refs` are reciprocal. `gate_refs` name structured readiness
@@ -706,9 +726,10 @@ outputs, and then runs the final read-only check.
 High-Assurance generated validation reports are explicitly scoped to the
 pre-refresh checks they record. Their closed contract contains one result for
 each required check, failures, skips, environment and Git scope, external
-effects, freshness rule, and limitations. A disabled extension is `not_run`,
-never `pass`. The refresh command's final exit status reports the separate
-post-refresh exact-tree check; neither result implies project readiness.
+effects, freshness rule, and limitations that name non-proven implications for
+every consequential claim. A disabled extension is `not_run`, never `pass`. The
+refresh command's final exit status reports the separate post-refresh exact-tree
+check; neither result implies project readiness.
 
 The portable reference validator uses only Python 3.11+ standard-library
 features and validates strict JSON with duplicate-key rejection. JSON is the

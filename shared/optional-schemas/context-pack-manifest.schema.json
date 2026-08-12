@@ -1,0 +1,371 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://project-blueprint.local/optional-schemas/context-pack-manifest.schema.json",
+  "title": "Project Blueprint Optional Context Pack Manifest",
+  "description": "High-Assurance optional contract for a bounded context pack. Schema conformance does not grant permission, enforce provider deletion, or establish readiness.",
+  "$defs": {
+    "strings": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "nonempty_strings": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_ref",
+        "exact_version_or_digest",
+        "authority_status",
+        "selected_sections",
+        "observed_at",
+        "fresh_until",
+        "selection_basis",
+        "limitations"
+      ],
+      "properties": {
+        "source_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "exact_version_or_digest": {
+          "type": "string",
+          "minLength": 1
+        },
+        "authority_status": {
+          "enum": [
+            "authoritative",
+            "observed",
+            "inferred",
+            "proposed",
+            "derived",
+            "historical",
+            "superseded",
+            "stale",
+            "unknown",
+            "intentionally_omitted"
+          ]
+        },
+        "selected_sections": {
+          "$ref": "#/$defs/nonempty_strings"
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "fresh_until": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "selection_basis": {
+          "type": "string",
+          "minLength": 1
+        },
+        "limitations": {
+          "$ref": "#/$defs/nonempty_strings"
+        }
+      }
+    }
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "manifest_version",
+    "status",
+    "permission_grant",
+    "purpose",
+    "consumer",
+    "task_class",
+    "scope",
+    "content_ref",
+    "sources",
+    "freshness",
+    "sensitivity",
+    "allowed_use",
+    "retention",
+    "invalidation_triggers",
+    "revocation",
+    "stale_or_revoked_use",
+    "exclusions",
+    "size_budget",
+    "owner",
+    "unresolved_inputs",
+    "limitations",
+    "non_proven_implications"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "project-blueprint.context-pack-manifest.v1"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^CTXPACK-[0-9]{4}$"
+    },
+    "manifest_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "status": {
+      "enum": [
+        "active",
+        "expired",
+        "revoked",
+        "superseded"
+      ]
+    },
+    "permission_grant": {
+      "const": false
+    },
+    "purpose": {
+      "type": "string",
+      "minLength": 1
+    },
+    "consumer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "enum": [
+            "human_role",
+            "agent_role",
+            "service",
+            "project",
+            "provider"
+          ]
+        }
+      }
+    },
+    "task_class": {
+      "type": "string",
+      "minLength": 1
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "included_resources",
+        "excluded_resources",
+        "maximum_items"
+      ],
+      "properties": {
+        "included_resources": {
+          "$ref": "#/$defs/nonempty_strings"
+        },
+        "excluded_resources": {
+          "$ref": "#/$defs/strings"
+        },
+        "maximum_items": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "content_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/source"
+      }
+    },
+    "freshness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "created_at",
+        "valid_until",
+        "revalidate_after",
+        "revalidation_method"
+      ],
+      "properties": {
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "valid_until": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "revalidate_after": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "revalidation_method": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "sensitivity": {
+      "enum": [
+        "public",
+        "internal",
+        "confidential",
+        "restricted",
+        "regulated"
+      ]
+    },
+    "allowed_use": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "purposes",
+        "prohibited_uses",
+        "rights_basis",
+        "egress"
+      ],
+      "properties": {
+        "purposes": {
+          "$ref": "#/$defs/nonempty_strings"
+        },
+        "prohibited_uses": {
+          "$ref": "#/$defs/strings"
+        },
+        "rights_basis": {
+          "type": "string",
+          "minLength": 1
+        },
+        "egress": {
+          "enum": [
+            "none",
+            "same_project",
+            "approved_consumers",
+            "explicit_authorization_required"
+          ]
+        }
+      }
+    },
+    "retention": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "retain_until",
+        "deletion_method",
+        "deletion_evidence_required"
+      ],
+      "properties": {
+        "retain_until": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "deletion_method": {
+          "type": "string",
+          "minLength": 1
+        },
+        "deletion_evidence_required": {
+          "type": "boolean"
+        }
+      }
+    },
+    "invalidation_triggers": {
+      "$ref": "#/$defs/strings"
+    },
+    "revocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "revoked_at",
+        "reason",
+        "successor"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "active",
+            "revoked"
+          ]
+        },
+        "revoked_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "successor": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^CTXPACK-[0-9]{4}$"
+        }
+      }
+    },
+    "stale_or_revoked_use": {
+      "const": "prohibited_until_revalidated_or_reissued"
+    },
+    "exclusions": {
+      "$ref": "#/$defs/strings"
+    },
+    "size_budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "unit",
+        "maximum",
+        "measured"
+      ],
+      "properties": {
+        "unit": {
+          "enum": [
+            "bytes",
+            "tokens",
+            "items"
+          ]
+        },
+        "maximum": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "measured": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "owner": {
+      "type": "string",
+      "minLength": 1
+    },
+    "unresolved_inputs": {
+      "$ref": "#/$defs/strings"
+    },
+    "limitations": {
+      "$ref": "#/$defs/strings"
+    },
+    "non_proven_implications": {
+      "$ref": "#/$defs/strings"
+    }
+  }
+}

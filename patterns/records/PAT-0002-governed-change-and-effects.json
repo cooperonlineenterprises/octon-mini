@@ -1,0 +1,129 @@
+{
+  "schema_version": "project-blueprint.pattern-record.v1",
+  "id": "PAT-0002",
+  "slug": "governed-change-and-effects",
+  "title": "Governed change, mutation, effects, and recovery",
+  "pattern_version": "1.0.0",
+  "status": "reviewed",
+  "status_changed_on": "2026-08-11",
+  "permission_grant": false,
+  "automatic_generation": false,
+  "automatic_adoption": false,
+  "universal_kernel": false,
+  "problem": "Consequential candidate selection, concurrent mutation, ambiguous external outcomes, and recovery can lose impact, authority, idempotency, or residual-consequence semantics when represented as generic success or failure.",
+  "invariant": "A triggered change records its exact subject and base, impact, separately valid authority, effect boundary, evidence, and truthful terminal or unresolved disposition; action selection is not authorization, acknowledgement is not truth, and compensation is not rollback.",
+  "applicability_triggers": [
+    "A resolver can propose materially different consequential outcomes.",
+    "Concurrent writers can mutate the same authoritative state.",
+    "A consequential external effect can be duplicated, partially applied, or ambiguously acknowledged.",
+    "Durable partial work requires typed retry, reconciliation, compensation, restore, abandon, or escalation."
+  ],
+  "non_applicability_triggers": [
+    "The operation is a reversible repository-local edit already governed by existing task and Git contracts.",
+    "There is no external effect, competing authoritative writer, or durable partial outcome."
+  ],
+  "exclusions": [
+    "No universal action or lifecycle enum.",
+    "No provider, product, workflow, or topology vocabulary.",
+    "No outbox, distributed transaction, idempotency service, or external-effect runtime.",
+    "No inference that a selected action is permitted."
+  ],
+  "required_contracts": [
+    "Impact module: exact subject/base, dependencies, affected scope, uncertainty, validation, and rollback or compensation posture.",
+    "Action module: project-owned variants including explicit no-op, decline, defer, and unresolved outcomes.",
+    "Mutation-effect module: mutation owner, fence/base, authorization reference, idempotency identity, boundary, receipt, read-back, and unknown outcome.",
+    "Recovery-incident module: failure class, point of no return, retry/reconcile/compensate/restore/abandon/escalate choice, residual consequences, and terminal disposition."
+  ],
+  "prohibited_shortcuts": [
+    "Blind retry after an ambiguous consequential effect.",
+    "Treating external acknowledgement as authoritative outcome.",
+    "Calling compensation rollback.",
+    "Discovering impact only after apply.",
+    "Building generic distributed-systems machinery without an exact adopter boundary."
+  ],
+  "failure_recovery_semantics": [
+    "Unknown external outcome remains explicit until safe read-back or reconciliation resolves it.",
+    "Irreversible effects retain residual consequences and cannot claim rollback.",
+    "Recovery preserves unaffected work and requires current authority for any new effect."
+  ],
+  "proof_expectations": [
+    "Supply an exact adopter, authoritative owner, transaction/effect boundary, and failure model.",
+    "Exercise stale base, changed dependency, unauthorized effect, duplicate delivery, crash boundaries, timeout/read-back, revocation, unknown outcome, and compensation.",
+    "Demonstrate that unrelated work remains safe and incident reconstruction is complete."
+  ],
+  "known_implementations": [
+    "Project Blueprint transactional generation, refresh, migrations, typed Git operations, concurrency modifier, and operations recovery are partial specialized realizations."
+  ],
+  "evidence": [
+    {
+      "evidence_kind": "architecture_review",
+      "source_ref": "repo:ARCHITECTURAL_PATTERN_INTEGRATION_REVIEW.md#proposed-src-dec-d--admit-lifecycle-and-governed-changeeffect-patterns-without-scaffolding-them",
+      "project_ref": "project-blueprint",
+      "exact_subject": "Project Blueprint 3.0.0 local mutation, Git operation, migration, and recovery contracts",
+      "supports": "Specialized local mechanisms demonstrate the invariant while a generic external-effect protocol remains unjustified.",
+      "independent_project": false,
+      "limitations": [
+        "No concrete external-effect adopter or provider boundary has been proven."
+      ]
+    }
+  ],
+  "contrary_evidence": [],
+  "compatibility": {
+    "minimum_blueprint_version": "3.1.0",
+    "kernel_effect": "none",
+    "generated_project_effect": "none_until_separately_adopted",
+    "breaking_change": false,
+    "migration_posture": "Catalog admission only; existing tasks, Git workflows, operations records, and generated projects are unchanged.",
+    "stable_support_commitment": false
+  },
+  "migration": {
+    "required": false,
+    "automatic": false,
+    "guidance": "Catalog admission changes no task, Git, operations, or effect record. A later implemented package requires its own migration decision."
+  },
+  "complexity": [
+    "A future adopter may require variants, impact records, concurrency control, receipts, reconciliation, and operational procedures."
+  ],
+  "operator_burden": [
+    "Failure handling and effect reconciliation require project-specific ownership and exercises."
+  ],
+  "optional_assets": [],
+  "modules": [
+    "impact",
+    "action",
+    "mutation_effect",
+    "recovery_incident"
+  ],
+  "successor": null,
+  "deprecation_reason": null,
+  "rejection_reason": null,
+  "decision_refs": [
+    "SRC-DEC-0006"
+  ],
+  "status_history": [
+    {
+      "from_status": null,
+      "to_status": "candidate",
+      "changed_on": "2026-08-11",
+      "decision_ref": "SRC-DEC-0006",
+      "rationale": "Allocated for explicit architecture review without implementation."
+    },
+    {
+      "from_status": "candidate",
+      "to_status": "reviewed",
+      "changed_on": "2026-08-11",
+      "decision_ref": "SRC-DEC-0006",
+      "rationale": "Admitted as four independently triggered optional modules; implementation awaits a concrete adopter."
+    }
+  ],
+  "promotion_policy": {
+    "explicit_architecture_review": true,
+    "independent_project_evidence_for_recommended": true,
+    "compatibility_and_migration_commitment_for_stable": true,
+    "usage_count_is_sufficient": false
+  },
+  "limitations": [
+    "Catalog admission does not authorize schemas, runtime machinery, generated files, or profile defaults.",
+    "Each module remains separately trigger-gated and project-specialized."
+  ]
+}

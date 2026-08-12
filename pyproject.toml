@@ -1,6 +1,6 @@
 [project]
 name = "project-blueprint"
-version = "3.0.0"
+version = "3.1.0"
 description = "Domain-neutral project dossier and agent harness blueprint"
 requires-python = ">=3.11"
 

@@ -1,0 +1,74 @@
+{
+  "schema_version": "project-blueprint.architecture-proof.v1",
+  "id": "PROOF-0000",
+  "proof_kind": "provider_qualification",
+  "status": "template",
+  "permission_grant": false,
+  "production_readiness_inference": false,
+  "title": "Replace with the exact provider qualification",
+  "hypothesis": "Replace with the provider/version/configuration capability claim.",
+  "subject": {
+    "identifier": "not_assessed",
+    "version_or_revision": "not_assessed",
+    "configuration": "not_assessed"
+  },
+  "environment": {
+    "description": "not_assessed",
+    "source_revision": "not_assessed",
+    "toolchain_versions": [
+      "not_assessed"
+    ]
+  },
+  "acceptance_criteria": [
+    "Replace with exact provider behavior, limits, and evidence requirements."
+  ],
+  "stop_criteria": [
+    "Stop on a violated mandatory capability, rights, security, or recovery boundary."
+  ],
+  "adversarial_cases": [
+    {
+      "id": "CASE-0000",
+      "condition": "Replace with timeout, denial, malformed response, or provider substitution.",
+      "expected_behavior": "Replace with the required truthful failure behavior.",
+      "result": "not_run",
+      "evidence_refs": [
+        "not_assessed"
+      ]
+    }
+  ],
+  "method": [
+    "Replace with the authorized qualification method and exact request boundaries."
+  ],
+  "evidence_refs": [
+    "not_assessed"
+  ],
+  "failures": [
+    "not_assessed"
+  ],
+  "skipped_checks": [
+    "All checks remain unassessed in this source-only template."
+  ],
+  "cleanup_or_rollback": {
+    "strategy": "Replace with credential, test-data, and external-resource cleanup.",
+    "status": "not_assessed",
+    "evidence_refs": [
+      "not_assessed"
+    ],
+    "residual_effects": [
+      "not_assessed"
+    ]
+  },
+  "limitations": [
+    "A provider qualification is bound to the exact version, configuration, account scope, time, and environment tested."
+  ],
+  "conclusion": "not_assessed",
+  "non_proven_implications": [
+    "Qualification does not grant provider access, approve procurement, or prove production readiness."
+  ],
+  "decision_refs": [
+    "not_assessed"
+  ],
+  "owner": "unassigned",
+  "created_on": null,
+  "completed_on": null
+}

@@ -1,6 +1,6 @@
 # Universal Project Dossier Blueprint
 
-Blueprint version: 3.0.0
+Blueprint version: 3.1.0
 Reference-analysis date: 2026-08-10
 
 This document defines a domain-neutral project dossier for software, product,
@@ -91,12 +91,34 @@ Keep these states distinct even when a Minimal profile combines them:
 11. superseded or historical material; and
 12. generated views.
 
+Use the following semantic roles to describe information without replacing an
+artifact's own aggregate-specific status vocabulary:
+
+| Role | Meaning and use boundary |
+|---|---|
+| `authoritative` | The declared source for a bounded concern; this is information authority only and does not grant action permission. |
+| `observed` | A dated inspection of an exact subject, scope, method, and environment. |
+| `inferred` | A conclusion derived from stated premises with uncertainty and limitations exposed. |
+| `proposed` | A candidate fact, target, or decision that has not been accepted by its owner. |
+| `derived` | A reproducible projection from named sources; it never writes authority back to those sources. |
+| `historical` | Retained noncurrent material used for provenance, audit, or recovery. |
+| `superseded` | Material replaced by a named successor and no longer current for its former purpose. |
+| `stale` | Material whose freshness or validity boundary has elapsed and must not support a consequential current claim. |
+| `unknown` | A fact that has not been established; it is not false, absent, or ready. |
+| `intentionally_omitted` | Information deliberately excluded with a disclosed reason, scope, and consequence. |
+
+These roles are a crosswalk, not a universal status enum, trust score,
+readiness model, or lifecycle. An artifact can be an authoritative source whose
+aggregate-specific status is `proposed`, for example. None of the roles grants
+permission or establishes readiness by itself.
+
 ### 2.4 Evidence is scoped, dated, and reproducible
 
 **[Observed: both] [Recommended]**
 Current-state and readiness claims identify subject version, observation time,
-method, environment, result, and limitations. Stale evidence never overrides a
-newer direct observation.
+method, environment, result, and limitations. Consequential evidence also
+states what its result does not prove. Stale evidence never overrides a newer
+direct observation.
 
 ### 2.5 Provenance survives transformation
 
@@ -837,7 +859,7 @@ conceptual type in the v2 machine source. A `CF:` or `COE:` locator is
 - **Purpose:** Define reproducible validation and index bounded evidence without converting a
   check result into approval.
 - **Questions it must answer:** What was checked?; On which exact subject and environment?; What
-  result, limitations, and freshness rule apply?
+  result, limitations, freshness rule, and explicit non-proven implications apply?
 - **Intended audience:** reviewers, operators, owners, agents
 - **Expected owner or maintainer:** validation_owner
 - **Required inputs:** requirements, gates, implemented_or_produced_subject, provenance
@@ -853,7 +875,8 @@ conceptual type in the v2 machine source. A `CF:` or `COE:` locator is
   evidence_expired_or_superseded
 - **Review cadence:** on_validation_contract_or_evidence_change
 - **Validation / quality checks:** method_reproducible, subject_fingerprint_present,
-  time_environment_scope_result_and_limits_present, freshness_enforced
+  time_environment_scope_result_and_limits_present, freshness_enforced,
+  consequential_claims_name_non_proven_implications
 - **Inclusion triggers:** all_projects
 - **Omission or combination:** Never omit the validation entry point; the evidence index may be
   empty before checks run.
@@ -1205,27 +1228,38 @@ conceptual type in the v2 machine source. A `CF:` or `COE:` locator is
 - **Category / classification:** agent_context / optional
 - **Minimum profile:** high-assurance
 - **Type applicability default:** not_assessed — Generation does not establish trigger applicability. (`assessed_on`: null; `assessed_by`: null)
-- **Purpose:** Package selectively loaded, size-bounded context for recurring specialist work
-  without duplicating authority.
-- **Questions it must answer:** What is the smallest context needed for this task class?; Which
-  authoritative sources and freshness rules does it reference?
+- **Purpose:** Package selectively loaded, size-bounded, versioned context for a declared
+  purpose and consumer without duplicating authority or permission.
+- **Questions it must answer:** What exact purpose, consumer, task class, and scope apply?; Which
+  exact source versions and authority states does it reference?; When does it expire, require
+  revalidation, become invalid or revoked, and require deletion?; Which sensitivity and use
+  restrictions apply?; What is excluded and what does possession of the pack not prove?
 - **Intended audience:** agents, specialist_maintainers, reviewers
 - **Expected owner or maintainer:** dossier_maintainer
-- **Required inputs:** task_routing_needs, authoritative_source_map, context_budget
+- **Required inputs:** task_routing_needs, intended_consumer, task_class, bounded_scope,
+  exact_source_versions_and_authority_status, context_budget, sensitivity_and_allowed_use,
+  validity_and_revalidation, retention_and_deletion, owner_and_limitations
 - **Outputs / downstream consumers:** agent_skills, workflows, handoff
-- **Recommended format:** Markdown, JSON index
+- **Recommended format:** Markdown navigation plus a manifest conforming to
+  `project-blueprint.context-pack-manifest.v1` when the type is applicable
 - **Source-of-truth expectations:** Derived or curated navigation only; packs may narrow context
   but never replace sources or expand authority.
 - **Dependencies and related artifacts:** DOS-0003, HOF-0001
 - **Creation timing:** Create when the dossier is too large for reliable routine loading or
   specialist routing recurs.
-- **Update triggers:** source_change, task_pattern_change, context_budget_breach, staleness
+- **Update triggers:** source_change, task_pattern_change, context_budget_breach, staleness,
+  validity_expiry, invalidation_trigger, revocation, consumer_or_use_change,
+  sensitivity_or_retention_change
 - **Review cadence:** on_source_change_and_quarterly_when_active
-- **Validation / quality checks:** source_refs_resolve, size_budget_met, freshness_visible,
-  no_authority_expansion_or_mutable_fact_duplication
+- **Validation / quality checks:** identity_and_version_present, purpose_consumer_task_and_scope_exact,
+  source_refs_versions_and_authority_status_exact, creation_freshness_validity_and_revalidation_valid,
+  sensitivity_and_allowed_use_enforced, retention_and_deletion_explicit,
+  invalidation_and_revocation_enforced, exclusions_and_size_budget_enforced, owner_and_limits_present,
+  permission_grant_false, no_authority_expansion_or_mutable_fact_duplication
 - **Inclusion triggers:** large_dossier, specialist_routing, repeated_agent_work
 - **Omission or combination:** Omit when the dossier index and handoff already provide
-  sufficient bounded context.
+  sufficient bounded context. Generation supplies only the High-Assurance optional schema and
+  an unassessed entry point; it never creates a manifest or adopts CTX-0001.
 - **Representative evidence:** `CF:project-dossier/v0.2/agent-handoff/context-packs/`; Inferred:
   COE compact handoff demonstrates bounded routing without separate packs
 
@@ -1334,7 +1368,9 @@ Adds every triggered conditional artifact plus:
 - recovery and interrupted-refresh tests;
 - independent CI or protected validation where risk warrants;
 - data, supply-chain, approval, and retention evidence; and
-- context/evaluation packages for repeated agent work.
+- context/evaluation packages for repeated agent work. The Context Pack schema
+  is available for a triggered CTX-0001 assessment, but no pack manifest is
+  generated and schema presence does not establish applicability.
 
 The scaffold includes trigger-assessment entry points for every conditional
 and optional conceptual type, each initially `not_assessed`. An omitted type

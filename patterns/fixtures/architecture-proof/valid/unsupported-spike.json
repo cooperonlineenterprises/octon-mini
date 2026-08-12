@@ -1,0 +1,70 @@
+{
+  "schema_version": "project-blueprint.architecture-proof.v1",
+  "id": "PROOF-9001",
+  "proof_kind": "spike",
+  "status": "completed",
+  "permission_grant": false,
+  "production_readiness_inference": false,
+  "title": "Bounded parser portability spike",
+  "hypothesis": "The exact parser revision can reject duplicate keys without external runtime dependencies.",
+  "subject": {
+    "identifier": "parser-reference",
+    "version_or_revision": "commit:1111111111111111111111111111111111111111",
+    "configuration": "python-3.11-standard-library-only"
+  },
+  "environment": {
+    "description": "Disposable local fixture environment without network access.",
+    "source_revision": "commit:2222222222222222222222222222222222222222",
+    "toolchain_versions": [
+      "Python 3.11.9"
+    ]
+  },
+  "acceptance_criteria": [
+    "Every duplicate-key fixture is rejected with a bounded diagnostic."
+  ],
+  "stop_criteria": [
+    "Stop after the first accepted duplicate-key fixture because the hypothesis is falsified."
+  ],
+  "adversarial_cases": [
+    {
+      "id": "CASE-9001",
+      "condition": "A nested object repeats one key.",
+      "expected_behavior": "The parser rejects the document without consuming it as authority.",
+      "result": "fail",
+      "evidence_refs": [
+        "repo:patterns/fixtures/architecture-proof/valid/unsupported-spike.json"
+      ]
+    }
+  ],
+  "method": [
+    "Execute the exact duplicate-key fixture using the recorded interpreter and parser revision."
+  ],
+  "evidence_refs": [
+    "repo:patterns/fixtures/architecture-proof/valid/unsupported-spike.json"
+  ],
+  "failures": [
+    "The nested duplicate-key fixture was accepted."
+  ],
+  "skipped_checks": [],
+  "cleanup_or_rollback": {
+    "strategy": "Delete the disposable fixture directory after retaining the bounded result record.",
+    "status": "completed",
+    "evidence_refs": [
+      "repo:patterns/fixtures/architecture-proof/valid/unsupported-spike.json"
+    ],
+    "residual_effects": []
+  },
+  "limitations": [
+    "The spike covers one parser revision and one interpreter only."
+  ],
+  "conclusion": "unsupported",
+  "non_proven_implications": [
+    "The result does not assess other parsers, production safety, or project readiness."
+  ],
+  "decision_refs": [
+    "SRC-DEC-0005"
+  ],
+  "owner": "architecture_proof_owner",
+  "created_on": "2030-01-02",
+  "completed_on": "2030-01-02"
+}

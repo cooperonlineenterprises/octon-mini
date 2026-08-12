@@ -932,16 +932,16 @@ class HarnessValidatorTests(unittest.TestCase):
         try:
             project_path = test_root / ".agent/project.json"
             project = VALIDATOR.load_json(project_path)
+            origin_path = test_root / ".project-blueprint-origin.json"
+            origin = VALIDATOR.load_json(origin_path)
             project["project"]["blueprint_version"] = "9.9.9"
             write_json(project_path, project)
             records, _ = VALIDATOR.collect_records(test_root)
             findings = VALIDATOR.check_origin(test_root, records)
             self.assertTrue(any("project blueprint version mismatch" in item for item in findings))
 
-            project["project"]["blueprint_version"] = VALIDATOR.KERNEL_VERSION
+            project["project"]["blueprint_version"] = origin["blueprint_version"]
             write_json(project_path, project)
-            origin_path = test_root / ".project-blueprint-origin.json"
-            origin = VALIDATOR.load_json(origin_path)
             origin["harness_kernel_version"] = "9.9.9"
             write_json(origin_path, origin)
             findings = VALIDATOR.check_origin(test_root, records)

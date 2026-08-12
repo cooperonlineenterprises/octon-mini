@@ -5,41 +5,52 @@
 1. Confirm the target is nonexistent or empty and its parent exists.
 2. Select a profile from project risk and assurance triggers, never from human
    team size.
-3. Run the generator with `--dry-run`.
+3. Run the generator with `--dry-run`. It first validates the versioned
+   generation-disposition policy and the requested profile's explicit reviewed
+   inputs, applicability, forbidden outputs, and source confinement.
+   Unreviewed additions are ignored and reported as degraded; they never enter
+   the intended inventory. A missing reviewed dependency blocks only profiles
+   that require it.
 4. Review every intended path.
 5. Generate transactionally; the staged snapshot must validate before the
-   target appears.
-6. Replace placeholders from project evidence.
-7. Populate the collaboration profile only from project-owned aggregate
+   target appears. The staged tree must exactly equal the intended inventory;
+   an undeclared extra file is a failure.
+6. If setup reports degradation or a blocked capability, run the read-only
+   `scaffold_project.py --diagnose-generation-policy` command, optionally
+   scoped with `--profile`. It supplies exact findings and recovery guidance
+   but cannot approve or modify an inventory. Full Blueprint source validation
+   remains strict across all profiles.
+7. Replace placeholders from project evidence.
+8. Populate the collaboration profile only from project-owned aggregate
    evidence with observation and freshness times. Run the read-only assessment;
    unknown, stale, or conflicting evidence selects nothing.
-8. Adopt only `solo_direct`, `solo_hybrid`, `pair_pr`, or `tiny_pr` through a
+9. Adopt only `solo_direct`, `solo_hybrid`, `pair_pr`, or `tiny_pr` through a
    project-owned accepted decision. Apply `concurrent_work` for simultaneous
    humans or agents without changing the human band. More than five human
    writers is unsupported, not an enterprise-workflow trigger.
-9. Establish the threat model and record project decisions separately.
-10. Assess every project check hook. Configure applicable hooks with shell-free
+10. Establish the threat model and record project decisions separately.
+11. Assess every project check hook. Configure applicable hooks with shell-free
    argv, ownership, freshness, same-executable version probes, and declared
    side effects; use owned, reasoned `not_applicable` only where justified.
    Deliberately assess restrictions-only extensions without enabling any by
    generation alone.
-11. Build hard task/plan dependencies, structured gates and blockers, and
+12. Build hard task/plan dependencies, structured gates and blockers, and
    reciprocal plan/task links when adopting project plans. Run the read-only
    ready-frontier command before selecting planned work; use valid direction,
    never dates, to choose among independent eligible items.
-12. Run the read-only harness check and mutation tests. It must not execute
+13. Run the read-only harness check and mutation tests. It must not execute
     target-project hooks. After confirming authority for any declared effects,
     run configured hooks separately with
     `run_project_checks.py --write-evidence`; use `--verify-adoption` only when
     an explicit evidence write plus refresh is intended.
-13. In every profile, refresh the artifact catalog, path-authority map, and
+14. In every profile, refresh the artifact catalog, path-authority map, and
     manifest from the authoritative project-local artifact registry, then
     rerun the read-only check. High Assurance refreshes checksums and generated
     validation evidence in the same transaction.
-14. Confirm the selected profile's required governed-file inventory is intact;
+15. Confirm the selected profile's required governed-file inventory is intact;
     dossier omissions remain a separate, registry-recorded applicability
     decision.
-15. Require current, fingerprint-bound evidence for configured target-project
+16. Require current, fingerprint-bound evidence for configured target-project
     checks and complete one real dependency-gated task lifecycle before
     treating the harness as adopted. Treat demonstrated product or production
     readiness as a further project-owned conclusion.
@@ -52,7 +63,9 @@ crosswalk existing authority and content to the blueprint, and create an
 authorized migration task. Preserve unrelated work, accepted decisions, stable
 IDs, and existing authority. Do not infer maintainers from commit history,
 reuse current-source collaborator facts, or treat an observed branch/PR habit
-as an adopted workflow.
+as an adopted workflow. The planner applies the same generation-disposition
+policy as the new-project generator, reports the selected capability mode, and
+cannot use source-only or unreviewed material to expand its intended inventory.
 
 ## Upgrade
 
@@ -91,6 +104,12 @@ reconciler preserves project authority and rollback evidence, seeds the closed
 collaboration profile as unknown, replaces only a pristine known Git contract,
 and rejects ambiguous or adopted legacy policy rather than silently selecting
 a workflow.
+
+For `3.0.0` to `3.1.0`, follow the additive migration note. Existing snapshots
+remain independent. Minimal and Standard add nothing; a newly generated High
+Assurance snapshot includes only the optional Context Pack manifest schema.
+Do not copy source Pattern Catalog or Architecture Proof assets, create a pack,
+or convert existing Context Pack prose without a project-owned assessment.
 
 ## Ordinary maintenance
 

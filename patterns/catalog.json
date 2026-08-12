@@ -1,0 +1,44 @@
+{
+  "schema_version": "project-blueprint.pattern-catalog.v1",
+  "document_role": "authoritative_source_only_pattern_catalog",
+  "permission_grant": false,
+  "generated_by_default": false,
+  "automatic_adoption": false,
+  "promotion_requires_explicit_review": true,
+  "lifecycle_states": [
+    "candidate",
+    "reviewed",
+    "experimental",
+    "recommended",
+    "stable",
+    "deprecated",
+    "rejected"
+  ],
+  "transition_policy_ref": "patterns/README.md#lifecycle",
+  "promotion_policy_ref": "patterns/README.md#promotion-rules",
+  "allocations": [
+    {
+      "id": "PAT-0001",
+      "slug": "lifecycle-disposition",
+      "allocation_status": "allocated",
+      "record_path": "patterns/records/PAT-0001-lifecycle-disposition.json"
+    },
+    {
+      "id": "PAT-0002",
+      "slug": "governed-change-and-effects",
+      "allocation_status": "allocated",
+      "record_path": "patterns/records/PAT-0002-governed-change-and-effects.json"
+    },
+    {
+      "id": "PAT-0003",
+      "slug": "architecture-proof",
+      "allocation_status": "allocated",
+      "record_path": "patterns/records/PAT-0003-architecture-proof.json"
+    }
+  ],
+  "limitations": [
+    "Catalog status is source design guidance and never project adoption.",
+    "Catalog validation does not prove a pattern is suitable for a project.",
+    "No catalog path is part of a generated profile inventory."
+  ]
+}

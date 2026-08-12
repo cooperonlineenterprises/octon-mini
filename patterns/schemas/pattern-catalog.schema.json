@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://project-blueprint.local/source-schemas/pattern-catalog.schema.json",
+  "title": "Project Blueprint Source-only Pattern Catalog",
+  "description": "Strict source catalog. Catalog records do not grant permission, generate files, or adopt patterns.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "document_role",
+    "permission_grant",
+    "generated_by_default",
+    "automatic_adoption",
+    "promotion_requires_explicit_review",
+    "lifecycle_states",
+    "transition_policy_ref",
+    "promotion_policy_ref",
+    "allocations",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "project-blueprint.pattern-catalog.v1"
+    },
+    "document_role": {
+      "const": "authoritative_source_only_pattern_catalog"
+    },
+    "permission_grant": {
+      "const": false
+    },
+    "generated_by_default": {
+      "const": false
+    },
+    "automatic_adoption": {
+      "const": false
+    },
+    "promotion_requires_explicit_review": {
+      "const": true
+    },
+    "lifecycle_states": {
+      "type": "array",
+      "minItems": 7,
+      "maxItems": 7,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "candidate",
+          "reviewed",
+          "experimental",
+          "recommended",
+          "stable",
+          "deprecated",
+          "rejected"
+        ]
+      }
+    },
+    "transition_policy_ref": {
+      "const": "patterns/README.md#lifecycle"
+    },
+    "promotion_policy_ref": {
+      "const": "patterns/README.md#promotion-rules"
+    },
+    "allocations": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "slug",
+          "allocation_status",
+          "record_path"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^PAT-[0-9]{4}$"
+          },
+          "slug": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          },
+          "allocation_status": {
+            "enum": [
+              "allocated",
+              "retired"
+            ]
+          },
+          "record_path": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^patterns/records/PAT-[0-9]{4}-[a-z0-9]+(?:-[a-z0-9]+)*\\.json$"
+          }
+        }
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  }
+}

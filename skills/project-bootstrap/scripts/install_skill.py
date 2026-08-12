@@ -89,6 +89,7 @@ def main() -> int:
             "dossier",
             "harness",
             "shared",
+            "patterns",
             "migrations",
         ):
             shutil.copytree(
@@ -102,6 +103,8 @@ def main() -> int:
             "CHANGELOG.md",
             "RELEASE.md",
             "GIT_WORKFLOW.md",
+            "ARCHITECTURE_DECISIONS.md",
+            "ARCHITECTURAL_PATTERN_INTEGRATION_REVIEW.md",
             ".gitignore",
             "AGENTS.md",
             "README.md",

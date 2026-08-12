@@ -16,6 +16,13 @@ The essential rule is semantic separation:
 - handoff is a compact view;
 - history is never current authority.
 
+Use `authoritative`, `observed`, `inferred`, `proposed`, `derived`,
+`historical`, `superseded`, `stale`, `unknown`, and
+`intentionally_omitted` as information-role descriptions, not as a universal
+status enum. Aggregate-specific lifecycles remain authoritative. No role grants
+action permission or readiness, and consequential evidence states what it does
+not prove.
+
 Use three explicit ID levels: conceptual artifact-type IDs, `REP-####`
 physical-representation IDs, and schema-governed project record IDs. They are
 unique within their typed namespace and never silently reused. Prefer

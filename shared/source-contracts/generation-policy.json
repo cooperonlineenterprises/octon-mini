@@ -1,0 +1,352 @@
+{
+  "schema_version": "project-blueprint.generation-policy.v2",
+  "document_role": "authoritative_source_to_generated_snapshot_disposition",
+  "permission_grant": false,
+  "default_disposition": "source_only",
+  "inventory_hash_algorithm": "sha256_sorted_relative_posix_paths_newline_v1",
+  "rules": [
+    {
+      "id": "templates-core",
+      "source": "skill:assets/templates/core",
+      "match": "recursive_suffix",
+      "suffix": ".tmpl",
+      "disposition": "generated",
+      "profiles": [
+        "minimal",
+        "standard",
+        "high-assurance"
+      ],
+      "inventory_paths": [
+        ".agent/START_HERE.md.tmpl",
+        ".agent/context.json.tmpl",
+        ".agent/decisions/README.md.tmpl",
+        ".agent/generated/README.md.tmpl",
+        ".agent/lifecycle.json.tmpl",
+        ".agent/policy.json.tmpl",
+        ".agent/project-checks/README.md.tmpl",
+        ".agent/project-checks/evidence.json.tmpl",
+        ".agent/project.json.tmpl",
+        ".agent/schema.json.tmpl",
+        ".agent/scripts/refresh.py.tmpl",
+        ".agent/scripts/run_project_checks.py.tmpl",
+        ".agent/scripts/validate.py.tmpl",
+        ".agent/state/RESUME.md.tmpl",
+        ".agent/state/current.json.tmpl",
+        ".agent/tasks/README.md.tmpl",
+        ".agent/templates/decision.md.tmpl",
+        ".agent/templates/pull-request.md.tmpl",
+        ".agent/templates/task.md.tmpl",
+        ".agent/tests/fixtures/invalid/duplicate-key.json.tmpl",
+        ".agent/tests/fixtures/invalid/event-sequence.jsonl.tmpl",
+        ".agent/tests/fixtures/invalid/nested-agent-weakening.md.tmpl",
+        ".agent/tests/fixtures/invalid/non-finite.json.tmpl",
+        ".agent/tests/fixtures/valid/kernel.json.tmpl",
+        ".agent/tests/fixtures/valid/recovery-event.jsonl.tmpl",
+        ".agent/tests/test_validate.py.tmpl",
+        ".agent/tools.json.tmpl",
+        ".agent/validators.json.tmpl",
+        ".agent/workflows/README.md.tmpl",
+        ".agent/workflows/github-adapter.md.tmpl",
+        ".agent/workflows/small-team-git.json.tmpl",
+        "AGENTS.md.tmpl",
+        "project-dossier/AUTHORITY.md.tmpl",
+        "project-dossier/CANONICAL_SOURCE_MAP.md.tmpl",
+        "project-dossier/README.md.tmpl",
+        "project-dossier/SUPERSESSION.json.tmpl",
+        "project-dossier/VERSION.md.tmpl",
+        "project-dossier/canonical/architecture-or-outcome-model.md.tmpl",
+        "project-dossier/canonical/constraints-gates-and-readiness.md.tmpl",
+        "project-dossier/canonical/executive-project-definition.md.tmpl",
+        "project-dossier/canonical/requirements-and-constraints.md.tmpl",
+        "project-dossier/conformance/README.md.tmpl",
+        "project-dossier/current-state/README.md.tmpl",
+        "project-dossier/handoff/ADOPTION_CHECKLIST.md.tmpl",
+        "project-dossier/handoff/START_HERE.md.tmpl",
+        "project-dossier/plans/README.md.tmpl",
+        "project-dossier/provenance/README.md.tmpl",
+        "project-dossier/registers/README.md.tmpl",
+        "project-dossier/validation/QUALITY_GATES.json.tmpl",
+        "project-dossier/validation/README.md.tmpl"
+      ],
+      "inventory_count": 50,
+      "inventory_paths_sha256": "4f1b6daea334d56de431b266ca00cd95cbe3477da35864b0aa2a75cc1c94fbf2",
+      "output": {
+        "root": ".",
+        "strip_suffix": ".tmpl"
+      },
+      "reason": "Core templates are generated in every profile after placeholder validation."
+    },
+    {
+      "id": "templates-standard",
+      "source": "skill:assets/templates/standard",
+      "match": "recursive_suffix",
+      "suffix": ".tmpl",
+      "disposition": "generated",
+      "profiles": [
+        "standard",
+        "high-assurance"
+      ],
+      "inventory_paths": [
+        ".agent/artifacts/registry.json.tmpl",
+        ".agent/checklists/task-closure.md.tmpl",
+        ".agent/events/README.md.tmpl",
+        ".agent/evidence/README.md.tmpl",
+        ".agent/extensions/README.md.tmpl",
+        ".agent/extensions/operations-observability/README.md.tmpl",
+        ".agent/extensions/operations-observability/config.json.tmpl",
+        ".agent/extensions/operations-observability/config.schema.json.tmpl",
+        ".agent/extensions/operations-observability/records.json.tmpl",
+        ".agent/extensions/operations-observability/records.schema.json.tmpl",
+        ".agent/extensions/operations-observability/tests/fixtures/authority-mutation.json.tmpl",
+        ".agent/extensions/operations-observability/tests/fixtures/broken-reference.json.tmpl",
+        ".agent/extensions/operations-observability/tests/fixtures/invalid.json.tmpl",
+        ".agent/extensions/operations-observability/tests/fixtures/stale-evidence.json.tmpl",
+        ".agent/extensions/operations-observability/tests/fixtures/valid.json.tmpl",
+        ".agent/extensions/operations-observability/tests/test_validate.py.tmpl",
+        ".agent/extensions/operations-observability/validate.py.tmpl",
+        ".agent/extensions/registry.json.tmpl",
+        ".agent/extensions/security-supply-chain/README.md.tmpl",
+        ".agent/extensions/security-supply-chain/config.json.tmpl",
+        ".agent/extensions/security-supply-chain/config.schema.json.tmpl",
+        ".agent/extensions/security-supply-chain/records.json.tmpl",
+        ".agent/extensions/security-supply-chain/records.schema.json.tmpl",
+        ".agent/extensions/security-supply-chain/tests/fixtures/authority-mutation.json.tmpl",
+        ".agent/extensions/security-supply-chain/tests/fixtures/broken-reference.json.tmpl",
+        ".agent/extensions/security-supply-chain/tests/fixtures/invalid.json.tmpl",
+        ".agent/extensions/security-supply-chain/tests/fixtures/stale-evidence.json.tmpl",
+        ".agent/extensions/security-supply-chain/tests/fixtures/valid.json.tmpl",
+        ".agent/extensions/security-supply-chain/tests/test_validate.py.tmpl",
+        ".agent/extensions/security-supply-chain/validate.py.tmpl",
+        ".agent/reviews/README.md.tmpl",
+        ".agent/templates/artifact.json.tmpl",
+        ".agent/templates/event.json.tmpl",
+        ".agent/templates/evidence.md.tmpl",
+        ".agent/templates/review.md.tmpl",
+        "project-dossier/machine-readable/evidence-index.json.tmpl",
+        "project-dossier/machine-readable/findings.json.tmpl",
+        "project-dossier/machine-readable/plan.json.tmpl",
+        "project-dossier/machine-readable/raidq.json.tmpl",
+        "project-dossier/machine-readable/requirements.json.tmpl",
+        "project-dossier/machine-readable/sources.json.tmpl"
+      ],
+      "inventory_count": 41,
+      "inventory_paths_sha256": "80b33343bb902991b590bdd60ba1f685097192e74001a52744673294466f331f",
+      "output": {
+        "root": ".",
+        "strip_suffix": ".tmpl"
+      },
+      "reason": "Standard templates are generated only in Standard and High Assurance."
+    },
+    {
+      "id": "templates-high-assurance",
+      "source": "skill:assets/templates/high-assurance",
+      "match": "recursive_suffix",
+      "suffix": ".tmpl",
+      "disposition": "generated",
+      "profiles": [
+        "high-assurance"
+      ],
+      "inventory_paths": [
+        ".agent/approvals/README.md.tmpl",
+        ".agent/approvals/registry.json.tmpl",
+        ".agent/checkpoints/README.md.tmpl",
+        ".agent/coordination/README.md.tmpl",
+        ".agent/coordination/leases.json.tmpl",
+        ".agent/evaluations/README.md.tmpl",
+        ".agent/evaluations/registry.json.tmpl",
+        ".agent/extensions/sample-restriction/README.md.tmpl",
+        ".agent/extensions/sample-restriction/config.json.tmpl",
+        ".agent/extensions/sample-restriction/validate.py.tmpl",
+        ".agent/metrics/README.md.tmpl",
+        ".agent/metrics/registry.json.tmpl",
+        ".agent/templates/checkpoint.md.tmpl",
+        ".agents/README.md.tmpl",
+        ".agents/agents/reviewer.json.tmpl",
+        ".agents/skills/change-review/SKILL.md.tmpl",
+        ".agents/skills/change-review/references/provenance.json.tmpl",
+        ".agents/workflows/safe-change.json.tmpl",
+        "project-dossier/context-packs/README.md.tmpl",
+        "project-dossier/data/README.md.tmpl",
+        "project-dossier/evaluation/README.md.tmpl",
+        "project-dossier/governance/README.md.tmpl",
+        "project-dossier/history/README.md.tmpl",
+        "project-dossier/models/README.md.tmpl",
+        "project-dossier/operations/README.md.tmpl",
+        "project-dossier/research/README.md.tmpl",
+        "project-dossier/supply-chain/README.md.tmpl",
+        "project-dossier/transition/README.md.tmpl"
+      ],
+      "inventory_count": 28,
+      "inventory_paths_sha256": "e892accdf96c3befc0878b0beddb43f8f9034b8c29e2f05566882e785968e4a2",
+      "output": {
+        "root": ".",
+        "strip_suffix": ".tmpl"
+      },
+      "reason": "High-Assurance templates are generated only in High Assurance."
+    },
+    {
+      "id": "shared-kernel-schemas",
+      "source": "blueprint:shared/schemas",
+      "match": "recursive_suffix",
+      "suffix": ".schema.json",
+      "disposition": "generated",
+      "profiles": [
+        "minimal",
+        "standard",
+        "high-assurance"
+      ],
+      "inventory_paths": [
+        "artifact-catalog.schema.json",
+        "dossier-artifact-registry.schema.json",
+        "dossier-path-authority.schema.json",
+        "dossier-records.schema.json",
+        "harness-artifact-registry.schema.json",
+        "harness-assurance-records.schema.json",
+        "harness-capability-records.schema.json",
+        "harness-current-state.schema.json",
+        "harness-extension-registry.schema.json",
+        "harness-git-workflows.schema.json",
+        "harness-kernel.schema.json",
+        "harness-project-check-evidence.schema.json",
+        "harness-record.schema.json",
+        "project-blueprint-origin.schema.json",
+        "reference-evidence.schema.json"
+      ],
+      "inventory_count": 15,
+      "inventory_paths_sha256": "918a7f21600c4f2c6cded903fa9cd29904a466f5aee680a3cc2dea8a33f37314",
+      "output": {
+        "root": ".agent/schemas",
+        "strip_suffix": null
+      },
+      "reason": "Shared runtime schemas are copied into every independent project snapshot."
+    },
+    {
+      "id": "context-pack-schema",
+      "source": "blueprint:shared/optional-schemas/context-pack-manifest.schema.json",
+      "match": "exact",
+      "suffix": null,
+      "disposition": "profile_optional",
+      "profiles": [
+        "high-assurance"
+      ],
+      "inventory_paths": [
+        "context-pack-manifest.schema.json"
+      ],
+      "inventory_count": 1,
+      "inventory_paths_sha256": "a837a493fa59ba99daeeeaa989d968c8250b9f155ebda7026798906632563887",
+      "output": {
+        "root": ".agent/schemas",
+        "strip_suffix": null
+      },
+      "reason": "Only High Assurance receives the optional schema; no Context Pack manifest is generated."
+    },
+    {
+      "id": "architectural-pattern-catalog",
+      "source": "blueprint:patterns",
+      "match": "recursive",
+      "suffix": null,
+      "disposition": "source_only",
+      "profiles": [],
+      "inventory_paths": null,
+      "inventory_count": null,
+      "inventory_paths_sha256": null,
+      "output": null,
+      "reason": "Pattern records, proof assets, and fixtures govern Blueprint source and are never project defaults."
+    },
+    {
+      "id": "source-architecture-decisions",
+      "source": "blueprint:ARCHITECTURE_DECISIONS.md",
+      "match": "exact",
+      "suffix": null,
+      "disposition": "source_only",
+      "profiles": [],
+      "inventory_paths": null,
+      "inventory_count": null,
+      "inventory_paths_sha256": null,
+      "output": null,
+      "reason": "Blueprint source decisions do not become target-project decisions."
+    },
+    {
+      "id": "architectural-integration-review",
+      "source": "blueprint:ARCHITECTURAL_PATTERN_INTEGRATION_REVIEW.md",
+      "match": "exact",
+      "suffix": null,
+      "disposition": "source_only",
+      "profiles": [],
+      "inventory_paths": null,
+      "inventory_count": null,
+      "inventory_paths_sha256": null,
+      "output": null,
+      "reason": "The review and deferred-trigger watchlist remain Blueprint source governance."
+    },
+    {
+      "id": "source-contracts",
+      "source": "blueprint:shared/source-contracts",
+      "match": "recursive",
+      "suffix": null,
+      "disposition": "source_only",
+      "profiles": [],
+      "inventory_paths": null,
+      "inventory_count": null,
+      "inventory_paths_sha256": null,
+      "output": null,
+      "reason": "Source governance contracts validate the Blueprint and are not runtime project schemas."
+    },
+    {
+      "id": "migration-guidance",
+      "source": "blueprint:migrations",
+      "match": "recursive",
+      "suffix": null,
+      "disposition": "source_only",
+      "profiles": [],
+      "inventory_paths": null,
+      "inventory_count": null,
+      "inventory_paths_sha256": null,
+      "output": null,
+      "reason": "Migration guides remain in the source bundle until a project deliberately performs an upgrade."
+    }
+  ],
+  "forbidden_outputs": [
+    {
+      "path": "patterns",
+      "match": "subtree",
+      "reason": "The source Pattern Catalog is not a generated-project namespace."
+    },
+    {
+      "path": "ARCHITECTURE_DECISIONS.md",
+      "match": "exact",
+      "reason": "Source decisions must not be copied as project decisions."
+    },
+    {
+      "path": "ARCHITECTURAL_PATTERN_INTEGRATION_REVIEW.md",
+      "match": "exact",
+      "reason": "The source review and deferred-trigger watchlist are not project defaults."
+    },
+    {
+      "path": "migrations",
+      "match": "subtree",
+      "reason": "Source migration guidance is consulted deliberately, not generated into projects."
+    },
+    {
+      "path": "shared/source-contracts",
+      "match": "subtree",
+      "reason": "Blueprint source-governance contracts are not project runtime files."
+    },
+    {
+      "path": ".agent/schemas/architecture-proof.schema.json",
+      "match": "exact",
+      "reason": "Architecture Proof remains a source-only optional family."
+    },
+    {
+      "path": ".agent/templates/architecture-proof",
+      "match": "subtree",
+      "reason": "Architecture Proof templates are not generated by any profile."
+    }
+  ],
+  "limitations": [
+    "This policy governs automatic target-project generation, not the installed skill source bundle.",
+    "A project may deliberately adopt a source-only artifact through its own authority and migration process.",
+    "Runtime generation ignores unreviewed additions; repository validation remains strict and requires explicit review.",
+    "Inventory hashes bind reviewed source paths, not substantive correctness or project readiness."
+  ]
+}

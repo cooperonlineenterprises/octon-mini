@@ -1,5 +1,21 @@
 # Release and Distribution
 
+## Current development version
+
+- Blueprint source and generator: `3.1.0` (unreleased)
+- Harness kernel: `3.0.0` (unchanged)
+- Compatibility: additive source governance and one High-Assurance-only
+  optional schema
+
+Version `3.1.0` implements accepted source decisions `SRC-DEC-0003` through
+`SRC-DEC-0006`. It is not yet a completed release, tag, GitHub Release, or
+generated-project migration. Pattern Catalog and Architecture Proof assets are
+source-only. Existing `3.0.0` generated snapshots remain independent and are
+not updated automatically. Generation policy v2 explicitly enumerates reviewed
+inputs, degrades truthfully by ignoring unreviewed additions, isolates missing
+dependencies to affected profiles, and preserves fail-closed safety and exact-
+stage boundaries.
+
 ## Current release
 
 - Blueprint version: `3.0.0`
@@ -8,7 +24,7 @@
 - Minimum runtime: Python `3.11`
 - Canonical structured format: strict JSON
 
-Version `3.0.0` is the current released source version. Pull request #2 was
+Version `3.0.0` is the current completed release. Pull request #2 was
 integrated with `merge_commit` at
 `1af3c1f85cd17e2c840857ad720e1a27e874585a` on 2026-08-11. GitHub Actions run
 `31539907441` then passed the complete 12-job matrix on that exact `main`

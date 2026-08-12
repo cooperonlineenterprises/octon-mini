@@ -54,6 +54,8 @@ REQUIRED_PATHS = (
     ".github/workflows/validate.yml",
     ".gitignore",
     "AGENTS.md",
+    "ARCHITECTURE_DECISIONS.md",
+    "ARCHITECTURAL_PATTERN_INTEGRATION_REVIEW.md",
     "CHANGELOG.md",
     "GIT_WORKFLOW.md",
     "README.md",
@@ -69,9 +71,32 @@ REQUIRED_PATHS = (
     "migrations/1.0.0-to-1.0.1.md",
     "migrations/1.0.1-to-2.0.0.md",
     "migrations/2.0.0-to-3.0.0.md",
+    "migrations/3.0.0-to-3.1.0.md",
+    "patterns/README.md",
+    "patterns/catalog.json",
+    "patterns/schemas/pattern-catalog.schema.json",
+    "patterns/schemas/pattern-record.schema.json",
+    "patterns/records/PAT-0001-lifecycle-disposition.json",
+    "patterns/records/PAT-0002-governed-change-and-effects.json",
+    "patterns/records/PAT-0003-architecture-proof.json",
+    "patterns/architecture-proof/README.md",
+    "patterns/architecture-proof/schema.json",
+    "patterns/architecture-proof/templates/spike.json",
+    "patterns/architecture-proof/templates/reference-slice.json",
+    "patterns/architecture-proof/templates/provider-qualification.json",
+    "patterns/architecture-proof/templates/adversarial-fixture-pack.json",
+    "patterns/architecture-proof/templates/readiness-evidence.json",
+    "patterns/fixtures/context-pack/valid/active.json",
+    "patterns/fixtures/architecture-proof/valid/unsupported-spike.json",
+    "patterns/fixtures/architecture-proof/valid/inconclusive-provider.json",
     "pyproject.toml",
     "shared/GENERATION_CONTRACT.md",
+    "shared/optional-schemas/context-pack-manifest.schema.json",
     "shared/reference-evidence.json",
+    "shared/source-contracts/information-state-semantics.json",
+    "shared/source-contracts/information-state-semantics.schema.json",
+    "shared/source-contracts/generation-policy.json",
+    "shared/source-contracts/generation-policy.schema.json",
     "shared/schemas/artifact-catalog.schema.json",
     "shared/schemas/dossier-artifact-registry.schema.json",
     "shared/schemas/dossier-path-authority.schema.json",
@@ -99,9 +124,11 @@ REQUIRED_PATHS = (
     "skills/project-bootstrap/scripts/plan_adoption.py",
     "skills/project-bootstrap/scripts/scaffold_project.py",
     "skills/project-bootstrap/scripts/test_acceptance.py",
+    "skills/project-bootstrap/scripts/test_architectural_patterns.py",
     "skills/project-bootstrap/scripts/test_migration_1_0_1_to_2_0_0.py",
     "skills/project-bootstrap/scripts/test_migration_2_0_0_to_3_0_0.py",
     "skills/project-bootstrap/scripts/validate_blueprint.py",
+    "skills/project-bootstrap/scripts/validate_source_contracts.py",
     "skills/project-bootstrap/scripts/validate_skill_package.py",
     "skills/project-bootstrap/scripts/verify_reference_evidence.py",
     "skills/project-bootstrap/fixtures/migrations/1.0.1-to-2.0.0/README.md",
@@ -485,6 +512,30 @@ def validate_config_and_schemas(issues: list[str]) -> None:
         issues.append("blueprint.json small-team workflow vocabulary mismatch")
     if harness.get("maximum_supported_write_capable_humans") != 5:
         issues.append("blueprint.json maximum supported team size must be five")
+    source_governance = config.get("source_governance", {})
+    if source_governance != {
+        "architecture_decisions": "ARCHITECTURE_DECISIONS.md",
+        "architectural_pattern_catalog": "patterns/catalog.json",
+        "pattern_catalog_generated": False,
+        "pattern_catalog_automatic_adoption": False,
+        "generation_policy": "shared/source-contracts/generation-policy.json",
+        "information_state_semantics": (
+            "shared/source-contracts/information-state-semantics.json"
+        ),
+        "architecture_proof_schema": "patterns/architecture-proof/schema.json",
+        "architecture_proof_generated": False,
+    }:
+        issues.append("blueprint.json source-governance contract differs")
+    context_contract = config.get("optional_contracts", {}).get(
+        "context_pack_manifest"
+    )
+    if context_contract != {
+        "schema": "shared/optional-schemas/context-pack-manifest.schema.json",
+        "minimum_profile": "high-assurance",
+        "manifest_generated": False,
+        "permission_grant": False,
+    }:
+        issues.append("blueprint.json optional Context Pack contract differs")
 
     for path in sorted((ROOT / "shared/schemas").glob("*.schema.json")):
         try:
@@ -604,7 +655,7 @@ def validate_artifact_types(issues: list[str], scaffolder: Any) -> None:
         try:
             expected_paths = (
                 set(scaffolder.collect_templates(profile))
-                | set(scaffolder.schema_outputs())
+                | set(scaffolder.schema_outputs(profile))
                 | set(scaffolder.PROJECT_LOCAL_SOURCE_PATHS)
                 | set(scaffolder.DERIVED_PATHS)
                 | {Path(".project-blueprint-origin.json")}
@@ -719,8 +770,8 @@ def validate_skill_and_release(issues: list[str]) -> None:
     if "$project-bootstrap" not in openai:
         issues.append("agents/openai.yaml does not invoke $project-bootstrap")
     version = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
-    if version != "3.0.0":
-        issues.append(f"release VERSION must be 3.0.0, found {version!r}")
+    if version != "3.1.0":
+        issues.append(f"development VERSION must be 3.1.0, found {version!r}")
     for path in ("CHANGELOG.md", "RELEASE.md"):
         if version not in (ROOT / path).read_text(encoding="utf-8"):
             issues.append(f"{path} lacks the {version} release")
@@ -747,24 +798,26 @@ def validate_skill_and_release(issues: list[str]) -> None:
     ):
         issues.append("pyproject.toml blueprint runtime contract is invalid")
     config = load_json(ROOT / "blueprint.json")
-    if config.get("modules", {}).get("harness", {}).get("kernel_version") != version:
-        issues.append("blueprint.json kernel version differs from VERSION")
+    kernel_version = config.get("modules", {}).get("harness", {}).get(
+        "kernel_version"
+    )
+    if kernel_version != "3.0.0":
+        issues.append("blueprint.json harness kernel must remain 3.0.0")
     scaffolder = load_scaffolder()
-    if (
-        scaffolder.GENERATOR_VERSION != version
-        or scaffolder.KERNEL_VERSION != version
-    ):
-        issues.append("scaffolder generator/kernel version differs from VERSION")
+    if scaffolder.GENERATOR_VERSION != version:
+        issues.append("scaffolder generator version differs from VERSION")
+    if scaffolder.KERNEL_VERSION != kernel_version:
+        issues.append("scaffolder kernel version differs from blueprint.json")
     schema_template = (
         SKILL_ROOT / "assets/templates/core/.agent/schema.json.tmpl"
     ).read_text(encoding="utf-8")
     validator_template = (
         SKILL_ROOT / "assets/templates/core/.agent/scripts/validate.py.tmpl"
     ).read_text(encoding="utf-8")
-    if f'"kernel_version": "{version}"' not in schema_template:
-        issues.append("generated schema kernel version differs from VERSION")
-    if f'KERNEL_VERSION = "{version}"' not in validator_template:
-        issues.append("generated validator kernel version differs from VERSION")
+    if f'"kernel_version": "{kernel_version}"' not in schema_template:
+        issues.append("generated schema kernel version differs from blueprint.json")
+    if f'KERNEL_VERSION = "{kernel_version}"' not in validator_template:
+        issues.append("generated validator kernel version differs from blueprint.json")
 
     commands = (
         (
@@ -860,6 +913,24 @@ def validate_ci_contract(issues: list[str]) -> None:
 
 def validate_executable_contracts(issues: list[str]) -> None:
     commands = (
+        (
+            [
+                sys.executable,
+                "-B",
+                str(SKILL_ROOT / "scripts/validate_source_contracts.py"),
+            ],
+            ROOT,
+            "source-only architectural contract validation",
+        ),
+        (
+            [
+                sys.executable,
+                "-B",
+                str(SKILL_ROOT / "scripts/test_architectural_patterns.py"),
+            ],
+            ROOT,
+            "architectural pattern adversarial fixtures",
+        ),
         (
             [
                 sys.executable,

@@ -3,6 +3,64 @@
 All notable blueprint contract changes are recorded here. Project-specific
 snapshots do not upgrade automatically.
 
+## 3.1.0 — Unreleased
+
+Source-governed architectural pattern integration without a universal-kernel
+change. Accepted source decisions are `SRC-DEC-0003` through
+`SRC-DEC-0006`.
+
+### Added
+
+- a strict source-only Domain-Neutral Architectural Pattern Catalog with
+  stable `PAT-####` allocations, lifecycle transitions, promotion gates,
+  evidence, contrary-evidence, compatibility, migration, successor, and
+  non-authority validation;
+- reviewed catalog records for `lifecycle-disposition`, modular
+  `governed-change-and-effects`, and the optional Architecture Proof family;
+- a source semantic crosswalk for authoritative, observed, inferred,
+  proposed, derived, historical, superseded, stale, unknown, and intentionally
+  omitted information without creating a universal status enum;
+- a High-Assurance-only Context Pack manifest schema with executable expiry,
+  revocation, recipient, scope, sensitivity, retention, exact-source, size,
+  and non-authority fixtures;
+- one source-only Architecture Proof schema and five templates for spikes,
+  reference slices, provider qualification, adversarial fixture packs, and
+  readiness evidence;
+- a versioned, machine-readable generation-disposition policy with default
+  source-only treatment, explicit profile-scoped reviewed paths, forbidden
+  output paths, and explicit non-authority limitations;
+- a read-only generation-policy diagnostic with normal, degraded, blocked, and
+  recovering operation-local modes plus exact findings and recovery guidance;
+  and
+- source-contract and adversarial test commands integrated into Blueprint
+  validation and acceptance.
+
+### Changed
+
+- the Generation Contract now names source-stable, generation-time identity,
+  project-owned unresolved, and execution-volatile input classes and requires
+  volatile facts to be revalidated at consequential boundaries;
+- canonical dossier and harness guidance now cross-walks semantic information
+  roles and requires consequential evidence to state non-proven implications;
+- the High-Assurance Context Pack entry point explains its optional manifest
+  lifecycle without generating a pack or assessing CTX-0001;
+- new-project generation and adoption planning are allowlist-driven and scoped
+  to the selected profile: unreviewed additions are ignored and reported,
+  missing dependencies block only affected profiles, and source-only inputs,
+  unsafe reviewed paths, forbidden destinations, collisions, or unexpected
+  staged entries remain hard failures;
+- the Blueprint and generator versions advance to 3.1.0 while the unchanged
+  universal harness kernel remains 3.0.0.
+
+### Compatibility and migration note
+
+This is an additive source and generator release. Existing 3.0.0 snapshots
+remain independent and valid. Minimal and Standard receive no new governed
+artifact or optional-contract path; newly generated High-Assurance snapshots
+add only the unadopted Context Pack manifest schema. Existing Context Packs
+are not converted. Pattern Catalog records and Architecture Proof assets are
+never generated. See `migrations/3.0.0-to-3.1.0.md`.
+
 ## 3.0.0 — 2026-08-11
 
 Small-team Git and provider-neutral change-integration workflows for one to
