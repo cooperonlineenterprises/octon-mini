@@ -49,6 +49,9 @@ change. Accepted source decisions are `SRC-DEC-0003` through
   missing dependencies block only affected profiles, and source-only inputs,
   unsafe reviewed paths, forbidden destinations, collisions, or unexpected
   staged entries remain hard failures;
+- hosted CI uses one stable minimum-runtime pull-request gate and one
+  current-runtime `main` smoke check, while preserving the complete
+  Python/operating-system matrix as a deliberate pre-release dispatch; and
 - the Blueprint and generator versions advance to 3.1.0 while the unchanged
   universal harness kernel remains 3.0.0.
 

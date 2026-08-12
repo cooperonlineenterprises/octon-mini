@@ -87,8 +87,8 @@ Before tagging a release:
    source;
 6. when available, run the skill-creator `quick_validate.py` as a compatibility
    check against the installed Codex tooling;
-7. confirm CI passes on the declared Python and OS matrix; local success is
-   not evidence that hosted CI passed;
+7. confirm the pull-request `required` gate passes; local success is not
+   evidence that hosted CI passed;
 8. review the changelog and every migration from the previous release;
 9. inspect generated profile snapshots: every profile must contain the same
    non-authorizing small-team workflow portfolio, Minimal must not inherit
@@ -100,8 +100,11 @@ Before tagging a release:
     configured hooks, passing evidence, providers, or readiness claims;
 11. commit the exact validated source and publish its required self-PR under
     current authority;
-12. after a separately authorized `merge_commit` integration, confirm the full
-    hosted matrix passes on the exact integrated `main` revision; and
+12. after a separately authorized `merge_commit` integration, manually
+    dispatch the `validate` workflow on the exact integrated `main` revision
+    and confirm the full Python 3.11-3.14 and Ubuntu/macOS/Windows matrix
+    passes; the automatic `main-smoke` check is not a substitute for this
+    release gate; and
 13. only with separate current release authority, create an annotated
     `v<version>` tag on that exact validated integrated revision.
 

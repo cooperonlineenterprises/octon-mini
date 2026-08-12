@@ -300,9 +300,13 @@ When the skill entry or UI metadata changes, also run the skill-creator
 `quick_validate.py` against `skills/project-bootstrap`. The
 repository-contained metadata validator is the reproducible release check;
 `quick_validate.py` is a compatibility check against the installed Codex
-tooling. CI repeats the metadata, internal reference-registry/citation,
-blueprint, and acceptance suites on supported Python runtimes and operating
-systems; CI does not have the external reference checkouts.
+tooling. Routine CI is deliberately tiered for a private repository: pull
+requests run the complete gate once on the minimum supported Python runtime on
+Ubuntu, while an integrated `main` revision receives a current-runtime Ubuntu
+structural smoke check. The complete Python 3.11-3.14 and
+Ubuntu/macOS/Windows matrix runs only through a deliberate `workflow_dispatch`
+before release. Superseded pull-request and `main` runs are cancelled. CI does
+not have the external reference checkouts.
 
 See `RELEASE.md`, `CHANGELOG.md`, and `migrations/` for release and upgrade
 rules.
