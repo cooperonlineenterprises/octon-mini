@@ -163,8 +163,23 @@ def build_plan(target: Path, profile: str) -> dict[str, Any]:
     if not resolved.is_dir():
         raise ValueError("--target must be an existing directory")
 
-    templates = scaffolder.collect_templates(profile)
-    schemas = scaffolder.schema_outputs()
+    try:
+        policy = scaffolder.load_generation_policy()
+    except ValueError as error:
+        raise ValueError(
+            "authority_degradation: generation policy cannot be established: "
+            f"{error}"
+        ) from error
+    diagnostics = scaffolder.generation_policy_diagnostics(policy, (profile,))
+    mode = scaffolder.generation_profile_mode(diagnostics, profile)
+    if mode == "blocked":
+        raise ValueError(
+            f"{profile} generation capability is blocked; run "
+            "scaffold_project.py --diagnose-generation-policy "
+            f"--profile {profile} for read-only recovery guidance"
+        )
+    templates, schemas = scaffolder.resolve_generation_inputs(profile, policy)
+    scaffolder.validate_generation_boundary(profile, templates, schemas, policy)
     intended = (
         set(templates)
         | set(schemas)
@@ -195,6 +210,15 @@ def build_plan(target: Path, profile: str) -> dict[str, Any]:
         "target": str(resolved),
         "requested_profile": profile,
         "blueprint_version": scaffolder.blueprint_version(),
+        "generation_capability": {
+            "mode": mode,
+            "findings": scaffolder.generation_profile_findings(
+                diagnostics, profile
+            ),
+            "effect": (
+                "Unreviewed inputs are ignored and cannot expand this plan."
+            ),
+        },
         "existing": classify_existing(resolved),
         "origin": origin_summary(resolved, scaffolder),
         "existing_top_level_names": existing_top_level,
@@ -233,10 +257,28 @@ def render_markdown(plan: dict[str, Any]) -> str:
         f"- Requested profile: `{plan['requested_profile']}`",
         f"- Blueprint version: `{plan['blueprint_version']}`",
         f"- Authority: {plan['authority']}",
+        f"- Generation capability: `{plan['generation_capability']['mode']}`",
         "",
-        "## Existing signals",
+        "## Generation boundary",
         "",
+        f"- {plan['generation_capability']['effect']}",
     ]
+    findings = plan["generation_capability"]["findings"]
+    lines.extend(
+        [
+            f"- {item['failure_class']} ({item['rule_id']}): "
+            + ", ".join(f"`{path}`" for path in item["paths"])
+            for item in findings
+        ]
+        or ["- no selected-profile degradation observed"]
+    )
+    lines.extend(
+        [
+            "",
+            "## Existing signals",
+            "",
+        ]
+    )
     for key, value in plan["existing"]["indicators"].items():
         lines.append(f"- {key}: `{str(value).lower()}`")
     markers = plan["existing"]["technology_markers"]

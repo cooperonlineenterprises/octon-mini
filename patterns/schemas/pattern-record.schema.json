@@ -1,0 +1,384 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://project-blueprint.local/source-schemas/pattern-record.schema.json",
+  "title": "Project Blueprint Architectural Pattern Record",
+  "description": "Strict non-authorizing source record for an optional domain-neutral architecture pattern.",
+  "$defs": {
+    "strings": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "nonempty_strings": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evidence_kind",
+        "source_ref",
+        "project_ref",
+        "exact_subject",
+        "supports",
+        "independent_project",
+        "limitations"
+      ],
+      "properties": {
+        "evidence_kind": {
+          "enum": [
+            "architecture_review",
+            "architecture_proof",
+            "project_observation",
+            "failure_case",
+            "contrary_case"
+          ]
+        },
+        "source_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "project_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "exact_subject": {
+          "type": "string",
+          "minLength": 1
+        },
+        "supports": {
+          "type": "string",
+          "minLength": 1
+        },
+        "independent_project": {
+          "type": "boolean"
+        },
+        "limitations": {
+          "$ref": "#/$defs/nonempty_strings"
+        }
+      }
+    },
+    "transition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "from_status",
+        "to_status",
+        "changed_on",
+        "decision_ref",
+        "rationale"
+      ],
+      "properties": {
+        "from_status": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "to_status": {
+          "enum": [
+            "candidate",
+            "reviewed",
+            "experimental",
+            "recommended",
+            "stable",
+            "deprecated",
+            "rejected"
+          ]
+        },
+        "changed_on": {
+          "type": "string",
+          "format": "date"
+        },
+        "decision_ref": {
+          "type": "string",
+          "pattern": "^SRC-DEC-[0-9]{4}$"
+        },
+        "rationale": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "slug",
+    "title",
+    "pattern_version",
+    "status",
+    "status_changed_on",
+    "permission_grant",
+    "automatic_generation",
+    "automatic_adoption",
+    "universal_kernel",
+    "problem",
+    "invariant",
+    "applicability_triggers",
+    "non_applicability_triggers",
+    "exclusions",
+    "required_contracts",
+    "prohibited_shortcuts",
+    "failure_recovery_semantics",
+    "proof_expectations",
+    "known_implementations",
+    "evidence",
+    "contrary_evidence",
+    "compatibility",
+    "migration",
+    "complexity",
+    "operator_burden",
+    "optional_assets",
+    "modules",
+    "successor",
+    "deprecation_reason",
+    "rejection_reason",
+    "decision_refs",
+    "status_history",
+    "promotion_policy",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "project-blueprint.pattern-record.v1"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^PAT-[0-9]{4}$"
+    },
+    "slug": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "pattern_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "status": {
+      "enum": [
+        "candidate",
+        "reviewed",
+        "experimental",
+        "recommended",
+        "stable",
+        "deprecated",
+        "rejected"
+      ]
+    },
+    "status_changed_on": {
+      "type": "string",
+      "format": "date"
+    },
+    "permission_grant": {
+      "const": false
+    },
+    "automatic_generation": {
+      "const": false
+    },
+    "automatic_adoption": {
+      "const": false
+    },
+    "universal_kernel": {
+      "const": false
+    },
+    "problem": {
+      "type": "string",
+      "minLength": 1
+    },
+    "invariant": {
+      "type": "string",
+      "minLength": 1
+    },
+    "applicability_triggers": {
+      "$ref": "#/$defs/nonempty_strings"
+    },
+    "non_applicability_triggers": {
+      "$ref": "#/$defs/nonempty_strings"
+    },
+    "exclusions": {
+      "$ref": "#/$defs/nonempty_strings"
+    },
+    "required_contracts": {
+      "$ref": "#/$defs/nonempty_strings"
+    },
+    "prohibited_shortcuts": {
+      "$ref": "#/$defs/nonempty_strings"
+    },
+    "failure_recovery_semantics": {
+      "$ref": "#/$defs/nonempty_strings"
+    },
+    "proof_expectations": {
+      "$ref": "#/$defs/nonempty_strings"
+    },
+    "known_implementations": {
+      "$ref": "#/$defs/nonempty_strings"
+    },
+    "evidence": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/evidence"
+      }
+    },
+    "contrary_evidence": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/evidence"
+      }
+    },
+    "compatibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "minimum_blueprint_version",
+        "kernel_effect",
+        "generated_project_effect",
+        "breaking_change",
+        "migration_posture",
+        "stable_support_commitment"
+      ],
+      "properties": {
+        "minimum_blueprint_version": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+        },
+        "kernel_effect": {
+          "const": "none"
+        },
+        "generated_project_effect": {
+          "const": "none_until_separately_adopted"
+        },
+        "breaking_change": {
+          "const": false
+        },
+        "migration_posture": {
+          "type": "string",
+          "minLength": 1
+        },
+        "stable_support_commitment": {
+          "type": "boolean"
+        }
+      }
+    },
+    "migration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "required",
+        "automatic",
+        "guidance"
+      ],
+      "properties": {
+        "required": {
+          "type": "boolean"
+        },
+        "automatic": {
+          "const": false
+        },
+        "guidance": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "complexity": {
+      "$ref": "#/$defs/nonempty_strings"
+    },
+    "operator_burden": {
+      "$ref": "#/$defs/nonempty_strings"
+    },
+    "optional_assets": {
+      "$ref": "#/$defs/strings"
+    },
+    "modules": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "impact",
+          "action",
+          "mutation_effect",
+          "recovery_incident"
+        ]
+      }
+    },
+    "successor": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^PAT-[0-9]{4}$"
+    },
+    "deprecation_reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "rejection_reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "decision_refs": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^SRC-DEC-[0-9]{4}$"
+      }
+    },
+    "status_history": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/transition"
+      }
+    },
+    "promotion_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "explicit_architecture_review",
+        "independent_project_evidence_for_recommended",
+        "compatibility_and_migration_commitment_for_stable",
+        "usage_count_is_sufficient"
+      ],
+      "properties": {
+        "explicit_architecture_review": {
+          "const": true
+        },
+        "independent_project_evidence_for_recommended": {
+          "const": true
+        },
+        "compatibility_and_migration_commitment_for_stable": {
+          "const": true
+        },
+        "usage_count_is_sufficient": {
+          "const": false
+        }
+      }
+    },
+    "limitations": {
+      "$ref": "#/$defs/nonempty_strings"
+    }
+  }
+}

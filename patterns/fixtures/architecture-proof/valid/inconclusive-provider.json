@@ -1,0 +1,70 @@
+{
+  "schema_version": "project-blueprint.architecture-proof.v1",
+  "id": "PROOF-9002",
+  "proof_kind": "provider_qualification",
+  "status": "completed",
+  "permission_grant": false,
+  "production_readiness_inference": false,
+  "title": "Exact provider timeout qualification",
+  "hypothesis": "The exact provider configuration exposes a deterministic read-back after an ambiguous timeout.",
+  "subject": {
+    "identifier": "provider-sandbox-api",
+    "version_or_revision": "api-version:2030-01-01",
+    "configuration": "sandbox-account; request-class:test-only"
+  },
+  "environment": {
+    "description": "Authorized disposable provider sandbox with synthetic data.",
+    "source_revision": "commit:3333333333333333333333333333333333333333",
+    "toolchain_versions": [
+      "qualification-client 1.2.3"
+    ]
+  },
+  "acceptance_criteria": [
+    "An ambiguous timeout can be resolved by an exact non-mutating read-back."
+  ],
+  "stop_criteria": [
+    "Stop before any non-sandbox or irreversible provider effect."
+  ],
+  "adversarial_cases": [
+    {
+      "id": "CASE-9002",
+      "condition": "The synthetic request times out after dispatch.",
+      "expected_behavior": "The client performs bounded read-back and preserves unknown outcome if unresolved.",
+      "result": "inconclusive",
+      "evidence_refs": [
+        "repo:patterns/fixtures/architecture-proof/valid/inconclusive-provider.json"
+      ]
+    }
+  ],
+  "method": [
+    "Run one authorized sandbox request and one non-mutating read-back using the exact recorded version."
+  ],
+  "evidence_refs": [
+    "repo:patterns/fixtures/architecture-proof/valid/inconclusive-provider.json"
+  ],
+  "failures": [
+    "The sandbox did not expose enough receipt data to resolve the timeout."
+  ],
+  "skipped_checks": [
+    "Production credentials and irreversible operations were intentionally excluded."
+  ],
+  "cleanup_or_rollback": {
+    "strategy": "No persistent resource was created; retain only redacted sandbox evidence.",
+    "status": "not_required",
+    "evidence_refs": [],
+    "residual_effects": []
+  },
+  "limitations": [
+    "Sandbox behavior may differ from production and the ambiguous outcome remains unresolved."
+  ],
+  "conclusion": "inconclusive",
+  "non_proven_implications": [
+    "This result does not qualify production use, authorize provider access, or prove safe retry behavior."
+  ],
+  "decision_refs": [
+    "SRC-DEC-0005"
+  ],
+  "owner": "architecture_proof_owner",
+  "created_on": "2030-01-03",
+  "completed_on": "2030-01-04"
+}

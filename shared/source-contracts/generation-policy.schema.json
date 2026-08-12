@@ -1,0 +1,310 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://project-blueprint.local/source-schemas/generation-policy.schema.json",
+  "title": "Project Blueprint Generation Disposition Policy",
+  "description": "Capability-scoped source-to-project generation policy. Unreviewed inputs remain source-only, affected unsafe capabilities fail closed, and the policy grants no adoption authority.",
+  "$defs": {
+    "profiles": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "minimal",
+          "standard",
+          "high-assurance"
+        ]
+      }
+    },
+    "output": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "root",
+        "strip_suffix"
+      ],
+      "properties": {
+        "root": {
+          "type": "string",
+          "pattern": "^(?:\\.|[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*)$"
+        },
+        "strip_suffix": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^\\.[A-Za-z0-9._-]+$"
+        }
+      }
+    },
+    "rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "match": {
+                "const": "recursive_suffix"
+              }
+            },
+            "required": [
+              "match"
+            ]
+          },
+          "then": {
+            "properties": {
+              "suffix": {
+                "type": "string",
+                "pattern": "^\\.[A-Za-z0-9._-]+$"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "suffix": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "disposition": {
+                "const": "source_only"
+              }
+            },
+            "required": [
+              "disposition"
+            ]
+          },
+          "then": {
+            "properties": {
+              "profiles": {
+                "maxItems": 0
+              },
+              "inventory_paths": {
+                "type": "null"
+              },
+              "inventory_count": {
+                "type": "null"
+              },
+              "inventory_paths_sha256": {
+                "type": "null"
+              },
+              "output": {
+                "type": "null"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "profiles": {
+                "minItems": 1
+              },
+              "inventory_paths": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*$"
+                }
+              },
+              "inventory_count": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "inventory_paths_sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "output": {
+                "$ref": "#/$defs/output"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "disposition": {
+                "const": "profile_optional"
+              }
+            },
+            "required": [
+              "disposition"
+            ]
+          },
+          "then": {
+            "properties": {
+              "match": {
+                "const": "exact"
+              }
+            }
+          }
+        }
+      ],
+      "required": [
+        "id",
+        "source",
+        "match",
+        "suffix",
+        "disposition",
+        "profiles",
+        "inventory_paths",
+        "inventory_count",
+        "inventory_paths_sha256",
+        "output",
+        "reason"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "source": {
+          "type": "string",
+          "pattern": "^(?:skill|blueprint):[A-Za-z0-9._/-]+$"
+        },
+        "match": {
+          "enum": [
+            "exact",
+            "recursive",
+            "recursive_suffix"
+          ]
+        },
+        "suffix": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "disposition": {
+          "enum": [
+            "source_only",
+            "generated",
+            "profile_optional"
+          ]
+        },
+        "profiles": {
+          "$ref": "#/$defs/profiles"
+        },
+        "inventory_paths": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*$"
+          }
+        },
+        "inventory_count": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "inventory_paths_sha256": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "output": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "forbidden_output": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "match",
+        "reason"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._/-]+$"
+        },
+        "match": {
+          "enum": [
+            "exact",
+            "subtree"
+          ]
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "document_role",
+    "permission_grant",
+    "default_disposition",
+    "inventory_hash_algorithm",
+    "rules",
+    "forbidden_outputs",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "project-blueprint.generation-policy.v2"
+    },
+    "document_role": {
+      "const": "authoritative_source_to_generated_snapshot_disposition"
+    },
+    "permission_grant": {
+      "const": false
+    },
+    "default_disposition": {
+      "const": "source_only"
+    },
+    "inventory_hash_algorithm": {
+      "const": "sha256_sorted_relative_posix_paths_newline_v1"
+    },
+    "rules": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/rule"
+      }
+    },
+    "forbidden_outputs": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/forbidden_output"
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  }
+}

@@ -1,0 +1,94 @@
+{
+  "schema_version": "project-blueprint.information-state-semantics.v1",
+  "document_role": "semantic_crosswalk_not_record_status_vocabulary",
+  "permission_grant": false,
+  "universal_status_enum": false,
+  "aggregate_status_vocabulary": "owned_by_each_aggregate_not_this_crosswalk",
+  "write_back_rule": "non_authoritative_roles_never_write_back_as_authority",
+  "roles": [
+    {
+      "name": "authoritative",
+      "meaning": "The declared owner of a mutable information concern within an explicit scope and precedence boundary.",
+      "information_effect": "declared_scope_authority_only",
+      "may_grant_action_authority": false,
+      "may_establish_readiness_by_itself": false,
+      "required_handling": "Name scope, owner, precedence, version, and successor behavior; information authority does not become permission."
+    },
+    {
+      "name": "observed",
+      "meaning": "A dated direct inspection or execution result for an exact subject, method, environment, and scope.",
+      "information_effect": "bounded_current_observation_only",
+      "may_grant_action_authority": false,
+      "may_establish_readiness_by_itself": false,
+      "required_handling": "Bind to time, exact subject, method, evidence, freshness, and limitations."
+    },
+    {
+      "name": "inferred",
+      "meaning": "An interpretation derived from evidence rather than directly observed or accepted as authoritative fact.",
+      "information_effect": "non_authoritative_interpretation",
+      "may_grant_action_authority": false,
+      "may_establish_readiness_by_itself": false,
+      "required_handling": "Label the inference, inputs, uncertainty, and invalidating evidence; never write it back as observed fact."
+    },
+    {
+      "name": "proposed",
+      "meaning": "A candidate target, decision, requirement, action, or record that has not been accepted through its owning lifecycle.",
+      "information_effect": "unaccepted_candidate",
+      "may_grant_action_authority": false,
+      "may_establish_readiness_by_itself": false,
+      "required_handling": "Keep proposal status and authority basis explicit until a legal aggregate-specific transition occurs."
+    },
+    {
+      "name": "derived",
+      "meaning": "A reproducible projection, rendition, summary, score, or catalog generated from declared sources.",
+      "information_effect": "source_bound_non_writing_projection",
+      "may_grant_action_authority": false,
+      "may_establish_readiness_by_itself": false,
+      "required_handling": "Name sources, method, generation identity, freshness, and regeneration path; never become an independent edit source."
+    },
+    {
+      "name": "historical",
+      "meaning": "Retained context or evidence that is explicitly noncurrent.",
+      "information_effect": "retained_noncurrent_context",
+      "may_grant_action_authority": false,
+      "may_establish_readiness_by_itself": false,
+      "required_handling": "Display a noncurrent boundary and route readers to the current owner or successor."
+    },
+    {
+      "name": "superseded",
+      "meaning": "Information replaced by an explicit successor and retained for history, audit, rollback evidence, or provenance.",
+      "information_effect": "replaced_noncurrent_context",
+      "may_grant_action_authority": false,
+      "may_establish_readiness_by_itself": false,
+      "required_handling": "Resolve the successor, effective boundary, reason, migration impact, and retained-history location."
+    },
+    {
+      "name": "stale",
+      "meaning": "Previously scoped information whose freshness or subject binding no longer permits current reliance.",
+      "information_effect": "invalid_until_revalidated",
+      "may_grant_action_authority": false,
+      "may_establish_readiness_by_itself": false,
+      "required_handling": "Block claims that require freshness until the exact subject is reobserved or explicitly revalidated."
+    },
+    {
+      "name": "unknown",
+      "meaning": "A fact, applicability result, authority basis, or outcome that has not been established.",
+      "information_effect": "unresolved",
+      "may_grant_action_authority": false,
+      "may_establish_readiness_by_itself": false,
+      "required_handling": "Preserve unknown explicitly and fail closed where the missing fact is safety- or authority-relevant."
+    },
+    {
+      "name": "intentionally_omitted",
+      "meaning": "Information deliberately excluded under a named scope, minimization, applicability, retention, or disclosure basis.",
+      "information_effect": "explicit_bounded_absence",
+      "may_grant_action_authority": false,
+      "may_establish_readiness_by_itself": false,
+      "required_handling": "Record what was omitted, why, by whom, for which scope, and whether omission blocks any claim; do not reinterpret it as unknown or not applicable."
+    }
+  ],
+  "limitations": [
+    "This crosswalk explains information meaning and does not replace task, decision, artifact, approval, or project-specific status vocabularies.",
+    "No information role creates action permission or readiness by itself."
+  ]
+}

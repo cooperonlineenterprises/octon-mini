@@ -1,0 +1,74 @@
+{
+  "schema_version": "project-blueprint.architecture-proof.v1",
+  "id": "PROOF-0000",
+  "proof_kind": "spike",
+  "status": "template",
+  "permission_grant": false,
+  "production_readiness_inference": false,
+  "title": "Replace with the bounded feasibility spike",
+  "hypothesis": "Replace with one falsifiable feasibility hypothesis.",
+  "subject": {
+    "identifier": "not_assessed",
+    "version_or_revision": "not_assessed",
+    "configuration": "not_assessed"
+  },
+  "environment": {
+    "description": "not_assessed",
+    "source_revision": "not_assessed",
+    "toolchain_versions": [
+      "not_assessed"
+    ]
+  },
+  "acceptance_criteria": [
+    "Replace with an objective supported-result criterion."
+  ],
+  "stop_criteria": [
+    "Replace with the condition that ends work before further investment."
+  ],
+  "adversarial_cases": [
+    {
+      "id": "CASE-0000",
+      "condition": "Replace with the highest-risk failure condition.",
+      "expected_behavior": "Replace with the safe bounded behavior.",
+      "result": "not_run",
+      "evidence_refs": [
+        "not_assessed"
+      ]
+    }
+  ],
+  "method": [
+    "Replace with reproducible commands or observations."
+  ],
+  "evidence_refs": [
+    "not_assessed"
+  ],
+  "failures": [
+    "not_assessed"
+  ],
+  "skipped_checks": [
+    "All checks remain unassessed in this source-only template."
+  ],
+  "cleanup_or_rollback": {
+    "strategy": "Replace with safe cleanup or explain why no effect occurs.",
+    "status": "not_assessed",
+    "evidence_refs": [
+      "not_assessed"
+    ],
+    "residual_effects": [
+      "not_assessed"
+    ]
+  },
+  "limitations": [
+    "Template fields are not evidence."
+  ],
+  "conclusion": "not_assessed",
+  "non_proven_implications": [
+    "Template completion does not prove production readiness."
+  ],
+  "decision_refs": [
+    "not_assessed"
+  ],
+  "owner": "unassigned",
+  "created_on": null,
+  "completed_on": null
+}

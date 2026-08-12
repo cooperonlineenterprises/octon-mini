@@ -35,6 +35,9 @@ governance, supply-chain inventory, and bounded context packs. Their presence
 does not establish applicability; activate, combine, or mark them not
 applicable through the appropriate project records and artifact registry with
 an evidence-based rationale.
+High Assurance includes the optional Context Pack manifest schema but does not
+generate a manifest, select a consumer or source, or assess CTX-0001. Minimal
+and Standard do not include that optional schema.
 An adopted High-Assurance project must have every conditional and optional
 trigger assessed, with applicable controls owned and supported by current
 evidence. The disabled sample restriction extension proves the versioned

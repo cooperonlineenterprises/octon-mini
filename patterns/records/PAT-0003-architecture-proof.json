@@ -1,0 +1,128 @@
+{
+  "schema_version": "project-blueprint.pattern-record.v1",
+  "id": "PAT-0003",
+  "slug": "architecture-proof",
+  "title": "Bounded Architecture Proof",
+  "pattern_version": "1.0.0",
+  "status": "reviewed",
+  "status_changed_on": "2026-08-11",
+  "permission_grant": false,
+  "automatic_generation": false,
+  "automatic_adoption": false,
+  "universal_kernel": false,
+  "problem": "Consequential architecture choices can be overclaimed from a happy-path prototype, incomplete provider check, or template completion without exact stop criteria, adversarial evidence, cleanup, and non-proven implications.",
+  "invariant": "An Architecture Proof supports only its exact hypothesis, subject version, environment, method, fixtures, and recorded result; unsupported and inconclusive outcomes remain valid evidence and never become production readiness by implication.",
+  "applicability_triggers": [
+    "A consequential architecture claim has material feasibility uncertainty.",
+    "A risky dependency, provider, external-effect boundary, or large rationale package requires bounded proof.",
+    "A pattern may be promoted into shared Blueprint guidance."
+  ],
+  "non_applicability_triggers": [
+    "A routine reversible decision is already covered by ordinary validation and evidence.",
+    "The proposed proof has no decision-relevant hypothesis or stop condition."
+  ],
+  "exclusions": [
+    "No mandatory proof artifact for every project decision.",
+    "No provider-specific fields in the common schema.",
+    "No inference from template completion or structural conformance to production readiness."
+  ],
+  "required_contracts": [
+    "Exact hypothesis, subject, version, configuration, and environment.",
+    "Acceptance and stop criteria plus representative and adversarial cases.",
+    "Reproducible method, evidence, failures, skipped checks, cleanup or rollback, and limitations.",
+    "Supported, unsupported, or inconclusive conclusion and explicit non-proven implications."
+  ],
+  "prohibited_shortcuts": [
+    "Treating a happy path as sufficient adversarial proof.",
+    "Omitting failed or skipped checks.",
+    "Using readiness-evidence proof kind to declare readiness without project-owned gates and current evidence.",
+    "Using a stale provider or dependency result for a changed exact subject."
+  ],
+  "failure_recovery_semantics": [
+    "A stopped, failed, unsupported, or inconclusive proof preserves its evidence and limitations.",
+    "Cleanup or rollback failure is recorded as a residual effect, not hidden.",
+    "Changed subjects or environments require a new proof or explicit revalidation."
+  ],
+  "proof_expectations": [
+    "Validate strict schema and semantic completion rules.",
+    "Exercise unsupported and inconclusive outcomes as legitimate results.",
+    "Reject missing stop criteria, inexact subjects, incomplete cleanup, absent limitations, and missing non-proof claims."
+  ],
+  "known_implementations": [
+    "Project Blueprint migration fixtures, reference evidence, and adversarial acceptance tests demonstrate the method internally without constituting generated project proof."
+  ],
+  "evidence": [
+    {
+      "evidence_kind": "architecture_review",
+      "source_ref": "repo:ARCHITECTURAL_PATTERN_INTEGRATION_REVIEW.md#p20--high-assurance-decision-packs-spikes-reference-slices-and-evidence-discipline",
+      "project_ref": "project-blueprint",
+      "exact_subject": "Project Blueprint 3.0.0 decision, evidence, migration, evaluation, and acceptance proof discipline",
+      "supports": "One optional proof family closes the hypothesis, stop, adversarial, cleanup, and non-proof contract gap without adding default ceremony.",
+      "independent_project": false,
+      "limitations": [
+        "The new proof-family contract has not yet been adopted by two independent projects."
+      ]
+    }
+  ],
+  "contrary_evidence": [],
+  "compatibility": {
+    "minimum_blueprint_version": "3.1.0",
+    "kernel_effect": "none",
+    "generated_project_effect": "none_until_separately_adopted",
+    "breaking_change": false,
+    "migration_posture": "Source-only optional schema and templates; no generated-project migration or profile inventory change.",
+    "stable_support_commitment": false
+  },
+  "migration": {
+    "required": false,
+    "automatic": false,
+    "guidance": "The source-only proof family is not copied into existing projects. A future generated-profile adoption requires separate taxonomy and migration analysis."
+  },
+  "complexity": [
+    "Adds proof authoring, fixture maintenance, and evidence retention when deliberately used."
+  ],
+  "operator_burden": [
+    "Consequential proofs require exact environments, adversarial cases, and truthful cleanup reporting."
+  ],
+  "optional_assets": [
+    "patterns/architecture-proof/schema.json",
+    "patterns/architecture-proof/templates/spike.json",
+    "patterns/architecture-proof/templates/reference-slice.json",
+    "patterns/architecture-proof/templates/provider-qualification.json",
+    "patterns/architecture-proof/templates/adversarial-fixture-pack.json",
+    "patterns/architecture-proof/templates/readiness-evidence.json"
+  ],
+  "modules": [],
+  "successor": null,
+  "deprecation_reason": null,
+  "rejection_reason": null,
+  "decision_refs": [
+    "SRC-DEC-0005"
+  ],
+  "status_history": [
+    {
+      "from_status": null,
+      "to_status": "candidate",
+      "changed_on": "2026-08-11",
+      "decision_ref": "SRC-DEC-0005",
+      "rationale": "Allocated for architecture review as one consolidated proof family."
+    },
+    {
+      "from_status": "candidate",
+      "to_status": "reviewed",
+      "changed_on": "2026-08-11",
+      "decision_ref": "SRC-DEC-0005",
+      "rationale": "Schema and source templates accepted; generated-profile adoption remains explicitly excluded."
+    }
+  ],
+  "promotion_policy": {
+    "explicit_architecture_review": true,
+    "independent_project_evidence_for_recommended": true,
+    "compatibility_and_migration_commitment_for_stable": true,
+    "usage_count_is_sufficient": false
+  },
+  "limitations": [
+    "The proof family is source-only and optional.",
+    "A proof record cannot grant authority, accept a decision, or establish production readiness by itself."
+  ]
+}

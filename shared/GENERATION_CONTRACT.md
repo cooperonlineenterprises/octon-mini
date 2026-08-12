@@ -13,18 +13,95 @@ project receives an independent snapshot containing:
 
 Generated files do not remain linked to this repository.
 
+## Generation disposition boundary
+
+`shared/source-contracts/generation-policy.json` is the canonical,
+machine-readable boundary between Blueprint source and automatic target-project
+output. Its schema is versioned separately. Every source path defaults to
+`source_only`; only a reviewed rule with disposition `generated` or
+`profile_optional` may enter the selected profile.
+
+Version 2 generated rules enumerate the exact reviewed relative paths and bind
+that list by count and SHA-256 digest. Adding, removing, renaming, or moving a
+template or copied schema therefore requires an explicit policy inventory
+review. A file's location under a template directory is not sufficient
+authority to generate it.
+
+Runtime generation is allowlist-driven and scoped to the requested profile.
+An additional matching file that is absent from the reviewed list is ignored,
+reported as information degradation, and never added to the output. It does
+not block an otherwise valid setup. A missing reviewed dependency blocks only
+profiles that require it; a problem confined to High Assurance cannot block
+Minimal or Standard. The read-only adoption planner uses the same selected-
+profile boundary.
+
+The generator capability reports four operation-local modes without creating
+a universal project state enum:
+
+- `normal` — all reviewed inputs required by the selected profile are present;
+- `degraded` — unreviewed additions were ignored while the reviewed capability
+  remains intact;
+- `blocked` — a selected-profile dependency, authority contract, or hard
+  invariant cannot be established; and
+- `recovering` — the read-only diagnostic is exposing exact findings and
+  recovery guidance without changing policy or files.
+
+Findings use capability-specific failure classes. Unreviewed additions are
+`information_degradation`; missing reviewed inputs are
+`dependency_degradation`; an invalid policy identity or non-authority contract
+is `authority_degradation`; and a symlink, escape, forbidden output, collision,
+or exact-stage violation is `safety_invariant_degradation`. Degradation may
+reduce availability or generated scope, but never truthfulness, correctness,
+safety, authority, or evidentiary standards.
+
+Hard boundaries remain fail-closed for the affected operation. Generation
+must leave the target unchanged when a reviewed selected-profile source is
+missing, a source-only or profile-inapplicable input is selected, a reviewed
+source is a symlink or escapes its boundary, an output collides or is
+forbidden, or the staged file/directory tree differs from the exact intended
+output or contains a symlink or special file.
+
+Run the read-only recovery diagnostic with:
+
+```text
+python3 skills/project-bootstrap/scripts/scaffold_project.py \
+  --diagnose-generation-policy \
+  --profile minimal
+```
+
+Omit `--profile` to inspect all profiles. Diagnostics return nonzero when any
+inspected capability is degraded or blocked. Repository validation always
+inspects all profiles strictly, so an ignored unreviewed path still fails
+Blueprint CI until it is removed, retained outside a generated source root, or
+explicitly reviewed into the versioned inventory. When an addition is the only
+drift, the diagnostic calculates a candidate path list, count, and digest to
+reduce maintenance work; that candidate is labeled
+`review_required_not_approved`, is never written automatically, and remains a
+review input rather than authority.
+
+This capability contract does not add irrelevant timeout, retry, or circuit
+machinery to deterministic local scaffolding. Such controls remain required
+only for project capabilities with applicable volatile or external
+dependencies.
+
+The installed Codex skill remains a source bundle and may contain the catalog,
+review, migration guidance, and other source-governance material needed to
+operate the skill. That bundle is not a generated project. Deliberate manual
+adoption of a source-only artifact is a separate project-owned change and is
+not authorized by this generation policy.
+
 ## Non-transfer rules
 
 Generation transfers structure, schemas, vocabulary, and validation patterns.
 It does not transfer:
 
-- project facts or implementation status;
+- project facts, implementation status, or project-owned unresolved values;
 - collaborator identities, maintainer counts, access observations, activity,
   reviewer capacity, or hosted repository settings;
-- decisions or approvals;
+- decisions, approvals, evidence, or readiness claims;
 - permissions or standing authorization;
 - legal, privacy, security, or compliance conclusions;
-- external accounts, credentials, URLs, vendors, or providers;
+- external accounts, credentials, URLs, vendors, providers, or provider state;
 - source-project history or evidence.
 
 The generated harness is an unadopted baseline. Its policy is deliberately
@@ -41,6 +118,38 @@ Three states remain distinct throughout generation and validation:
    implementation, operational, specialist, and external evidence.
 
 Neither of the first two states implies the third.
+
+Generation must not invent, transfer, or upgrade facts, decisions, evidence,
+credentials, providers, authority, or readiness. A template default is not a
+project observation. A source decision is not a target-project decision. A
+generated schema is not evidence that its optional artifact applies.
+
+## Binding classes and revalidation
+
+Generator inputs are classified by when and where they may be bound:
+
+1. **Source-stable inputs** are versioned Blueprint contracts, schemas,
+   vocabularies, and profile inventories. They are selected from the exact
+   source revision and recorded in origin provenance.
+2. **Generation-time identity inputs** are the explicitly supplied project
+   name, derived slug, selected profile, creation date, Blueprint version,
+   generator version, and harness-kernel version. They identify the snapshot;
+   they do not describe project reality.
+3. **Project-owned unresolved inputs** include owners, authority sources,
+   decisions, commands, applicability, providers, environments, facts, and
+   readiness. Generation preserves explicit `unknown`, `not_assessed`, null,
+   or replacement sentinels until project-owned evidence and authority resolve
+   them.
+4. **Execution-volatile inputs** include current revisions, access, provider
+   state, credentials, tool availability, freshness, external outcomes, and
+   other time-sensitive facts. They are never frozen into the scaffold as
+   durable truth and must be revalidated at every consequential boundary that
+   relies on them.
+
+These binding classes are not information authority or permission classes.
+An execution-time observation may be fresh and still lack action authority.
+Unresolved or unknown template variables remain validation failures; explicit
+project sentinels are retained only where the corresponding schema allows them.
 
 ## Collision and mutation rules
 
@@ -167,6 +276,13 @@ must not create an accepted decision, completed task, passing evidence record,
 human approval, or readiness certification. A generated empty ready frontier
 does not establish project adoption or permission.
 
+The source-only Pattern Catalog, its records and fixtures, and the Architecture
+Proof schema and templates are not generated, adopted, or copied into a
+profile inventory. High Assurance alone receives the optional Context Pack
+manifest schema for the existing CTX-0001 entry point. Generation does not
+create a Context Pack manifest, assess CTX-0001, select a consumer or source,
+or infer purpose, validity, sensitivity, retention, revocation, or permission.
+
 ## Collaboration and Git workflow rules
 
 Every generated profile begins with `assessment_status: not_assessed`, unknown
@@ -272,7 +388,8 @@ Generated validation reports are closed machine-readable records scoped to
 the checks actually performed before refresh. They distinguish `pass` from
 `not_run`, enumerate failures and skips, disclose fingerprint and Git scope,
 external effects, and limitations, and never convert structural success into
-a readiness or authorization claim. The post-refresh exact-tree check is
+a readiness or authorization claim. Consequential evidence states what its
+result does not prove. The post-refresh exact-tree check is
 reported by the refresh command's exit status rather than retroactively
 claimed by the pre-refresh report.
 

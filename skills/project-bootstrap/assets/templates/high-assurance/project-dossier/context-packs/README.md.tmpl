@@ -20,3 +20,24 @@ When justified, each pack declares its audience and task class, authoritative
 source links, exact freshness rule, size budget, excluded history, and owner.
 Mutable facts remain in their authoritative sources. Otherwise record
 `not_applicable` and the rationale in the artifact registry.
+
+## Manifest contract when applicable
+
+Do not create a manifest merely because this entry point or its schema exists.
+After a project-owned CTX-0001 applicability assessment, each active pack uses
+`.agent/schemas/context-pack-manifest.schema.json` and records:
+
+- stable identity and version, purpose, intended consumer, task class, and
+  exact included and excluded scope;
+- every exact source reference, version or digest, authority status,
+  observation time, and freshness boundary;
+- creation, valid-through, revalidation, invalidation, and revocation rules;
+- sensitivity, allowed purposes and egress, retention deadline, deletion
+  method, owner, size budget, limitations, and non-proven implications; and
+- `permission_grant: false`.
+
+Before use, validate expiry, revocation, consumer, requested scope, source
+freshness, sensitivity, allowed purpose, retention, and size. Stale, revoked,
+over-scoped, wrong-consumer, or disallowed-use packs fail closed. Possessing or
+validating a pack never grants action authority, proves source truth, or
+establishes project readiness.

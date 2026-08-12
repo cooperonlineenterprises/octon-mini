@@ -40,6 +40,24 @@
     }
   },
   "shared_schema_root": "shared/schemas",
+  "source_governance": {
+    "architecture_decisions": "ARCHITECTURE_DECISIONS.md",
+    "architectural_pattern_catalog": "patterns/catalog.json",
+    "pattern_catalog_generated": false,
+    "pattern_catalog_automatic_adoption": false,
+    "generation_policy": "shared/source-contracts/generation-policy.json",
+    "information_state_semantics": "shared/source-contracts/information-state-semantics.json",
+    "architecture_proof_schema": "patterns/architecture-proof/schema.json",
+    "architecture_proof_generated": false
+  },
+  "optional_contracts": {
+    "context_pack_manifest": {
+      "schema": "shared/optional-schemas/context-pack-manifest.schema.json",
+      "minimum_profile": "high-assurance",
+      "manifest_generated": false,
+      "permission_grant": false
+    }
+  },
   "skill": "skills/project-bootstrap/SKILL.md",
   "new_project_generator": "skills/project-bootstrap/scripts/scaffold_project.py",
   "existing_project_planner": "skills/project-bootstrap/scripts/plan_adoption.py",

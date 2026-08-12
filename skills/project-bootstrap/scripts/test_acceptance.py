@@ -30,6 +30,10 @@ MIGRATION_TESTS = (
     SKILL_ROOT / "scripts/test_migration_1_0_1_to_2_0_0.py",
     SKILL_ROOT / "scripts/test_migration_2_0_0_to_3_0_0.py",
 )
+ARCHITECTURAL_CONTRACT_TESTS = (
+    SKILL_ROOT / "scripts/validate_source_contracts.py",
+    SKILL_ROOT / "scripts/test_architectural_patterns.py",
+)
 PROFILES = ("minimal", "standard", "high-assurance")
 SUPPORTED_WORKFLOWS = ("solo_direct", "solo_hybrid", "pair_pr", "tiny_pr")
 GIT_OPERATION_IDS = (
@@ -398,6 +402,18 @@ def main() -> int:
             failures,
         )
 
+    for contract_test in ARCHITECTURAL_CONTRACT_TESTS:
+        contract_result = run(
+            [sys.executable, "-B", str(contract_test)],
+            ROOT,
+        )
+        require(
+            contract_result.returncode == 0,
+            f"architectural source-contract test failed ({contract_test.name}): "
+            f"{contract_result.stderr or contract_result.stdout}",
+            failures,
+        )
+
     ci_workflow = (ROOT / ".github/workflows/validate.yml").read_text(
         encoding="utf-8"
     )
@@ -481,6 +497,48 @@ def main() -> int:
             projects[profile] = target
             project_json = json.loads(
                 (target / ".agent/project.json").read_text(encoding="utf-8")
+            )
+            origin = json.loads(
+                (target / ".project-blueprint-origin.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            require(
+                origin["blueprint_version"] == "3.1.0"
+                and origin["generator_version"] == "3.1.0"
+                and origin["harness_kernel_version"] == "3.0.0"
+                and origin["initial_generation"]["blueprint_version"] == "3.1.0"
+                and origin["initial_generation"]["generator_version"] == "3.1.0",
+                f"{profile} conflated Blueprint/generator provenance with the unchanged kernel",
+                failures,
+            )
+            generated_inventory = set(origin["generated_paths"])
+            require(
+                not any(
+                    path.startswith("patterns/")
+                    or path in {
+                        "ARCHITECTURE_DECISIONS.md",
+                        "ARCHITECTURAL_PATTERN_INTEGRATION_REVIEW.md",
+                    }
+                    for path in generated_inventory
+                ),
+                f"{profile} generated a source-only pattern or source decision artifact",
+                failures,
+            )
+            context_schema = (
+                target / ".agent/schemas/context-pack-manifest.schema.json"
+            )
+            require(
+                context_schema.is_file() is (profile == "high-assurance"),
+                f"{profile} Context Pack optional-schema inventory is incorrect",
+                failures,
+            )
+            context_directory = target / "project-dossier/context-packs"
+            require(
+                not context_directory.is_dir()
+                or not any(context_directory.glob("*.json")),
+                f"{profile} generated a Context Pack manifest or adoption record",
+                failures,
             )
             require(
                 project_json["project"]["name"] == names[profile],
@@ -623,6 +681,7 @@ def main() -> int:
                 failures,
             )
             leaked_paths: list[str] = []
+            source_pattern_paths: list[str] = []
             for generated_path in target.rglob("*"):
                 if not generated_path.is_file():
                     continue
@@ -641,10 +700,33 @@ def main() -> int:
                     )
                 ):
                     leaked_paths.append(generated_path.relative_to(target).as_posix())
+                if any(
+                    marker in generated_text
+                    for marker in (
+                        "pat-0001",
+                        "pat-0002",
+                        "pat-0003",
+                        "lifecycle-disposition",
+                        "governed-change-and-effects",
+                        "src-dec-0003",
+                        "src-dec-0004",
+                        "src-dec-0005",
+                        "src-dec-0006",
+                    )
+                ):
+                    source_pattern_paths.append(
+                        generated_path.relative_to(target).as_posix()
+                    )
             require(
                 not leaked_paths,
                 f"{profile} generated current-repository identities or hosted facts: "
                 + ", ".join(leaked_paths),
+                failures,
+            )
+            require(
+                not source_pattern_paths,
+                f"{profile} generated source-only catalog content: "
+                + ", ".join(source_pattern_paths),
                 failures,
             )
             extension_registry_path = target / ".agent/extensions/registry.json"
@@ -780,6 +862,234 @@ def main() -> int:
                     ".git", ".DS_Store", "__pycache__", "*.pyc"
                 ),
             )
+        for layer, profile in (
+            ("core", "minimal"),
+            ("standard", "standard"),
+            ("high-assurance", "high-assurance"),
+        ):
+            injected_template = (
+                broken_skill
+                / "assets/templates"
+                / layer
+                / "source-only-watchlist.md.tmpl"
+            )
+            injected_template.write_text(
+                "# Synthetic source-only watchlist\n",
+                encoding="utf-8",
+            )
+            boundary_target = temp_root / f"policy-boundary-{profile}"
+            result = run(
+                [
+                    sys.executable,
+                    "-B",
+                    str(broken_skill / "scripts/scaffold_project.py"),
+                    "--target",
+                    str(boundary_target),
+                    "--project-name",
+                    f"Policy Boundary {profile}",
+                    "--profile",
+                    profile,
+                ],
+                broken_source,
+            )
+            require(
+                result.returncode == 0
+                and "Generation capability: degraded" in result.stdout
+                and "information_degradation" in result.stdout
+                and "source-only-watchlist.md.tmpl" in result.stdout,
+                f"{profile} did not degrade truthfully for an unreviewed input: "
+                f"{result.stderr or result.stdout}",
+                failures,
+            )
+            require(
+                boundary_target.is_dir()
+                and not (boundary_target / "source-only-watchlist.md").exists(),
+                f"{profile} generated an ignored unreviewed input",
+                failures,
+            )
+            diagnostic = run(
+                [
+                    sys.executable,
+                    "-B",
+                    str(broken_skill / "scripts/scaffold_project.py"),
+                    "--diagnose-generation-policy",
+                    "--profile",
+                    profile,
+                ],
+                broken_source,
+            )
+            require(
+                diagnostic.returncode == 1
+                and '"operation_mode": "recovering"' in diagnostic.stdout
+                and '"capability_status": "degraded"' in diagnostic.stdout
+                and "source-only-watchlist.md.tmpl" in diagnostic.stdout
+                and "ignored and never generated" in diagnostic.stdout
+                and "review_required_not_approved" in diagnostic.stdout,
+                f"{profile} diagnostics did not expose recovery guidance: "
+                f"{diagnostic.stderr or diagnostic.stdout}",
+                failures,
+            )
+            injected_template.unlink()
+
+        unrelated_high_template = (
+            broken_skill
+            / "assets/templates/high-assurance/unreviewed-high-only.md.tmpl"
+        )
+        unrelated_high_template.write_text(
+            "# Unreviewed High-Assurance-only input\n",
+            encoding="utf-8",
+        )
+        unaffected_minimal_target = temp_root / "unaffected-minimal"
+        result = run(
+            [
+                sys.executable,
+                "-B",
+                str(broken_skill / "scripts/scaffold_project.py"),
+                "--target",
+                str(unaffected_minimal_target),
+                "--project-name",
+                "Unaffected Minimal",
+                "--profile",
+                "minimal",
+            ],
+            broken_source,
+        )
+        require(
+            result.returncode == 0
+            and "Generation capability: normal" in result.stdout
+            and "unreviewed-high-only" not in result.stdout
+            and not (
+                unaffected_minimal_target / "unreviewed-high-only.md"
+            ).exists(),
+            "an unrelated High-Assurance drift degraded Minimal generation: "
+            f"{result.stderr or result.stdout}",
+            failures,
+        )
+        unrelated_high_template.unlink()
+
+        missing_high_template = (
+            broken_skill
+            / "assets/templates/high-assurance/.agent/metrics/README.md.tmpl"
+        )
+        missing_high_text = missing_high_template.read_text(encoding="utf-8")
+        missing_high_template.unlink()
+        isolated_minimal_target = temp_root / "isolated-minimal"
+        result = run(
+            [
+                sys.executable,
+                "-B",
+                str(broken_skill / "scripts/scaffold_project.py"),
+                "--target",
+                str(isolated_minimal_target),
+                "--project-name",
+                "Isolated Minimal",
+                "--profile",
+                "minimal",
+            ],
+            broken_source,
+        )
+        require(
+            result.returncode == 0
+            and "Generation capability: normal" in result.stdout,
+            "a missing High-Assurance dependency blocked Minimal generation: "
+            f"{result.stderr or result.stdout}",
+            failures,
+        )
+        blocked_high_target = temp_root / "blocked-high-assurance"
+        result = run(
+            [
+                sys.executable,
+                "-B",
+                str(broken_skill / "scripts/scaffold_project.py"),
+                "--target",
+                str(blocked_high_target),
+                "--project-name",
+                "Blocked High Assurance",
+                "--profile",
+                "high-assurance",
+            ],
+            broken_source,
+        )
+        require(
+            result.returncode != 0
+            and "high-assurance generation capability is blocked"
+            in (result.stderr or result.stdout)
+            and "dependency_degradation" in (result.stderr or result.stdout)
+            and not blocked_high_target.exists(),
+            "a missing High-Assurance dependency did not block only that profile: "
+            f"{result.stderr or result.stdout}",
+            failures,
+        )
+        missing_high_template.write_text(missing_high_text, encoding="utf-8")
+
+        strict_drift_template = (
+            broken_source
+            / "skills/project-bootstrap/assets/templates/high-assurance/"
+            "strict-ci-drift.md.tmpl"
+        )
+        strict_drift_template.write_text(
+            "# Strict repository drift fixture\n",
+            encoding="utf-8",
+        )
+        strict_result = run(
+            [
+                sys.executable,
+                "-B",
+                str(
+                    broken_source
+                    / "skills/project-bootstrap/scripts/"
+                    "validate_source_contracts.py"
+                ),
+            ],
+            broken_source,
+        )
+        require(
+            strict_result.returncode != 0
+            and "generation inventory drift [information_degradation]"
+            in (strict_result.stderr or strict_result.stdout)
+            and "strict-ci-drift.md.tmpl"
+            in (strict_result.stderr or strict_result.stdout),
+            "repository validation did not remain strict under ignored drift: "
+            f"{strict_result.stderr or strict_result.stdout}",
+            failures,
+        )
+        strict_drift_template.unlink()
+
+        source_policy_path = (
+            broken_source / "shared/source-contracts/generation-policy.json"
+        )
+        source_policy_text = source_policy_path.read_text(encoding="utf-8")
+        invalid_source_policy = json.loads(source_policy_text)
+        invalid_source_policy["permission_grant"] = True
+        source_policy_path.write_text(
+            json.dumps(invalid_source_policy, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        authority_target = temp_root / "authority-degraded-target"
+        authority_result = run(
+            [
+                sys.executable,
+                "-B",
+                str(broken_skill / "scripts/scaffold_project.py"),
+                "--target",
+                str(authority_target),
+                "--project-name",
+                "Authority Degraded",
+                "--profile",
+                "minimal",
+            ],
+            broken_source,
+        )
+        require(
+            authority_result.returncode != 0
+            and "authority_degradation"
+            in (authority_result.stderr or authority_result.stdout)
+            and not authority_target.exists(),
+            "an invalid generation authority contract was not classified and blocked: "
+            f"{authority_result.stderr or authority_result.stdout}",
+            failures,
+        )
+        source_policy_path.write_text(source_policy_text, encoding="utf-8")
         policy_template = (
             broken_skill
             / "assets/templates/core/.agent/policy.json.tmpl"
@@ -1512,7 +1822,14 @@ def main() -> int:
         return 1
     print("PASS: Project Blueprint acceptance suite")
     print("- profiles: minimal, standard, high-assurance")
-    print("- generation: transactional and format-safe")
+    print(
+        "- generation: transactional, format-safe, allowlist-driven, and "
+        "capability-scoped under degradation"
+    )
+    print(
+        "- source-only contracts: catalog/proof assets absent from all profiles; "
+        "Context Pack schema present only in High Assurance without a manifest"
+    )
     print(
         "- maintenance: all-profile refresh plus registered "
         "add, rename, omission, and refusal paths"

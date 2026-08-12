@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://project-blueprint.local/source-schemas/information-state-semantics.schema.json",
+  "title": "Project Blueprint Information-state Semantic Crosswalk",
+  "description": "A source semantic crosswalk, not a universal record status vocabulary.",
+  "$defs": {
+    "role": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "meaning",
+        "information_effect",
+        "may_grant_action_authority",
+        "may_establish_readiness_by_itself",
+        "required_handling"
+      ],
+      "properties": {
+        "name": {
+          "enum": [
+            "authoritative",
+            "observed",
+            "inferred",
+            "proposed",
+            "derived",
+            "historical",
+            "superseded",
+            "stale",
+            "unknown",
+            "intentionally_omitted"
+          ]
+        },
+        "meaning": {
+          "type": "string",
+          "minLength": 1
+        },
+        "information_effect": {
+          "enum": [
+            "declared_scope_authority_only",
+            "bounded_current_observation_only",
+            "non_authoritative_interpretation",
+            "unaccepted_candidate",
+            "source_bound_non_writing_projection",
+            "retained_noncurrent_context",
+            "replaced_noncurrent_context",
+            "invalid_until_revalidated",
+            "unresolved",
+            "explicit_bounded_absence"
+          ]
+        },
+        "may_grant_action_authority": {
+          "const": false
+        },
+        "may_establish_readiness_by_itself": {
+          "const": false
+        },
+        "required_handling": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "document_role",
+    "permission_grant",
+    "universal_status_enum",
+    "aggregate_status_vocabulary",
+    "write_back_rule",
+    "roles",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "project-blueprint.information-state-semantics.v1"
+    },
+    "document_role": {
+      "const": "semantic_crosswalk_not_record_status_vocabulary"
+    },
+    "permission_grant": {
+      "const": false
+    },
+    "universal_status_enum": {
+      "const": false
+    },
+    "aggregate_status_vocabulary": {
+      "const": "owned_by_each_aggregate_not_this_crosswalk"
+    },
+    "write_back_rule": {
+      "const": "non_authoritative_roles_never_write_back_as_authority"
+    },
+    "roles": {
+      "type": "array",
+      "minItems": 10,
+      "maxItems": 10,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/role"
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  }
+}

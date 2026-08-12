@@ -2137,10 +2137,12 @@
       "recommended_name": "Bounded context packs",
       "category": "agent_context",
       "classification": "optional",
-      "purpose": "Package selectively loaded, size-bounded context for recurring specialist work without duplicating authority.",
+      "purpose": "Package selectively loaded, size-bounded, versioned context for a declared purpose and consumer without duplicating authority or permission.",
       "questions": [
-        "What is the smallest context needed for this task class?",
-        "Which authoritative sources and freshness rules does it reference?"
+        "What exact purpose, consumer, task class, and scope apply?",
+        "Which exact source versions and authority states does it reference?",
+        "When does it expire, require revalidation, become invalid or revoked, and require deletion?",
+        "Which sensitivity and use restrictions apply, what is excluded, and what does possession of the pack not prove?"
       ],
       "intended_audiences": [
         "agents",
@@ -2150,8 +2152,15 @@
       "owner_role": "dossier_maintainer",
       "required_inputs": [
         "task_routing_needs",
-        "authoritative_source_map",
-        "context_budget"
+        "intended_consumer",
+        "task_class",
+        "bounded_scope",
+        "exact_source_versions_and_authority_status",
+        "context_budget",
+        "sensitivity_and_allowed_use",
+        "validity_and_revalidation",
+        "retention_and_deletion",
+        "owner_and_limitations"
       ],
       "downstream_consumers": [
         "agent_skills",
@@ -2160,7 +2169,7 @@
       ],
       "recommended_formats": [
         "Markdown",
-        "JSON index"
+        "project-blueprint.context-pack-manifest.v1 JSON when applicable"
       ],
       "source_of_truth_expectations": "Derived or curated navigation only; packs may narrow context but never replace sources or expand authority.",
       "dependencies": [
@@ -2172,13 +2181,25 @@
         "source_change",
         "task_pattern_change",
         "context_budget_breach",
-        "staleness"
+        "staleness",
+        "validity_expiry",
+        "invalidation_trigger",
+        "revocation",
+        "consumer_or_use_change",
+        "sensitivity_or_retention_change"
       ],
       "review_cadence": "on_source_change_and_quarterly_when_active",
       "validation_checks": [
-        "source_refs_resolve",
-        "size_budget_met",
-        "freshness_visible",
+        "identity_and_version_present",
+        "purpose_consumer_task_and_scope_exact",
+        "source_refs_versions_and_authority_status_exact",
+        "creation_freshness_validity_and_revalidation_valid",
+        "sensitivity_and_allowed_use_enforced",
+        "retention_and_deletion_explicit",
+        "invalidation_and_revocation_enforced",
+        "exclusions_and_size_budget_enforced",
+        "owner_and_limits_present",
+        "permission_grant_false",
         "no_authority_expansion_or_mutable_fact_duplication"
       ],
       "triggers": [
@@ -2186,7 +2207,7 @@
         "specialist_routing",
         "repeated_agent_work"
       ],
-      "omission_or_combination": "Omit when the dossier index and handoff already provide sufficient bounded context.",
+      "omission_or_combination": "Omit when the dossier index and handoff already provide sufficient bounded context. Generation supplies only the High-Assurance optional schema and an unassessed entry point; it never creates a manifest or adopts CTX-0001.",
       "representative_evidence": [
         "CF:project-dossier/v0.2/agent-handoff/context-packs/",
         "Inferred: COE compact handoff demonstrates bounded routing without separate packs"

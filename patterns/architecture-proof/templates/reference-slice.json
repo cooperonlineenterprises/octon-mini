@@ -1,0 +1,74 @@
+{
+  "schema_version": "project-blueprint.architecture-proof.v1",
+  "id": "PROOF-0000",
+  "proof_kind": "reference_slice",
+  "status": "template",
+  "permission_grant": false,
+  "production_readiness_inference": false,
+  "title": "Replace with the minimal end-to-end reference slice",
+  "hypothesis": "Replace with the end-to-end architecture claim this slice can falsify.",
+  "subject": {
+    "identifier": "not_assessed",
+    "version_or_revision": "not_assessed",
+    "configuration": "not_assessed"
+  },
+  "environment": {
+    "description": "not_assessed",
+    "source_revision": "not_assessed",
+    "toolchain_versions": [
+      "not_assessed"
+    ]
+  },
+  "acceptance_criteria": [
+    "Replace with the smallest complete boundary-crossing result."
+  ],
+  "stop_criteria": [
+    "Stop when the key boundary cannot satisfy its declared invariant."
+  ],
+  "adversarial_cases": [
+    {
+      "id": "CASE-0000",
+      "condition": "Replace with a boundary failure or stale dependency.",
+      "expected_behavior": "Replace with the fail-closed or recoverable behavior.",
+      "result": "not_run",
+      "evidence_refs": [
+        "not_assessed"
+      ]
+    }
+  ],
+  "method": [
+    "Replace with the exact slice construction and validation method."
+  ],
+  "evidence_refs": [
+    "not_assessed"
+  ],
+  "failures": [
+    "not_assessed"
+  ],
+  "skipped_checks": [
+    "All checks remain unassessed in this source-only template."
+  ],
+  "cleanup_or_rollback": {
+    "strategy": "Replace with disposal of the slice and preservation of evidence.",
+    "status": "not_assessed",
+    "evidence_refs": [
+      "not_assessed"
+    ],
+    "residual_effects": [
+      "not_assessed"
+    ]
+  },
+  "limitations": [
+    "A minimal slice does not prove scale, operations, security, or production suitability."
+  ],
+  "conclusion": "not_assessed",
+  "non_proven_implications": [
+    "Template completion does not prove production readiness."
+  ],
+  "decision_refs": [
+    "not_assessed"
+  ],
+  "owner": "unassigned",
+  "created_on": null,
+  "completed_on": null
+}

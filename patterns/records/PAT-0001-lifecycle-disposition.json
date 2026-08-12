@@ -1,0 +1,120 @@
+{
+  "schema_version": "project-blueprint.pattern-record.v1",
+  "id": "PAT-0001",
+  "slug": "lifecycle-disposition",
+  "title": "Owned lifecycle, disposition, and no-orphan residue",
+  "pattern_version": "1.0.0",
+  "status": "reviewed",
+  "status_changed_on": "2026-08-11",
+  "permission_grant": false,
+  "automatic_generation": false,
+  "automatic_adoption": false,
+  "universal_kernel": false,
+  "problem": "Durable temporary resources can outlive a task or process and become orphaned, unsafe, costly, or destructive to evidence when their terminal disposition is unspecified.",
+  "invariant": "A triggered durable temporary resource has an owner, bounded purpose, lifecycle boundary, evidence-aware terminal disposition, and explicit retention or cleanup basis.",
+  "applicability_triggers": [
+    "A temporary resource is durable across sessions or process boundaries.",
+    "The resource is costly, sensitive, externally allocated, or required by evidence or recovery."
+  ],
+  "non_applicability_triggers": [
+    "The value is process-local, disposable, and cannot outlive its owning operation.",
+    "An existing task, artifact, lease, or operations record already owns the complete lifecycle."
+  ],
+  "exclusions": [
+    "No universal temporary-resource registry.",
+    "No domain residue, inventory, or perishability vocabulary.",
+    "No cleanup action without separately valid authority."
+  ],
+  "required_contracts": [
+    "Exact subject and owner.",
+    "Purpose and lifecycle class.",
+    "Creation, validity, and expiry boundary.",
+    "Evidence dependencies and retention constraints.",
+    "Terminal disposition, cleanup basis, and limitations."
+  ],
+  "prohibited_shortcuts": [
+    "Treating process exit as proof of cleanup.",
+    "Deleting a resource that is still required by evidence or recovery.",
+    "Recording every trivial ephemeral value as durable governance state."
+  ],
+  "failure_recovery_semantics": [
+    "An expired or ownerless triggered resource is unresolved, not silently clean.",
+    "Cleanup failure preserves discoverability and records residual consequences.",
+    "Evidence retention overrides cleanup only through an explicit bounded basis."
+  ],
+  "proof_expectations": [
+    "Demonstrate the exact durable resource and lifecycle boundary.",
+    "Exercise expiry, terminal disposition, orphan detection, and cleanup failure.",
+    "Prove cleanup preserves referenced evidence and sensitive-data minimization."
+  ],
+  "known_implementations": [
+    "Project Blueprint task cancellation, artifact retention, coordination handback, and operations retirement are partial specialized realizations."
+  ],
+  "evidence": [
+    {
+      "evidence_kind": "architecture_review",
+      "source_ref": "repo:ARCHITECTURAL_PATTERN_INTEGRATION_REVIEW.md#p05--owned-lifecycle-disposition-and-no-orphan-residue",
+      "project_ref": "project-blueprint",
+      "exact_subject": "Project Blueprint 3.0.0 task, artifact, lease, Git cleanup, and operations contracts",
+      "supports": "Existing specialized lifecycles cover common cases while a generic durable-temporary-resource contract remains optional.",
+      "independent_project": false,
+      "limitations": [
+        "This architecture review is not an adopting-project proof."
+      ]
+    }
+  ],
+  "contrary_evidence": [],
+  "compatibility": {
+    "minimum_blueprint_version": "3.1.0",
+    "kernel_effect": "none",
+    "generated_project_effect": "none_until_separately_adopted",
+    "breaking_change": false,
+    "migration_posture": "Catalog admission only; no existing project record is converted or created.",
+    "stable_support_commitment": false
+  },
+  "migration": {
+    "required": false,
+    "automatic": false,
+    "guidance": "Catalog admission creates no generated-project record. A future adopter must reconcile any project-owned lifecycle records explicitly."
+  },
+  "complexity": [
+    "Adds ownership and cleanup bookkeeping when adopted."
+  ],
+  "operator_burden": [
+    "Requires periodic expiry and disposition review for triggered resources."
+  ],
+  "optional_assets": [],
+  "modules": [],
+  "successor": null,
+  "deprecation_reason": null,
+  "rejection_reason": null,
+  "decision_refs": [
+    "SRC-DEC-0006"
+  ],
+  "status_history": [
+    {
+      "from_status": null,
+      "to_status": "candidate",
+      "changed_on": "2026-08-11",
+      "decision_ref": "SRC-DEC-0006",
+      "rationale": "Allocated for explicit architecture review without endorsement."
+    },
+    {
+      "from_status": "candidate",
+      "to_status": "reviewed",
+      "changed_on": "2026-08-11",
+      "decision_ref": "SRC-DEC-0006",
+      "rationale": "Admitted as optional design guidance; implementation awaits a concrete adopter and proof subject."
+    }
+  ],
+  "promotion_policy": {
+    "explicit_architecture_review": true,
+    "independent_project_evidence_for_recommended": true,
+    "compatibility_and_migration_commitment_for_stable": true,
+    "usage_count_is_sufficient": false
+  },
+  "limitations": [
+    "No schema, template, runtime, generated file, or profile default is authorized by this record.",
+    "Applicability and cleanup authority remain project-owned."
+  ]
+}
