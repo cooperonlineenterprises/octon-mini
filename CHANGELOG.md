@@ -3,14 +3,19 @@
 All notable blueprint contract changes are recorded here. Project-specific
 snapshots do not upgrade automatically.
 
-## 3.0.0 — Unreleased
+## 3.0.0 — 2026-08-11
 
 Small-team Git and provider-neutral change-integration workflows for one to
 five write-capable humans.
 
-This unreleased source change also records accepted source-only decisions
+This source release also records accepted source-only decisions
 `SRC-DEC-0001` and `SRC-DEC-0002`. They do not become generated-project
 defaults and create no permission.
+
+Pull request #2 was integrated with `merge_commit` at
+`1af3c1f85cd17e2c840857ad720e1a27e874585a`. GitHub Actions run `31539907441`
+passed the full 12-job matrix on that exact `main` revision, and the annotated
+`v3.0.0` tag was created there on 2026-08-11. No GitHub Release was created.
 
 ### Added
 
@@ -56,10 +61,10 @@ does not establish readiness, permission, or a suitable workflow.
 Dependency-gated development progression for the domain-neutral kernel.
 
 Under accepted source decision `SRC-DEC-0002`, `2.0.0` is a completed
-historical release. Its selected but still-uncreated future annotated
-`v2.0.0` tag target is exactly
-`ef8f352ca32a7fbdf1131726263ff545cdd8b08a`. This changelog does not claim
-that the tag already exists.
+historical release. Its annotated `v2.0.0` tag was created on 2026-08-11 and
+targets exactly `ef8f352ca32a7fbdf1131726263ff545cdd8b08a`. The annotation
+records the actual later tag-creation date and the 2026-08-10 source milestone;
+it was not backdated.
 
 ### Added
 

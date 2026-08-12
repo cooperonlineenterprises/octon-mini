@@ -1,6 +1,6 @@
 # Release and Distribution
 
-## Current source version
+## Current release
 
 - Blueprint version: `3.0.0`
 - Harness kernel: `3.0.0`
@@ -8,15 +8,17 @@
 - Minimum runtime: Python `3.11`
 - Canonical structured format: strict JSON
 
-Version `3.0.0` is the current source target and is not represented as a
-completed release until its exact integrated `main` revision passes hosted CI
-and an annotated `v3.0.0` tag is created in a separately authorized release
-phase. Accepted historical release representation is recorded by
-`SRC-DEC-0002` below. At the 2026-08-11 observation, only `v1.0.0` existed
-locally and remotely and no GitHub Releases existed. Major versions may break
-paths, schemas, IDs, lifecycle semantics, extension compatibility, or migration
-behavior. Minor versions add backward-compatible artifacts or checks. Patch
-versions correct behavior without changing accepted contracts.
+Version `3.0.0` is the current released source version. Pull request #2 was
+integrated with `merge_commit` at
+`1af3c1f85cd17e2c840857ad720e1a27e874585a` on 2026-08-11. GitHub Actions run
+`31539907441` then passed the complete 12-job matrix on that exact `main`
+revision, and the annotated `v3.0.0` tag was created on that revision later the
+same day. At this post-release reconciliation, annotated `v1.0.0`, `v2.0.0`,
+and `v3.0.0` tags exist locally and remotely; no GitHub Release exists. Major
+versions may break paths, schemas, IDs, lifecycle semantics, extension
+compatibility, or migration behavior. Minor versions add backward-compatible
+artifacts or checks. Patch versions correct behavior without changing accepted
+contracts.
 
 ## SRC-DEC-0002 — Historical release representation
 
@@ -26,9 +28,9 @@ versions correct behavior without changing accepted contracts.
 | Authority | Explicit repository-owner approval on 2026-08-11 |
 | Scope | Release representation for this `project-blueprint` source repository only |
 | `1.0.1` | Untagged, superseded source milestone; preserve its content and migration compatibility, but do not create `v1.0.1` |
-| `2.0.0` | Completed historical release; its selected but still-uncreated future annotated `v2.0.0` tag target is exactly `ef8f352ca32a7fbdf1131726263ff545cdd8b08a` |
-| `3.0.0` | Unreleased source target until its exact integrated `main` revision passes hosted CI and is tagged under separate release authority |
-| Permission effect | None; this decision records historical representation and a future target but does not authorize creating or pushing a tag or GitHub Release |
+| `2.0.0` | Completed historical release; its annotated `v2.0.0` tag was created on 2026-08-11 and targets exactly `ef8f352ca32a7fbdf1131726263ff545cdd8b08a` |
+| `3.0.0` | Completed release; its annotated `v3.0.0` tag was created on 2026-08-11 and targets exactly `1af3c1f85cd17e2c840857ad720e1a27e874585a` after the full hosted `main` matrix passed |
+| Permission effect | None; this decision and record do not authorize moving a published tag, creating a GitHub Release, or performing a later release operation |
 
 The `1.0.1` source milestone was committed as
 `d94550a8acf57841eac9458897410391722beb4b` on 2026-08-10, correcting the
@@ -36,15 +38,19 @@ previous changelog date of 2026-07-27. It remains the compatibility source for
 the `1.0.1` to `2.0.0` migration, but it is not a completed tagged release and
 must not receive a `v1.0.1` tag.
 
-Version `2.0.0` is a completed historical release. Its future annotated tag
-must target exactly `ef8f352ca32a7fbdf1131726263ff545cdd8b08a`. The earlier
-`c7bbbb6525d1135cd3acb3b64743240f5c00ec50` revision is excluded because its
-hosted validation failed and two corrective commits followed it. The
-`v2.0.0` tag has not been created. Any future annotation must disclose its
-actual creation date and must not be backdated.
+Version `2.0.0` is a completed historical release. Its annotated tag was
+created on 2026-08-11 and targets exactly
+`ef8f352ca32a7fbdf1131726263ff545cdd8b08a`. The annotation records its actual
+later creation date and the 2026-08-10 source milestone; it was not backdated.
+The earlier `c7bbbb6525d1135cd3acb3b64743240f5c00ec50` revision remains excluded
+because its hosted validation failed and two corrective commits followed it.
 
-Version `3.0.0` remains untagged and unreleased. Neither this record nor the
-release gate authorizes a tag, GitHub Release, merge, or hosted-setting change.
+Version `3.0.0` is released. Its annotated tag targets the exact merge commit
+`1af3c1f85cd17e2c840857ad720e1a27e874585a`, whose post-integration `main`
+validation passed in GitHub Actions run `31539907441`. The tag was created on
+2026-08-11 after that run completed. No GitHub Release was created. Neither
+this record nor the release gate authorizes moving the tag, creating a GitHub
+Release, merging a later change, or changing hosted settings.
 
 ## Release gate
 
