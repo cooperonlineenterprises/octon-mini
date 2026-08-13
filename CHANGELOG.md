@@ -3,6 +3,62 @@
 All notable blueprint contract changes are recorded here. Project-specific
 snapshots do not upgrade automatically.
 
+## 4.0.0 — Unreleased
+
+Velocity-focused major kernel release for solo developers, pairs, and tiny
+teams, with concurrent human/agent/automation work modeled separately from
+assurance profile.
+
+### Added
+
+- one authoritative profile, layout, package, inventory, and acceptance
+  manifest, including criterion-level coverage for all 15 acceptance criteria;
+- fast, integration, and release validation tiers, bounded mutation baselines,
+  scale benchmarks, structured diagnostic codes, and read-only `pb doctor`;
+- a shared staged plan/apply framework with target and instruction
+  fingerprints, write-ahead recovery journals, exact receipts, safe rollback,
+  and no force bypass;
+- transactional work lifecycle, derived current state, explicit focus source,
+  registry reconciliation, selective project checks, evidence archives, and
+  resume/handoff views;
+- guided initialization, content-aware adoption, progressive collaboration v2,
+  safe detector recipes, content-addressed Git/domain packages, and a
+  three-way live upgrade planner;
+- independent compact and separated physical dossier layouts; and
+- origin inventory v2, proposal/transaction/diagnostic/package/SCM/hook/focus/
+  collaboration/upgrade schemas and the 3.1.0-to-4.0.0 migration guide;
+- executable velocity journeys for guided creation, dirty-repository adoption,
+  archetype detection, collaboration bands, lifecycle, interruption recovery,
+  and stale-plan refusal; and
+- golden paths, compatibility/deprecation guidance, a touchpoint/measurement
+  plan, and 0/2k/10k/20k benchmark reporting.
+
+### Changed
+
+- non-interactive generation requires an explicit profile; interactive init
+  proposes Minimal and requires confirmation;
+- `state/current.json` is fully derived while non-derivable operator intent is
+  stored in `state/focus.json`;
+- the Git workflow portfolio and operations/security extensions are no longer
+  universal payloads and are installed only through reviewed, digest-bound
+  trigger transactions;
+- compact dossier representation is the new-project default without becoming
+  an assurance or collaboration profile;
+- primitive scaffolding uses structural plus bounded fast validation, while
+  consequential init/adoption/upgrade/release transactions retain release-tier
+  staging; and
+- the Blueprint, generator, and harness kernel advance to 4.0.0.
+
+### Compatibility and migration note
+
+Generated snapshots remain independent. Existing 3.1.0 projects are never
+rewritten automatically; use the reviewed migration seed and `pb upgrade
+plan|apply`. Only exact-pristine non-authoritative implementation assets, safe
+additions, and derived regeneration are automatic. Instructions, policy,
+configuration, workflows, dossier sources, registries, records, stable IDs,
+deletions, moves, permissions, and symlinks require explicit review. Structural
+conformance, harness adoption, and target-project readiness remain distinct.
+
 ## 3.1.0 — Unreleased
 
 Source-governed architectural pattern integration without a universal-kernel

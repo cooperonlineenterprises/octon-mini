@@ -18,14 +18,8 @@ from datetime import date
 from pathlib import Path, PurePath, PurePosixPath
 
 
-GENERATOR_VERSION = "3.1.0"
-KERNEL_VERSION = "3.0.0"
-PROFILE_LAYERS = {
-    "minimal": ("core",),
-    "standard": ("core", "standard"),
-    "high-assurance": ("core", "standard", "high-assurance"),
-}
-PROFILE_RANK = {"minimal": 0, "standard": 1, "high-assurance": 2}
+GENERATOR_VERSION = "4.0.0"
+KERNEL_VERSION = "4.0.0"
 KNOWN_VARIABLES = {
     "PROJECT_NAME",
     "PROJECT_NAME_JSON",
@@ -36,29 +30,26 @@ KNOWN_VARIABLES = {
     "PROFILE",
     "HARNESS_REFRESH_COMMAND",
     "HARNESS_REFRESH_WRITES",
+    "PROFILE_OPERATIONAL_FILES_JSON",
+    "DERIVED_OPERATIONAL_FILES_JSON",
+    "KERNEL_FILES_JSON",
+    "GIT_PORTFOLIO_SHA256",
 }
 PLACEHOLDER_RE = re.compile(r"\{\{([A-Z_]+)\}\}")
 SLUG_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
-DERIVED_PATHS = {
-    Path("project-dossier/ARTIFACT_CATALOG.json"),
-    Path("project-dossier/machine-readable/path-authority.json"),
-    Path("project-dossier/MANIFEST.json"),
-}
-PROJECT_LOCAL_SOURCE_PATHS = {
-    Path("project-dossier/machine-readable/artifact-registry.json"),
-}
-HIGH_DERIVED_PATHS = {
-    Path("project-dossier/CHECKSUMS.sha256"),
-    Path(".agent/generated/manifest.json"),
-    Path(".agent/generated/validation-report.json"),
-}
-GENERATION_POLICY_RELATIVE = Path(
-    "shared/source-contracts/generation-policy.json"
+PROFILE_MANIFEST_RELATIVE = Path(
+    "shared/source-contracts/profile-manifest.json"
 )
 GENERATION_POLICY_KEYS = {
     "schema_version",
     "document_role",
     "permission_grant",
+    "profiles",
+    "layouts",
+    "project_paths",
+    "packages",
+    "acceptance_criteria",
+    "documentation_projections",
     "default_disposition",
     "inventory_hash_algorithm",
     "rules",
@@ -80,6 +71,55 @@ GENERATION_RULE_KEYS = {
 }
 GENERATION_OUTPUT_KEYS = {"root", "strip_suffix"}
 FORBIDDEN_OUTPUT_KEYS = {"path", "match", "reason"}
+PROFILE_KEYS = {
+    "id",
+    "rank",
+    "layers",
+    "label",
+    "selection_basis",
+    "collaboration_independent",
+}
+PROJECT_PATH_KEYS = {
+    "kernel_files",
+    "origin",
+    "project_local_sources",
+    "derived_outputs",
+    "operational_projection",
+}
+PACKAGE_KEYS = {
+    "id",
+    "kind",
+    "version",
+    "sha256",
+    "source",
+    "inventory_paths",
+    "profiles",
+    "installation",
+    "trigger",
+    "permission_grant",
+}
+ACCEPTANCE_CRITERION_KEYS = {"id", "title", "release_coverage"}
+DOCUMENTATION_PROJECTION_KEYS = {"id", "source", "targets"}
+LAYOUT_KEYS = {
+    "id",
+    "default",
+    "description",
+    "omit_paths",
+    "template_overrides",
+    "registry_combinations",
+}
+LAYOUT_OVERRIDE_KEYS = {"output_path", "source"}
+LAYOUT_COMBINATION_KEYS = {
+    "retained_representation_id",
+    "absorbed_representation_ids",
+    "artifact_type_ids",
+    "representation_role",
+    "authority",
+    "applicability_rationale",
+    "owner_role",
+    "review_cadence",
+    "update_triggers",
+}
 
 
 def canonical_posix_paths(paths: Iterable[PurePath]) -> list[str]:
@@ -211,6 +251,26 @@ def generation_inventory_digest(paths: list[str]) -> str:
     return hashlib.sha256(payload).hexdigest()
 
 
+def package_content_digest(root: Path, paths: list[str]) -> str:
+    digest = hashlib.sha256()
+    for relative in sorted(paths):
+        source = root.joinpath(*PurePosixPath(relative).parts)
+        if not source.is_file() or source.is_symlink():
+            raise ValueError(f"package inventory source is absent or unsafe: {relative}")
+        digest.update(relative.encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(source.read_bytes())
+        digest.update(b"\0")
+    return digest.hexdigest()
+
+
+def package_contract(policy: dict[str, object], package_id: str) -> dict[str, object]:
+    for raw in policy.get("packages", []):
+        if isinstance(raw, dict) and raw.get("id") == package_id:
+            return raw
+    raise ValueError(f"profile manifest lacks package {package_id}")
+
+
 def generation_inventory_path(value: object, label: str) -> str:
     if not isinstance(value, str) or not value or "\\" in value:
         raise ValueError(f"{label}: invalid relative path {value!r}")
@@ -320,30 +380,374 @@ def observed_generation_rule_paths(rule: dict[str, object]) -> list[str]:
     )
 
 
+def profile_contracts(manifest: dict[str, object]) -> dict[str, dict[str, object]]:
+    raw_profiles = manifest.get("profiles")
+    if not isinstance(raw_profiles, list) or not raw_profiles:
+        raise ValueError("profile manifest requires profiles")
+    profiles: dict[str, dict[str, object]] = {}
+    previous_layers: tuple[str, ...] = ()
+    for index, raw in enumerate(raw_profiles):
+        label = f"profile manifest profile {index}"
+        if not isinstance(raw, dict) or set(raw) != PROFILE_KEYS:
+            raise ValueError(f"{label}: invalid profile contract")
+        profile_id = raw.get("id")
+        rank = raw.get("rank")
+        layers = raw.get("layers")
+        if (
+            not isinstance(profile_id, str)
+            or not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", profile_id)
+            or profile_id in profiles
+            or rank != index
+            or not isinstance(layers, list)
+            or not layers
+            or len(layers) != len(set(layers))
+            or any(
+                not isinstance(layer, str)
+                or not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", layer)
+                for layer in layers
+            )
+            or tuple(layers[:-1]) != previous_layers
+            or raw.get("collaboration_independent") is not True
+            or not isinstance(raw.get("label"), str)
+            or not str(raw.get("label")).strip()
+            or not isinstance(raw.get("selection_basis"), str)
+            or not str(raw.get("selection_basis")).strip()
+        ):
+            raise ValueError(f"{label}: invalid, non-cumulative, or duplicate profile")
+        profiles[profile_id] = raw
+        previous_layers = tuple(layers)
+    return profiles
+
+
+def profile_layers(manifest: dict[str, object]) -> dict[str, tuple[str, ...]]:
+    return {
+        profile_id: tuple(str(layer) for layer in profile["layers"])
+        for profile_id, profile in profile_contracts(manifest).items()
+    }
+
+
+def profile_ranks(manifest: dict[str, object]) -> dict[str, int]:
+    return {
+        profile_id: int(profile["rank"])
+        for profile_id, profile in profile_contracts(manifest).items()
+    }
+
+
+def layout_contracts(manifest: dict[str, object]) -> dict[str, dict[str, object]]:
+    raw_layouts = manifest.get("layouts")
+    if not isinstance(raw_layouts, list) or not raw_layouts:
+        raise ValueError("profile manifest requires layout contracts")
+    layouts: dict[str, dict[str, object]] = {}
+    defaults: list[str] = []
+    for index, raw in enumerate(raw_layouts):
+        label = f"profile manifest layout {index}"
+        if not isinstance(raw, dict) or set(raw) != LAYOUT_KEYS:
+            raise ValueError(f"{label}: invalid layout contract")
+        layout_id = raw.get("id")
+        omitted = raw.get("omit_paths")
+        overrides = raw.get("template_overrides")
+        combinations = raw.get("registry_combinations")
+        if (
+            layout_id not in {"compact", "separated"}
+            or layout_id in layouts
+            or not isinstance(raw.get("default"), bool)
+            or not isinstance(raw.get("description"), str)
+            or not str(raw.get("description")).strip()
+            or not isinstance(omitted, list)
+            or len(omitted) != len(set(omitted))
+            or not isinstance(overrides, list)
+            or not isinstance(combinations, list)
+        ):
+            raise ValueError(f"{label}: invalid or duplicate layout")
+        omitted_paths = {
+            portable_project_path(item, f"{label} omitted path") for item in omitted
+        }
+        override_outputs: set[Path] = set()
+        for override_index, override in enumerate(overrides):
+            if not isinstance(override, dict) or set(override) != LAYOUT_OVERRIDE_KEYS:
+                raise ValueError(f"{label} override {override_index}: invalid contract")
+            output = portable_project_path(
+                override.get("output_path"), f"{label} override {override_index}"
+            )
+            source = policy_source_path(
+                override.get("source"), f"{label} override {override_index}"
+            )
+            if output in omitted_paths or output in override_outputs:
+                raise ValueError(f"{label}: override output is omitted or duplicated")
+            if source.is_symlink() or not source.is_file():
+                raise ValueError(f"{label}: override source is absent or unsafe")
+            override_outputs.add(output)
+        retained: set[str] = set()
+        absorbed: set[str] = set()
+        for combination_index, combination in enumerate(combinations):
+            if not isinstance(combination, dict) or set(combination) != LAYOUT_COMBINATION_KEYS:
+                raise ValueError(f"{label} combination {combination_index}: invalid contract")
+            retained_id = combination.get("retained_representation_id")
+            absorbed_ids = combination.get("absorbed_representation_ids")
+            artifact_ids = combination.get("artifact_type_ids")
+            if (
+                not isinstance(retained_id, str)
+                or not re.fullmatch(r"REP-[0-9]{4}", retained_id)
+                or retained_id in retained
+                or retained_id in absorbed
+                or not isinstance(absorbed_ids, list)
+                or not absorbed_ids
+                or any(
+                    not isinstance(item, str)
+                    or not re.fullmatch(r"REP-[0-9]{4}", item)
+                    or item == retained_id
+                    for item in absorbed_ids
+                )
+                or len(absorbed_ids) != len(set(absorbed_ids))
+                or set(absorbed_ids) & (retained | absorbed)
+                or not isinstance(artifact_ids, list)
+                or len(artifact_ids) < 2
+                or len(artifact_ids) != len(set(artifact_ids))
+                or any(
+                    not isinstance(item, str)
+                    or not re.fullmatch(r"[A-Z][A-Z0-9]*-[0-9]{4}", item)
+                    for item in artifact_ids
+                )
+                or any(
+                    not isinstance(combination.get(key), str)
+                    or not str(combination.get(key)).strip()
+                    for key in (
+                        "representation_role",
+                        "authority",
+                        "applicability_rationale",
+                        "owner_role",
+                        "review_cadence",
+                    )
+                )
+                or not isinstance(combination.get("update_triggers"), list)
+                or not combination["update_triggers"]
+            ):
+                raise ValueError(f"{label} combination {combination_index}: invalid identity mapping")
+            retained.add(retained_id)
+            absorbed.update(str(item) for item in absorbed_ids)
+        if raw["default"]:
+            defaults.append(str(layout_id))
+        layouts[str(layout_id)] = raw
+    if set(layouts) != {"compact", "separated"} or defaults != ["compact"]:
+        raise ValueError("profile manifest requires compact as the single default layout")
+    return layouts
+
+
+def selected_layout(manifest: dict[str, object], layout: str | None = None) -> dict[str, object]:
+    if "layouts" not in manifest:
+        # Narrow compatibility for synthetic generation-boundary fixtures that
+        # exercise rule behavior without constructing the complete manifest.
+        return {
+            "id": "separated",
+            "default": True,
+            "description": "synthetic fixture layout",
+            "omit_paths": [],
+            "template_overrides": [],
+            "registry_combinations": [],
+        }
+    layouts = layout_contracts(manifest)
+    selected = layout or next(
+        layout_id for layout_id, contract in layouts.items() if contract["default"]
+    )
+    if selected not in layouts:
+        raise ValueError("--layout must be one of: compact, separated")
+    return layouts[selected]
+
+
+def profile_path_applies(
+    profile: str, minimum_profile: object, manifest: dict[str, object]
+) -> bool:
+    ranks = profile_ranks(manifest)
+    if profile not in ranks or minimum_profile not in ranks:
+        raise ValueError("profile path contract refers to an unknown profile")
+    return ranks[str(minimum_profile)] <= ranks[profile]
+
+
+def manifest_project_paths(manifest: dict[str, object]) -> dict[str, object]:
+    project_paths = manifest.get("project_paths")
+    if not isinstance(project_paths, dict) or set(project_paths) != PROJECT_PATH_KEYS:
+        raise ValueError("profile manifest project-path contract is invalid")
+    return project_paths
+
+
+def kernel_paths(manifest: dict[str, object]) -> tuple[Path, ...]:
+    raw_paths = manifest_project_paths(manifest).get("kernel_files")
+    if not isinstance(raw_paths, list) or not raw_paths:
+        raise ValueError("profile manifest requires kernel files")
+    paths = tuple(
+        portable_project_path(item, "profile manifest kernel file")
+        for item in raw_paths
+    )
+    if len(paths) != len(set(paths)):
+        raise ValueError("profile manifest repeats a kernel file")
+    return paths
+
+
+def project_local_source_paths(
+    profile: str, manifest: dict[str, object]
+) -> set[Path]:
+    raw_sources = manifest_project_paths(manifest).get("project_local_sources")
+    if not isinstance(raw_sources, list) or not raw_sources:
+        raise ValueError("profile manifest requires project-local source paths")
+    paths: set[Path] = set()
+    for index, raw in enumerate(raw_sources):
+        if not isinstance(raw, dict) or set(raw) != {
+            "path",
+            "minimum_profile",
+            "ownership",
+        }:
+            raise ValueError(f"project-local source {index}: invalid contract")
+        if profile_path_applies(profile, raw.get("minimum_profile"), manifest):
+            path = portable_project_path(raw.get("path"), f"project-local source {index}")
+            if path in paths:
+                raise ValueError("profile manifest repeats a project-local source path")
+            paths.add(path)
+    return paths
+
+
+def derived_output_paths(profile: str, manifest: dict[str, object]) -> set[Path]:
+    raw_outputs = manifest_project_paths(manifest).get("derived_outputs")
+    if not isinstance(raw_outputs, list) or not raw_outputs:
+        raise ValueError("profile manifest requires derived output paths")
+    paths: set[Path] = set()
+    for index, raw in enumerate(raw_outputs):
+        if not isinstance(raw, dict) or set(raw) != {
+            "path",
+            "minimum_profile",
+            "writer",
+            "ownership",
+        }:
+            raise ValueError(f"derived output {index}: invalid contract")
+        if raw.get("writer") != "refresh":
+            raise ValueError(f"derived output {index}: writer must remain refresh")
+        if profile_path_applies(profile, raw.get("minimum_profile"), manifest):
+            path = portable_project_path(raw.get("path"), f"derived output {index}")
+            if path in paths:
+                raise ValueError("profile manifest repeats a derived output path")
+            paths.add(path)
+    return paths
+
+
+def origin_path(manifest: dict[str, object]) -> Path:
+    origin = manifest_project_paths(manifest).get("origin")
+    if (
+        not isinstance(origin, dict)
+        or set(origin) != {"path", "ownership"}
+        or origin.get("ownership") != "generated_snapshot_provenance"
+    ):
+        raise ValueError("profile manifest origin contract is invalid")
+    return portable_project_path(origin.get("path"), "profile manifest origin")
+
+
 def load_generation_policy() -> dict[str, object]:
-    path = blueprint_root() / GENERATION_POLICY_RELATIVE
+    """Load the authoritative profile manifest and its generation boundary."""
+    path = blueprint_root() / PROFILE_MANIFEST_RELATIVE
     value = load_json(path)
     if not isinstance(value, dict) or set(value) != GENERATION_POLICY_KEYS:
-        raise ValueError("generation policy has an invalid top-level contract")
+        raise ValueError("profile manifest has an invalid top-level contract")
     if (
-        value.get("schema_version") != "project-blueprint.generation-policy.v2"
+        value.get("schema_version") != "project-blueprint.profile-manifest.v1"
         or value.get("document_role")
-        != "authoritative_source_to_generated_snapshot_disposition"
+        != "authoritative_profile_inventory_acceptance_and_generation_manifest"
         or value.get("permission_grant") is not False
         or value.get("default_disposition") != "source_only"
         or value.get("inventory_hash_algorithm")
         != "sha256_sorted_relative_posix_paths_newline_v1"
     ):
-        raise ValueError("generation policy identity or non-authority contract differs")
+        raise ValueError("profile manifest identity or non-authority contract differs")
+
+    profiles = profile_contracts(value)
+    layout_contracts(value)
+    valid_profiles = set(profiles)
+    project_local_source_paths(next(iter(profiles)), value)
+    kernel_paths(value)
+    for profile in profiles:
+        derived_output_paths(profile, value)
+    origin_path(value)
+
+    packages = value.get("packages")
+    if not isinstance(packages, list) or not packages:
+        raise ValueError("profile manifest requires package declarations")
+    package_ids: set[str] = set()
+    for index, raw in enumerate(packages):
+        label = f"profile manifest package {index}"
+        if not isinstance(raw, dict) or set(raw) != PACKAGE_KEYS:
+            raise ValueError(f"{label}: invalid package contract")
+        package_id = raw.get("id")
+        package_profiles = raw.get("profiles")
+        if (
+            not isinstance(package_id, str)
+            or not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", package_id)
+            or package_id in package_ids
+            or raw.get("permission_grant") is not False
+            or not isinstance(package_profiles, list)
+            or not package_profiles
+            or len(package_profiles) != len(set(package_profiles))
+            or any(item not in valid_profiles for item in package_profiles)
+            or not isinstance(raw.get("kind"), str)
+            or not isinstance(raw.get("version"), str)
+            or not re.fullmatch(r"\d+\.\d+\.\d+", str(raw.get("version")))
+            or not isinstance(raw.get("sha256"), str)
+            or not re.fullmatch(r"[a-f0-9]{64}", str(raw.get("sha256")))
+            or not isinstance(raw.get("source"), str)
+            or not isinstance(raw.get("inventory_paths"), list)
+            or not raw.get("inventory_paths")
+            or any(not isinstance(item, str) or not item for item in raw["inventory_paths"])
+            or not isinstance(raw.get("installation"), str)
+            or not isinstance(raw.get("trigger"), str)
+            or not str(raw.get("trigger")).strip()
+        ):
+            raise ValueError(f"{label}: invalid or duplicate package")
+        package_ids.add(package_id)
+        source = policy_source_path(raw["source"], f"{label}.source")
+        inventory = [str(item) for item in raw["inventory_paths"]]
+        if not source.is_dir() or package_content_digest(source, inventory) != raw["sha256"]:
+            raise ValueError(f"{label}: content-addressed package inventory differs")
+
+    acceptance = value.get("acceptance_criteria")
+    if not isinstance(acceptance, list) or not acceptance:
+        raise ValueError("profile manifest requires acceptance criteria")
+    for index, raw in enumerate(acceptance, 1):
+        if (
+            not isinstance(raw, dict)
+            or set(raw) != ACCEPTANCE_CRITERION_KEYS
+            or raw.get("id") != index
+            or not isinstance(raw.get("title"), str)
+            or not re.fullmatch(r"[a-z0-9]+(?:_[a-z0-9]+)*", str(raw.get("title")))
+            or raw.get("release_coverage")
+            not in {
+                "automated_pass",
+                "project_demonstration_required",
+                "not_exercised",
+            }
+        ):
+            raise ValueError(f"acceptance criterion {index}: invalid contract")
+
+    projections = value.get("documentation_projections")
+    if not isinstance(projections, list) or not projections:
+        raise ValueError("profile manifest requires documentation projections")
+    projection_ids: set[str] = set()
+    for index, raw in enumerate(projections):
+        if (
+            not isinstance(raw, dict)
+            or set(raw) != DOCUMENTATION_PROJECTION_KEYS
+            or not isinstance(raw.get("id"), str)
+            or raw.get("id") in projection_ids
+            or raw.get("source") not in {"profiles", "acceptance_criteria"}
+            or not isinstance(raw.get("targets"), list)
+            or not raw.get("targets")
+            or any(not isinstance(item, str) or not item for item in raw["targets"])
+        ):
+            raise ValueError(f"documentation projection {index}: invalid contract")
+        projection_ids.add(str(raw["id"]))
 
     rules = value.get("rules")
     if not isinstance(rules, list) or not rules:
-        raise ValueError("generation policy requires rules")
+        raise ValueError("profile manifest requires generation rules")
     seen_ids: set[str] = set()
     seen_sources: set[str] = set()
-    valid_profiles = set(PROFILE_LAYERS)
     for index, raw in enumerate(rules):
-        label = f"generation policy rule {index}"
+        label = f"profile manifest generation rule {index}"
         if not isinstance(raw, dict) or set(raw) != GENERATION_RULE_KEYS:
             raise ValueError(f"{label}: invalid rule contract")
         rule_id = raw.get("id")
@@ -473,7 +877,7 @@ def generation_rule_output_path(rule: dict[str, object], relative: str) -> Path:
 
 
 def resolve_generation_inputs(
-    profile: str, policy: dict[str, object]
+    profile: str, policy: dict[str, object], layout: str | None = None
 ) -> tuple[dict[Path, Path], dict[Path, Path]]:
     templates: dict[Path, Path] = {}
     copied_files: dict[Path, Path] = {}
@@ -501,19 +905,91 @@ def resolve_generation_inputs(
                     f"{destination}: forbidden generated output: {reason}"
                 )
             bucket[destination] = source
+    contract = selected_layout(policy, layout)
+    omitted = {
+        portable_project_path(item, f"layout {contract['id']} omitted path")
+        for item in contract["omit_paths"]
+    }
+    for destination in omitted:
+        if destination not in templates and destination not in copied_files:
+            raise ValueError(
+                f"layout {contract['id']} omits an absent generated path: {destination}"
+            )
+        templates.pop(destination, None)
+        copied_files.pop(destination, None)
+    for index, override in enumerate(contract["template_overrides"]):
+        destination = portable_project_path(
+            override["output_path"], f"layout {contract['id']} override {index}"
+        )
+        if destination not in templates:
+            raise ValueError(
+                f"layout {contract['id']} override target is not a template: {destination}"
+            )
+        templates[destination] = policy_source_path(
+            override["source"], f"layout {contract['id']} override {index}"
+        )
     if not templates:
         raise ValueError(f"No reviewed templates resolved for profile {profile}")
     return templates, copied_files
 
 
+def operational_project_paths(
+    profile: str, policy: dict[str, object], layout: str | None = None
+) -> set[Path]:
+    """Project paths the generated validator requires for the selected profile."""
+    templates, copied_files = resolve_generation_inputs(profile, policy, layout)
+    projection = manifest_project_paths(policy).get("operational_projection")
+    if (
+        not isinstance(projection, dict)
+        or set(projection) != {"include_exact", "include_subtrees"}
+        or not isinstance(projection.get("include_exact"), list)
+        or not isinstance(projection.get("include_subtrees"), list)
+    ):
+        raise ValueError("profile manifest operational projection is invalid")
+    exact = {
+        portable_project_path(item, "operational projection exact path")
+        for item in projection["include_exact"]
+    }
+    subtrees = {
+        portable_project_path(item, "operational projection subtree")
+        for item in projection["include_subtrees"]
+    }
+    candidates = (
+        set(templates)
+        | set(copied_files)
+        | derived_output_paths(profile, policy)
+        | project_local_source_paths(profile, policy)
+        | {origin_path(policy)}
+    )
+    selected = {
+        path
+        for path in candidates
+        if path in exact or any(root == path or root in path.parents for root in subtrees)
+    }
+    if exact - selected:
+        raise ValueError(
+            "profile manifest operational projection refers to absent paths: "
+            + ", ".join(path.as_posix() for path in sorted(exact - selected))
+        )
+    return selected
+
+
 def generation_policy_diagnostics(
     policy: dict[str, object], profiles: Iterable[str] | None = None
 ) -> dict[str, object]:
-    selected_profiles = tuple(profiles) if profiles is not None else tuple(PROFILE_LAYERS)
+    try:
+        available_profiles = profile_layers(policy)
+    except ValueError:
+        if profiles is None:
+            raise
+        available_profiles = {profile: () for profile in profiles}
+    selected_profiles = (
+        tuple(profiles) if profiles is not None else tuple(available_profiles)
+    )
     if (
         not selected_profiles
         or len(selected_profiles) != len(set(selected_profiles))
-        or any(profile not in PROFILE_LAYERS for profile in selected_profiles)
+        or any(profile not in available_profiles for profile in selected_profiles)
     ):
         raise ValueError("generation diagnostics require valid unique profiles")
     status = {
@@ -647,7 +1123,10 @@ def generation_policy_diagnostics(
         if status[profile]["mode"] == "blocked":
             continue
         try:
-            resolve_generation_inputs(profile, policy)
+            for layout_id in (
+                layout_contracts(policy) if "layouts" in policy else {"separated": {}}
+            ):
+                resolve_generation_inputs(profile, policy, layout_id)
         except ValueError as error:
             add_finding(
                 failure_class="safety_invariant_degradation",
@@ -743,6 +1222,7 @@ def validate_generation_boundary(
     templates: dict[Path, Path],
     schemas: dict[Path, Path],
     policy: dict[str, object],
+    layout: str | None = None,
 ) -> None:
     issues: list[str] = []
     duplicate_destinations = sorted(set(templates) & set(schemas))
@@ -753,7 +1233,7 @@ def validate_generation_boundary(
         )
     selected = {**templates, **schemas}
     authorized_templates, authorized_schemas = resolve_generation_inputs(
-        profile, policy
+        profile, policy, layout
     )
     authorized = {**authorized_templates, **authorized_schemas}
 
@@ -823,10 +1303,12 @@ def validate_generation_boundary(
 
 
 def collect_templates(
-    profile: str, policy: dict[str, object] | None = None
+    profile: str,
+    policy: dict[str, object] | None = None,
+    layout: str | None = None,
 ) -> dict[Path, Path]:
     selected_policy = policy if policy is not None else load_generation_policy()
-    templates, _ = resolve_generation_inputs(profile, selected_policy)
+    templates, _ = resolve_generation_inputs(profile, selected_policy, layout)
     return templates
 
 
@@ -878,10 +1360,12 @@ def generation_id() -> str:
 
 
 def schema_outputs(
-    profile: str, policy: dict[str, object] | None = None
+    profile: str,
+    policy: dict[str, object] | None = None,
+    layout: str | None = None,
 ) -> dict[Path, Path]:
     selected_policy = policy if policy is not None else load_generation_policy()
-    _, outputs = resolve_generation_inputs(profile, selected_policy)
+    _, outputs = resolve_generation_inputs(profile, selected_policy, layout)
     return outputs
 
 
@@ -899,7 +1383,22 @@ def selected_artifact_registry(
     created: str,
     project_slug: str,
     expected_paths: set[Path],
+    layout: str = "compact",
 ) -> dict[str, object]:
+    manifest = load_generation_policy()
+    layout_value = selected_layout(manifest, layout)
+    combinations = {
+        str(item["retained_representation_id"]): item
+        for item in layout_value["registry_combinations"]
+    }
+    absorbed_ids = {
+        str(item)
+        for combination in layout_value["registry_combinations"]
+        for item in combination["absorbed_representation_ids"]
+    }
+    ranks = profile_ranks(manifest)
+    if profile not in ranks:
+        raise ValueError(f"unknown profile: {profile}")
     source = load_json(blueprint_root() / "dossier" / "artifact-types.json")
     if (
         not isinstance(source, dict)
@@ -926,12 +1425,12 @@ def selected_artifact_registry(
                 f"artifact type {index} has an invalid or duplicate ID"
             )
         type_profile = raw.get("profile")
-        if type_profile not in PROFILE_RANK:
+        if type_profile not in ranks:
             raise ValueError(
                 f"artifact type {artifact_type_id}: invalid profile"
             )
         types_by_id[artifact_type_id] = copy.deepcopy(raw)
-        if PROFILE_RANK[str(type_profile)] <= PROFILE_RANK[profile]:
+        if ranks[str(type_profile)] <= ranks[profile]:
             selected_type_ids.add(artifact_type_id)
 
     selected_representations: list[dict[str, object]] = []
@@ -940,15 +1439,35 @@ def selected_artifact_registry(
     for index, raw in enumerate(source["representations"]):
         if not isinstance(raw, dict):
             raise ValueError(f"representation {index} must be an object")
-        representation_profile = raw.get("profile")
-        if representation_profile not in PROFILE_RANK:
-            raise ValueError(
-                f"representation {raw.get('id')}: invalid profile"
-            )
-        if PROFILE_RANK[str(representation_profile)] > PROFILE_RANK[profile]:
+        raw_id = raw.get("id")
+        if raw_id in absorbed_ids:
             continue
-        representation_id = raw.get("id")
-        artifact_type_ids = raw.get("artifact_type_ids")
+        candidate = copy.deepcopy(raw)
+        combination = combinations.get(str(raw_id))
+        if combination is not None:
+            for field in (
+                "artifact_type_ids",
+                "representation_role",
+                "authority",
+                "owner_role",
+                "review_cadence",
+                "update_triggers",
+            ):
+                candidate[field] = copy.deepcopy(combination[field])
+            candidate["applicability"] = {
+                "status": "combined",
+                "rationale": combination["applicability_rationale"],
+                "assessed_on": None,
+            }
+        representation_profile = candidate.get("profile")
+        if representation_profile not in ranks:
+            raise ValueError(
+                f"representation {candidate.get('id')}: invalid profile"
+            )
+        if ranks[str(representation_profile)] > ranks[profile]:
+            continue
+        representation_id = candidate.get("id")
+        artifact_type_ids = candidate.get("artifact_type_ids")
         if (
             not isinstance(representation_id, str)
             or not re.fullmatch(r"REP-[0-9]{4}", representation_id)
@@ -968,7 +1487,7 @@ def selected_artifact_registry(
                 f"representation {representation_id} has invalid artifact_type_ids"
             )
         path = portable_project_path(
-            raw.get("path"), f"representation {representation_id}"
+            candidate.get("path"), f"representation {representation_id}"
         )
         if path.as_posix() in seen_paths:
             raise ValueError(f"duplicate representation path: {path.as_posix()}")
@@ -976,7 +1495,7 @@ def selected_artifact_registry(
             raise ValueError(
                 f"representation path absent from selected profile: {path.as_posix()}"
             )
-        selected_representations.append(copy.deepcopy(raw))
+        selected_representations.append(candidate)
         seen_representation_ids.add(representation_id)
         seen_paths.add(path.as_posix())
 
@@ -1006,11 +1525,12 @@ def selected_artifact_registry(
         if isinstance(raw, dict) and raw.get("id") in selected_type_ids
     ]
     return {
-        "schema_version": "project-dossier.artifact-registry.v2",
+        "schema_version": "project-dossier.artifact-registry.v3",
         "document_role": "authoritative_project_local_artifact_metadata",
         "permission_grant": False,
         "dossier_version": blueprint_version(),
         "profile": profile,
+        "layout": layout,
         "project_slug": project_slug,
         "generated_on": created,
         "artifact_types": selected_types,
@@ -1024,9 +1544,10 @@ def write_artifact_registry(
     created: str,
     project_slug: str,
     expected_paths: set[Path],
+    layout: str,
 ) -> None:
     registry = selected_artifact_registry(
-        profile, created, project_slug, expected_paths
+        profile, created, project_slug, expected_paths, layout
     )
     write_json(
         stage / "project-dossier/machine-readable/artifact-registry.json",
@@ -1077,6 +1598,7 @@ def configure_high_assurance_extension(stage: Path) -> None:
 
 def write_origin(
     stage: Path,
+    destination: Path,
     version: str,
     profile: str,
     created: str,
@@ -1084,16 +1606,72 @@ def write_origin(
     slug: str,
     identifier: str,
     expected_paths: set[Path],
+    layout: str,
+    derived_paths: set[Path],
 ) -> None:
+    def inventory_role(relative: Path) -> tuple[str, str]:
+        value = relative.as_posix()
+        if relative in derived_paths:
+            return "derived", "regenerate"
+        if relative == destination:
+            return "provenance", "provenance_transaction_only"
+        if value.startswith("project-dossier/") or value in {
+            ".agent/project.json",
+            ".agent/policy.json",
+            ".agent/context.json",
+            ".agent/scm.json",
+            ".agent/packages.json",
+            ".agent/state/focus.json",
+            ".agent/project-checks/evidence.json",
+        }:
+            return "project_owned_authoritative", "always_review"
+        if value == "AGENTS.md" or value.startswith(".agents/") or value in {
+            ".agent/schema.json",
+            ".agent/lifecycle.json",
+            ".agent/tools.json",
+            ".agent/validators.json",
+            ".agent/extensions/registry.json",
+        }:
+            return "review_required_governance", "always_review"
+        return "blueprint_implementation_asset", "exact_pristine_or_additive"
+
+    installed_paths: list[dict[str, object]] = []
+    for relative in sorted(expected_paths):
+        role, upgrade_policy = inventory_role(relative)
+        path = stage / relative
+        if role in {"derived", "provenance"}:
+            mode = None
+            digest = None
+        else:
+            if path.is_symlink() or not path.is_file():
+                raise ValueError(
+                    f"installed inventory source is absent or unsafe: {relative}"
+                )
+            mode = path.stat().st_mode & 0o7777
+            digest = hashlib.sha256(path.read_bytes()).hexdigest()
+        installed_paths.append(
+            {
+                "path": relative.as_posix(),
+                "role": role,
+                "upgrade_policy": upgrade_policy,
+                "baseline_blueprint_version": version,
+                "mode": mode,
+                "sha256": digest,
+            }
+        )
+    manifest_digest = hashlib.sha256(
+        (blueprint_root() / PROFILE_MANIFEST_RELATIVE).read_bytes()
+    ).hexdigest()
     write_json(
-        stage / ".project-blueprint-origin.json",
+        stage / destination,
         {
-            "schema_version": "project-blueprint.origin.v1",
+            "schema_version": "project-blueprint.origin.v2",
             "blueprint": "project-blueprint",
             "blueprint_version": version,
             "generator_version": GENERATOR_VERSION,
             "generation_id": identifier,
             "profile": profile,
+            "layout": layout,
             "generated_on": created,
             "project_name": project_name,
             "project_slug": slug,
@@ -1108,11 +1686,22 @@ def write_origin(
                 "generation_id": identifier,
                 "generated_on": created,
                 "profile": profile,
+                "layout": layout,
             },
             "migration_history": [],
             "generated_paths": [
                 path.as_posix() for path in sorted(expected_paths)
             ],
+            "installed_inventory": {
+                "schema_version": "project-blueprint.installed-inventory.v2",
+                "blueprint_version": version,
+                "profile": profile,
+                "layout": layout,
+                "captured_on": created,
+                "profile_manifest_status": "exact",
+                "profile_manifest_sha256": manifest_digest,
+                "paths": installed_paths,
+            },
         },
     )
 
@@ -1205,8 +1794,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--target", type=Path)
     parser.add_argument("--project-name")
     parser.add_argument("--project-slug")
+    parser.add_argument("--profile")
     parser.add_argument(
-        "--profile", choices=tuple(PROFILE_LAYERS)
+        "--layout",
+        choices=("compact", "separated"),
+        default="compact",
+        help="physical representation layout; independent of profile and collaboration",
     )
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument(
@@ -1239,8 +1832,16 @@ def main() -> int:
         return 2
     try:
         if args.diagnose_generation_policy:
+            available_profiles = profile_layers(generation_policy)
+            if args.profile is not None and args.profile not in available_profiles:
+                raise ValueError(
+                    "--profile must be one of: "
+                    + ", ".join(available_profiles)
+                )
             diagnostic_profiles = (
-                (args.profile,) if args.profile is not None else tuple(PROFILE_LAYERS)
+                (args.profile,)
+                if args.profile is not None
+                else tuple(available_profiles)
             )
             report = generation_policy_diagnostics(
                 generation_policy, diagnostic_profiles
@@ -1252,7 +1853,18 @@ def main() -> int:
                 "--target and --project-name are required unless "
                 "--diagnose-generation-policy is used"
             )
-        profile = args.profile or "standard"
+        if args.profile is None:
+            raise ValueError(
+                "--profile is required for non-interactive generation; "
+                "Minimal may be proposed only by a reviewed interactive plan"
+            )
+        available_profiles = profile_layers(generation_policy)
+        if args.profile not in available_profiles:
+            raise ValueError(
+                "--profile must be one of: " + ", ".join(available_profiles)
+            )
+        profile = args.profile
+        layout = str(args.layout)
         target = args.target.expanduser()
         diagnostics = generation_policy_diagnostics(
             generation_policy, (profile,)
@@ -1284,10 +1896,10 @@ def main() -> int:
             )
         try:
             templates, schemas = resolve_generation_inputs(
-                profile, generation_policy
+                profile, generation_policy, layout
             )
             validate_generation_boundary(
-                profile, templates, schemas, generation_policy
+                profile, templates, schemas, generation_policy, layout
             )
         except ValueError as error:
             raise ValueError(
@@ -1299,19 +1911,21 @@ def main() -> int:
         print(f"ERROR: {error}", file=sys.stderr)
         return 2
 
+    selected_project_sources = project_local_source_paths(profile, generation_policy)
+    selected_derived_outputs = derived_output_paths(profile, generation_policy)
+    selected_origin = origin_path(generation_policy)
     expected = (
         set(templates)
         | set(schemas)
-        | PROJECT_LOCAL_SOURCE_PATHS
-        | DERIVED_PATHS
-        | {Path(".project-blueprint-origin.json")}
+        | selected_project_sources
+        | selected_derived_outputs
+        | {selected_origin}
     )
-    if profile == "high-assurance":
-        expected |= HIGH_DERIVED_PATHS
 
     print(f"Project: {name}")
     print(f"Slug: {slug}")
     print(f"Profile: {profile}")
+    print(f"Layout: {layout}")
     print(f"Generation capability: {mode}")
     for finding in generation_profile_findings(diagnostics, profile):
         if finding.get("severity") == "warning":
@@ -1330,9 +1944,7 @@ def main() -> int:
         print("Dry run complete; no files written.")
         return 0
 
-    refresh_writes = set(DERIVED_PATHS)
-    if profile == "high-assurance":
-        refresh_writes.update(HIGH_DERIVED_PATHS)
+    refresh_writes = selected_derived_outputs
     variables = {
         "PROJECT_NAME": markdown_escape(name),
         "PROJECT_NAME_JSON": json.dumps(name, ensure_ascii=False),
@@ -1347,6 +1959,26 @@ def main() -> int:
         "HARNESS_REFRESH_WRITES": json.dumps(
             canonical_posix_paths(refresh_writes)
         ),
+        "PROFILE_OPERATIONAL_FILES_JSON": json.dumps(
+            canonical_posix_paths(
+                operational_project_paths(profile, generation_policy, layout)
+            ),
+            separators=(",", ":"),
+        ),
+        "DERIVED_OPERATIONAL_FILES_JSON": json.dumps(
+            canonical_posix_paths(
+                selected_derived_outputs
+                & operational_project_paths(profile, generation_policy, layout)
+            ),
+            separators=(",", ":"),
+        ),
+        "KERNEL_FILES_JSON": json.dumps(
+            canonical_posix_paths(kernel_paths(generation_policy)),
+            separators=(",", ":"),
+        ),
+        "GIT_PORTFOLIO_SHA256": str(
+            package_contract(generation_policy, "small-team-git-portfolio")["sha256"]
+        ),
     }
 
     with tempfile.TemporaryDirectory(
@@ -1359,13 +1991,14 @@ def main() -> int:
                 write_text(stage / relative, render(template, variables))
             for relative, source in schemas.items():
                 write_text(stage / relative, source.read_text(encoding="utf-8"))
-            if profile == "high-assurance":
-                configure_high_assurance_extension(stage)
+            if (stage / "pb").is_file():
+                os.chmod(stage / "pb", 0o755)
             write_artifact_registry(
-                stage, profile, created, slug, expected
+                stage, profile, created, slug, expected, layout
             )
             write_origin(
                 stage,
+                selected_origin,
                 version,
                 profile,
                 created,
@@ -1373,9 +2006,11 @@ def main() -> int:
                 slug,
                 identifier,
                 expected,
+                layout,
+                selected_derived_outputs,
             )
             issues = validate_generated(
-                stage, expected - DERIVED_PATHS - HIGH_DERIVED_PATHS
+                stage, expected - selected_derived_outputs
             )
 
             if not issues:
@@ -1403,13 +2038,9 @@ def main() -> int:
                 [
                     sys.executable,
                     "-B",
-                    "-m",
-                    "unittest",
-                    "discover",
-                    "-s",
-                    ".agent/tests",
-                    "-p",
-                    "test_*.py",
+                    ".agent/tests/test_validate.py",
+                    "--tier",
+                    "fast",
                 ],
             ):
                 if issues:

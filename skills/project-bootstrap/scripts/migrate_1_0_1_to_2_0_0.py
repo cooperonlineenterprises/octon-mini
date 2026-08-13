@@ -1529,10 +1529,9 @@ def validate_origin_history(origin: dict[str, Any], location: str) -> None:
 def validate_v1_origin(origin: Any) -> dict[str, Any]:
     value = expect_object(origin, "$.live.origin")
     require_exact_keys(value, ORIGIN_KEYS, "$.live.origin")
-    origin_schema = load_current_schema("project-blueprint-origin.schema.json")
-    errors = validate_schema(value, origin_schema)
-    if errors:
-        raise MigrationError("$.live.origin: " + "; ".join(errors))
+    # The v1 origin contract is frozen by the exact-key and semantic checks in
+    # this migrator. Do not reinterpret historical input through a newer
+    # current origin schema after a later Blueprint major release.
     if value["schema_version"] != "project-blueprint.origin.v1":
         raise MigrationError("$.live.origin.schema_version: invalid")
     if value["blueprint"] != "project-blueprint":
@@ -2143,7 +2142,6 @@ def validate_migrated_live(live: Any) -> None:
     harness_schema = load_current_schema("harness-record.schema.json")
     dossier_schema = load_current_schema("dossier-records.schema.json")
     kernel_schema = load_current_schema("harness-kernel.schema.json")
-    origin_schema = load_current_schema("project-blueprint-origin.schema.json")
     # Project and validator records are intentionally absent from the current
     # kernel-schema checks below. Their historical v2 contracts are frozen in
     # validate_v2_project_output and validate_v2_validators_output so a later
@@ -2174,7 +2172,6 @@ def validate_migrated_live(live: Any) -> None:
             root_schema=dossier_schema,
         )
     )
-    errors.extend(validate_schema(value["origin"], origin_schema, "$.live.origin"))
     if errors:
         raise MigrationError("migrated records fail current schemas: " + "; ".join(errors))
     origin = value["origin"]

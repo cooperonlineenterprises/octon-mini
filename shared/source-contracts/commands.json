@@ -1,0 +1,36 @@
+{
+  "schema_version": "harness.command-manifest.v1",
+  "document_role": "authoritative_workflow_interface_inventory_and_projection_source",
+  "permission_grant": false,
+  "commands": [
+    {"name": "init", "availability": "bootstrap_source", "read_only": false, "mutation_model": "bootstrap_source_plan_apply_receipt", "authorization_gate": "explicit_profile_and_reviewed_digest"},
+    {"name": "adopt", "availability": "bootstrap_source", "read_only": false, "mutation_model": "bootstrap_source_proposal_review_plan_apply_receipt", "authorization_gate": "authority_preservation_and_reviewed_digest"},
+    {"name": "upgrade", "availability": "bootstrap_source", "read_only": false, "mutation_model": "bootstrap_source_three_way_plan_apply_receipt", "authorization_gate": "project_owned_authority_evidence_review_and_digest"},
+    {"name": "detect", "availability": "bootstrap_source", "read_only": true, "mutation_model": "none", "authorization_gate": "none"},
+    {"name": "check", "availability": "generated_project", "read_only": true, "mutation_model": "none", "authorization_gate": "none"},
+    {"name": "doctor", "availability": "generated_project", "read_only": true, "mutation_model": "explicit_derived_repair_only", "authorization_gate": "reviewed_digest_for_repair"},
+    {"name": "work.start", "availability": "generated_project", "read_only": false, "mutation_model": "plan_apply_receipt", "authorization_gate": "existing_authority_reference_and_reviewed_digest"},
+    {"name": "work.block", "availability": "generated_project", "read_only": false, "mutation_model": "plan_apply_receipt", "authorization_gate": "reviewed_digest"},
+    {"name": "work.close", "availability": "generated_project", "read_only": false, "mutation_model": "plan_apply_receipt", "authorization_gate": "explicit_criteria_evidence_review_and_reviewed_digest"},
+    {"name": "work.reopen", "availability": "generated_project", "read_only": false, "mutation_model": "plan_apply_receipt", "authorization_gate": "explicit_invalidating_evidence_and_reviewed_digest"},
+    {"name": "work.handoff", "availability": "generated_project", "read_only": false, "mutation_model": "plan_apply_receipt", "authorization_gate": "explicit_operator_intent_and_reviewed_digest"},
+    {"name": "work.resume", "availability": "generated_project", "read_only": true, "mutation_model": "none", "authorization_gate": "none"},
+    {"name": "maintain.registry", "availability": "generated_project", "read_only": false, "mutation_model": "proposal_review_plan_apply_receipt", "authorization_gate": "explicit_registry_choices_and_reviewed_digest"},
+    {"name": "maintain.hooks", "availability": "generated_project", "read_only": false, "mutation_model": "plan_apply_receipt", "authorization_gate": "explicit_project_owned_hook_configuration"},
+    {"name": "maintain.collaboration", "availability": "generated_project", "read_only": false, "mutation_model": "plan_apply_receipt", "authorization_gate": "current_evidence_and_accepted_decision_only_if_adopted"},
+    {"name": "maintain.package", "availability": "bootstrap_source", "read_only": false, "mutation_model": "bootstrap_source_content_addressed_plan_apply_receipt", "authorization_gate": "applicability_owner_accepted_trust_decision_and_digest"},
+    {"name": "maintain.refresh", "availability": "generated_project", "read_only": false, "mutation_model": "derived_only_explicit_writer", "authorization_gate": "explicit_invocation"},
+    {"name": "transaction.apply", "availability": "generated_project", "read_only": false, "mutation_model": "staged_digest_bound_apply_receipt", "authorization_gate": "exact_reviewed_digest_and_current_preimages"},
+    {"name": "transaction.rollback", "availability": "generated_project", "read_only": false, "mutation_model": "receipt_bound_exact_restore", "authorization_gate": "unchanged_post_apply_paths"},
+    {"name": "transaction.recover", "availability": "generated_project", "read_only": false, "mutation_model": "pending_journal_exact_preimage_restore", "authorization_gate": "paths_match_recorded_preimage_or_planned_postimage"}
+  ],
+  "advanced_primitives": [
+    ".agent/scripts/validate.py",
+    ".agent/scripts/refresh.py",
+    ".agent/scripts/run_project_checks.py"
+  ],
+  "limitations": [
+    "No command grants permission or bypasses project authority.",
+    "There is no global force option."
+  ]
+}

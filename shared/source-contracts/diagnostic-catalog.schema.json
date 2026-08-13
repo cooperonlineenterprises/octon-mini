@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://project-blueprint.local/source-contracts/diagnostic-catalog.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "document_role", "permission_grant", "fallback_code", "diagnostics"],
+  "properties": {
+    "schema_version": {"const": "project-blueprint.diagnostic-catalog.v1"},
+    "document_role": {"const": "authoritative_non_authorizing_diagnostic_mapping"},
+    "permission_grant": {"const": false},
+    "fallback_code": {"type": "string", "pattern": "^PB-DIAG-[0-9]{4}$"},
+    "diagnostics": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "match_any", "root_cause", "authority_source", "dependent_symptoms", "safe_next_action", "repair_class"],
+        "properties": {
+          "code": {"type": "string", "pattern": "^PB-DIAG-[0-9]{4}$"},
+          "match_any": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+          "root_cause": {"type": "string", "minLength": 1},
+          "authority_source": {"type": "string", "minLength": 1},
+          "dependent_symptoms": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+          "safe_next_action": {"type": "string", "minLength": 1},
+          "repair_class": {"enum": ["derived_only", "project_decision_or_manual_correction", "project_decision_required", "project_action_required", "specialist_or_owner_gate", "replan_required", "explicit_recovery_required"]}
+        }
+      }
+    }
+  }
+}

@@ -1,14 +1,16 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://project-blueprint.local/schemas/harness-current-state.schema.json",
-  "title": "Project-maintained Compact Operational Index",
+  "title": "Derived Compact Operational Index",
   "type": "object",
   "additionalProperties": false,
   "required": [
     "schema_version",
+    "document_role",
+    "permission_grant",
     "project_slug",
-    "updated_at",
-    "authority",
+    "generated_at",
+    "generated_from",
     "adoption_status",
     "active_tasks",
     "accepted_decisions",
@@ -20,18 +22,27 @@
   ],
   "properties": {
     "schema_version": {
-      "const": "harness.current-state.v1"
+      "const": "harness.current-state.v2"
+    },
+    "document_role": {
+      "const": "fully_derived_non_authoritative_operational_view"
+    },
+    "permission_grant": {
+      "const": false
     },
     "project_slug": {
       "type": "string",
       "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
     },
-    "updated_at": {
+    "generated_at": {
       "type": "string",
-      "format": "date"
+      "format": "date-time"
     },
-    "authority": {
-      "const": "project_maintained_compact_operational_index_not_permission"
+    "generated_from": {
+      "type": "array",
+      "minItems": 2,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
     },
     "adoption_status": {
       "enum": [

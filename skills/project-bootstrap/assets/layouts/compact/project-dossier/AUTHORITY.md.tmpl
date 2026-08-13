@@ -1,0 +1,52 @@
+# Authority and Canonical Sources
+
+This compact representation owns two distinct dossier concerns for
+{{PROJECT_NAME}}: interpretation/precedence and concern-to-source routing. It
+does not create permission. The conceptual artifact IDs remain `DOS-0002` and
+`DOS-0003`; they share this file because their owner, authority, lifecycle,
+review cadence, sensitivity, and retention are aligned.
+
+## Authority and precedence (`DOS-0002`)
+
+1. Current user, platform, tool, contractual, and legal constraints.
+2. Applicable repository instructions.
+3. Live project policy and accepted project-specific decisions.
+4. Executable or operational evidence for current-state claims.
+5. Canonical dossier material for intended state.
+6. Current-state and conformance records.
+7. Plans, registers, and handoff views.
+8. Provenance, historical material, and generated reports.
+
+Current behavior does not become the intended target merely because it exists.
+Target documentation does not prove implementation. Unresolved conflicts must
+be recorded as findings or open questions.
+
+## Canonical source routing (`DOS-0003`)
+
+| Concern | Minimal edit source | Standard/High-Assurance edit source | Other representations |
+|---|---|---|---|
+| Artifact metadata and applicability | `machine-readable/artifact-registry.json` | same | `ARTIFACT_CATALOG.json` and `machine-readable/path-authority.json` are generated mirrors |
+| Project definition | `canonical/executive-project-definition.md` | same | summaries link here |
+| Requirement explanation and vocabulary | `canonical/requirements-and-constraints.md` | same | never independently duplicated |
+| Individual requirement records | `canonical/requirements-and-constraints.md` | `machine-readable/requirements.json` | Markdown explains and summarizes |
+| Architecture or outcome model | `canonical/architecture-or-outcome-model.md` | same, plus declared specialist model sources | generated diagrams name their source |
+| Constraints and gate explanation | `canonical/constraints-gates-and-readiness.md` | same | gate records remain proposed until adopted |
+| Individual gate records | `validation/QUALITY_GATES.json` | same | project-maintained, not generated evidence |
+| Current observed state | `current-state/README.md` after direct inspection | same or a registry-declared observation store | scaffold text is `not_assessed`, not an observation |
+| Individual conformance findings | `conformance/README.md` | `machine-readable/findings.json` | Markdown owns method and summary |
+| Individual plan items | `plans/README.md` | `machine-readable/plan.json` | Markdown owns method and summary |
+| RAIDQ items | `registers/README.md` | `machine-readable/raidq.json` | Markdown owns vocabulary and summary |
+| Source records | `provenance/README.md` | `machine-readable/sources.json` | Markdown owns method and summary |
+| Evidence metadata | `validation/README.md` | `machine-readable/evidence-index.json` | executed reports are immutable evidence |
+| Dossier version and supersession | `VERSION.md`; `SUPERSESSION.json` | same | `history/` is noncurrent |
+| Handoff | `handoff/START_HERE.md` | same | navigation only; mutable facts stay in their owners |
+| Integrity | explicit refresh command | same | integrity outputs are generated evidence |
+
+`machine-readable/artifact-registry.json` is the project-local edit source for
+artifact types, physical representations, applicability, owners, review state,
+and source direction. Generated, historical, proposed, or handoff material
+must not silently replace an edit source.
+
+Separation is required if the two concerns later diverge in ownership,
+lifecycle, review, authority, sensitivity, or retention. That change requires
+an explicit registry migration and must retain stable conceptual IDs.

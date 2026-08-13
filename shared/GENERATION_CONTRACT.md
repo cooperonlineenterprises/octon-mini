@@ -9,19 +9,23 @@ project receives an independent snapshot containing:
 - `.agent/`;
 - `.agents/` for profiles that include capability packages;
 - `project-dossier/`;
+- the project-local `pb` launcher; and
 - `.project-blueprint-origin.json`.
 
 Generated files do not remain linked to this repository.
 
 ## Generation disposition boundary
 
-`shared/source-contracts/generation-policy.json` is the canonical,
-machine-readable boundary between Blueprint source and automatic target-project
-output. Its schema is versioned separately. Every source path defaults to
-`source_only`; only a reviewed rule with disposition `generated` or
-`profile_optional` may enter the selected profile.
+`shared/source-contracts/profile-manifest.json` is the canonical,
+machine-readable source for profile order and layers, reviewed generation
+inventories, project-local and derived paths, optional or triggered packages,
+acceptance coverage, and documentation projections. Its generation rules are
+the boundary between Blueprint source and automatic target-project output, and
+its schema is versioned separately. Every source path defaults to `source_only`;
+only a reviewed rule with disposition `generated` or an explicitly installed,
+content-addressed package may enter the selected profile.
 
-Version 2 generated rules enumerate the exact reviewed relative paths and bind
+Profile-manifest v1 generated rules enumerate the exact reviewed relative paths and bind
 that list by count and SHA-256 digest. Adding, removing, renaming, or moving a
 template or copied schema therefore requires an explicit policy inventory
 review. A file's location under a template directory is not sufficient
@@ -159,12 +163,14 @@ staging directory, validates the staged snapshot, and atomically places the
 snapshot at the target. Validation failure leaves the target unchanged. It
 must not offer an overwrite, force, or in-place merge mode.
 
-Integration with an established repository starts with the separate read-only
-`plan_adoption.py` inventory. That plan identifies collisions and functional
-equivalent path/name candidates without reading their contents or writing.
-Human or agent reconciliation is then a project-aware, authorized
-implementation task that accepts equivalence only after content and authority
-review.
+Integration with an established repository starts with bounded, read-only
+semantic adoption planning. The default reads at most 200 allowlisted UTF-8
+text/config files, 256 KiB per file, and 4 MiB total, while excluding secrets,
+symlinks, binaries, ignored/generated/vendor/dependency/build/coverage and
+sensitivity-marked content. It retains content hashes and matched vocabulary,
+not file contents. Functional equivalence and authority preservation always
+require proposal-bound review. Apply refuses every existing-path overwrite,
+stages the release tier, and leaves adoption `in_progress`.
 
 ## Origin and upgrade rules
 
@@ -175,22 +181,31 @@ The origin record contains:
 - generation date;
 - target project name and slug;
 - generated path inventory;
+- physical layout;
 - generator and kernel versions;
 - a transaction generation ID;
-- an immutable initial-generation snapshot; and
-- an append-only migration history.
+- an immutable initial-generation snapshot;
+- an append-only migration history; and
+- an installed inventory containing role, upgrade policy, baseline Blueprint
+  version, mode, and exact pristine hash for every static path.
 
 The snapshot also records the harness kernel version and generator version
 where available. This provenance is not a live dependency: later blueprint
 changes cannot silently change a generated project's rules.
 
-An upgrade is a new migration task. It must preserve `initial_generation`,
-compare the current top-level version with the candidate blueprint, classify
-deltas, preserve project-specific content, append a typed migration-history
-record with authority and evidence references, and never replace accepted
-target-project authority silently.
+An upgrade is a three-way migration task using the recorded old inventory,
+current project, and candidate snapshot. It must preserve
+`initial_generation`, classify each path, preserve project-specific content,
+append typed authority/evidence provenance, and never replace accepted
+target-project authority silently. Automation is limited to safe additions,
+exact-pristine non-authoritative implementation assets, and derived
+regeneration. Project-owned, authority-bearing, modified, deleted, moved,
+permission, symlink, workflow, record, stable-ID, and configuration cases
+require explicit review.
 
-A breaking migration must also ship executable valid and invalid fixtures. Its
+A breaking migration must also ship executable valid and invalid fixtures. A
+legacy snapshot without exact installed baselines requires reviewed seed data;
+the migrator may not infer pristine hashes or authority from current bytes. Its
 reference transformation or reconciler must preserve stable IDs and accepted
 authority, require explicit classification when a legacy relationship is
 ambiguous, reject mixed live schema authorities, retain the exact pre-migration
@@ -216,16 +231,17 @@ Unresolved or unknown template variables are validation failures.
 
 ## Harness generation requirements
 
-Every profile generates the seven-file governance kernel, compact current
-state, task and decision templates, a read-only validator, and positive and
-negative tests. It also generates a project-check evidence store, an explicit
-project-check writer, an unassessed privacy-minimized collaboration profile,
-and the same provider-neutral small-team Git workflow portfolio. The validator
-exposes a full read-only check, a read-only ready-frontier derivation, and a
-separately invoked read-only collaboration assessment; none executes project
-hooks. The collaboration assessment reads stored aggregate observations and
-writes nothing. Larger profiles add operational records, project-extension
-contracts, capability packages, and generated-integrity tooling.
+Every profile generates the seven-file governance kernel, explicit focus,
+derived compact current state, task and decision templates, staged transaction
+and diagnostic helpers, a read-only validator, and positive and negative tests.
+It also generates a project-check evidence store, an explicit project-check
+writer, an unassessed privacy-minimized collaboration profile, and compact SCM
+and package triggers. The full provider-neutral Git portfolio and domain
+packages are absent until a reviewed trigger transaction installs their pinned
+content. The validator exposes a full read-only check, ready-frontier and
+resumption derivations, and coded diagnostics; none executes project hooks.
+Larger profiles add operational records, project-extension contracts,
+capability packages, and generated-integrity tooling.
 
 The selected profile also defines a closed minimum operational-file
 inventory. The generated validator rejects a missing required router, kernel
@@ -271,6 +287,12 @@ The scaffold validator must:
   unregistered extension or capability roots; and
 - label structural success as distinct from project readiness.
 
+Primitive new-project scaffolding runs the structural check and bounded fast
+mutation tier before atomic placement. Guided initialization, semantic
+adoption, live upgrade, and release gates stage the complete applicable release
+tier. This performance distinction changes validation cost, not safety claims
+or target-project readiness.
+
 The generator may create initial empty stores and unassessed configuration. It
 must not create an accepted decision, completed task, passing evidence record,
 human approval, or readiness certification. A generated empty ready frontier
@@ -278,18 +300,19 @@ does not establish project adoption or permission.
 
 The source-only Pattern Catalog, its records and fixtures, and the Architecture
 Proof schema and templates are not generated, adopted, or copied into a
-profile inventory. High Assurance alone receives the optional Context Pack
-manifest schema for the existing CTX-0001 entry point. Generation does not
-create a Context Pack manifest, assess CTX-0001, select a consumer or source,
-or infer purpose, validity, sensitivity, retention, revocation, or permission.
+profile inventory. The optional Context Pack schema is a trigger-installed
+package. Its absence never means CTX-0001 is inapplicable; generation does not
+create a manifest, select a consumer or source, or infer purpose, validity,
+sensitivity, retention, revocation, or permission.
 
 ## Collaboration and Git workflow rules
 
-Every generated profile begins with `assessment_status: not_assessed`, unknown
-confidence and team band, null counts and times, empty evidence/conflicts, and
-no workflow. This is the only transferable collaboration state. Templates
-never contain current-blueprint collaborator facts, project identities,
-reviewers, providers, hosted settings, or accepted workflow decisions.
+Every generated profile begins with collaboration v2
+`assessment_status: not_assessed`, unknown team band, null fact/evidence pairs,
+empty conflicts, `concurrent_work: false`, and no workflow. This is the only
+transferable state. Each fact used by a result requires source, observation
+time, expiry, and limitations. Templates never contain collaborator facts,
+identities, reviewers, providers, hosted settings, or accepted workflows.
 
 The supported human bands are exactly one (`solo`), two (`pair`), and three to
 five (`tiny`) write-capable humans. Zero is blocked; more than five is
@@ -299,13 +322,38 @@ simultaneous human or agent work may add `concurrent_work` without changing
 human count.
 
 The base portfolio is exactly `solo_direct`, `solo_hybrid`, `pair_pr`, and
-`tiny_pr`. It is provider-neutral, non-authorizing, and available in every
-profile. Unknown, expired, or conflicting evidence cannot silently select a
-workflow. Adoption requires a resolving accepted project-owned decision, but
+`tiny_pr`. It is provider-neutral and non-authorizing. The kernel stores only a
+compact SCM trigger and pinned package digest; the full portfolio is installed
+transactionally only when Git is selected or explicitly adopted. An
+uninstalled portfolio is not a runtime dependency. Unknown, expired, or
+conflicting evidence cannot silently select a workflow. Adoption requires a
+resolving accepted project-owned decision, but
 that decision grants no local mutation, network, publication, review,
 integration, release, or destructive authority. Project risks may add controls
 without changing the team band or automatically selecting an assurance
 profile.
+
+## Proposal and transaction rules
+
+The source and generated workflow interfaces project one authoritative command
+manifest. Each command declares whether its independently usable surface is the
+bootstrap source or the generated project, so the combined inventory is not
+mistaken for a promise that every command is installed locally. Planning and
+diagnosis are read-only. Every plan records operation,
+scope, source evidence, observations/inferences/explicit decisions/gates,
+assumptions, confidence, limitations, governing-instruction fingerprint,
+per-path type/mode/hash, exact operations, conflicts/exclusions, staged and
+post-apply validation, rollback strategy, planned receipt identity, and a
+canonical digest.
+
+Apply requires that exact reviewed digest, refuses changed instructions,
+evidence or targets, clones the repository into staging, permits only declared
+derived writes, validates the staged result, writes a pending journal before
+target mutation, then validates the target read-only. The receipt embeds exact
+preimages and postimages. Recovery restores only when paths match before or
+planned-after state, or finalizes an exact terminal receipt. Rollback records a
+durable in-progress state, resumes only across exact before/after states, and
+refuses subsequent independent changes. There is no force mode.
 
 GitHub is an optional integration boundary. Generation does not imply an
 account, provider, credential, reviewer, branch protection, required check,
@@ -401,10 +449,11 @@ paths, owner, provenance, side effects, deprecation path, and
 `authority_effect: restrictions_only`. Enabled validators return structured
 JSON findings. Disabling an extension must require no kernel edit.
 
-Standard and High-Assurance snapshots may include tool-neutral production
-control extensions for operations/observability and security/supply chain.
-They start disabled and unassessed, validate only project-owned declarations
-and evidence references, deny network and filesystem effects, and never claim
-that a deployment, monitor, scanner, review, signing service, or external
-platform exists or ran. Enabling either package before its project-level
-adoption is complete fails closed; a `not_applicable` package remains disabled.
+No default profile includes a production-control payload. Trigger assessment
+may install the pinned operations/observability or security/supply-chain
+package after an accepted trust decision. Installed extensions start disabled,
+validate only project-owned declarations and evidence references, deny network
+and undeclared filesystem effects, and never claim that a deployment, monitor,
+scanner, review, signing service, or external platform exists or ran. Enabling
+either package before its project-level adoption is complete fails closed; a
+`not_applicable` trigger installs nothing.

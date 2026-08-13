@@ -24,6 +24,8 @@ sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parents[2]
 EVIDENCE_RELATIVE_PATH = ".agent/project-checks/evidence.json"
 EVIDENCE_PATH = ROOT / EVIDENCE_RELATIVE_PATH
+ARCHIVE_ROOT = ROOT / ".agent/project-checks/archive"
+CURRENT_RECORD_LIMIT = 25
 HOOKS = (
     "project_test",
     "project_lint",
@@ -31,6 +33,7 @@ HOOKS = (
     "project_closure",
 )
 DERIVED_SOURCE_EXCLUSIONS = {
+    ".agent/state/current.json",
     "project-dossier/ARTIFACT_CATALOG.json",
     "project-dossier/MANIFEST.json",
     "project-dossier/CHECKSUMS.sha256",
@@ -125,7 +128,7 @@ def safe_relative_path(value: Any) -> str | None:
 
 
 def fingerprint_exclusions(project: dict[str, Any]) -> set[str]:
-    exclusions = {EVIDENCE_RELATIVE_PATH}
+    exclusions = {EVIDENCE_RELATIVE_PATH, ".agent/project-checks/archive"}
     raw = project.get("paths", {}).get("fingerprint_exclusions", [])
     if not isinstance(raw, list):
         raise ValueError(".agent/project.json fingerprint_exclusions must be an array")
@@ -163,6 +166,9 @@ def project_check_source_fingerprint(
             continue
         if (
             value.startswith(".agent/generated/")
+            or value.startswith(".agent/transactions/")
+            or value.startswith(".agent/project-checks/archive/")
+            or value == EVIDENCE_RELATIVE_PATH
             or value in DERIVED_SOURCE_EXCLUSIONS
             or any(value == item or value.startswith(item + "/") for item in exclusions)
         ):
@@ -174,7 +180,12 @@ def project_check_source_fingerprint(
         except OSError:
             digest.update(hashlib.sha256(b"unreadable").digest())
         digest.update(b"\0")
-    reported_exclusions = exclusions | DERIVED_SOURCE_EXCLUSIONS | {".agent/generated"}
+    reported_exclusions = exclusions | DERIVED_SOURCE_EXCLUSIONS | {
+        ".agent/generated",
+        ".agent/transactions",
+        EVIDENCE_RELATIVE_PATH,
+        ".agent/project-checks/archive",
+    }
     return digest.hexdigest(), sorted(reported_exclusions)
 
 
@@ -659,15 +670,60 @@ def execute_hook(
 
 def append_evidence(store: dict[str, Any], record: dict[str, Any]) -> None:
     expected = {
-        "schema_version": "harness.project-check-evidence-store.v1",
-        "document_role": "project_owned_execution_evidence",
+        "schema_version": "harness.project-check-evidence-store.v2",
+        "document_role": "bounded_current_index_of_project_owned_execution_evidence",
         "permission_grant": False,
+        "archive_root": ".agent/project-checks/archive",
+        "current_record_limit": CURRENT_RECORD_LIMIT,
     }
     if not isinstance(store, dict) or any(store.get(key) != value for key, value in expected.items()):
         raise ValueError("project-check evidence store header is invalid")
-    if set(store) != set(expected) | {"records"} or not isinstance(store.get("records"), list):
+    if (
+        set(store) != set(expected) | {"records", "successor_relationships"}
+        or not isinstance(store.get("records"), list)
+        or not isinstance(store.get("successor_relationships"), list)
+    ):
         raise ValueError("project-check evidence store shape is invalid")
+    predecessors = [
+        item
+        for item in store["records"]
+        if isinstance(item, dict)
+        and [value.get("hook") for value in item.get("checks", [])]
+        == [value.get("hook") for value in record.get("checks", [])]
+    ]
+    if predecessors:
+        store["successor_relationships"].append(
+            {
+                "predecessor": predecessors[-1]["id"],
+                "successor": record["id"],
+                "recorded_at": record["ended_at"],
+            }
+        )
     store["records"].append(record)
+    store["records"] = store["records"][-CURRENT_RECORD_LIMIT:]
+    archive_time = datetime.fromisoformat(record["ended_at"].replace("Z", "+00:00"))
+    archive_path = (
+        ARCHIVE_ROOT
+        / f"{archive_time.year:04d}"
+        / f"{archive_time.month:02d}"
+        / f"{record['id']}.json"
+    )
+    archive_path.parent.mkdir(parents=True, exist_ok=True)
+    archive_payload = (
+        json.dumps(record, indent=2, sort_keys=True) + "\n"
+    ).encode("utf-8")
+    try:
+        archive_descriptor = os.open(
+            archive_path,
+            os.O_WRONLY | os.O_CREAT | os.O_EXCL,
+            0o600,
+        )
+    except FileExistsError as error:
+        raise ValueError(f"immutable evidence archive already exists: {archive_path}") from error
+    with os.fdopen(archive_descriptor, "wb") as archive_handle:
+        archive_handle.write(archive_payload)
+        archive_handle.flush()
+        os.fsync(archive_handle.fileno())
     rendered = (json.dumps(store, indent=2, sort_keys=True) + "\n").encode("utf-8")
     mode = stat.S_IMODE(EVIDENCE_PATH.stat().st_mode)
     temporary_path: Path | None = None
@@ -720,8 +776,14 @@ def main() -> int:
     )
     parser.add_argument("--write-evidence", action="store_true", required=True)
     parser.add_argument("--verify-adoption", action="store_true")
+    parser.add_argument("--hook", action="append", choices=HOOKS)
+    parser.add_argument("--changed-scope", action="store_true")
     parser.add_argument("--acknowledge-side-effects", action="store_true")
     args = parser.parse_args()
+    if args.verify_adoption and (args.hook or args.changed_scope):
+        parser.error("adoption verification always executes the full assessed hook set")
+    if args.hook and args.changed_scope:
+        parser.error("use either explicit --hook selection or --changed-scope routing")
 
     if EVIDENCE_PATH.is_symlink() or not EVIDENCE_PATH.is_file():
         print("[FAIL] project-check evidence destination is absent or unsafe", file=sys.stderr)
@@ -739,7 +801,35 @@ def main() -> int:
     errors: list[str] = []
     if set(commands) != set(HOOKS):
         errors.append("project command hook set differs from the closed contract")
-    for hook in HOOKS:
+    selected_hooks = list(HOOKS)
+    if args.hook:
+        selected_hooks = list(dict.fromkeys(args.hook))
+    elif args.changed_scope:
+        scope = git_scope()
+        if scope["available"]:
+            changed = set(
+                scope["tracked_modified"] + scope["untracked"]
+            )
+            project_paths = project.get("paths", {})
+            source_roots = project_paths.get("source", []) if isinstance(project_paths, dict) else []
+            test_roots = project_paths.get("tests", []) if isinstance(project_paths, dict) else []
+            def touches(roots: list[str]) -> bool:
+                return any(
+                    path == root or path.startswith(root.rstrip("/") + "/")
+                    for path in changed
+                    for root in roots
+                    if isinstance(root, str) and root
+                )
+            selected_hooks = (
+                ["project_test", "project_lint", "project_build"]
+                if touches(source_roots)
+                else ["project_test", "project_lint"]
+                if touches(test_roots)
+                else ["project_lint"]
+            )
+        else:
+            selected_hooks = list(HOOKS)
+    for hook in selected_hooks:
         errors.extend(validate_command(hook, commands.get(hook)))
     if errors:
         for error in errors:

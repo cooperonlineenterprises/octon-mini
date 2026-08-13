@@ -5,13 +5,13 @@
     "terminal": ["completed", "cancelled"],
     "transitions": {
       "proposed": ["ready", "cancelled"],
-      "ready": ["in_progress", "blocked", "cancelled"],
-      "in_progress": ["validating", "blocked", "cancelled"],
-      "validating": ["in_progress", "review", "blocked"],
+      "ready": ["in_progress", "blocked", "completed", "cancelled"],
+      "in_progress": ["validating", "completed", "blocked", "cancelled"],
+      "validating": ["in_progress", "review", "completed", "blocked"],
       "review": ["in_progress", "completed", "blocked"],
-      "blocked": ["ready", "cancelled"],
+      "blocked": ["ready", "in_progress", "cancelled"],
       "completed": ["reopened"],
-      "reopened": ["ready", "cancelled"],
+      "reopened": ["ready", "in_progress", "completed", "cancelled"],
       "cancelled": []
     },
     "gates": {

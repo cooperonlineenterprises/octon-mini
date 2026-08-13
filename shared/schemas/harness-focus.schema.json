@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://project-blueprint.local/schemas/harness-focus.schema.json",
+  "title": "Project-owned Operator Focus",
+  "description": "The small authoritative source for non-derivable current focus and next-action intent; never permission.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "document_role", "permission_grant", "current_task_id", "next_action", "handoff_summary", "updated_at", "updated_by", "limitations"],
+  "properties": {
+    "schema_version": {"const": "harness.focus.v1"},
+    "document_role": {"const": "project_owned_operator_intent_not_permission"},
+    "permission_grant": {"const": false},
+    "current_task_id": {"type": ["string", "null"], "pattern": "^TASK-[0-9]{4}$"},
+    "next_action": {"type": ["string", "null"], "minLength": 1},
+    "handoff_summary": {"type": ["string", "null"], "minLength": 1},
+    "updated_at": {"type": "string", "format": "date-time"},
+    "updated_by": {"type": ["string", "null"], "minLength": 1},
+    "limitations": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+  }
+}

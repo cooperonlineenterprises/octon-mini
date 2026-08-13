@@ -1,5 +1,5 @@
 {
-  "schema_version": "project-blueprint.v1",
+  "schema_version": "project-blueprint.v3",
   "blueprint_version_source": "VERSION",
   "minimum_python": "3.11",
   "modules": {
@@ -15,19 +15,16 @@
       "generated_roots": [
         "AGENTS.md",
         ".agent",
-        ".agents"
+        ".agents",
+        "pb"
       ],
-      "kernel_version": "3.0.0",
-      "kernel_files": [
-        ".agent/policy.json",
-        ".agent/context.json",
-        ".agent/schema.json",
-        ".agent/lifecycle.json",
-        ".agent/tools.json",
-        ".agent/validators.json",
-        ".agent/project.json"
-      ],
-      "collaboration_workflow_file": ".agent/workflows/small-team-git.json",
+      "kernel_version": "4.0.0",
+      "command_manifest": "shared/source-contracts/commands.json",
+      "scm_trigger_file": ".agent/scm.json",
+      "package_registry_file": ".agent/packages.json",
+      "collaboration_workflow_package": "small-team-git-portfolio",
+      "installed_collaboration_workflow_file": ".agent/workflows/small-team-git.json",
+      "collaboration_workflow_installed_by_default": false,
       "supported_base_workflows": [
         "solo_direct",
         "solo_hybrid",
@@ -45,27 +42,18 @@
     "architectural_pattern_catalog": "patterns/catalog.json",
     "pattern_catalog_generated": false,
     "pattern_catalog_automatic_adoption": false,
-    "generation_policy": "shared/source-contracts/generation-policy.json",
+    "profile_manifest": "shared/source-contracts/profile-manifest.json",
     "information_state_semantics": "shared/source-contracts/information-state-semantics.json",
     "architecture_proof_schema": "patterns/architecture-proof/schema.json",
     "architecture_proof_generated": false
   },
-  "optional_contracts": {
-    "context_pack_manifest": {
-      "schema": "shared/optional-schemas/context-pack-manifest.schema.json",
-      "minimum_profile": "high-assurance",
-      "manifest_generated": false,
-      "permission_grant": false
-    }
-  },
   "skill": "skills/project-bootstrap/SKILL.md",
-  "new_project_generator": "skills/project-bootstrap/scripts/scaffold_project.py",
-  "existing_project_planner": "skills/project-bootstrap/scripts/plan_adoption.py",
-  "profiles": [
-    "minimal",
-    "standard",
-    "high-assurance"
-  ],
+  "workflow_interface": "skills/project-bootstrap/scripts/pb.py",
+  "new_project_initializer": "skills/project-bootstrap/scripts/init_project.py",
+  "established_project_adopter": "skills/project-bootstrap/scripts/adopt_project.py",
+  "live_project_upgrader": "skills/project-bootstrap/scripts/upgrade_project.py",
+  "advanced_new_project_generator": "skills/project-bootstrap/scripts/scaffold_project.py",
+  "advanced_existing_project_planner": "skills/project-bootstrap/scripts/plan_adoption.py",
   "generation_contract": "shared/GENERATION_CONTRACT.md",
   "reference_evidence_registry": "shared/reference-evidence.json",
   "overwrite_existing_paths": false,

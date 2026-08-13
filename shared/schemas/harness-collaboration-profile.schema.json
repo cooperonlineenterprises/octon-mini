@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://project-blueprint.local/schemas/harness-collaboration-profile.schema.json",
+  "title": "Progressive Collaboration Evidence",
+  "description": "Evidence requirements depend only on facts used by the collaboration result; risk profile is independent.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "permission_grant",
+    "assessment_status",
+    "facts",
+    "conflicting_signals",
+    "team_band",
+    "concurrent_work",
+    "workflow_selection",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {"const": "harness.collaboration-profile.v2"},
+    "permission_grant": {"const": false},
+    "assessment_status": {"enum": ["not_assessed", "assessed", "stale", "conflicted"]},
+    "facts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["writer_count", "solo_integration_preference", "independent_review_capacity", "concurrency", "external_contribution_mode"],
+      "properties": {
+        "writer_count": {"$ref": "#/$defs/fact_writer_count"},
+        "solo_integration_preference": {"$ref": "#/$defs/fact_nullable_string"},
+        "independent_review_capacity": {"$ref": "#/$defs/fact_nullable_boolean"},
+        "concurrency": {"$ref": "#/$defs/fact_concurrency"},
+        "external_contribution_mode": {"$ref": "#/$defs/fact_nullable_string"}
+      }
+    },
+    "conflicting_signals": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "team_band": {"enum": ["unknown", "solo", "pair", "tiny", "unsupported"]},
+    "concurrent_work": {"type": "boolean"},
+    "workflow_selection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "base_workflow", "modifiers", "review_mode", "integration_method", "adoption_decision_ref", "used_fact_ids"],
+      "properties": {
+        "status": {"enum": ["not_assessed", "proposed", "adopted", "withheld"]},
+        "base_workflow": {"type": ["string", "null"]},
+        "modifiers": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "review_mode": {"type": "string", "minLength": 1},
+        "integration_method": {"type": ["string", "null"]},
+        "adoption_decision_ref": {"type": ["string", "null"], "pattern": "^DEC-[0-9]{4}$"},
+        "used_fact_ids": {"type": "array", "uniqueItems": true, "items": {"enum": ["writer_count", "solo_integration_preference", "independent_review_capacity", "concurrency", "external_contribution_mode"]}}
+      }
+    },
+    "limitations": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+  },
+  "$defs": {
+    "evidence": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["source", "observed_at", "expires_at", "limitations"],
+      "properties": {
+        "source": {"type": "string", "pattern": "^(?:authority|external|repo|url):.+$"},
+        "observed_at": {"type": "string", "format": "date-time"},
+        "expires_at": {"type": "string", "format": "date-time"},
+        "limitations": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+      }
+    },
+    "fact_writer_count": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "evidence"],
+      "properties": {"value": {"type": ["integer", "null"], "minimum": 1}, "evidence": {"$ref": "#/$defs/evidence"}}
+    },
+    "fact_nullable_string": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "evidence"],
+      "properties": {"value": {"type": ["string", "null"], "minLength": 1}, "evidence": {"$ref": "#/$defs/evidence"}}
+    },
+    "fact_nullable_boolean": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "evidence"],
+      "properties": {"value": {"type": ["boolean", "null"]}, "evidence": {"$ref": "#/$defs/evidence"}}
+    },
+    "fact_concurrency": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["human_writers", "agents_or_automation", "evidence"],
+      "properties": {
+        "human_writers": {"type": ["integer", "null"], "minimum": 0},
+        "agents_or_automation": {"type": ["integer", "null"], "minimum": 0},
+        "evidence": {"$ref": "#/$defs/evidence"}
+      }
+    }
+  }
+}

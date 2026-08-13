@@ -91,6 +91,7 @@ def main() -> int:
             "shared",
             "patterns",
             "migrations",
+            "docs",
         ):
             shutil.copytree(
                 repository_root / directory,
@@ -99,6 +100,8 @@ def main() -> int:
             )
         for filename in (
             "VERSION",
+            "VELOCITY_ROADMAP.md",
+            "VELOCITY_VALIDATION.md",
             "blueprint.json",
             "CHANGELOG.md",
             "RELEASE.md",

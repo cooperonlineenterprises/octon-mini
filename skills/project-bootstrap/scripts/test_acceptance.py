@@ -29,12 +29,19 @@ INSTALLER = SKILL_ROOT / "scripts/install_skill.py"
 MIGRATION_TESTS = (
     SKILL_ROOT / "scripts/test_migration_1_0_1_to_2_0_0.py",
     SKILL_ROOT / "scripts/test_migration_2_0_0_to_3_0_0.py",
+    SKILL_ROOT / "scripts/test_migration_3_1_0_to_4_0_0.py",
 )
+PACKAGE_SCRIPT = SKILL_ROOT / "scripts/package_project.py"
 ARCHITECTURAL_CONTRACT_TESTS = (
     SKILL_ROOT / "scripts/validate_source_contracts.py",
     SKILL_ROOT / "scripts/test_architectural_patterns.py",
 )
-PROFILES = ("minimal", "standard", "high-assurance")
+PROFILE_MANIFEST = json.loads(
+    (ROOT / "shared/source-contracts/profile-manifest.json").read_text(
+        encoding="utf-8"
+    )
+)
+PROFILES = tuple(item["id"] for item in PROFILE_MANIFEST["profiles"])
 SUPPORTED_WORKFLOWS = ("solo_direct", "solo_hybrid", "pair_pr", "tiny_pr")
 GIT_OPERATION_IDS = (
     "status",
@@ -82,34 +89,24 @@ HOSTED_OPERATION_IDS = (
     "merge_pull_request",
 )
 COLLABORATION_BASELINE = {
-    "schema_version": "harness.collaboration-profile.v1",
+    "schema_version": "harness.collaboration-profile.v2",
     "permission_grant": False,
     "assessment_status": "not_assessed",
-    "confidence": "unknown",
-    "declared_write_capable_humans": None,
-    "observed_repository_access": {
-        "write_capable_humans": None,
-        "read_only_humans": None,
-        "bots_or_automation": None,
+    "facts": {
+        "writer_count": {"value": None, "evidence": None},
+        "solo_integration_preference": {"value": None, "evidence": None},
+        "independent_review_capacity": {"value": None, "evidence": None},
+        "concurrency": {
+            "human_writers": None,
+            "agents_or_automation": None,
+            "evidence": None,
+        },
+        "external_contribution_mode": {"value": None, "evidence": None},
     },
-    "active_contributors": {
-        "human_count": None,
-        "bots_or_automation_count": None,
-        "window_days": None,
-    },
-    "independent_review_capacity": None,
-    "expected_concurrent_repository_writers": {
-        "humans": None,
-        "agents_or_automation": None,
-    },
-    "external_contribution_mode": "unknown",
-    "solo_integration_preference": "unknown",
-    "evidence": [],
-    "assessed_at": None,
-    "reassess_after": None,
     "conflicting_signals": [],
     "limitations": ["generated_unassessed_baseline"],
     "team_band": "unknown",
+    "concurrent_work": False,
     "workflow_selection": {
         "status": "not_assessed",
         "base_workflow": None,
@@ -117,27 +114,17 @@ COLLABORATION_BASELINE = {
         "review_mode": "not_assessed",
         "integration_method": None,
         "adoption_decision_ref": None,
+        "used_fact_ids": [],
     },
 }
 PRODUCTION_EXTENSIONS = {
-    "operations-observability",
-    "security-supply-chain",
+    item["id"]
+    for item in PROFILE_MANIFEST["packages"]
+    if item["kind"] == "domain_extension"
 }
 ACCEPTANCE_COVERAGE = {
-    1: "project_demonstration_required",
-    2: "automated_pass",
-    3: "project_demonstration_required",
-    4: "automated_pass",
-    5: "automated_pass",
-    6: "automated_pass",
-    7: "automated_pass",
-    8: "automated_pass",
-    9: "automated_pass",
-    10: "automated_pass",
-    11: "project_demonstration_required",
-    12: "automated_pass",
-    13: "project_demonstration_required",
-    14: "project_demonstration_required",
+    item["id"]: item["release_coverage"]
+    for item in PROFILE_MANIFEST["acceptance_criteria"]
 }
 
 
@@ -385,6 +372,7 @@ def main() -> int:
     migration_labels = (
         "1.0.1 to 2.0.0",
         "2.0.0 to 3.0.0",
+        "3.1.0 to 4.0.0",
     )
     for migration_test, migration_label in zip(
         MIGRATION_TESTS,
@@ -472,6 +460,28 @@ def main() -> int:
     )
     with tempfile.TemporaryDirectory(prefix="project-blueprint-acceptance-") as temp:
         temp_root = Path(temp)
+        omitted_profile_target = temp_root / "omitted-profile"
+        omitted_profile_result = run(
+            [
+                sys.executable,
+                "-B",
+                str(SCAFFOLDER),
+                "--target",
+                str(omitted_profile_target),
+                "--project-name",
+                "Omitted Profile",
+            ],
+            ROOT,
+        )
+        require(
+            omitted_profile_result.returncode != 0
+            and "--profile is required for non-interactive generation"
+            in (omitted_profile_result.stderr or omitted_profile_result.stdout)
+            and not omitted_profile_target.exists(),
+            "non-interactive generation silently selected a profile: "
+            f"{omitted_profile_result.stderr or omitted_profile_result.stdout}",
+            failures,
+        )
         legacy_console_target = temp_root / "legacy-console-dry-run"
         legacy_console_result = run(
             [
@@ -527,12 +537,15 @@ def main() -> int:
                 )
             )
             require(
-                origin["blueprint_version"] == "3.1.0"
-                and origin["generator_version"] == "3.1.0"
-                and origin["harness_kernel_version"] == "3.0.0"
-                and origin["initial_generation"]["blueprint_version"] == "3.1.0"
-                and origin["initial_generation"]["generator_version"] == "3.1.0",
-                f"{profile} conflated Blueprint/generator provenance with the unchanged kernel",
+                origin["blueprint_version"] == "4.0.0"
+                and origin["generator_version"] == "4.0.0"
+                and origin["harness_kernel_version"] == "4.0.0"
+                and origin["initial_generation"]["blueprint_version"] == "4.0.0"
+                and origin["initial_generation"]["generator_version"] == "4.0.0"
+                and origin["layout"] == "compact"
+                and origin["installed_inventory"]["schema_version"]
+                == "project-blueprint.installed-inventory.v2",
+                f"{profile} generated incoherent 4.0.0 provenance or layout inventory",
                 failures,
             )
             generated_inventory = set(origin["generated_paths"])
@@ -552,8 +565,8 @@ def main() -> int:
                 target / ".agent/schemas/context-pack-manifest.schema.json"
             )
             require(
-                context_schema.is_file() is (profile == "high-assurance"),
-                f"{profile} Context Pack optional-schema inventory is incorrect",
+                not context_schema.exists(),
+                f"{profile} physically installed the trigger-only Context Pack schema",
                 failures,
             )
             context_directory = target / "project-dossier/context-packs"
@@ -590,20 +603,17 @@ def main() -> int:
                 target / ".agent/workflows/README.md",
                 target / ".agent/workflows/github-adapter.md",
                 target / ".agent/workflows/small-team-git.json",
-                target / ".agent/templates/pull-request.md",
             )
             require(
-                all(path.is_file() for path in workflow_paths),
-                f"{profile} generation lacks a complete small-team workflow package",
+                not any(path.exists() for path in workflow_paths),
+                f"{profile} generation physically installed the trigger-only Git portfolio",
                 failures,
             )
             tools_json = json.loads(
                 (target / ".agent/tools.json").read_text(encoding="utf-8")
             )
-            workflow_json = json.loads(
-                (target / ".agent/workflows/small-team-git.json").read_text(
-                    encoding="utf-8"
-                )
+            scm_json = json.loads(
+                (target / ".agent/scm.json").read_text(encoding="utf-8")
             )
             git_ids = tuple(
                 operation["id"]
@@ -623,54 +633,13 @@ def main() -> int:
                 f"{profile} generated an incomplete or open Git operation vocabulary",
                 failures,
             )
-            operation_catalog = set(git_ids) | set(hosted_ids)
-            referenced_operations = {
-                operation
-                for workflow in workflow_json["workflows"].values()
-                for step in workflow["steps"]
-                for operation in step["operations"]
-            }
-            referenced_operations.update(
-                operation
-                for workflow in workflow_json["workflows"].values()
-                for operation in workflow["cleanup_operations"]
-            )
-            referenced_operations.update(
-                workflow_json["modifiers"]["concurrent_work"]["operations"]
-            )
             require(
-                tuple(workflow_json["supported_base_workflows"])
-                == SUPPORTED_WORKFLOWS
-                and tuple(workflow_json["workflows"]) == SUPPORTED_WORKFLOWS
-                and workflow_json["supported_modifiers"] == ["concurrent_work"]
-                and workflow_json["maximum_supported_write_capable_humans"] == 5
-                and workflow_json["unsupported_state"]
-                == {
-                    "result": "unsupported_team_size",
-                    "threshold": 5,
-                    "enterprise_fallback": False,
-                }
-                and referenced_operations <= operation_catalog
-                and not ({"pull", "force_push"} & referenced_operations),
-                f"{profile} workflow portfolio is incomplete or references unsafe operations",
-                failures,
-            )
-            require(
-                {
-                    "gitflow",
-                    "merge_queue",
-                    "release_train",
-                    "stacked_pr_dependency_train",
-                    "fork_first_internal",
-                    "multi_level_codeowners_approval",
-                    "multiple_mandatory_approval_stages",
-                    "dedicated_release_manager_handoff",
-                    "organization_wide_ruleset_orchestration",
-                    "multi_environment_promotion_pipeline",
-                    "enterprise_issue_or_portfolio_governance",
-                }
-                == set(workflow_json["excluded_enterprise_workflows"]),
-                f"{profile} workflow portfolio failed to exclude enterprise workflows",
+                scm_json["selection"] == "not_assessed"
+                and scm_json["selection_decision_ref"] is None
+                and scm_json["portfolio"]["status"] == "not_installed"
+                and isinstance(scm_json["portfolio"]["sha256"], str)
+                and len(scm_json["portfolio"]["sha256"]) == 64,
+                f"{profile} SCM trigger fabricated selection or installed state",
                 failures,
             )
             assessor_before = snapshot(target)
@@ -753,82 +722,34 @@ def main() -> int:
                 failures,
             )
             extension_registry_path = target / ".agent/extensions/registry.json"
-            if profile == "minimal":
-                require(
-                    not extension_registry_path.exists()
-                    and not (target / ".agent/extensions/operations-observability").exists()
-                    and not (target / ".agent/extensions/security-supply-chain").exists(),
-                    "minimal inherited production-control extensions",
-                    failures,
-                )
-            else:
+            require(
+                not (target / ".agent/extensions/operations-observability").exists()
+                and not (target / ".agent/extensions/security-supply-chain").exists(),
+                f"{profile} physically bundled trigger-only production extensions",
+                failures,
+            )
+            if profile != "minimal":
                 extension_registry = json.loads(
                     extension_registry_path.read_text(encoding="utf-8")
                 )
-                extension_by_id = {
-                    item["id"]: item for item in extension_registry["extensions"]
-                }
                 require(
-                    PRODUCTION_EXTENSIONS <= set(extension_by_id),
-                    f"{profile} lacks production-control extension entry points",
+                    extension_registry["extensions"] == [],
+                    f"{profile} preinstalled a trigger-only extension registry entry",
                     failures,
                 )
-                require(
-                    all(
-                        extension_by_id[extension_id]["enabled"] is False
-                        and extension_by_id[extension_id]["trust_class"]
-                        == "unassessed_project_local_code"
-                        and extension_by_id[extension_id]["trust_decision_ref"] is None
-                        for extension_id in PRODUCTION_EXTENSIONS
-                    ),
-                    f"{profile} auto-enabled or trusted a production extension",
-                    failures,
-                )
-                for extension_id in sorted(PRODUCTION_EXTENSIONS):
-                    extension_config = json.loads(
-                        (
-                            target
-                            / ".agent/extensions"
-                            / extension_id
-                            / "config.json"
-                        ).read_text(encoding="utf-8")
-                    )
-                    require(
-                        extension_config["adoption"]["status"] == "not_assessed"
-                        and extension_config["adoption"]["decision_ref"] is None
-                        and extension_config["permission_grant"] is False,
-                        f"{profile} fabricated {extension_id} adoption or authority",
-                        failures,
-                    )
+            packages = json.loads((target / ".agent/packages.json").read_text(encoding="utf-8"))
+            require(
+                packages["packages"] == []
+                and packages["requirements"]["absence_means_not_applicable"] is False,
+                f"{profile} package absence implied non-applicability",
+                failures,
+            )
             result = check_project(target)
             require(
                 result.returncode == 0,
                 f"{profile} isolated validation failed: {result.stderr or result.stdout}",
                 failures,
             )
-
-        if "standard" in projects:
-            for extension_id in sorted(PRODUCTION_EXTENSIONS):
-                result = run(
-                    [
-                        sys.executable,
-                        "-B",
-                        str(
-                            projects["standard"]
-                            / ".agent/extensions"
-                            / extension_id
-                            / "tests/test_validate.py"
-                        ),
-                    ],
-                    projects["standard"],
-                )
-                require(
-                    result.returncode == 0,
-                    f"{extension_id} package tests failed: "
-                    f"{result.stderr or result.stdout}",
-                    failures,
-                )
-
         for profile, target in projects.items():
             source_change = target / f"acceptance-refresh-{profile}.txt"
             source_change.write_text(
@@ -1079,7 +1000,7 @@ def main() -> int:
         strict_drift_template.unlink()
 
         source_policy_path = (
-            broken_source / "shared/source-contracts/generation-policy.json"
+            broken_source / "shared/source-contracts/profile-manifest.json"
         )
         source_policy_text = source_policy_path.read_text(encoding="utf-8")
         invalid_source_policy = json.loads(source_policy_text)
@@ -1189,8 +1110,12 @@ def main() -> int:
                 failures,
             )
             require(
-                "before accepting"
-                in plan["functional_equivalence_limit"].casefold(),
+                "always require review"
+                in plan["functional_equivalence_limit"].casefold()
+                and any(
+                    item.get("path") == "AGENTS.md"
+                    for item in plan.get("unresolved_ambiguity", [])
+                ),
                 "adoption plan treated path/name candidates as accepted equivalents",
                 failures,
             )
@@ -1633,194 +1558,137 @@ def main() -> int:
                 failures,
             )
 
-        if "high-assurance" in projects:
-            high = projects["high-assurance"]
-            registry_path = high / ".agent/extensions/registry.json"
-            registry = json.loads(registry_path.read_text(encoding="utf-8"))
-            sample_extension = next(
-                item
-                for item in registry["extensions"]
-                if item["id"] == "sample-restriction"
-            )
-            kernel_before = {
-                path: hashlib.sha256((high / path).read_bytes()).hexdigest()
-                for path in (
-                    ".agent/policy.json",
-                    ".agent/context.json",
-                    ".agent/schema.json",
-                    ".agent/lifecycle.json",
-                    ".agent/tools.json",
-                    ".agent/validators.json",
-                    ".agent/project.json",
-                )
-            }
-            write_accepted_decision(high, "DEC-9090")
-            sample_extension["enabled"] = True
-            sample_extension["owner"] = "acceptance-suite"
-            sample_extension["provenance"] = "authority:synthetic-acceptance"
-            sample_extension["trust_class"] = "trusted_project_local_code"
-            sample_extension["trust_decision_ref"] = "DEC-9090"
-            write_json(registry_path, registry)
-            result = refresh(high)
-            require(
-                result.returncode == 0,
-                f"trusted sample extension failed: {result.stderr or result.stdout}",
-                failures,
-            )
-            result = check_project(high)
-            require(
-                result.returncode == 0,
-                "trusted sample extension did not validate",
-                failures,
-            )
-            sample_extension["enabled"] = False
-            sample_extension["trust_class"] = "unassessed_project_local_code"
-            sample_extension["trust_decision_ref"] = None
-            registry_path.write_text(
-                json.dumps(registry, indent=2, sort_keys=True) + "\n",
-                encoding="utf-8",
-            )
-            result = refresh(high)
-            require(result.returncode == 0, "disabled extension blocked refresh", failures)
-            result = check_project(high)
-            require(result.returncode == 0, "disabled extension invalidated kernel", failures)
-            kernel_after = {
-                path: hashlib.sha256((high / path).read_bytes()).hexdigest()
-                for path in kernel_before
-            }
-            require(
-                kernel_before == kernel_after,
-                "disabling extension required a kernel edit",
-                failures,
+        if "high-assurance" in projects and "standard" in projects:
+            kernel_paths = (
+                ".agent/policy.json",
+                ".agent/context.json",
+                ".agent/schema.json",
+                ".agent/lifecycle.json",
+                ".agent/tools.json",
+                ".agent/validators.json",
             )
 
-            invalid_extension = temp_root / "invalid-extension"
-            shutil.copytree(high, invalid_extension)
-            invalid_registry_path = invalid_extension / ".agent/extensions/registry.json"
-            invalid_registry = json.loads(
-                invalid_registry_path.read_text(encoding="utf-8")
+            package_cases = (
+                ("operations-observability", projects["standard"], True, "9001"),
+                ("security-supply-chain", projects["standard"], True, "9101"),
+                ("sample-restriction", projects["high-assurance"], False, "9201"),
+                ("small-team-git-portfolio", projects["minimal"], False, "9301"),
             )
-            next(
-                item
-                for item in invalid_registry["extensions"]
-                if item["id"] == "sample-restriction"
-            )["authority_effect"] = "expands_permission"
-            invalid_registry_path.write_text(
-                json.dumps(invalid_registry, indent=2, sort_keys=True) + "\n",
-                encoding="utf-8",
-            )
-            result = check_project(invalid_extension)
-            require(
-                result.returncode != 0
-                and ".agent/extensions/registry.json" in result.stderr,
-                "authority-expanding extension passed",
-                failures,
-            )
-
-            production_fixture_ids = {
-                "operations-observability": "9001",
-                "security-supply-chain": "9101",
-            }
-            production_extension_base = projects.get("standard", high)
-            for extension_id, numeric_id in production_fixture_ids.items():
-                production_target = temp_root / f"enabled-{extension_id}"
-                shutil.copytree(production_extension_base, production_target)
-                extension_root = (
-                    production_target / ".agent/extensions" / extension_id
-                )
-                scenario = json.loads(
-                    (
-                        extension_root / "tests/fixtures/valid.json"
-                    ).read_text(encoding="utf-8")
-                )
-                write_json(extension_root / "config.json", scenario["config"])
-                write_json(extension_root / "records.json", scenario["records"])
+            for package_id, base, assess_applicable, numeric_id in package_cases:
+                package_target = temp_root / f"installed-{package_id}"
+                shutil.copytree(base, package_target)
                 decision_id = f"DEC-{numeric_id}"
-                task_id = f"TASK-{numeric_id}"
-                evidence_id = f"EVD-{numeric_id}"
-                write_accepted_decision(production_target, decision_id)
-                write_task(
-                    production_target,
-                    task_id,
-                    "proposed",
+                write_accepted_decision(package_target, decision_id)
+                kernel_before = {
+                    path: hashlib.sha256((package_target / path).read_bytes()).hexdigest()
+                    for path in kernel_paths
+                }
+                plan_path = package_target / ".agent/transactions/plans/package.json"
+                command = [
+                    sys.executable,
+                    "-B",
+                    str(PACKAGE_SCRIPT),
+                    "plan",
+                    "--target",
+                    str(package_target),
+                    "--package",
+                    package_id,
+                    "--owner",
+                    "acceptance-suite",
+                    "--trust-decision-ref",
+                    decision_id,
+                    "--output",
+                    str(plan_path),
+                ]
+                if assess_applicable:
+                    command.append("--assess-applicable")
+                result = run(command, ROOT)
+                require(
+                    result.returncode == 0,
+                    f"{package_id} package plan failed: {result.stderr or result.stdout}",
+                    failures,
+                )
+                if result.returncode:
+                    continue
+                plan = json.loads(plan_path.read_text(encoding="utf-8"))
+                result = run(
+                    [
+                        sys.executable,
+                        "-B",
+                        str(PACKAGE_SCRIPT),
+                        "apply",
+                        "--target",
+                        str(package_target),
+                        "--plan",
+                        str(plan_path),
+                        "--accept-digest",
+                        plan["canonical_plan_digest"],
+                    ],
+                    ROOT,
+                )
+                require(
+                    result.returncode == 0,
+                    f"{package_id} package apply failed: {result.stderr or result.stdout}",
+                    failures,
+                )
+                result = check_project(package_target)
+                require(
+                    result.returncode == 0,
+                    f"installed {package_id} did not validate: {result.stderr or result.stdout}",
+                    failures,
+                )
+                registry = json.loads((package_target / ".agent/packages.json").read_text(encoding="utf-8"))
+                installed = next(
+                    (item for item in registry["packages"] if item["id"] == package_id),
                     None,
-                    [],
                 )
-                write_passing_evidence(
-                    production_target,
-                    evidence_id,
-                    task_id,
-                )
-                production_registry_path = (
-                    production_target / ".agent/extensions/registry.json"
-                )
-                production_registry = json.loads(
-                    production_registry_path.read_text(encoding="utf-8")
-                )
-                production_extension = next(
-                    item
-                    for item in production_registry["extensions"]
-                    if item["id"] == extension_id
-                )
-                production_extension["enabled"] = True
-                production_extension["owner"] = "acceptance-suite"
-                production_extension["provenance"] = (
-                    "authority:synthetic-acceptance"
-                )
-                production_extension["trust_class"] = (
-                    "trusted_project_local_code"
-                )
-                production_extension["trust_decision_ref"] = decision_id
-                write_json(production_registry_path, production_registry)
-                production_kernel_before = {
-                    path: hashlib.sha256(
-                        (production_target / path).read_bytes()
-                    ).hexdigest()
-                    for path in kernel_before
-                }
-                result = refresh(production_target)
                 require(
-                    result.returncode == 0,
-                    f"adopted {extension_id} failed: "
-                    f"{result.stderr or result.stdout}",
+                    installed is not None
+                    and installed["validation_receipt_ref"] in installed["evidence_refs"]
+                    and len(installed["installed_paths_sha256"]) == 64,
+                    f"{package_id} omitted content or validation receipt binding",
                     failures,
                 )
-                result = check_project(production_target)
-                require(
-                    result.returncode == 0,
-                    f"adopted {extension_id} did not validate: "
-                    f"{result.stderr or result.stdout}",
-                    failures,
-                )
-                production_extension["enabled"] = False
-                write_json(production_registry_path, production_registry)
-                result = refresh(production_target)
-                require(
-                    result.returncode == 0,
-                    f"disabled {extension_id} blocked refresh: "
-                    f"{result.stderr or result.stdout}",
-                    failures,
-                )
-                result = check_project(production_target)
-                require(
-                    result.returncode == 0,
-                    f"disabled {extension_id} invalidated the kernel",
-                    failures,
-                )
-                production_kernel_after = {
-                    path: hashlib.sha256(
-                        (production_target / path).read_bytes()
-                    ).hexdigest()
-                    for path in production_kernel_before
+                if package_id == "small-team-git-portfolio":
+                    scm = json.loads((package_target / ".agent/scm.json").read_text(encoding="utf-8"))
+                    require(
+                        scm["selection"] == "git"
+                        and scm["selection_decision_ref"] == decision_id
+                        and scm["portfolio"]["status"] == "installed"
+                        and (package_target / ".agent/workflows/small-team-git.json").is_file(),
+                        "Git selection did not transactionally vendor its independent portfolio",
+                        failures,
+                    )
+                elif package_id in PRODUCTION_EXTENSIONS:
+                    project = json.loads((package_target / ".agent/project.json").read_text(encoding="utf-8"))
+                    require(
+                        project["packages"]["trigger_assessments"][package_id.replace("-", "_")]
+                        == "applicable",
+                        f"{package_id} installation did not retain explicit applicability",
+                        failures,
+                    )
+                kernel_after = {
+                    path: hashlib.sha256((package_target / path).read_bytes()).hexdigest()
+                    for path in kernel_paths
                 }
                 require(
-                    production_kernel_before == production_kernel_after,
-                    f"disabling {extension_id} required a kernel edit",
+                    kernel_before == kernel_after,
+                    f"trigger installation for {package_id} rewrote unrelated kernel authority",
                     failures,
                 )
+                if installed is not None:
+                    tamper_path = package_target / installed["installed_paths"][0]
+                    tamper_path.write_bytes(tamper_path.read_bytes() + b"\n")
+                    tampered = check_project(package_target)
+                    require(
+                        tampered.returncode != 0
+                        and "installed content digest is stale" in tampered.stderr,
+                        f"tampered {package_id} payload retained passing package evidence",
+                        failures,
+                    )
 
             interrupted = temp_root / "interrupted-refresh"
-            shutil.copytree(high, interrupted)
+            shutil.copytree(projects["high-assurance"], interrupted)
             report_path = interrupted / ".agent/generated/validation-report.json"
             report = json.loads(report_path.read_text(encoding="utf-8"))
             report["generation_id"] = "0" * 32
@@ -1840,39 +1708,49 @@ def main() -> int:
         for failure in failures:
             print(f"- {failure}")
         return 1
-    if set(ACCEPTANCE_COVERAGE) != set(range(1, 15)):
+    acceptance_section = (
+        (ROOT / "harness/BLUEPRINT.md")
+        .read_text(encoding="utf-8")
+        .split("## 14. Acceptance criteria", 1)[1]
+        .split("## 15. Evidence crosswalk", 1)[0]
+    )
+    documented_criteria = {
+        int(match.group(1))
+        for match in re.finditer(r"^(\d+)\. ", acceptance_section, re.MULTILINE)
+    }
+    if set(ACCEPTANCE_COVERAGE) != documented_criteria:
         print("FAIL: acceptance coverage map is incomplete")
         return 1
     print("PASS: Project Blueprint acceptance suite")
-    print("- profiles: minimal, standard, high-assurance")
+    print(f"- profiles: {', '.join(PROFILES)}")
     print(
         "- generation: transactional, format-safe, allowlist-driven, and "
         "capability-scoped under degradation"
     )
     print(
         "- source-only contracts: catalog/proof assets absent from all profiles; "
-        "Context Pack schema present only in High Assurance without a manifest"
+        "trigger-only Context Pack schema and manifest absent from every default profile"
     )
     print(
-        "- maintenance: all-profile refresh plus registered "
-        "add, rename, omission, and refusal paths"
+        "- maintenance: derived focus/current refresh plus registered add, rename, "
+        "combine, supersede, omission, and refusal paths"
     )
     print(
-        "- migration: both version transitions preserve executable idempotence, "
-        "exact rollback evidence, and fail-closed ambiguity coverage"
+        "- migration: supported executable transitions preserve idempotence, exact "
+        "rollback evidence, reviewed legacy seeding, and fail-closed ambiguity coverage"
     )
     print(
         "- adoption: read-only planning/checks plus separately explicit, "
         "fingerprint-bound project-check evidence"
     )
     print(
-        "- validator: adversarial authority, collaboration classification, "
-        "small-team Git workflows, dependency readiness/frontier, lifecycle, "
+        "- validator: adversarial authority, progressive collaboration classification, "
+        "triggered Git portfolio, dependency readiness/frontier, lifecycle, "
         "reference, secret, extension, and freshness checks"
     )
     print(
-        "- production controls: disabled/unassessed defaults, strict fixture "
-        "suites, and deliberate Standard enable/disable paths"
+        "- triggered packages: absent-by-default controls, strict fixture suites, "
+        "content-addressed installation, decision binding, and refusal paths"
     )
     print(
         "ACCEPTANCE_COVERAGE_JSON="

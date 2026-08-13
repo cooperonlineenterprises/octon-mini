@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://project-blueprint.local/schemas/harness-scm.schema.json",
+  "title": "Project-owned SCM Selection",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "document_role", "permission_grant", "selection", "selection_decision_ref", "detected_candidates", "portfolio", "limitations"],
+  "properties": {
+    "schema_version": {"const": "harness.scm-selection.v1"},
+    "document_role": {"const": "project_owned_scm_choice_and_package_trigger"},
+    "permission_grant": {"const": false},
+    "selection": {"enum": ["not_assessed", "none", "git", "other"]},
+    "selection_decision_ref": {"type": ["string", "null"], "pattern": "^DEC-[0-9]{4}$"},
+    "detected_candidates": {"type": "array", "uniqueItems": true, "items": {"enum": ["git"]}},
+    "portfolio": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["package_id", "status", "version", "sha256"],
+      "properties": {
+        "package_id": {"const": "small-team-git-portfolio"},
+        "status": {"enum": ["not_installed", "installed"]},
+        "version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+        "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+      }
+    },
+    "limitations": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+  }
+}

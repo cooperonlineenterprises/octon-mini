@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://project-blueprint.local/schemas/harness-hook-candidate.schema.json",
+  "title": "Non-authorizing Hook Candidate Set",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "permission_grant", "observed_at", "target_fingerprint", "archetype_candidates", "hook_candidates", "excluded_recipes", "limitations"],
+  "properties": {
+    "schema_version": {"const": "harness.hook-candidates.v1"},
+    "permission_grant": {"const": false},
+    "observed_at": {"type": "string", "format": "date-time"},
+    "target_fingerprint": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "archetype_candidates": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/archetype"}
+    },
+    "hook_candidates": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/hook"}
+    },
+    "excluded_recipes": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/exclusion"}
+    },
+    "limitations": {"$ref": "#/$defs/strings"}
+  },
+  "$defs": {
+    "strings": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "kind", "sha256", "observed_at", "limitations"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "kind": {"enum": ["path", "bounded_content"]},
+        "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "observed_at": {"type": "string", "format": "date-time"},
+        "limitations": {"$ref": "#/$defs/strings"}
+      }
+    },
+    "archetype": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "recipe_id", "confidence", "rule", "evidence", "limitations"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$"},
+        "recipe_id": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"},
+        "confidence": {"enum": ["low", "medium", "high"]},
+        "rule": {"type": "string", "minLength": 1},
+        "evidence": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/evidence"}},
+        "limitations": {"$ref": "#/$defs/strings"}
+      }
+    },
+    "hook": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["hook", "recipe_id", "tool_name", "argv", "version_argv", "shell", "confidence", "side_effects", "evidence", "override_required", "limitations"],
+      "properties": {
+        "hook": {"enum": ["project_test", "project_lint", "project_build", "project_closure"]},
+        "recipe_id": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"},
+        "tool_name": {"type": "string", "minLength": 1},
+        "argv": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+        "version_argv": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+        "shell": {"const": false},
+        "confidence": {"enum": ["low", "medium", "high"]},
+        "side_effects": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["classification", "repository_write_paths", "external_effects"],
+          "properties": {
+            "classification": {"enum": ["read_only", "repository_local_writes", "external_or_unknown"]},
+            "repository_write_paths": {"$ref": "#/$defs/strings"},
+            "external_effects": {"$ref": "#/$defs/strings"}
+          }
+        },
+        "evidence": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/evidence"}},
+        "override_required": {"const": true},
+        "limitations": {"$ref": "#/$defs/strings"}
+      }
+    },
+    "exclusion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["recipe_id", "reason"],
+      "properties": {
+        "recipe_id": {"type": "string", "minLength": 1},
+        "reason": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}

@@ -682,7 +682,7 @@
           "const": "harness.schema.v1"
         },
         "kernel_version": {
-          "const": "3.0.0"
+          "const": "4.0.0"
         },
         "compatibility": {
           "type": "object"
@@ -879,7 +879,7 @@
       ],
       "properties": {
         "schema_version": {
-          "const": "harness.validators.v3"
+          "const": "harness.validators.v4"
         },
         "validator_version": {
           "type": "string",
@@ -933,6 +933,15 @@
             "test": {
               "$ref": "#/$defs/command"
             },
+            "test_fast": {
+              "$ref": "#/$defs/command"
+            },
+            "test_integration": {
+              "$ref": "#/$defs/command"
+            },
+            "test_release": {
+              "$ref": "#/$defs/command"
+            },
             "project_checks": {
               "$ref": "#/$defs/command"
             },
@@ -965,12 +974,12 @@
         "paths",
         "commands",
         "project_checks",
-        "extensions",
+        "packages",
         "mutable_work_status"
       ],
       "properties": {
         "schema_version": {
-          "const": "harness.project.v3"
+          "const": "harness.project.v4"
         },
         "project": {
           "type": "object",
@@ -1021,9 +1030,7 @@
             }
           }
         },
-        "collaboration_profile": {
-          "$ref": "#/$defs/collaboration_profile"
-        },
+        "collaboration_profile": {"type": "object"},
         "paths": {
           "type": "object",
           "additionalProperties": false,
@@ -1092,6 +1099,7 @@
           "required": [
             "evidence_schema",
             "evidence_store",
+            "evidence_archive",
             "writer_argv",
             "adoption_verification_argv",
             "execution",
@@ -1103,6 +1111,9 @@
             },
             "evidence_store": {
               "const": ".agent/project-checks/evidence.json"
+            },
+            "evidence_archive": {
+              "const": ".agent/project-checks/archive"
             },
             "writer_argv": {
               "type": "array",
@@ -1121,26 +1132,39 @@
               }
             },
             "execution": {
-              "const": "explicit_writer_only"
+              "enum": [
+                "explicit_writer_only",
+                "explicit_writer_only_with_selective_hooks_and_full_adoption_verification"
+              ]
             },
             "shell_interpretation": {
               "const": false
             }
           }
         },
-        "extensions": {
+        "packages": {
           "type": "object",
           "additionalProperties": false,
           "required": [
             "registry",
-            "registry_required_in_profile"
+            "trigger_assessments",
+            "absence_means_not_applicable"
           ],
           "properties": {
             "registry": {
-              "const": ".agent/extensions/registry.json"
+              "const": ".agent/packages.json"
             },
-            "registry_required_in_profile": {
-              "const": "standard_or_higher"
+            "trigger_assessments": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["operations_observability", "security_supply_chain"],
+              "properties": {
+                "operations_observability": {"enum": ["not_assessed", "not_applicable", "applicable"]},
+                "security_supply_chain": {"enum": ["not_assessed", "not_applicable", "applicable"]}
+              }
+            },
+            "absence_means_not_applicable": {
+              "const": false
             }
           }
         },

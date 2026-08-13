@@ -1,0 +1,1 @@
+{"schema_version":"project-blueprint.detector-recipe.v1","id":"java","markers":["pom.xml","build.gradle","build.gradle.kts"],"archetypes":["software"],"hooks":[],"dynamic_strategy":"java_build_marker","limitations":["Maven and Gradle candidates are selected by the exact observed build marker; wrappers and dependency effects require review."]}
