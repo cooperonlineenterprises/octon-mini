@@ -58,6 +58,8 @@ assurance profile.
 - primitive scaffolding uses structural plus bounded fast validation, while
   consequential init/adoption/upgrade/release transactions retain release-tier
   staging; and
+- generated `pb` entry points suppress Python bytecode writes so the documented
+  read-only check does not create cache files; and
 - the Blueprint, generator, and harness kernel advance to 4.0.0.
 
 ### Compatibility and migration note

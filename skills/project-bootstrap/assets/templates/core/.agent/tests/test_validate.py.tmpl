@@ -4203,6 +4203,21 @@ class HarnessValidatorTests(unittest.TestCase):
         self.assertEqual(before, after)
 
     @FULL_TREE_ONLY
+    def test_documented_pb_check_does_not_write_bytecode_or_files(self) -> None:
+        before = snapshot(ROOT)
+        result = subprocess.run(
+            [sys.executable, "pb", "check"],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        after = snapshot(ROOT)
+        self.assertEqual(result.returncode, 0, result.stderr or result.stdout)
+        self.assertEqual(before, after)
+        self.assertFalse(any("__pycache__" in path for path in after))
+
+    @FULL_TREE_ONLY
     def test_ready_frontier_command_is_read_only_and_non_authorizing(self) -> None:
         before = VALIDATOR.snapshot_files(ROOT)
         result = subprocess.run(
