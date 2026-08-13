@@ -6,3 +6,15 @@ valid.
 
 Do not pre-accept the generated template. Accepted records preserve their
 meaning; correct them with a dated addendum or successor record.
+
+`governance-register.json` is the project-owned inventory for material
+decision questions, recommendations, owner selections, trade-off reviews,
+compatibility findings, and the minimum closure sequence. Its stable
+`DREG-####` IDs are tracking identities, not durable decision authority.
+
+Use `.agent/templates/architecture-decision-register.md` for owner-friendly
+review, `.agent/templates/trade-off-review.md` for evidence-based comparison,
+and `.agent/templates/read-only-review.md` for review assurance. Reconcile the
+machine register after a review. A recommendation is not an owner selection;
+an owner selection remains pending until an accepted `DEC-####` authority
+record is linked.

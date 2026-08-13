@@ -1,0 +1,251 @@
+# Architecture Decision Register Workbook
+
+> Reusable review projection for {{PROJECT_NAME}}. The project-owned machine
+> register is `.agent/decisions/governance-register.json`; accepted durable
+> authority remains in accepted `.agent/decisions/DEC-####*.md` records. This
+> workbook grants no permission and proves no implementation or readiness.
+
+## 1. How to use this workbook
+
+1. Inventory every material unresolved or tracked decision in the machine
+   register with one stable `DREG-####` ID. Do not hide a contract choice
+   beneath broad direction or combine independent choices.
+2. Classify each item with exactly one decision type, timing, and lifecycle
+   state from the controlled vocabularies below.
+3. Copy the reconciled register data into this human review view. The
+   dashboard, decision sheets, dependency order, and trade-off review must
+   contain the same decision IDs exactly once.
+4. Compare only credible, mutually distinct options. Do not manufacture an
+   alternative merely to fill a row, and do not present cumulative delivery
+   stages as if they were alternatives.
+5. Run non-negotiable gates before balanced scoring. A failed gate
+   disqualifies an option; a material unknown normally makes the decision
+   evidence-first. Cost, speed, convenience, or performance cannot compensate
+   for a failed gate.
+6. Leave the owner-decision section blank until the accountable owner acts.
+   A recommendation is not an owner selection. An owner selection is not
+   accepted authority. Acceptance exists only after the required `DEC-####`
+   record or approval process is complete and linked.
+7. Preserve unknowns. Name the precise evidence-producing step, owner, result
+   required, and stop condition instead of guessing.
+
+Controlled values:
+
+- Decision type: `architecture decision`, `product-policy decision`,
+  `specialist-policy decision`, `vendor or platform decision`.
+- Timing: `required now`, `required later`, `evidence-first`,
+  `open owner decision`.
+- Lifecycle: `open`, `evidence in progress`,
+  `owner selected — ADR or approval pending`,
+  `accepted — authority linked`, `deferred`, `superseded`.
+
+Validation work, a specialist review, a spike, implementation detail, and
+operational readiness are not automatically decisions. Record the choice they
+inform, the evidence they produce, or the gate they assess.
+
+## 2. Executive summary and counts
+
+Summary: _Replace with a concise statement of material open choices, evidence
+gaps, and implementation boundary._
+
+| Measure | Count |
+|---|---:|
+| Total registered |  |
+| Unresolved |  |
+| Blocking |  |
+| Evidence-first |  |
+| Open |  |
+| Evidence in progress |  |
+| Owner selected — ADR or approval pending |  |
+| Accepted — authority linked |  |
+| Deferred |  |
+| Superseded |  |
+
+## 3. Decision dashboard
+
+Every registered `DREG-####` appears once. Recommendation, owner selection,
+and accepted authority use separate columns.
+
+| ID | Plain-language title | Type | Timing | Lifecycle | Blocking? | Recommendation | Owner selection | Accepted authority | Owner role |
+|---|---|---|---|---|---|---|---|---|---|
+|  |  |  |  |  |  |  |  |  |  |
+
+## 4. Decision sheets
+
+Duplicate this section once per registered decision. Do not combine independent
+decisions to reduce the sheet count.
+
+### DREG-____ — Plain-language title
+
+#### Decision identity
+
+- Exact decision to make:
+- Practical importance:
+- Decision type:
+- Timing:
+- Lifecycle state:
+- Blocks broad or dependent work:
+- Accountable owner role:
+- Specialist reviewer roles:
+
+#### Accepted constraints that cannot be reopened here
+
+- Constraint:
+- Accepted authority reference:
+
+#### Explicit exclusions
+
+- This decision does not decide:
+- Mandatory foundations that remain required regardless of option:
+- Validation, specialist review, implementation, or readiness work that is not
+  itself the decision:
+
+#### Credible option set
+
+Use no more than four options. State why these are mutually distinct and why
+no additional credible option is needed. One option is permissible when
+accepted constraints genuinely eliminate alternatives; explain that result.
+
+Option-set rationale:
+
+##### OPT-A — Option title
+
+- Description:
+- Advantages:
+- Disadvantages:
+- Risks:
+- Best-fit conditions:
+
+##### OPT-B — Option title
+
+- Description:
+- Advantages:
+- Disadvantages:
+- Risks:
+- Best-fit conditions:
+
+##### OPT-C — Option title, if credible
+
+- Description:
+- Advantages:
+- Disadvantages:
+- Risks:
+- Best-fit conditions:
+
+##### OPT-D — Option title, if credible
+
+- Description:
+- Advantages:
+- Disadvantages:
+- Risks:
+- Best-fit conditions:
+
+#### Recommendation — advisory only
+
+- Recommended option:
+- Rationale:
+- Supporting evidence:
+- Accepted compromise:
+- Confidence (`high`, `medium`, or `low`):
+- Disconfirming evidence:
+
+#### Evidence-first step, when evidence is insufficient
+
+- Evidence owner role:
+- Precise evidence-producing step:
+- Expected evidence:
+- Stop condition:
+- Evidence references:
+
+#### Traceability and effects
+
+- Requirement references:
+- Risk references:
+- Plan references:
+- Gate references:
+- Decision dependencies:
+- Dependent decisions:
+- Work blocked by this decision:
+- Reversal or successor-decision conditions:
+- Authoritative references:
+
+#### Owner decision — intentionally blank
+
+- Selected option:
+- Selected by owner role:
+- Selection date:
+- Selection rationale:
+- Required ADR or approval route:
+- Accepted authority reference after completion:
+
+Do not populate this section from the recommendation. A filled selection still
+remains pending until accepted authority is linked.
+
+## 5. Dependency-ordered decision sequence
+
+List every registered decision exactly once in a valid topological order.
+Order is dependency, not priority. Show parallel groups separately.
+
+| Sequence | Decision ID | Must follow | May run in parallel with | Closure output |
+|---:|---|---|---|---|
+|  |  |  |  |  |
+
+## 6. Already-settled decisions
+
+List accepted `DEC-####` authority outside this workbook when it constrains a
+registered choice. Do not reopen it without contradictory evidence and an
+accepted amendment or successor.
+
+| Authority ref | Settled scope | Constrains DREG IDs | Constraint on open choices | Successor, if any |
+|---|---|---|---|---|
+|  |  |  |  |  |
+
+## 7. Matters that are not open decisions
+
+Examples include tests, spikes, specialist reviews, cumulative stages,
+mandatory foundations, illustrative handoff schemas, ordinary reversible
+implementation choices, and operational-readiness demonstrations.
+
+| Matter | Classification | Why it is not an open decision | Routed owner/artifact |
+|---|---|---|---|
+|  |  |  |  |
+
+## 8. Minimum closure set before broad implementation
+
+Identify the smallest dependency-ordered set of owner decisions, ADRs or
+approvals, evidence-first spikes, contract drafts, specialist reviews, and gate
+evidence needed before broad authoritative implementation. Template completion
+or structural validation does not close an item.
+
+| Closure ID | Kind | Decision refs | Depends on | Owner role | Completion evidence and resolvable refs | Blocks broad implementation? |
+|---|---|---|---|---|---|---|
+|  |  |  |  |  |  |  |
+
+Parallel groups:
+
+-
+
+Work that may safely begin before full closure:
+
+-
+
+Broad implementation boundary:
+
+_State exactly what may not begin until which closure items have project-owned
+evidence and authority._
+
+## 9. Separate conclusions
+
+Do not infer one conclusion from another. Use `supported`, `partially
+supported`, `not supported`, `not assessed`, or `not applicable`, with exact
+evidence and limitations.
+
+| Conclusion | Status | Basis and evidence | Limitations |
+|---|---|---|---|
+| Architecture quality |  |  |  |
+| Documentation completeness |  |  |  |
+| Implementation evidence |  |  |  |
+| Specialist approval |  |  |  |
+| Release readiness |  |  |  |
+| Production readiness |  |  |  |
+| Product efficacy or commercial viability |  |  |  |

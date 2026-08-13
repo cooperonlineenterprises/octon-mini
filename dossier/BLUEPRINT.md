@@ -651,27 +651,34 @@ conceptual type in the v2 machine source. A `CF:` or `COE:` locator is
 - **Category / classification:** decisions / core
 - **Minimum profile:** minimal
 - **Type applicability default:** required — Core artifact type for the selected profile. (`assessed_on`: null; `assessed_by`: null)
-- **Purpose:** Preserve the context, authority, alternatives, consequences, and successors of
-  durable choices.
-- **Questions it must answer:** What was decided?; Under which authority and scope?; What did it
-  replace and how is it validated?
+- **Purpose:** Inventory material decision questions, distinguish recommendations and owner
+  selections from accepted authority, compare credible options, and preserve the context,
+  consequences, and successors of durable choices.
+- **Questions it must answer:** Which material choices remain unresolved or tracked?; What is
+  recommended versus selected?; What was accepted, under which authority and scope?; What did
+  it replace and how is it validated?
 - **Intended audience:** future_maintainers, owners, reviewers, agents
 - **Expected owner or maintainer:** decision_owner
 - **Required inputs:** decision_context, alternatives, evidence, valid_authority_source
 - **Outputs / downstream consumers:** canonical_target, requirements, plans, supersession
-- **Recommended format:** Markdown records governed by the harness lifecycle
-- **Source-of-truth expectations:** Status-dependent live decision store belongs in the harness;
-  dossier summaries only link to it.
+- **Recommended format:** Strict JSON decision-governance register; Markdown owner workbook and
+  trade-off review projection; Markdown `DEC-####` records governed by the harness lifecycle
+- **Source-of-truth expectations:** The harness register owns question, recommendation,
+  selection, review, compatibility, and closure tracking. Accepted `DEC-####` records alone own
+  durable accepted authority; dossier summaries and Markdown review views link or project them.
 - **Dependencies and related artifacts:** none
 - **Creation timing:** Create when a durable choice is proposed; acceptance requires valid
   project authority.
 - **Update triggers:** decision_proposed, decision_status_change, decision_superseded
 - **Review cadence:** on_durable_choice_or_invalidating_evidence
-- **Validation / quality checks:** stable_ids, legal_status_transition,
-  authority_source_present_for_acceptance, successor_semantics
+- **Validation / quality checks:** stable_ids, dashboard_and_sheet_inventory_reconciles,
+  recommendation_selection_and_authority_are_separate, nonnegotiable_gates_precede_scoring,
+  unknown_evidence_preserved, dependency_and_closure_graphs_acyclic,
+  legal_status_transition, authority_source_present_for_acceptance, successor_semantics
 - **Inclusion triggers:** all_projects
-- **Omission or combination:** The store is Core; an empty store is valid and generation must
-  not fabricate an accepted decision.
+- **Omission or combination:** The register and durable store are Core; empty stores are valid
+  and generation must not fabricate a question, recommendation, owner selection, accepted
+  decision, review result, approval, evidence result, or readiness claim.
 - **Representative evidence:** `CF:.agent/decisions/`; `COE:.agent/decisions/`;
   `CF:project-dossier/v0.2/dossier-v0.2/docs/architecture/adr/`
 
@@ -1312,6 +1319,7 @@ and records `combined` applicability with a rationale in the project registry.
 | `REP-0038` | `SUP-0001` | `project-dossier/supply-chain/README.md` | `high-assurance` | `conditional_entry_point` | `conditional_project_maintained_source` | `not_assessed` | `—` |
 | `REP-0039` | `EVA-0001` | `project-dossier/evaluation/README.md` | `high-assurance` | `conditional_entry_point` | `conditional_project_maintained_source` | `not_assessed` | `—` |
 | `REP-0040` | `CTX-0001` | `project-dossier/context-packs/README.md` | `high-assurance` | `conditional_entry_point` | `conditional_project_maintained_source` | `not_assessed` | `—` |
+| `REP-0041` | `DEC-0001` | `.agent/decisions/governance-register.json` | `minimal` | `decision_governance_register` | `project_maintained_source_seeded_by_generator` | `required` | `—` |
 
 ## 5. Coverage profiles
 
@@ -1481,7 +1489,7 @@ Recommended concise outlines:
 | DEF-0001 | identity; problem; intended outcome; in/out scope; audiences; owners; success |
 | REQ-0001 | vocabulary; active/proposed requirements; constraints; traceability |
 | ARC-0001 | context; actors; components/workstreams; boundaries; flows; states; failure behavior |
-| DEC-0001 | context; options; decision; authority; consequences; validation; successor |
+| DEC-0001 | decision inventory; recommendation/selection/authority separation; options; gate-first review; compatibility; closure sequence; accepted record; successor |
 | GOV-0001 | constraints; gate catalog; approval sources; readiness criteria; exceptions |
 | CUR-0001 | subject; time/environment; method; present/absent/unknown; evidence; limitations |
 | CNF-0001 | method; classification; findings; coverage; unresolved assessment |
@@ -1506,6 +1514,8 @@ storage system:
 | Representation applicability | `required`, `applicable`, `not_applicable`, `not_assessed`, or `combined`; `rationale`; nullable `assessed_on`; `combined` requires multiple type IDs referring only to required/applicable types and explicit section/source-direction rationale |
 | Review | `status` (`not_reviewed`, `reviewed`, `stale`, `not_applicable`); nullable `last_reviewed_on`; `basis`; owner role and cadence supplied by the representation |
 | Requirement | stable record ID; statement; basis/source refs; status; owner; acceptance and validation method; decision, evidence, finding, and plan refs; successor when superseded |
+| Requirement/gate maturity assessment | nullable level from Architecturally specified through Production-proven; exact level-specific basis kind; assessor/date; resolving evidence refs; limitations; no automatic promotion or higher-level implication |
+| Decision governance | stable `DREG-####`; exact question; type/timing/lifecycle; non-reopenable constraints; exclusions; one-to-four credible options; recommendation; separate owner selection; reciprocal accepted `DEC-####` authority ref; evidence owner/step/stop; requirements/risks/plans/gates/dependencies; review disposition and compatibility; minimum closure graph |
 | Finding | stable record ID; requirement refs; evidence refs; controlled classification; scope; impact; remediation refs; assessor; assessment time; limitations |
 | Plan item | stable record ID; objective; finding/requirement refs; hard `PLAN-####` dependencies; reciprocal `TASK-####` refs; owner; status; gates; structured blocker refs; acceptance criteria; expected and closure evidence; stop/rollback conditions |
 | RAIDQ item | stable record ID; item type; statement; owner; impact/probability as applicable; status; review/expiry; resolution condition; decision/evidence refs |
@@ -1574,7 +1584,9 @@ Lifecycle:
    and empty registers.
 2. Adopt sources and record provenance.
 3. Define proposed requirements and decisions; accept only through valid
-   project authority.
+   project authority. Track recommendations and owner selections separately in
+   the decision-governance register; neither becomes durable authority until a
+   resolving accepted `DEC-####` record exists.
 4. Inspect current state independently of target material.
 5. Assess conformance and create traceable plans.
 6. Derive the ready frontier and select only eligible work through current
@@ -1624,6 +1636,16 @@ dossier maintainable and safe for human/agent handoff.
   integrity.
 - Human/agent handoff: compact, exact revision, current task, fresh evidence,
   blockers, next action, no secret values or implied approval.
+- Decision governance: `.agent/decisions/governance-register.json` is the one
+  question/review inventory; `DREG-####` tracking IDs never replace accepted
+  `DEC-####` authority. Gate failures disqualify options and material unknowns
+  remain evidence-first regardless of scores.
+- Subordinate handoff: copy statuses only through validated claim markers;
+  otherwise link canonical sources. A mandatory review reconciles gates,
+  accepted decisions, version/ownership, recommendations, and readiness claims.
+- Read-only assurance: record repository revision, status, useful fingerprints,
+  exact commands and exit statuses before and after; never refresh projections
+  or execute project hooks during the review.
 
 ## 10. Adoption checklist and quality gates
 
@@ -1686,6 +1708,12 @@ Objective quality gates:
   instruction expansion.
 - Truthfulness: skipped checks, dirty/untracked/ignored scope, limitations, and
   external effects are disclosed.
+- Decision inventory: dashboard, sheets, reviews, and dependency order contain
+  every `DREG-####` exactly once; decision and closure graphs are acyclic; an
+  accepted entry resolves to accepted `DEC-####` authority.
+- Maturity claims: requirements and gates use the scoped seven-level assessment
+  ladder from `Architecturally specified` through `Production-proven`; no level
+  is inferred by structure, and no level implies a higher one.
 
 ## 11. Gaps and new recommendations
 

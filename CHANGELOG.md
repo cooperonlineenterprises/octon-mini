@@ -31,7 +31,18 @@ assurance profile.
   archetype detection, collaboration bands, lifecycle, interruption recovery,
   and stale-plan refusal; and
 - golden paths, compatibility/deprecation guidance, a touchpoint/measurement
-  plan, and 0/2k/10k/20k benchmark reporting.
+  plan, and 0/2k/10k/20k benchmark reporting;
+- one `DEC-0001` decision-governance register with stable `DREG-####` tracking,
+  owner-friendly workbook and gate-first trade-off review templates, exact
+  inventory/reciprocal-authority/dependency validation, accepted-constraint
+  reconciliation, compatibility dispositions, and an evidence-bound minimum
+  closure graph;
+- a scoped seven-level requirement/gate maturity assessment that cannot be
+  promoted by structural validation, plus separate architecture,
+  documentation, implementation, specialist, release, production, and efficacy
+  conclusions; and
+- a demonstrably read-only review protocol, subordinate-handoff claim checks,
+  domain-neutral worked example, and positive/negative mutation fixtures.
 
 ### Changed
 

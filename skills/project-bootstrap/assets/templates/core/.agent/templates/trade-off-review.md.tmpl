@@ -1,0 +1,164 @@
+# Evidence-Based Architecture Trade-off Review
+
+> Reusable report template for {{PROJECT_NAME}}. Review every registered
+> `DREG-####` exactly once, including accepted, selected, open, evidence-first,
+> deferred, and superseded entries. Preserve current accepted authority until
+> an amendment or successor `DEC-####` is accepted. Scores never grant
+> authority or prove implementation readiness.
+
+## Review identity and coverage
+
+- Exact repository revision or subject fingerprint:
+- Register fingerprint:
+- Review date:
+- Reviewer roles:
+- Commands executed and exit statuses:
+- Unavailable checks:
+- Skipped checks and reasons:
+- Files or external systems changed:
+
+Inventory reconciliation:
+
+| Register ID | Lifecycle | Review section present once? | Accepted authority outside register inspected? | Notes |
+|---|---|---|---|---|
+|  |  |  |  |  |
+
+Report missing, duplicate, improperly combined, circular, or misclassified
+decisions before comparing options. Do not invent alternatives.
+
+## Review procedure
+
+For every decision:
+
+1. Reconcile its dashboard entry, sheet, dependencies, and review exactly once.
+2. Inspect accepted decisions outside the register that constrain the choice.
+3. Confirm the item is a material choice rather than a test, spike, review,
+   stage, optional feature versus mandatory foundation, illustrative handoff,
+   or ordinary reversible implementation detail.
+4. Evaluate Layer 1. A `fail` disqualifies the option. A material `unknown`
+   normally makes the decision evidence-first. Do not offset either outcome
+   with a score.
+5. Evaluate Layer 2 only for gate-eligible options. Use each default attribute
+   once. State and justify non-default weights and explain how overlap was
+   prevented.
+6. Distinguish the best option permitted by current authority from the best
+   option supported by current evidence.
+7. Record disposition, compatibility, disconfirming evidence, worst credible
+   failure, migration path, system-wide effects, and limitations.
+
+## DREG-____ — Decision title
+
+### Authority and classification check
+
+- Reviewed lifecycle state:
+- Accepted authority constraints inspected:
+- Missing, duplicate, combined, circular, or misclassified issue:
+- Exact decision remains material because:
+
+### Layer 1 — non-negotiable gates
+
+Use `pass`, `fail`, or `unknown` and cite the basis. Repeat for each option.
+
+| Gate | OPT-A | OPT-B | OPT-C | OPT-D | Evidence and rationale |
+|---|---|---|---|---|---|
+| Safety and deterministic correctness |  |  |  |  |  |
+| Authoritative ownership and data integrity |  |  |  |  |  |
+| Privacy, security, rights, consent, and isolation |  |  |  |  |  |
+| Preservation of unknown or pending state |  |  |  |  |  |
+| Applicable legal, specialist, and product-policy constraints |  |  |  |  |  |
+| Compatibility with currently accepted authority |  |  |  |  |  |
+
+Gate outcome by option:
+
+- Eligible:
+- Disqualified:
+- Evidence-first:
+- Evidence-producing next step and stop condition:
+
+### Layer 2 — balanced attributes for gate-eligible options
+
+Scores: `5` strongly supports; `4` supports; `3` acceptable or neutral; `2`
+material disadvantage; `1` serious disadvantage; `X` gate failure; `?`
+insufficient evidence; `N/A` genuinely inapplicable.
+
+| Attribute | Weight | OPT-A | OPT-B | OPT-C | OPT-D | Evidence and rationale |
+|---|---:|---:|---:|---:|---:|---|
+| Safety and correctness | 1 |  |  |  |  |  |
+| Authority and data integrity | 1 |  |  |  |  |  |
+| Privacy, security, rights, and consent | 1 |  |  |  |  |  |
+| Reliability, durability, and recovery | 1 |  |  |  |  |  |
+| Simplicity and implementation risk | 1 |  |  |  |  |  |
+| Flexibility and evolvability | 1 |  |  |  |  |  |
+| Portability and compatibility | 1 |  |  |  |  |  |
+| Performance and scalability | 1 |  |  |  |  |  |
+| Operability and auditability | 1 |  |  |  |  |  |
+| User effort and accessibility | 1 |  |  |  |  |  |
+| Cost and resource efficiency | 1 |  |  |  |  |  |
+| Reversibility and blast radius | 1 |  |  |  |  |  |
+
+- Weighting mode (`default` or `non-default`):
+- Weighting rationale:
+- Attribute-overlap controls:
+- Totals, if all gates pass and no material evidence gap exists:
+- Best option permitted by current authority:
+- Best option supported by current evidence:
+
+Never display a total without the gate outcome and unresolved `?` values.
+
+### Evidence and failure analysis
+
+- Evidence strength (`strong`, `moderate`, `weak`, or `none`):
+- Recommendation confidence (`high`, `medium`, or `low`):
+- Sensitivity to reasonable assumption or weighting changes:
+- Disconfirming evidence:
+- Worst credible failure:
+- Exit or migration path:
+- Cumulative system-wide effects:
+
+### Disposition and compatibility
+
+Disposition must be one of: `reaffirm`, `reaffirm with clarification`,
+`reaffirm pending evidence`, `change recommendation`,
+`challenge owner selection`, `amend through successor decision`,
+`supersede through successor decision`, `reopen as evidence-first`,
+`retain deferred`, `no longer material`, or `not assessable yet`.
+
+Compatibility is `compatible`, `tension`, `conflict`, or `unknown`.
+
+For every tension, conflict, or unknown record:
+
+- Affected authority or components:
+- Practical consequence:
+- Issue type:
+- Preferred resolution:
+- Whether authority, implementation, both, or neither pending evidence should change:
+- Migration and blast-radius implications:
+- Accountable owner role:
+- Reviewer roles:
+- Required ADR, approval, spike, or validation evidence:
+
+## Minimum closure sequence
+
+| Closure ID | Kind | Decision refs | Depends on | Parallel group | Owner | Required evidence and resolvable refs | Safe pre-closure work |
+|---|---|---|---|---|---|---|---|
+|  |  |  |  |  |  |  |  |
+
+State the smallest closure set and the boundary beyond which broad
+authoritative implementation may not proceed.
+
+## Separate conclusions
+
+Use `supported`, `partially supported`, `not supported`, `not assessed`, or
+`not applicable`. Each conclusion needs its own basis, evidence, and limits.
+
+| Conclusion | Status | Basis and evidence | Limitations |
+|---|---|---|---|
+| Architecture quality |  |  |  |
+| Documentation completeness |  |  |  |
+| Implementation evidence |  |  |  |
+| Specialist approval |  |  |  |
+| Release readiness |  |  |  |
+| Production readiness |  |  |  |
+| Product efficacy or commercial viability |  |  |  |
+
+Completion or strength in one row does not imply any higher or different row.

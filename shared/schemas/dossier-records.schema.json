@@ -88,6 +88,63 @@
         }
       }
     },
+    "maturity_assessment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "level",
+        "basis_kind",
+        "assessed_on",
+        "assessor_role",
+        "evidence_refs",
+        "limitations"
+      ],
+      "properties": {
+        "level": {
+          "enum": [
+            null,
+            "1. Architecturally specified",
+            "2. Evidence planned",
+            "3. Structurally validated",
+            "4. Demonstrated by executable implementation",
+            "5. Specialist-approved",
+            "6. Release-ready",
+            "7. Production-proven"
+          ]
+        },
+        "basis_kind": {
+          "enum": [
+            null,
+            "architecture specification",
+            "evidence plan",
+            "structural validation",
+            "executable implementation",
+            "specialist approval",
+            "release gate",
+            "production observation"
+          ]
+        },
+        "assessed_on": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "assessor_role": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "evidence_refs": {
+          "$ref": "#/$defs/refs"
+        },
+        "limitations": {
+          "$ref": "#/$defs/strings"
+        }
+      }
+    },
     "requirement": {
       "type": "object",
       "additionalProperties": false,
@@ -162,6 +219,9 @@
         },
         "limitations": {
           "$ref": "#/$defs/strings"
+        },
+        "maturity_assessment": {
+          "$ref": "#/$defs/maturity_assessment"
         }
       }
     },
@@ -625,6 +685,9 @@
         },
         "limitations": {
           "$ref": "#/$defs/strings"
+        },
+        "maturity_assessment": {
+          "$ref": "#/$defs/maturity_assessment"
         }
       }
     },

@@ -37,7 +37,10 @@ endpoints, or domain constants from this blueprint or another project.
   `.agent/workflows/small-team-git.json`;
 - explicit target-project check evidence: `.agent/project-checks/evidence.json`;
 - active work: `.agent/tasks/`;
-- durable intent: `.agent/decisions/`;
+- durable intent: accepted `.agent/decisions/DEC-####*.md` records;
+- material decision inventory and trade-off review:
+  `.agent/decisions/governance-register.json`, subordinate to accepted
+  `DEC-####` authority;
 - direct observation: `.agent/evidence/`;
 - explicit operator focus plus derived resumption: `.agent/state/`;
 - plan/apply/recovery receipts: `.agent/transactions/`; and
@@ -103,6 +106,13 @@ shell-free evidence writer, run read-only checks and mutation tests in a clean
 environment, and complete a real task lifecycle. Structural conformance,
 project-harness adoption, and demonstrated target-project readiness are
 separate conclusions.
+
+For review-only work, instantiate the read-only review template, record
+status/revision/fingerprints and exact command results before and after, and do
+not refresh projections or run project hooks. Handoffs prefer canonical
+references; explicit copied status markers are mechanically reconciled and
+version, ownership, recommendation/adoption language, and evidence adequacy
+remain mandatory human checks.
 
 No profile includes operations/observability or security/supply-chain content
 by default. Trigger assessment may install a pinned package only after an

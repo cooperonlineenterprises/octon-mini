@@ -857,6 +857,84 @@ def validate_generated_inventory_boundaries(root: Path = ROOT) -> list[str]:
     return errors
 
 
+def validate_decision_governance_fixtures(root: Path = ROOT) -> list[str]:
+    errors: list[str] = []
+    schema_path = root / "shared/schemas/harness-decision-governance.schema.json"
+    positive_path = (
+        SKILL_ROOT
+        / "fixtures/decision-governance/valid/empty-register.json"
+    )
+    mutations_path = (
+        SKILL_ROOT
+        / "fixtures/decision-governance/invalid/mutations.json"
+    )
+    generated_mutations_path = (
+        SKILL_ROOT
+        / "assets/templates/core/.agent/tests/fixtures/invalid/decision-governance-mutations.json.tmpl"
+    )
+    try:
+        schema = load_json(schema_path)
+        positive = load_json(positive_path)
+        mutations = load_json(mutations_path)
+        generated_mutations = load_json(generated_mutations_path)
+    except (OSError, ValueError, json.JSONDecodeError) as error:
+        return [f"decision-governance fixtures cannot be loaded: {error}"]
+
+    errors.extend(
+        schema_issues(
+            positive,
+            schema,
+            "fixtures/decision-governance/valid/empty-register.json",
+        )
+    )
+    source_entries = mutations.get("mutations") if isinstance(mutations, dict) else None
+    generated_entries = (
+        generated_mutations.get("mutations")
+        if isinstance(generated_mutations, dict)
+        else None
+    )
+    if not isinstance(source_entries, list) or not source_entries:
+        errors.append("decision-governance mutation catalog is empty or malformed")
+        return errors
+    ids: list[str] = []
+    expectations: dict[str, str] = {}
+    for index, item in enumerate(source_entries):
+        if not isinstance(item, dict) or set(item) != {
+            "id",
+            "operation",
+            "expected_diagnostic",
+        }:
+            errors.append(
+                f"decision-governance mutation {index} requires exactly id, operation, and expected_diagnostic"
+            )
+            continue
+        fixture_id = item.get("id")
+        operation = item.get("operation")
+        expected = item.get("expected_diagnostic")
+        if not all(
+            isinstance(value, str) and value.strip()
+            for value in (fixture_id, operation, expected)
+        ):
+            errors.append(
+                f"decision-governance mutation {index} contains an empty field"
+            )
+            continue
+        ids.append(fixture_id)
+        expectations[fixture_id] = expected
+    if len(ids) != len(set(ids)):
+        errors.append("decision-governance mutation IDs must be unique")
+    generated_expectations = {
+        item.get("id"): item.get("expected_diagnostic")
+        for item in generated_entries or []
+        if isinstance(item, dict)
+    }
+    if generated_expectations != expectations:
+        errors.append(
+            "source and generated decision-governance mutation inventories differ"
+        )
+    return errors
+
+
 def validate_repository(root: Path = ROOT) -> list[str]:
     errors: list[str] = []
     schema_paths = (
@@ -959,6 +1037,7 @@ def validate_repository(root: Path = ROOT) -> list[str]:
     if observed_kinds != expected_kinds:
         errors.append("architecture-proof templates do not cover the five accepted kinds")
     errors.extend(validate_generated_inventory_boundaries(root))
+    errors.extend(validate_decision_governance_fixtures(root))
     return errors
 
 
@@ -976,6 +1055,15 @@ def main() -> int:
     print("- pattern records: 3 reviewed, 0 generated or automatically adopted")
     print("- semantic roles: 10 cross-walked without a universal status enum")
     print("- optional contracts: Context Pack v1 and Architecture Proof v1")
+    mutation_count = len(
+        load_json(
+            SKILL_ROOT
+            / "fixtures/decision-governance/invalid/mutations.json"
+        )["mutations"]
+    )
+    print(
+        f"- decision governance: valid baseline plus {mutation_count} fail-closed mutations"
+    )
     print(
         "- profile manifest: v1 explicit allowlists, derived profile projections, "
         "capability-scoped degradation, and strict repository drift validation"

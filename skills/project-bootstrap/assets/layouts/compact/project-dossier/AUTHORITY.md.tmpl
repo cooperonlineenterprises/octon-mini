@@ -30,6 +30,8 @@ be recorded as findings or open questions.
 | Requirement explanation and vocabulary | `canonical/requirements-and-constraints.md` | same | never independently duplicated |
 | Individual requirement records | `canonical/requirements-and-constraints.md` | `machine-readable/requirements.json` | Markdown explains and summarizes |
 | Architecture or outcome model | `canonical/architecture-or-outcome-model.md` | same, plus declared specialist model sources | generated diagrams name their source |
+| Decision questions, recommendations, selections, reviews, and closure sequence | `.agent/decisions/governance-register.json` | same | Markdown workbook and trade-off report templates are human review projections |
+| Durable accepted decisions | `.agent/decisions/DEC-####*.md` | same | a `DREG-####` entry links accepted authority but cannot replace it |
 | Constraints and gate explanation | `canonical/constraints-gates-and-readiness.md` | same | gate records remain proposed until adopted |
 | Individual gate records | `validation/QUALITY_GATES.json` | same | project-maintained, not generated evidence |
 | Current observed state | `current-state/README.md` after direct inspection | same or a registry-declared observation store | scaffold text is `not_assessed`, not an observation |
@@ -46,6 +48,10 @@ be recorded as findings or open questions.
 artifact types, physical representations, applicability, owners, review state,
 and source direction. Generated, historical, proposed, or handoff material
 must not silently replace an edit source.
+
+The decision-governance register owns tracking and review only. Accepted
+`DEC-####` records own durable decision authority. A recommendation or owner
+selection cannot be promoted by a handoff, template, or structural validator.
 
 Separation is required if the two concerns later diverge in ownership,
 lifecycle, review, authority, sensitivity, or retention. That change requires

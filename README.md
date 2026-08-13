@@ -32,6 +32,13 @@ Version 4.0 makes the universal kernel thinner and ordinary operation faster:
   still supported; and
 - fast, integration, and release validation tiers plus scale benchmarks.
 
+Decision governance extends the existing decision concern with one
+project-owned `DREG-####` register, gate-first trade-off review, compatibility
+findings, read-only assurance, and a minimum closure graph. Recommendations,
+owner selections, and accepted `DEC-####` authority remain distinct; scores
+cannot compensate for a failed gate or conceal an evidence gap. See
+`docs/DECISION_GOVERNANCE.md`.
+
 Every mutation is staged, validated, instruction- and path-fingerprint-bound,
 receipted, and recoverable. There is no force mode.
 
@@ -63,6 +70,7 @@ project-owned decision. Team size never selects assurance.
 | `migrations/` | version-to-version migration guidance |
 | `docs/GOLDEN_PATHS.md` | verified operating paths |
 | `docs/COMPATIBILITY.md` | v4 compatibility, migration, and deprecation boundary |
+| `docs/DECISION_GOVERNANCE.md` | authoritative decision, review, maturity, handoff, and read-only assurance practice |
 | `VELOCITY_VALIDATION.md` | benchmarks, touchpoints, validation matrix |
 
 Strict JSON and Python 3.11+ keep the generated kernel portable and

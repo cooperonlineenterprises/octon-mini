@@ -49,3 +49,15 @@ does not establish applicability. A `not_applicable` type remains in the
 registry with its dated assessor/rationale even after its representation is
 removed. `combined` is a representation state and requires multiple
 required/applicable artifact-type IDs.
+
+Decision governance stays inside `DEC-0001`.
+`.agent/decisions/governance-register.json` owns `DREG-####` question,
+recommendation, owner-selection, review, compatibility, and minimum-closure
+tracking. Accepted `.agent/decisions/DEC-####*.md` records alone own durable
+accepted authority, and an accepted register entry links reciprocally with its
+resolving durable record. Run non-negotiable option gates before balanced
+scoring; failed gates disqualify and material unknowns remain evidence-first.
+
+Requirement and gate maturity is a scoped evidence assessment from
+`Architecturally specified` through `Production-proven`, not a universal
+lifecycle. No structural check promotes it or implies a higher level.

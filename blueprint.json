@@ -39,6 +39,8 @@
   "shared_schema_root": "shared/schemas",
   "source_governance": {
     "architecture_decisions": "ARCHITECTURE_DECISIONS.md",
+    "decision_governance": "docs/DECISION_GOVERNANCE.md",
+    "decision_governance_schema": "shared/schemas/harness-decision-governance.schema.json",
     "architectural_pattern_catalog": "patterns/catalog.json",
     "pattern_catalog_generated": false,
     "pattern_catalog_automatic_adoption": false,

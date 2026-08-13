@@ -33,6 +33,14 @@ validators, subject to their recorded limitations.
   status-only validating/review hops; and
 - the source config advances to `project-blueprint.v3`, origin to inventory v2,
   collaboration to v2, and transaction receipts to v2.
+- new snapshots include an empty decision-governance register and reusable
+  workbook/review templates; accepted `DEC-####` semantics are unchanged, and
+  a register acceptance uses an explicit reciprocal link rather than inferred
+  historical correspondence;
+- requirement and gate maturity assessment is optional and never inferred from
+  existing structural evidence; and
+- existing handoffs require reviewed checklist reconciliation rather than
+  automatic replacement.
 
 ## Deprecated entry points
 
