@@ -328,6 +328,55 @@ EXPECTED_LIFECYCLES = {
     },
 }
 
+DECISION_REGISTER_TYPES = (
+    "architecture decision",
+    "product-policy decision",
+    "specialist-policy decision",
+    "vendor or platform decision",
+)
+DECISION_REGISTER_TIMINGS = (
+    "required now",
+    "required later",
+    "evidence-first",
+    "open owner decision",
+)
+DECISION_REGISTER_LIFECYCLES = (
+    "open",
+    "evidence in progress",
+    "owner selected — ADR or approval pending",
+    "accepted — authority linked",
+    "deferred",
+    "superseded",
+)
+DECISION_NONNEGOTIABLE_GATES = (
+    "safety and deterministic correctness",
+    "authoritative ownership and data integrity",
+    "privacy, security, rights, consent, and isolation",
+    "preservation of unknown or pending state",
+    "applicable legal, specialist, and product-policy constraints",
+    "compatibility with currently accepted authority",
+)
+DECISION_BALANCED_ATTRIBUTES = (
+    "Safety and correctness",
+    "Authority and data integrity",
+    "Privacy, security, rights, and consent",
+    "Reliability, durability, and recovery",
+    "Simplicity and implementation risk",
+    "Flexibility and evolvability",
+    "Portability and compatibility",
+    "Performance and scalability",
+    "Operability and auditability",
+    "User effort and accessibility",
+    "Cost and resource efficiency",
+    "Reversibility and blast radius",
+)
+DECISION_UNRESOLVED_LIFECYCLES = {
+    "open",
+    "evidence in progress",
+    "owner selected — ADR or approval pending",
+    "deferred",
+}
+
 SUPPORTED_BASE_WORKFLOWS = (
     "solo_direct",
     "solo_hybrid",
@@ -437,6 +486,7 @@ EXPECTED_REQUIRED_CORE_CHECKS = [
     "authority_and_nested_instruction_invariants",
     "identifiers_references_and_lifecycles",
     "dependency_readiness_and_ready_frontier",
+    "decision_governance_and_authority_reconciliation",
     "collaboration_topology_and_workflow_selection",
     "small_team_git_workflow_and_operation_contract",
     "project_command_assessment_and_current_evidence",
@@ -3267,7 +3317,10 @@ def check_record_store_filenames(root: Path) -> list[str]:
         if not base.is_dir():
             continue
         for path in sorted(base.iterdir()):
-            if path.name == "README.md":
+            if path.name == "README.md" or (
+                directory == ".agent/decisions"
+                and path.name == "governance-register.json"
+            ):
                 continue
             if path.is_dir() or not re.fullmatch(pattern, path.name):
                 errors.append(
@@ -3505,6 +3558,917 @@ def collect_records(
                     else:
                         records[record_id] = (record, location)
     return records, errors
+
+
+def _decision_graph_errors(
+    node_ids: set[str],
+    dependencies: dict[str, list[str]],
+    declared_order: Any,
+    label: str,
+) -> list[str]:
+    errors: list[str] = []
+    for node_id, refs in dependencies.items():
+        for reference in refs:
+            if reference not in node_ids:
+                errors.append(f"{label}: {node_id} references unknown dependency {reference}")
+            if reference == node_id:
+                errors.append(f"{label}: {node_id} depends on itself")
+
+    visiting: set[str] = set()
+    visited: set[str] = set()
+
+    def visit(node_id: str, trail: list[str]) -> None:
+        if node_id in visiting:
+            cycle_start = trail.index(node_id) if node_id in trail else 0
+            cycle = trail[cycle_start:] + [node_id]
+            errors.append(f"{label}: dependency cycle {' -> '.join(cycle)}")
+            return
+        if node_id in visited:
+            return
+        visiting.add(node_id)
+        for reference in dependencies.get(node_id, []):
+            if reference in node_ids:
+                visit(reference, trail + [node_id])
+        visiting.remove(node_id)
+        visited.add(node_id)
+
+    for node_id in sorted(node_ids):
+        visit(node_id, [])
+
+    if not isinstance(declared_order, list):
+        errors.append(f"{label}: dependency_order must be an array")
+        return errors
+    order_ids = [item for item in declared_order if isinstance(item, str)]
+    if len(order_ids) != len(declared_order):
+        errors.append(f"{label}: dependency_order contains a non-string value")
+    if len(order_ids) != len(set(order_ids)):
+        errors.append(f"{label}: dependency_order contains duplicate IDs")
+    if set(order_ids) != node_ids:
+        errors.append(f"{label}: dependency_order must reconcile every ID exactly once")
+        return errors
+    positions = {item: index for index, item in enumerate(order_ids)}
+    for node_id, refs in dependencies.items():
+        for reference in refs:
+            if reference in positions and positions[reference] >= positions[node_id]:
+                errors.append(
+                    f"{label}: dependency_order places {node_id} before dependency {reference}"
+                )
+    return errors
+
+
+def _accepted_decision_authority(
+    reference: Any,
+    records: dict[str, tuple[dict[str, Any], str]],
+    *,
+    allow_superseded: bool = False,
+) -> bool:
+    if not isinstance(reference, str) or not re.fullmatch(r"DEC-[0-9]{4}", reference):
+        return False
+    entry = records.get(reference)
+    if entry is None:
+        return False
+    record = entry[0]
+    allowed_statuses = {"accepted", "superseded"} if allow_superseded else {"accepted"}
+    return bool(
+        record.get("status") in allowed_statuses
+        and isinstance(record.get("authority_source"), str)
+        and record["authority_source"].startswith(("authority:", "external:"))
+    )
+
+
+def _governance_reference_errors(
+    value: Any,
+    records: dict[str, tuple[dict[str, Any], str]],
+    decisions: dict[str, dict[str, Any]],
+    closure_items: dict[str, dict[str, Any]],
+) -> list[str]:
+    reference_fields = {
+        "accepted_authority_constraints_inspected",
+        "authoritative_references",
+        "completion_evidence_refs",
+        "decision_refs",
+        "dependent_decision_refs",
+        "evidence_refs",
+        "gate_refs",
+        "plan_refs",
+        "references",
+        "requirement_refs",
+        "risk_refs",
+        "supporting_evidence_refs",
+    }
+    errors: list[str] = []
+
+    def visit(node: Any, location: str, field: str | None = None) -> None:
+        if isinstance(node, dict):
+            for key, child in node.items():
+                visit(child, f"{location}.{key}", key)
+            return
+        if isinstance(node, list):
+            if field in reference_fields:
+                for index, reference in enumerate(node):
+                    if not isinstance(reference, str):
+                        continue
+                    if reference.startswith(EXTERNAL_REFERENCE_PREFIXES):
+                        continue
+                    if reference.startswith("DREG-"):
+                        resolved = reference in decisions
+                    elif reference.startswith("CLOSE-"):
+                        resolved = reference in closure_items
+                    else:
+                        resolved = reference in records
+                    if not resolved:
+                        errors.append(
+                            f"{location}[{index}]: unresolved governance reference {reference}"
+                        )
+                return
+            for index, child in enumerate(node):
+                visit(child, f"{location}[{index}]", field)
+
+    visit(value, ".agent/decisions/governance-register.json")
+    return errors
+
+
+def _handoff_claim_errors(
+    root: Path,
+    records: dict[str, tuple[dict[str, Any], str]],
+    register_decisions: dict[str, dict[str, Any]],
+) -> list[str]:
+    path = root / "project-dossier/handoff/START_HERE.md"
+    if not path.is_file():
+        return []
+    try:
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as error:
+        return [f"project-dossier/handoff/START_HERE.md: {error}"]
+    required_review_terms = (
+        "## Authority reconciliation before reliance",
+        "authoritative gate record",
+        "accepted decision references",
+        "version and ownership statements",
+        "recommendations and owner selections",
+        "implementation and readiness claims",
+    )
+    for term in required_review_terms:
+        if term not in text:
+            return [
+                "project-dossier/handoff/START_HERE.md: mandatory authority reconciliation checklist is incomplete"
+            ]
+
+    errors: list[str] = []
+    marker = re.compile(r"<!--\s*pb-handoff-claim\s+(\{.*?\})\s*-->")
+    if "<!-- pb-handoff-claim" in text and not marker.search(text):
+        errors.append(
+            "project-dossier/handoff/START_HERE.md: malformed pb-handoff-claim marker"
+        )
+    quality: Any = None
+    quality_path = root / "project-dossier/validation/QUALITY_GATES.json"
+    if quality_path.is_file():
+        try:
+            quality = load_json(quality_path)
+        except (OSError, ValueError, json.JSONDecodeError):
+            quality = None
+    for match in marker.finditer(text):
+        try:
+            claim = loads_json(match.group(1))
+        except (ValueError, json.JSONDecodeError) as error:
+            errors.append(
+                f"project-dossier/handoff/START_HERE.md: invalid handoff claim JSON: {error}"
+            )
+            continue
+        if not isinstance(claim, dict) or set(claim) != {"kind", "ref", "status"}:
+            errors.append(
+                "project-dossier/handoff/START_HERE.md: handoff claim requires exactly kind, ref, and status"
+            )
+            continue
+        kind = claim.get("kind")
+        reference = claim.get("ref")
+        claimed_status = claim.get("status")
+        actual_status: Any = None
+        if kind == "gate" and isinstance(reference, str):
+            actual_status = records.get(reference, ({}, ""))[0].get("status")
+        elif kind == "decision" and isinstance(reference, str):
+            actual_status = records.get(reference, ({}, ""))[0].get("status")
+        elif kind == "decision register" and isinstance(reference, str):
+            actual_status = register_decisions.get(reference, {}).get("lifecycle_state")
+        elif (
+            kind == "readiness"
+            and reference == "project-dossier/validation/QUALITY_GATES.json"
+            and isinstance(quality, dict)
+        ):
+            actual_status = quality.get("readiness")
+        else:
+            errors.append(
+                "project-dossier/handoff/START_HERE.md: handoff claim has an unknown kind or unresolved reference"
+            )
+            continue
+        if actual_status != claimed_status:
+            errors.append(
+                "project-dossier/handoff/START_HERE.md: subordinate handoff claim "
+                f"{reference}={claimed_status!r} conflicts with authoritative status {actual_status!r}"
+            )
+    return errors
+
+
+def check_decision_governance(
+    root: Path,
+    records: dict[str, tuple[dict[str, Any], str]],
+) -> list[str]:
+    path = root / ".agent/decisions/governance-register.json"
+    location = ".agent/decisions/governance-register.json"
+    if not path.is_file():
+        return [f"{location}: required decision-governance register is missing"]
+    try:
+        value = load_json(path)
+        schema = load_schema(root, "harness-decision-governance.schema.json")
+    except (OSError, ValueError, json.JSONDecodeError) as error:
+        return [f"{location}: malformed decision-governance source: {error}"]
+    errors = [
+        f"{location}: {item}" for item in validate_schema(value, schema)
+    ]
+    if not isinstance(value, dict):
+        return errors + [f"{location}: top-level value must be an object"]
+
+    decisions_raw = value.get("decisions", [])
+    dashboard_raw = value.get("dashboard", [])
+    reviews_raw = value.get("trade_off_reviews", [])
+    if not isinstance(decisions_raw, list):
+        decisions_raw = []
+    if not isinstance(dashboard_raw, list):
+        dashboard_raw = []
+    if not isinstance(reviews_raw, list):
+        reviews_raw = []
+
+    decisions: dict[str, dict[str, Any]] = {}
+    for index, item in enumerate(decisions_raw):
+        item_location = f"{location}:decisions[{index}]"
+        if not isinstance(item, dict):
+            continue
+        decision_id = item.get("id")
+        if not isinstance(decision_id, str):
+            continue
+        if decision_id in decisions:
+            errors.append(f"{item_location}: duplicate stable decision-register ID {decision_id}")
+        else:
+            decisions[decision_id] = item
+
+    dashboard: dict[str, dict[str, Any]] = {}
+    for index, item in enumerate(dashboard_raw):
+        item_location = f"{location}:dashboard[{index}]"
+        if not isinstance(item, dict):
+            continue
+        decision_id = item.get("id")
+        if not isinstance(decision_id, str):
+            continue
+        if decision_id in dashboard:
+            errors.append(f"{item_location}: duplicate dashboard ID {decision_id}")
+        else:
+            dashboard[decision_id] = item
+    if set(dashboard) != set(decisions):
+        errors.append(
+            f"{location}: dashboard and decision-sheet inventories do not reconcile exactly"
+        )
+    dashboard_fields = (
+        "title",
+        "decision_type",
+        "timing",
+        "lifecycle_state",
+        "blocking",
+        "accountable_owner_role",
+    )
+    for decision_id in sorted(set(dashboard) & set(decisions)):
+        for field in dashboard_fields:
+            if dashboard[decision_id].get(field) != decisions[decision_id].get(field):
+                errors.append(
+                    f"{location}: dashboard {decision_id} field {field} is stale or contradictory"
+                )
+
+    summary = value.get("executive_summary", {})
+    if isinstance(summary, dict):
+        expected_counts = {
+            state: sum(
+                1 for item in decisions.values() if item.get("lifecycle_state") == state
+            )
+            for state in DECISION_REGISTER_LIFECYCLES
+        }
+        expected_summary = {
+            "total_registered": len(decisions),
+            "unresolved": sum(
+                1
+                for item in decisions.values()
+                if item.get("lifecycle_state") in DECISION_UNRESOLVED_LIFECYCLES
+            ),
+            "blocking": sum(1 for item in decisions.values() if item.get("blocking") is True),
+            "evidence_first": sum(
+                1 for item in decisions.values() if item.get("timing") == "evidence-first"
+            ),
+        }
+        for field, expected in expected_summary.items():
+            if summary.get(field) != expected:
+                errors.append(f"{location}: executive summary {field} does not reconcile")
+        if summary.get("counts_by_lifecycle") != expected_counts:
+            errors.append(f"{location}: lifecycle counts do not reconcile")
+
+    dependencies: dict[str, list[str]] = {}
+    for decision_id, decision in decisions.items():
+        refs = decision.get("depends_on", [])
+        dependencies[decision_id] = [item for item in refs if isinstance(item, str)] if isinstance(refs, list) else []
+    errors.extend(
+        _decision_graph_errors(
+            set(decisions), dependencies, value.get("dependency_order"), location
+        )
+    )
+    for decision_id, decision in decisions.items():
+        linked = decision.get("links", {})
+        downstream = linked.get("dependent_decision_refs", []) if isinstance(linked, dict) else []
+        if not isinstance(downstream, list):
+            continue
+        for target in downstream:
+            if target not in decisions:
+                errors.append(f"{location}: {decision_id} names unknown dependent decision {target}")
+            elif decision_id not in dependencies.get(target, []):
+                errors.append(
+                    f"{location}: {decision_id} and dependent {target} are not reciprocal"
+                )
+    for decision_id, refs in dependencies.items():
+        for source in refs:
+            if source in decisions:
+                linked = decisions[source].get("links", {})
+                downstream = linked.get("dependent_decision_refs", []) if isinstance(linked, dict) else []
+                if decision_id not in downstream:
+                    errors.append(
+                        f"{location}: dependency {source} and dependent {decision_id} are not reciprocal"
+                    )
+
+    for decision_id, decision in decisions.items():
+        item_location = f"{location}:{decision_id}"
+        lifecycle = decision.get("lifecycle_state")
+        timing = decision.get("timing")
+        links = decision.get("links", {})
+        if isinstance(links, dict):
+            typed_link_prefixes = {
+                "requirement_refs": "REQ-",
+                "risk_refs": "RISK-",
+                "plan_refs": "PLAN-",
+                "gate_refs": "GATE-",
+            }
+            for field, prefix in typed_link_prefixes.items():
+                raw_references = links.get(field, [])
+                if not isinstance(raw_references, list):
+                    raw_references = []
+                for reference in raw_references:
+                    if not isinstance(reference, str) or not reference.startswith(prefix):
+                        errors.append(
+                            f"{item_location}: {field} contains a misclassified reference"
+                        )
+        options = decision.get("options", [])
+        option_ids = [
+            option.get("id")
+            for option in options
+            if isinstance(option, dict) and isinstance(option.get("id"), str)
+        ] if isinstance(options, list) else []
+        if len(option_ids) != len(set(option_ids)):
+            errors.append(f"{item_location}: option IDs must be unique")
+        recommendation = decision.get("recommendation", {})
+        recommended = recommendation.get("option_id") if isinstance(recommendation, dict) else None
+        if recommended is not None and recommended not in option_ids:
+            errors.append(f"{item_location}: recommendation references an unknown option")
+        selection = decision.get("owner_selection", {})
+        selection_values = (
+            [selection.get(field) for field in ("option_id", "selected_by_role", "selected_on", "selection_rationale")]
+            if isinstance(selection, dict)
+            else []
+        )
+        selection_present = bool(selection_values and all(item is not None for item in selection_values))
+        selection_partial = bool(selection_values and any(item is not None for item in selection_values) and not selection_present)
+        if selection_partial:
+            errors.append(f"{item_location}: owner selection is partial")
+        selected = selection.get("option_id") if isinstance(selection, dict) else None
+        if selected is not None and selected not in option_ids:
+            errors.append(f"{item_location}: owner selection references an unknown option")
+        if lifecycle in {
+            "owner selected — ADR or approval pending",
+            "accepted — authority linked",
+        } and not selection_present:
+            errors.append(f"{item_location}: lifecycle requires a complete owner selection")
+        if lifecycle in {"open", "evidence in progress", "deferred"} and selected is not None:
+            errors.append(
+                f"{item_location}: owner selection must not be represented in lifecycle {lifecycle!r}"
+            )
+
+        authority_ref = decision.get("authority_ref")
+        if lifecycle == "accepted — authority linked":
+            if not _accepted_decision_authority(authority_ref, records):
+                errors.append(
+                    f"{item_location}: accepted entry requires a resolving accepted DEC-#### authority reference"
+                )
+            else:
+                reverse_refs = records[authority_ref][0].get(
+                    "governance_register_refs", []
+                )
+                if not isinstance(reverse_refs, list):
+                    reverse_refs = []
+                if decision_id not in reverse_refs:
+                    errors.append(
+                        f"{item_location}: resolving accepted decision {authority_ref} does not link back to {decision_id}"
+                    )
+        elif lifecycle == "superseded":
+            if authority_ref is not None and not _accepted_decision_authority(
+                authority_ref, records, allow_superseded=True
+            ):
+                errors.append(
+                    f"{item_location}: superseded entry authority reference is missing or invalid"
+                )
+        elif authority_ref is not None:
+            errors.append(
+                f"{item_location}: non-accepted entry cannot be represented as accepted authority"
+            )
+
+        if decision.get("blocking") is True:
+            for field in (
+                "accepted_constraints",
+                "explicit_exclusions",
+                "work_blocked",
+                "reversal_or_successor_conditions",
+            ):
+                if not isinstance(decision.get(field), list) or not decision[field]:
+                    errors.append(f"{item_location}: blocking decision requires {field}")
+        if timing == "evidence-first" or lifecycle == "evidence in progress":
+            plan = decision.get("evidence_plan", {})
+            if not isinstance(plan, dict):
+                errors.append(f"{item_location}: evidence-first decision lacks an evidence plan")
+            else:
+                for field in (
+                    "evidence_owner_role",
+                    "evidence_producing_step",
+                    "stop_condition",
+                ):
+                    if not isinstance(plan.get(field), str) or not plan[field].strip():
+                        errors.append(f"{item_location}: evidence-first decision requires {field}")
+                if not isinstance(plan.get("expected_evidence"), list) or not plan["expected_evidence"]:
+                    errors.append(
+                        f"{item_location}: evidence-first decision requires expected_evidence"
+                    )
+
+    settled = value.get("already_settled", [])
+    if isinstance(settled, list):
+        settled_refs: set[str] = set()
+        for index, item in enumerate(settled):
+            reference = item.get("authority_ref") if isinstance(item, dict) else None
+            if isinstance(reference, str) and reference in settled_refs:
+                errors.append(f"{location}:already_settled[{index}]: duplicate authority reference")
+            if isinstance(reference, str):
+                settled_refs.add(reference)
+            if not _accepted_decision_authority(reference, records):
+                errors.append(
+                    f"{location}:already_settled[{index}]: reference is missing or no longer accepted"
+                )
+            constrained = (
+                item.get("constrains_decision_refs", [])
+                if isinstance(item, dict)
+                else []
+            )
+            if not isinstance(constrained, list):
+                constrained = []
+            for decision_ref in constrained:
+                if decision_ref not in decisions:
+                    errors.append(
+                        f"{location}:already_settled[{index}]: unknown constrained decision {decision_ref}"
+                    )
+
+    reviews: dict[str, dict[str, Any]] = {}
+    for index, review in enumerate(reviews_raw):
+        review_location = f"{location}:trade_off_reviews[{index}]"
+        if not isinstance(review, dict):
+            continue
+        decision_id = review.get("decision_id")
+        if not isinstance(decision_id, str):
+            continue
+        if decision_id in reviews:
+            errors.append(f"{review_location}: duplicate decision review {decision_id}")
+        else:
+            reviews[decision_id] = review
+    if set(reviews) != set(decisions):
+        errors.append(f"{location}: every registered decision must be reviewed exactly once")
+
+    if isinstance(settled, list):
+        for index, item in enumerate(settled):
+            if not isinstance(item, dict):
+                continue
+            reference = item.get("authority_ref")
+            constrained = item.get("constrains_decision_refs", [])
+            if not isinstance(constrained, list):
+                continue
+            for decision_ref in constrained:
+                review = reviews.get(decision_ref, {})
+                inspected = review.get(
+                    "accepted_authority_constraints_inspected", []
+                )
+                if not isinstance(inspected, list) or reference not in inspected:
+                    errors.append(
+                        f"{location}:already_settled[{index}]: {decision_ref} review did not inspect constraining authority {reference}"
+                    )
+
+    for decision_id in sorted(set(reviews) & set(decisions)):
+        review = reviews[decision_id]
+        decision = decisions[decision_id]
+        review_location = f"{location}:review:{decision_id}"
+        if review.get("reviewed_lifecycle_state") != decision.get("lifecycle_state"):
+            errors.append(f"{review_location}: reviewed lifecycle state is stale")
+        inspected = review.get("accepted_authority_constraints_inspected", [])
+        if isinstance(inspected, list):
+            for reference in inspected:
+                if isinstance(reference, str) and reference.startswith("DEC-") and not _accepted_decision_authority(reference, records):
+                    errors.append(
+                        f"{review_location}: accepted authority constraint {reference} is missing or no longer accepted"
+                    )
+        option_reviews_raw = review.get("option_reviews", [])
+        option_reviews: dict[str, dict[str, Any]] = {}
+        if isinstance(option_reviews_raw, list):
+            for item in option_reviews_raw:
+                if not isinstance(item, dict) or not isinstance(item.get("option_id"), str):
+                    continue
+                option_id = item["option_id"]
+                if option_id in option_reviews:
+                    errors.append(f"{review_location}: duplicate option review {option_id}")
+                else:
+                    option_reviews[option_id] = item
+        review_options = decision.get("options", [])
+        if not isinstance(review_options, list):
+            review_options = []
+        option_ids = {
+            option.get("id")
+            for option in review_options
+            if isinstance(option, dict) and isinstance(option.get("id"), str)
+        }
+        if set(option_reviews) != option_ids:
+            errors.append(f"{review_location}: option reviews do not reconcile exactly")
+
+        for option_id, option_review in option_reviews.items():
+            option_location = f"{review_location}:{option_id}"
+            gates_raw = option_review.get("gate_results", [])
+            gates: dict[str, dict[str, Any]] = {}
+            if isinstance(gates_raw, list):
+                for gate in gates_raw:
+                    if not isinstance(gate, dict) or not isinstance(gate.get("gate"), str):
+                        continue
+                    gate_name = gate["gate"]
+                    if gate_name in gates:
+                        errors.append(f"{option_location}: duplicate non-negotiable gate {gate_name}")
+                    else:
+                        gates[gate_name] = gate
+            if set(gates) != set(DECISION_NONNEGOTIABLE_GATES):
+                errors.append(f"{option_location}: non-negotiable gates must reconcile exactly")
+            has_failure = any(gate.get("result") == "fail" for gate in gates.values())
+            has_material_unknown = any(
+                gate.get("result") == "unknown" and gate.get("material") is True
+                for gate in gates.values()
+            )
+            expected_eligibility = (
+                "disqualified"
+                if has_failure
+                else "evidence-first"
+                if has_material_unknown
+                else "eligible"
+            )
+            if option_review.get("eligibility") != expected_eligibility:
+                errors.append(
+                    f"{option_location}: eligibility hides a gate failure or material unknown"
+                )
+
+            attributes_raw = option_review.get("balanced_attributes", [])
+            attributes: dict[str, dict[str, Any]] = {}
+            if isinstance(attributes_raw, list):
+                for attribute in attributes_raw:
+                    if not isinstance(attribute, dict) or not isinstance(attribute.get("attribute"), str):
+                        continue
+                    attribute_name = attribute["attribute"]
+                    if attribute_name in attributes:
+                        errors.append(f"{option_location}: balanced attribute counted twice: {attribute_name}")
+                    else:
+                        attributes[attribute_name] = attribute
+            if expected_eligibility == "eligible":
+                if set(attributes) != set(DECISION_BALANCED_ATTRIBUTES):
+                    errors.append(f"{option_location}: eligible option requires every balanced attribute exactly once")
+                if any(item.get("score") == "X" for item in attributes.values()):
+                    errors.append(
+                        f"{option_location}: gate-eligible option cannot carry an X gate-failure sentinel"
+                    )
+            elif attributes:
+                permitted_sentinels = (
+                    {"X", "N/A"}
+                    if expected_eligibility == "disqualified"
+                    else {"?", "N/A"}
+                )
+                if any(
+                    not isinstance(item.get("score"), str)
+                    or item.get("score") not in permitted_sentinels
+                    for item in attributes.values()
+                ):
+                    errors.append(
+                        f"{option_location}: gate-ineligible option may record only visible X, ?, or N/A sentinels, not numeric balanced scoring"
+                    )
+            total = option_review.get("weighted_total")
+            scores = [item.get("score") for item in attributes.values()]
+            if expected_eligibility != "eligible" and total is not None:
+                errors.append(f"{option_location}: total conceals a gate failure or evidence gap")
+            if any(
+                isinstance(score, str) and score in {"X", "?"}
+                for score in scores
+            ) and total is not None:
+                errors.append(f"{option_location}: total conceals X or ? scores")
+            numeric_total = 0.0
+            total_is_calculable = bool(attributes)
+            for item in attributes.values():
+                score = item.get("score")
+                weight = item.get("weight")
+                if score == "N/A":
+                    continue
+                if (
+                    not isinstance(score, (int, float))
+                    or isinstance(score, bool)
+                    or not isinstance(weight, (int, float))
+                    or isinstance(weight, bool)
+                ):
+                    total_is_calculable = False
+                    continue
+                numeric_total += float(score) * float(weight)
+            if (
+                isinstance(total, (int, float))
+                and not isinstance(total, bool)
+                and total_is_calculable
+                and abs(float(total) - numeric_total) > 1e-9
+            ):
+                errors.append(f"{option_location}: weighted total does not match visible scores")
+
+        option_eligibilities = {
+            item.get("eligibility")
+            for item in option_reviews.values()
+            if isinstance(item, dict)
+        }
+        if (
+            decision.get("lifecycle_state")
+            in {
+                "open",
+                "evidence in progress",
+                "owner selected — ADR or approval pending",
+            }
+            and "eligible" not in option_eligibilities
+            and "evidence-first" in option_eligibilities
+            and decision.get("timing") != "evidence-first"
+        ):
+            errors.append(
+                f"{review_location}: material unknowns leave no eligible option; the unresolved decision must remain evidence-first"
+            )
+
+        if review.get("weighting_mode") == "default":
+            for option_review in option_reviews.values():
+                raw_attributes = option_review.get("balanced_attributes", [])
+                if not isinstance(raw_attributes, list):
+                    raw_attributes = []
+                for item in raw_attributes:
+                    if isinstance(item, dict) and item.get("weight") != 1:
+                        errors.append(f"{review_location}: default weighting requires weight 1 for every attribute")
+                        break
+        elif review.get("weighting_mode") == "non-default":
+            weights = [
+                item.get("weight")
+                for option_review in option_reviews.values()
+                for item in (
+                    option_review.get("balanced_attributes", [])
+                    if isinstance(option_review.get("balanced_attributes", []), list)
+                    else []
+                )
+                if isinstance(item, dict)
+            ]
+            if weights and all(weight == 1 for weight in weights):
+                errors.append(
+                    f"{review_location}: non-default weighting must expose at least one non-default weight"
+                )
+        permitted = review.get("best_option_permitted_by_current_authority")
+        evidenced = review.get("best_option_supported_by_current_evidence")
+        for label, option_id in (("best permitted", permitted), ("best evidenced", evidenced)):
+            if option_id is not None and option_reviews.get(option_id, {}).get("eligibility") != "eligible":
+                errors.append(f"{review_location}: {label} option is not gate-eligible")
+        recommended = decision.get("recommendation", {}).get("option_id") if isinstance(decision.get("recommendation"), dict) else None
+        if recommended is not None and option_reviews.get(recommended, {}).get("eligibility") == "disqualified":
+            errors.append(f"{review_location}: recommendation selects a gate-disqualified option")
+        selected = decision.get("owner_selection", {}).get("option_id") if isinstance(decision.get("owner_selection"), dict) else None
+        if (
+            selected is not None
+            and decision.get("lifecycle_state") == "owner selected — ADR or approval pending"
+            and option_reviews.get(selected, {}).get("eligibility") == "disqualified"
+            and review.get("disposition") != "challenge owner selection"
+        ):
+            errors.append(f"{review_location}: gate-disqualified owner selection must be challenged")
+        compatibility = review.get("compatibility")
+        issues = review.get("compatibility_issues", [])
+        if compatibility == "compatible" and issues:
+            errors.append(f"{review_location}: compatible review must not hide compatibility issues")
+        if compatibility in {"tension", "conflict", "unknown"} and not issues:
+            errors.append(f"{review_location}: {compatibility} requires a complete compatibility issue")
+
+    closure = value.get("minimum_closure_set", {})
+    closure_items_raw = closure.get("items", []) if isinstance(closure, dict) else []
+    closure_items: dict[str, dict[str, Any]] = {}
+    if isinstance(closure_items_raw, list):
+        for index, item in enumerate(closure_items_raw):
+            if not isinstance(item, dict) or not isinstance(item.get("id"), str):
+                continue
+            closure_id = item["id"]
+            if closure_id in closure_items:
+                errors.append(f"{location}:minimum_closure_set: duplicate closure ID {closure_id}")
+            else:
+                closure_items[closure_id] = item
+            item_decision_refs = item.get("decision_refs", [])
+            if not isinstance(item_decision_refs, list):
+                item_decision_refs = []
+            for decision_ref in item_decision_refs:
+                if decision_ref not in decisions:
+                    errors.append(
+                        f"{location}:minimum_closure_set:{closure_id}: unknown decision {decision_ref}"
+                    )
+            if item.get("status") == "complete":
+                evidence_refs = item.get("completion_evidence_refs", [])
+                if not isinstance(evidence_refs, list) or not evidence_refs:
+                    errors.append(
+                        f"{location}:minimum_closure_set:{closure_id}: complete item requires resolvable completion evidence references"
+                    )
+                    evidence_refs = []
+                kind = item.get("kind")
+                if kind == "ADR or approval" and not any(
+                    (
+                        isinstance(reference, str)
+                        and reference.startswith(("authority:", "external:"))
+                    )
+                    or _accepted_decision_authority(reference, records)
+                    for reference in evidence_refs
+                ):
+                    errors.append(
+                        f"{location}:minimum_closure_set:{closure_id}: completed ADR or approval lacks accepted authority"
+                    )
+                if kind == "owner decision":
+                    for decision_ref in item_decision_refs:
+                        decision = decisions.get(decision_ref, {})
+                        selection = decision.get("owner_selection", {})
+                        if not isinstance(selection, dict) or any(
+                            selection.get(field) is None
+                            for field in (
+                                "option_id",
+                                "selected_by_role",
+                                "selected_on",
+                                "selection_rationale",
+                            )
+                        ):
+                            errors.append(
+                                f"{location}:minimum_closure_set:{closure_id}: completed owner decision lacks a recorded owner selection for {decision_ref}"
+                            )
+                if kind in {"evidence-first spike", "gate evidence"} and not any(
+                    isinstance(reference, str)
+                    and reference.startswith("EVD-")
+                    and reference in records
+                    and records[reference][0].get("result") == "pass"
+                    for reference in evidence_refs
+                ):
+                    errors.append(
+                        f"{location}:minimum_closure_set:{closure_id}: completed {kind} requires resolving pass evidence"
+                    )
+                if kind == "specialist review" and not any(
+                    (
+                        isinstance(reference, str)
+                        and reference.startswith(("authority:", "external:"))
+                    )
+                    or (
+                        isinstance(reference, str)
+                        and reference.startswith("EVD-")
+                        and reference in records
+                        and records[reference][0].get("result") == "pass"
+                    )
+                    for reference in evidence_refs
+                ):
+                    errors.append(
+                        f"{location}:minimum_closure_set:{closure_id}: completed specialist review lacks approval or pass evidence"
+                    )
+    closure_dependencies: dict[str, list[str]] = {}
+    for closure_id, record in closure_items.items():
+        raw_dependencies = record.get("depends_on", [])
+        if not isinstance(raw_dependencies, list):
+            raw_dependencies = []
+        closure_dependencies[closure_id] = [
+            item for item in raw_dependencies if isinstance(item, str)
+        ]
+    errors.extend(
+        _decision_graph_errors(
+            set(closure_items),
+            closure_dependencies,
+            closure.get("dependency_order") if isinstance(closure, dict) else None,
+            f"{location}:minimum_closure_set",
+        )
+    )
+    if isinstance(closure, dict):
+        seen_parallel: set[str] = set()
+        raw_parallel_groups = closure.get("parallel_groups", [])
+        if not isinstance(raw_parallel_groups, list):
+            raw_parallel_groups = []
+        for group in raw_parallel_groups:
+            if not isinstance(group, list):
+                continue
+            for closure_id in group:
+                if closure_id not in closure_items:
+                    errors.append(
+                        f"{location}:minimum_closure_set: parallel group references unknown {closure_id}"
+                    )
+                if closure_id in seen_parallel:
+                    errors.append(
+                        f"{location}:minimum_closure_set: {closure_id} appears in more than one parallel group"
+                    )
+                seen_parallel.add(closure_id)
+            group_ids = [item for item in group if isinstance(item, str)]
+
+            def reaches(source: str, target: str, visited: set[str]) -> bool:
+                if source in visited:
+                    return False
+                visited.add(source)
+                for dependency in closure_dependencies.get(source, []):
+                    if dependency == target or reaches(dependency, target, visited):
+                        return True
+                return False
+
+            for index, left in enumerate(group_ids):
+                for right in group_ids[index + 1 :]:
+                    if reaches(left, right, set()) or reaches(right, left, set()):
+                        errors.append(
+                            f"{location}:minimum_closure_set: parallel group contains dependency-related items {left} and {right}"
+                        )
+
+    errors.extend(
+        _governance_reference_errors(value, records, decisions, closure_items)
+    )
+    errors.extend(_handoff_claim_errors(root, records, decisions))
+    return list(dict.fromkeys(errors))
+
+
+def check_maturity_assessments(
+    records: dict[str, tuple[dict[str, Any], str]],
+) -> list[str]:
+    errors: list[str] = []
+    for record_id, (record, location) in records.items():
+        if not record_id.startswith(("REQ-", "GATE-")):
+            continue
+        assessment = record.get("maturity_assessment")
+        if assessment is None:
+            continue
+        if not isinstance(assessment, dict):
+            errors.append(f"{location}: maturity assessment must be an object")
+            continue
+        level = assessment.get("level")
+        basis_kind = assessment.get("basis_kind")
+        raw_evidence_refs = assessment.get("evidence_refs", [])
+        evidence_refs = (
+            raw_evidence_refs if isinstance(raw_evidence_refs, list) else []
+        )
+        if level is None:
+            if (
+                basis_kind is not None
+                or
+                assessment.get("assessed_on") is not None
+                or assessment.get("assessor_role") is not None
+                or evidence_refs
+            ):
+                errors.append(
+                    f"{location}: unassessed maturity cannot carry a basis, assessor, or evidence claim"
+                )
+            continue
+        expected_basis = {
+            "1. Architecturally specified": "architecture specification",
+            "2. Evidence planned": "evidence plan",
+            "3. Structurally validated": "structural validation",
+            "4. Demonstrated by executable implementation": "executable implementation",
+            "5. Specialist-approved": "specialist approval",
+            "6. Release-ready": "release gate",
+            "7. Production-proven": "production observation",
+        }.get(level)
+        if basis_kind != expected_basis:
+            errors.append(
+                f"{location}: maturity level requires basis kind {expected_basis!r}"
+            )
+        if not isinstance(assessment.get("assessed_on"), str) or not isinstance(
+            assessment.get("assessor_role"), str
+        ):
+            errors.append(f"{location}: assessed maturity requires date and assessor role")
+        if not isinstance(raw_evidence_refs, list) or not evidence_refs:
+            errors.append(f"{location}: assessed maturity requires explicit evidence references")
+        if isinstance(level, str) and level.startswith(("3.", "4.", "5.", "6.", "7.")):
+            if not any(
+                isinstance(reference, str)
+                and reference.startswith("EVD-")
+                and reference in records
+                and records[reference][0].get("result") == "pass"
+                for reference in evidence_refs
+            ):
+                errors.append(
+                    f"{location}: structural or higher maturity requires resolving pass EVD evidence"
+                )
+    return errors
 
 
 def iter_references(value: Any, key: str | None = None):
@@ -6473,6 +7437,7 @@ def check_integrity(root: Path, include_generated: bool = True) -> list[str]:
         "strict_json_and_duplicate_keys",
         "schemas_versions_lifecycles_and_references",
         "dependency_readiness_and_ready_frontier",
+        "decision_governance_and_authority_reconciliation",
         "authority_and_nested_instruction_invariants",
         "dossier_artifact_registry",
         "extension_confinement_and_validator_protocol",
@@ -6678,6 +7643,8 @@ def check_sources(
     errors.extend(check_collaboration_profile(root, records))
     errors.extend(check_git_workflows(root, records))
     errors.extend(check_references_and_lifecycle(root, records))
+    errors.extend(check_decision_governance(root, records))
+    errors.extend(check_maturity_assessments(records))
     errors.extend(check_plan_and_traceability(records))
     errors.extend(check_governance_semantics(root, records))
     errors.extend(check_dossier_registry(root))

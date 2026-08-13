@@ -153,6 +153,12 @@ Tasks, decisions, evidence, reviews, events, artifacts, state, checkpoints,
 explicit target-project check evidence, and generated integrity make work
 resumable and auditable.
 
+Decision governance extends the existing decision concern rather than adding a
+second authority system. `.agent/decisions/governance-register.json` owns the
+material-question inventory, recommendations, owner selections, option review,
+compatibility findings, and minimum closure sequence. Accepted `DEC-####`
+records remain the only durable decision authority.
+
 ## 4. Architectural invariants
 
 1. Higher-level instructions cannot be weakened by lower-level files.
@@ -187,6 +193,12 @@ resumable and auditable.
     falls through to an enterprise workflow.
 17. Semantic information roles do not replace aggregate-specific lifecycles,
     grant action authority, or establish readiness by themselves.
+18. A recommendation is not an owner selection; an owner selection is not
+    accepted authority; only the required accepted `DEC-####` or approval
+    process makes the choice durable.
+19. Trade-off totals cannot offset a failed non-negotiable gate or conceal a
+    material unknown. Unknown evidence remains unknown and normally routes the
+    decision to evidence-first work.
 
 ## 5. Recommended directory structure
 
@@ -210,6 +222,7 @@ resumable and auditable.
 │   ├── approvals/                     # conditional attestation metadata
 │   ├── coordination/                  # conditional leases/write ownership
 │   ├── decisions/
+│   │   └── governance-register.json   # question/review source; not accepted authority
 │   ├── tasks/
 │   ├── evidence/                     # standard+
 │   ├── project-checks/               # explicit target-check evidence
@@ -457,6 +470,7 @@ readiness by itself.
 | package lifecycle | `packages.json` | project-owned assessment plus transaction receipt | which pinned trigger content is installed and validated |
 | provider-neutral Git workflow | trigger-installed `workflows/small-team-git.json` | content-addressed package contract | complete supported steps only when Git is selected |
 | durable intent | `decisions/` | immutable plus successor | why a lasting choice exists |
+| decision questions and review | `decisions/governance-register.json` | project-maintained source with exact inventory reconciliation | what remains material, recommended, selected, accepted, evidence-first, compatible, and blocking |
 | active work | `tasks/` | lifecycle updates | what is being done |
 | observation | `evidence/` | immutable record | what was inspected or executed |
 | target-project check evidence | `project-checks/evidence.json` plus immutable archive | bounded current index plus successor-linked archive | what selected configured hooks actually returned for an exact subject |
@@ -481,6 +495,14 @@ Consequential evidence additionally states the implications it does not prove.
 A passing check therefore remains bounded to its exact subject, method,
 environment, time, and scope; it cannot silently become approval, compliance,
 provider truth, or production readiness.
+
+Requirements and quality gates may carry a scoped maturity assessment:
+`Architecturally specified`, `Evidence planned`, `Structurally validated`,
+`Demonstrated by executable implementation`, `Specialist-approved`,
+`Release-ready`, or `Production-proven`. This is not a universal lifecycle or
+an automatic readiness state. Each declared level has its own evidence and
+limitations; completion at one level does not imply a higher level, and the
+validator never promotes it.
 
 Task `dependencies` are hard `TASK-####` prerequisites. `plan_item_refs` and
 plan-item `task_refs` are reciprocal. `gate_refs` name structured readiness
@@ -552,6 +574,22 @@ stable identifier order only for deterministic display, never as priority.
 Use `proposed`, `accepted`, `rejected`, `superseded`, and `deprecated`.
 Changing the meaning of an accepted decision requires a successor that names
 the superseded record.
+
+The decision-governance register has its own subordinate tracking lifecycle:
+`open`, `evidence in progress`,
+`owner selected — ADR or approval pending`,
+`accepted — authority linked`, `deferred`, and `superseded`. These values do
+not replace the durable decision lifecycle. `accepted — authority linked` is
+valid only when the entry resolves to a currently accepted `DEC-####`; an
+owner-selected entry keeps its authority reference null.
+
+Every register entry has a stable `DREG-####` identity, exact decision question,
+type and timing, non-reopenable constraints, exclusions, no more than four
+credible options, a separate recommendation and owner-selection object,
+evidence owner/step/stop condition where needed, traceability, blocked work,
+reversal conditions, and one trade-off review. Dashboard, sheets, dependency
+order, and reviews reconcile exactly; decision and minimum-closure graphs are
+acyclic.
 
 ### Artifact lifecycle
 
@@ -704,6 +742,18 @@ Validation layers are:
 9. positive and negative/mutation tests; and
 10. recovery from stale reports, corrupted records, and interrupted refresh.
 
+Decision validation additionally checks controlled type/timing/lifecycle,
+disposition and compatibility values; unique `DREG-####` IDs; dashboard/sheet/
+review reconciliation; accepted authority resolution; recommendation,
+selection, and acceptance separation; reciprocal `DREG-####`/resolving
+`DEC-####` links; required evidence-first owners and stop
+conditions; reference integrity; dependency and closure cycles; six option
+gates; exact non-overlapping balanced attributes; and totals that cannot hide
+gate failures or `?` evidence gaps. Completed closure items require resolving
+evidence appropriate to their kind. Requirement/gate maturity requires the
+exact level-specific basis kind, and structural-or-higher claims require a
+resolving pass evidence record; the validator does not infer evidence adequacy.
+
 The validator is modular even when distributed as one standard-library file.
 Kernel, instruction, record, lifecycle, dossier, extension, integrity, and
 project-command checks have separate interfaces and return structured
@@ -754,6 +804,14 @@ refreshes but does not turn Git or an untrusted extension into a sandbox.
 `refresh` validates authoritative sources first, transactionally regenerates
 the artifact catalog, path authority, manifest, and profile-specific integrity
 outputs, and then runs the final read-only check.
+
+A formal read-only review records repository status and revision, useful
+authority/projection fingerprints, every exact command and exit status,
+unavailable and skipped checks, and the same status/fingerprints afterward.
+It never refreshes generated artifacts. Stale projections are reported by
+input and affected output. Before/after comparison distinguishes pre-existing
+drift from mutations caused by the review; any detected change prevents a
+read-only assurance claim.
 
 High-Assurance generated validation reports are explicitly scoped to the
 pre-refresh checks they record. Their closed contract contains one result for
@@ -943,6 +1001,11 @@ Recommended cadence:
 | validator borrows an ambient runtime | pin/bootstrap the supported toolchain |
 | domain constants enter the kernel | move them to a registered extension |
 | status is copied across files | assign one owner and generate views |
+| recommendation or owner selection is presented as accepted | keep separate fields and require a resolving accepted `DEC-####` authority link |
+| trade-off score hides a failed safety or authority gate | disqualify the option before scoring and keep the failure visible |
+| evidence gap is converted to a fact | retain `unknown`, choose an evidence owner/step/stop condition, and use evidence-first timing |
+| handoff contradicts canonical authority | prefer references; validate explicit claim markers and complete the mandatory semantic reconciliation checklist |
+| structural validation is called implementation readiness | report architecture, documentation, implementation, specialist, release, production, and efficacy conclusions separately |
 | summaries become histories | compact current state and retain durable records |
 | checksums are treated as truth | state their byte-integrity limitation |
 | role names become principals | inherit and narrow task authority |
@@ -962,13 +1025,18 @@ A harness is complete only when these demonstrations pass:
 3. Review-only work cannot mutate, and local implementation cannot publish.
 4. Valid task transitions and dependency-ready progressions pass; cycles,
    incomplete predecessor execution, unresolved gates/blockers, broken
-   reciprocal plan links, and invalid transitions fail clearly.
+   reciprocal plan links, and invalid transitions fail clearly. Decision
+   dashboard/review inventories reconcile; decision and closure cycles,
+   selected-as-accepted entries, gate-compensating scores, and missing
+   evidence-first stop conditions fail clearly.
 5. Each critical deny has a failing mutation.
 6. A clean checkout runs the documented runtime and check.
 7. Read-only validation leaves no tracked, untracked, ignored, cache, or
    timestamp change and never executes a target-project hook; the explicit
    project-check writer records truthful, fingerprint-bound outcomes and
    distinguishes failure, unavailable, skipped, and not-applicable states.
+   A read-only review also records before/after status and fingerprints and
+   reports stale projections without rewriting them.
 8. Managed-source changes invalidate stale generated evidence.
 9. Synthetic credentials are detected and output is redacted.
 10. A trigger-installed sample extension validates and can be disabled without

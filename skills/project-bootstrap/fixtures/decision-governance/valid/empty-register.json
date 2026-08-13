@@ -1,0 +1,89 @@
+{
+  "schema_version": "harness.decision-governance.v1",
+  "document_role": "authoritative_decision_governance_register",
+  "permission_grant": false,
+  "authority_boundary": "Fixture only. Accepted authority remains in accepted DEC-#### records.",
+  "register_owner_role": "unassigned",
+  "review": {
+    "status": "not reviewed",
+    "reviewed_on": null,
+    "reviewed_by_role": null,
+    "basis": "Empty positive fixture."
+  },
+  "executive_summary": {
+    "summary": "No project-specific decision questions are present.",
+    "total_registered": 0,
+    "unresolved": 0,
+    "blocking": 0,
+    "evidence_first": 0,
+    "counts_by_lifecycle": {
+      "open": 0,
+      "evidence in progress": 0,
+      "owner selected — ADR or approval pending": 0,
+      "accepted — authority linked": 0,
+      "deferred": 0,
+      "superseded": 0
+    }
+  },
+  "dashboard": [],
+  "decisions": [],
+  "dependency_order": [],
+  "already_settled": [],
+  "not_open_matters": [],
+  "minimum_closure_set": {
+    "items": [],
+    "dependency_order": [],
+    "parallel_groups": [],
+    "safe_work_before_full_closure": [],
+    "broad_implementation_boundary": "Not assessed by this fixture."
+  },
+  "trade_off_reviews": [],
+  "report_conclusions": {
+    "architecture_quality": {
+      "status": "not assessed",
+      "basis": "No review performed.",
+      "evidence_refs": [],
+      "limitations": ["Fixture validation is not architecture evidence."]
+    },
+    "documentation_completeness": {
+      "status": "not assessed",
+      "basis": "No review performed.",
+      "evidence_refs": [],
+      "limitations": ["Fixture validation is not completeness evidence."]
+    },
+    "implementation_evidence": {
+      "status": "not assessed",
+      "basis": "No executable subject exists.",
+      "evidence_refs": [],
+      "limitations": ["Structural validation is not implementation evidence."]
+    },
+    "specialist_approval": {
+      "status": "not assessed",
+      "basis": "No specialist review performed.",
+      "evidence_refs": [],
+      "limitations": ["Fixture validation is not specialist approval."]
+    },
+    "release_readiness": {
+      "status": "not assessed",
+      "basis": "No release subject exists.",
+      "evidence_refs": [],
+      "limitations": ["Fixture validation is not release readiness."]
+    },
+    "production_readiness": {
+      "status": "not assessed",
+      "basis": "No production subject exists.",
+      "evidence_refs": [],
+      "limitations": ["Fixture validation is not production readiness."]
+    },
+    "product_efficacy_or_commercial_viability": {
+      "status": "not assessed",
+      "basis": "No product evidence exists.",
+      "evidence_refs": [],
+      "limitations": ["Fixture validation is not efficacy or viability evidence."]
+    }
+  },
+  "limitations": [
+    "Empty fixture only.",
+    "No authority or readiness is created."
+  ]
+}

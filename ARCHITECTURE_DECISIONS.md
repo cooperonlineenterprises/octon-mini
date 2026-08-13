@@ -173,6 +173,24 @@ validation, and other consequential boundaries stage the complete applicable
 release tier. Full-tree tests remain where host metadata, ignore behavior,
 symlinks, whole-tree fingerprinting, or cross-file integration is material.
 
+## SRC-DEC-0012 — Decision governance within the existing decision concern
+
+| Field | Accepted decision |
+|---|---|
+| Status | `accepted` |
+| Authority | Explicit repository-owner implementation authorization on 2026-08-13 |
+| Scope | Domain-neutral decision inventory, option review, compatibility, handoff reconciliation, maturity assessment, read-only review, and closure sequencing |
+| Placement | Existing `DEC-0001` concern; project-owned `.agent/decisions/governance-register.json`; accepted authority remains in `DEC-####` records |
+| Decision | Add stable decision-question tracking, gate-first evidence review, exact inventory reconciliation, subordinate handoff checks, scoped requirement/gate maturity, and read-only assurance without creating parallel accepted authority |
+| Exclusion | No universal readiness lifecycle, no automatic maturity promotion, no score-based override of a failed gate, and no generated owner selection or accepted decision |
+| Permission effect | None; recommendations, selections, reviews, closure sets, schemas, and validators grant no action authority |
+| Compatibility | Additive within unreleased Blueprint 4.0; existing independent snapshots change only through explicit upgrade review |
+
+`DREG-####` identifies a tracked question and review; it is never silently
+reused as a durable `DEC-####` identity. `accepted — authority linked` requires
+a resolving accepted `DEC-####`. Generated Markdown is a review projection,
+and structural conformance remains distinct from implementation and readiness.
+
 ## Explicitly deferred by these decisions
 
 The following remain outside the accepted implementation:

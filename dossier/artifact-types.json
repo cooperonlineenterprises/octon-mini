@@ -785,9 +785,10 @@
       "recommended_name": "Durable decision records",
       "category": "decisions",
       "classification": "core",
-      "purpose": "Preserve the context, authority, alternatives, consequences, and successors of durable choices.",
+      "purpose": "Inventory material decision questions, separate recommendations and selections from authority, review credible options, and preserve accepted durable choices and successors.",
       "questions": [
-        "What was decided?",
+        "Which material choices remain unresolved or tracked?",
+        "What is recommended versus selected?",
         "Under which authority and scope?",
         "What did it replace and how is it validated?"
       ],
@@ -811,27 +812,37 @@
         "supersession"
       ],
       "recommended_formats": [
-        "Markdown records governed by the harness lifecycle"
+        "JSON decision-governance register",
+        "Markdown review workbook and reports",
+        "Markdown durable records governed by the harness lifecycle"
       ],
-      "source_of_truth_expectations": "Status-dependent live decision store belongs in the harness; dossier summaries only link to it.",
+      "source_of_truth_expectations": "The harness decision-governance register owns question, recommendation, selection, review, and closure tracking. Status-dependent DEC-#### records alone own durable accepted authority; an accepted register entry and its resolving DEC record link each other explicitly; dossier and Markdown review views only link or project them.",
       "dependencies": [],
       "creation_timing": "Create when a durable choice is proposed; acceptance requires valid project authority.",
       "update_triggers": [
         "decision_proposed",
+        "decision_question_discovered",
+        "owner_selection_recorded",
+        "trade_off_review_completed",
         "decision_status_change",
         "decision_superseded"
       ],
       "review_cadence": "on_durable_choice_or_invalidating_evidence",
       "validation_checks": [
         "stable_ids",
+        "dashboard_and_sheet_reconciliation",
+        "recommendation_selection_and_authority_separation",
+        "option_gate_and_evidence_semantics",
+        "dependency_and_closure_acyclicity",
         "legal_status_transition",
         "authority_source_present_for_acceptance",
+        "register_and_authority_links_reciprocal",
         "successor_semantics"
       ],
       "triggers": [
         "all_projects"
       ],
-      "omission_or_combination": "The store is Core; an empty store is valid and generation must not fabricate an accepted decision.",
+      "omission_or_combination": "The register and durable store are Core; empty stores are valid and generation must not fabricate a question, recommendation, owner selection, accepted decision, review result, or readiness claim.",
       "representative_evidence": [
         "CF:.agent/decisions/",
         "COE:.agent/decisions/",
@@ -3530,6 +3541,41 @@
       "superseded_by": null,
       "artifact_type_ids": [
         "CTX-0001"
+      ]
+    },
+    {
+      "id": "REP-0041",
+      "path": ".agent/decisions/governance-register.json",
+      "profile": "minimal",
+      "representation_role": "decision_governance_register",
+      "information_state": "governance",
+      "authority": "decision_tracking_and_review_not_durable_acceptance",
+      "source_direction": "project_maintained_source_seeded_by_generator",
+      "generated": false,
+      "owner_role": "decision_owner",
+      "review_cadence": "on_material_decision_or_review_change",
+      "update_triggers": [
+        "decision_question_discovered",
+        "recommendation_changed",
+        "owner_selection_recorded",
+        "authority_linked",
+        "trade_off_review_completed",
+        "closure_sequence_changed"
+      ],
+      "sensitivity": "internal",
+      "applicability": {
+        "status": "required",
+        "rationale": "Core decision-governance source for the selected profile.",
+        "assessed_on": null
+      },
+      "review": {
+        "status": "not_reviewed",
+        "last_reviewed_on": null,
+        "basis": "Generated empty register is not substantive decision review."
+      },
+      "superseded_by": null,
+      "artifact_type_ids": [
+        "DEC-0001"
       ]
     }
   ]

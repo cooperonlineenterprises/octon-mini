@@ -95,6 +95,11 @@
         "ownership": "project_owned_operator_intent_not_permission"
       },
       {
+        "path": ".agent/decisions/governance-register.json",
+        "minimum_profile": "minimal",
+        "ownership": "project_owned_decision_question_and_review_source_not_accepted_authority"
+      },
+      {
         "path": "project-dossier/machine-readable/artifact-registry.json",
         "minimum_profile": "minimal",
         "ownership": "project_owned_authoritative_source"
@@ -271,7 +276,7 @@
     {"id": 1, "title": "newcomer_discovery", "release_coverage": "project_demonstration_required"},
     {"id": 2, "title": "nested_instruction_precedence", "release_coverage": "automated_pass"},
     {"id": 3, "title": "authority_posture_enforcement", "release_coverage": "project_demonstration_required"},
-    {"id": 4, "title": "task_and_plan_lifecycle", "release_coverage": "automated_pass"},
+    {"id": 4, "title": "task_plan_and_decision_governance_lifecycle", "release_coverage": "automated_pass"},
     {"id": 5, "title": "critical_deny_mutations", "release_coverage": "automated_pass"},
     {"id": 6, "title": "clean_runtime_bootstrap", "release_coverage": "automated_pass"},
     {"id": 7, "title": "read_only_and_project_check_evidence", "release_coverage": "automated_pass"},
@@ -321,6 +326,7 @@
         ".agent/START_HERE.md.tmpl",
         ".agent/context.json.tmpl",
         ".agent/decisions/README.md.tmpl",
+        ".agent/decisions/governance-register.json.tmpl",
         ".agent/generated/README.md.tmpl",
         ".agent/lifecycle.json.tmpl",
         ".agent/packages.json.tmpl",
@@ -339,9 +345,13 @@
         ".agent/state/RESUME.md.tmpl",
         ".agent/state/focus.json.tmpl",
         ".agent/tasks/README.md.tmpl",
+        ".agent/templates/architecture-decision-register.md.tmpl",
         ".agent/templates/decision.md.tmpl",
         ".agent/templates/pull-request.md.tmpl",
+        ".agent/templates/read-only-review.md.tmpl",
         ".agent/templates/task.md.tmpl",
+        ".agent/templates/trade-off-review.md.tmpl",
+        ".agent/tests/fixtures/invalid/decision-governance-mutations.json.tmpl",
         ".agent/tests/fixtures/invalid/duplicate-key.json.tmpl",
         ".agent/tests/fixtures/invalid/event-sequence.jsonl.tmpl",
         ".agent/tests/fixtures/invalid/nested-agent-weakening.md.tmpl",
@@ -372,8 +382,8 @@
         "project-dossier/validation/QUALITY_GATES.json.tmpl",
         "project-dossier/validation/README.md.tmpl"
       ],
-      "inventory_count": 53,
-      "inventory_paths_sha256": "b649857e0edf02217eec1b1ce93af562fca7913a4f2a23c275e21ba3b62ada88",
+      "inventory_count": 58,
+      "inventory_paths_sha256": "ef3f5e381c7dac481559b7e3a54f3541cfbff6107b8087e409fa3678c98d9a9e",
       "output": {
         "root": ".",
         "strip_suffix": ".tmpl"
@@ -482,6 +492,7 @@
         "harness-capability-records.schema.json",
         "harness-collaboration-profile.schema.json",
         "harness-current-state.schema.json",
+        "harness-decision-governance.schema.json",
         "harness-diagnostics.schema.json",
         "harness-extension-registry.schema.json",
     "harness-focus.schema.json",
@@ -498,8 +509,8 @@
     "project-blueprint-upgrade.schema.json",
     "reference-evidence.schema.json"
       ],
-  "inventory_count": 24,
-  "inventory_paths_sha256": "d571635af1f0dcd73d236c44fd17a24a75af3242e9beabaa3b40681e3c6cdf2b",
+      "inventory_count": 25,
+      "inventory_paths_sha256": "19e7c5dcfa4607045e59ac3c58c3079915e1d975699d52f4caec0621914ab568",
       "output": {
         "root": ".agent/schemas",
         "strip_suffix": null

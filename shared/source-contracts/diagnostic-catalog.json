@@ -50,6 +50,24 @@
       "repair_class": "project_action_required"
     },
     {
+      "code": "PB-DIAG-0203",
+      "match_any": ["decision-governance", "decision-sheet inventories", "owner selection", "evidence-first decision", "weighted total", "decision review"],
+      "root_cause": "The project-owned decision-governance source is malformed, unreconciled, or confuses recommendation, selection, evidence, and accepted authority.",
+      "authority_source": ".agent/decisions/governance-register.json_and_resolving_DEC_records",
+      "dependent_symptoms": ["decision_inventory_unreliable", "broad_implementation_closure_unknown"],
+      "safe_next_action": "Correct the source register from project-owned evidence and authority; do not repair it as a generated projection.",
+      "repair_class": "project_decision_required"
+    },
+    {
+      "code": "PB-DIAG-0204",
+      "match_any": ["subordinate handoff claim", "mandatory authority reconciliation checklist", "handoff claim"],
+      "root_cause": "A subordinate handoff is missing required reconciliation or contradicts canonical gate, decision, register, or readiness state.",
+      "authority_source": "canonical_gate_decision_register_version_and_ownership_sources",
+      "dependent_symptoms": ["handoff_unreliable", "resumption_requires_reinspection"],
+      "safe_next_action": "Reinspect canonical sources, replace copied state with references where possible, and correct any explicit claim marker.",
+      "repair_class": "project_action_required"
+    },
+    {
       "code": "PB-DIAG-0301",
       "match_any": ["lack artifact-registry representations", "unregistered", "unrecognized record filename"],
       "root_cause": "A physical artifact is not reconciled with its authoritative registry.",
@@ -110,6 +128,15 @@
       "authority_source": ".agent/project.json#commands",
       "dependent_symptoms": ["project_check_unavailable", "evidence_not_current"],
       "safe_next_action": "Correct the project-owned hook configuration or install the tool, then explicitly rerun the hook.",
+      "repair_class": "project_action_required"
+    },
+    {
+      "code": "PB-DIAG-0801",
+      "match_any": ["read-only", "mutation detected", "repository changed during validation"],
+      "root_cause": "A command declared or reviewed as read-only changed repository or external state, or mutation prevention could not be established.",
+      "authority_source": "before_after_repository_and_external_state_evidence",
+      "dependent_symptoms": ["read_only_assurance_failed", "review_result_requires_reassessment"],
+      "safe_next_action": "Stop the review, preserve before/after evidence, identify the responsible command, and rerun only after a safe read-only boundary exists.",
       "repair_class": "project_action_required"
     }
   ]

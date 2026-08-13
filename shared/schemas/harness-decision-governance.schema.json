@@ -1,0 +1,1249 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://project-blueprint.local/schemas/harness-decision-governance.schema.json",
+  "title": "Project Decision Governance Register",
+  "description": "Strict contract for a non-authorizing decision workbook, evidence-based trade-off review, compatibility findings, and minimum closure sequence. Durable accepted authority remains in harness.decision records.",
+  "$defs": {
+    "strings": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:[A-Z][A-Z0-9]*-[0-9]{4}|(?:authority|external|project-blueprint|repo|url):.+)$"
+      }
+    },
+    "decision_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^DREG-[0-9]{4}$"
+      }
+    },
+    "requirement_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^REQ-[0-9]{4}$"
+      }
+    },
+    "risk_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^RISK-[0-9]{4}$"
+      }
+    },
+    "plan_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^PLAN-[0-9]{4}$"
+      }
+    },
+    "gate_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^GATE-[0-9]{4}$"
+      }
+    },
+    "closure_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^CLOSE-[0-9]{4}$"
+      }
+    },
+    "review_state": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "reviewed_on",
+        "reviewed_by_role",
+        "basis"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "not reviewed",
+            "reviewed",
+            "stale"
+          ]
+        },
+        "reviewed_on": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "reviewed_by_role": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "basis": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "lifecycle_counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "open",
+        "evidence in progress",
+        "owner selected — ADR or approval pending",
+        "accepted — authority linked",
+        "deferred",
+        "superseded"
+      ],
+      "properties": {
+        "open": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "evidence in progress": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "owner selected — ADR or approval pending": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "accepted — authority linked": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "deferred": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "superseded": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "executive_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "summary",
+        "total_registered",
+        "unresolved",
+        "blocking",
+        "evidence_first",
+        "counts_by_lifecycle"
+      ],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "total_registered": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unresolved": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "blocking": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "evidence_first": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "counts_by_lifecycle": {
+          "$ref": "#/$defs/lifecycle_counts"
+        }
+      }
+    },
+    "dashboard_entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "title",
+        "decision_type",
+        "timing",
+        "lifecycle_state",
+        "blocking",
+        "accountable_owner_role"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^DREG-[0-9]{4}$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "decision_type": {
+          "enum": [
+            "architecture decision",
+            "product-policy decision",
+            "specialist-policy decision",
+            "vendor or platform decision"
+          ]
+        },
+        "timing": {
+          "enum": [
+            "required now",
+            "required later",
+            "evidence-first",
+            "open owner decision"
+          ]
+        },
+        "lifecycle_state": {
+          "enum": [
+            "open",
+            "evidence in progress",
+            "owner selected — ADR or approval pending",
+            "accepted — authority linked",
+            "deferred",
+            "superseded"
+          ]
+        },
+        "blocking": {
+          "type": "boolean"
+        },
+        "accountable_owner_role": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "option": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "title",
+        "description",
+        "advantages",
+        "disadvantages",
+        "risks",
+        "best_fit_conditions"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^OPT-[A-D]$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "advantages": {
+          "$ref": "#/$defs/strings"
+        },
+        "disadvantages": {
+          "$ref": "#/$defs/strings"
+        },
+        "risks": {
+          "$ref": "#/$defs/strings"
+        },
+        "best_fit_conditions": {
+          "$ref": "#/$defs/strings"
+        }
+      }
+    },
+    "recommendation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "option_id",
+        "rationale",
+        "supporting_evidence_refs",
+        "accepted_compromise",
+        "confidence"
+      ],
+      "properties": {
+        "option_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^OPT-[A-D]$"
+        },
+        "rationale": {
+          "type": "string",
+          "minLength": 1
+        },
+        "supporting_evidence_refs": {
+          "$ref": "#/$defs/refs"
+        },
+        "accepted_compromise": {
+          "type": "string",
+          "minLength": 1
+        },
+        "confidence": {
+          "enum": [
+            "high",
+            "medium",
+            "low"
+          ]
+        }
+      }
+    },
+    "owner_selection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "option_id",
+        "selected_by_role",
+        "selected_on",
+        "selection_rationale"
+      ],
+      "properties": {
+        "option_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^OPT-[A-D]$"
+        },
+        "selected_by_role": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "selected_on": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "selection_rationale": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "evidence_plan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evidence_owner_role",
+        "evidence_producing_step",
+        "expected_evidence",
+        "stop_condition",
+        "evidence_refs"
+      ],
+      "properties": {
+        "evidence_owner_role": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "evidence_producing_step": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "expected_evidence": {
+          "$ref": "#/$defs/strings"
+        },
+        "stop_condition": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "evidence_refs": {
+          "$ref": "#/$defs/refs"
+        }
+      }
+    },
+    "decision_links": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requirement_refs",
+        "risk_refs",
+        "plan_refs",
+        "gate_refs",
+        "dependent_decision_refs"
+      ],
+      "properties": {
+        "requirement_refs": {
+          "$ref": "#/$defs/requirement_refs"
+        },
+        "risk_refs": {
+          "$ref": "#/$defs/risk_refs"
+        },
+        "plan_refs": {
+          "$ref": "#/$defs/plan_refs"
+        },
+        "gate_refs": {
+          "$ref": "#/$defs/gate_refs"
+        },
+        "dependent_decision_refs": {
+          "$ref": "#/$defs/decision_refs"
+        }
+      }
+    },
+    "decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "title",
+        "exact_decision",
+        "practical_importance",
+        "decision_type",
+        "timing",
+        "lifecycle_state",
+        "blocking",
+        "accepted_constraints",
+        "explicit_exclusions",
+        "option_set_rationale",
+        "options",
+        "depends_on",
+        "recommendation",
+        "owner_selection",
+        "authority_ref",
+        "evidence_plan",
+        "accountable_owner_role",
+        "specialist_reviewer_roles",
+        "links",
+        "work_blocked",
+        "reversal_or_successor_conditions",
+        "authoritative_references",
+        "limitations"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^DREG-[0-9]{4}$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "exact_decision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "practical_importance": {
+          "type": "string",
+          "minLength": 1
+        },
+        "decision_type": {
+          "enum": [
+            "architecture decision",
+            "product-policy decision",
+            "specialist-policy decision",
+            "vendor or platform decision"
+          ]
+        },
+        "timing": {
+          "enum": [
+            "required now",
+            "required later",
+            "evidence-first",
+            "open owner decision"
+          ]
+        },
+        "lifecycle_state": {
+          "enum": [
+            "open",
+            "evidence in progress",
+            "owner selected — ADR or approval pending",
+            "accepted — authority linked",
+            "deferred",
+            "superseded"
+          ]
+        },
+        "blocking": {
+          "type": "boolean"
+        },
+        "accepted_constraints": {
+          "$ref": "#/$defs/strings"
+        },
+        "explicit_exclusions": {
+          "$ref": "#/$defs/strings"
+        },
+        "option_set_rationale": {
+          "type": "string",
+          "minLength": 1
+        },
+        "options": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4,
+          "items": {
+            "$ref": "#/$defs/option"
+          }
+        },
+        "depends_on": {
+          "$ref": "#/$defs/decision_refs"
+        },
+        "recommendation": {
+          "$ref": "#/$defs/recommendation"
+        },
+        "owner_selection": {
+          "$ref": "#/$defs/owner_selection"
+        },
+        "authority_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^DEC-[0-9]{4}$"
+        },
+        "evidence_plan": {
+          "$ref": "#/$defs/evidence_plan"
+        },
+        "accountable_owner_role": {
+          "type": "string",
+          "minLength": 1
+        },
+        "specialist_reviewer_roles": {
+          "$ref": "#/$defs/strings"
+        },
+        "links": {
+          "$ref": "#/$defs/decision_links"
+        },
+        "work_blocked": {
+          "$ref": "#/$defs/strings"
+        },
+        "reversal_or_successor_conditions": {
+          "$ref": "#/$defs/strings"
+        },
+        "authoritative_references": {
+          "$ref": "#/$defs/refs"
+        },
+        "limitations": {
+          "$ref": "#/$defs/strings"
+        }
+      }
+    },
+    "gate_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "gate",
+        "result",
+        "material",
+        "rationale",
+        "evidence_refs"
+      ],
+      "properties": {
+        "gate": {
+          "enum": [
+            "safety and deterministic correctness",
+            "authoritative ownership and data integrity",
+            "privacy, security, rights, consent, and isolation",
+            "preservation of unknown or pending state",
+            "applicable legal, specialist, and product-policy constraints",
+            "compatibility with currently accepted authority"
+          ]
+        },
+        "result": {
+          "enum": [
+            "pass",
+            "fail",
+            "unknown"
+          ]
+        },
+        "material": {
+          "type": "boolean"
+        },
+        "rationale": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidence_refs": {
+          "$ref": "#/$defs/refs"
+        }
+      }
+    },
+    "attribute_score": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "attribute",
+        "score",
+        "weight",
+        "rationale",
+        "evidence_refs"
+      ],
+      "properties": {
+        "attribute": {
+          "enum": [
+            "Safety and correctness",
+            "Authority and data integrity",
+            "Privacy, security, rights, and consent",
+            "Reliability, durability, and recovery",
+            "Simplicity and implementation risk",
+            "Flexibility and evolvability",
+            "Portability and compatibility",
+            "Performance and scalability",
+            "Operability and auditability",
+            "User effort and accessibility",
+            "Cost and resource efficiency",
+            "Reversibility and blast radius"
+          ]
+        },
+        "score": {
+          "enum": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            "X",
+            "?",
+            "N/A"
+          ]
+        },
+        "weight": {
+          "type": "number",
+          "minimum": 0
+        },
+        "rationale": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidence_refs": {
+          "$ref": "#/$defs/refs"
+        }
+      }
+    },
+    "option_review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "option_id",
+        "gate_results",
+        "eligibility",
+        "balanced_attributes",
+        "weighted_total"
+      ],
+      "properties": {
+        "option_id": {
+          "type": "string",
+          "pattern": "^OPT-[A-D]$"
+        },
+        "gate_results": {
+          "type": "array",
+          "minItems": 6,
+          "maxItems": 6,
+          "items": {
+            "$ref": "#/$defs/gate_result"
+          }
+        },
+        "eligibility": {
+          "enum": [
+            "eligible",
+            "disqualified",
+            "evidence-first"
+          ]
+        },
+        "balanced_attributes": {
+          "type": "array",
+          "maxItems": 12,
+          "items": {
+            "$ref": "#/$defs/attribute_score"
+          }
+        },
+        "weighted_total": {
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      }
+    },
+    "compatibility_issue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "affected_authority_or_components",
+        "practical_consequence",
+        "issue_type",
+        "preferred_resolution",
+        "change_target",
+        "migration_and_blast_radius",
+        "accountable_owner_role",
+        "reviewer_roles",
+        "required_resolution_artifacts"
+      ],
+      "properties": {
+        "affected_authority_or_components": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "practical_consequence": {
+          "type": "string",
+          "minLength": 1
+        },
+        "issue_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "preferred_resolution": {
+          "type": "string",
+          "minLength": 1
+        },
+        "change_target": {
+          "enum": [
+            "authority",
+            "implementation",
+            "both",
+            "neither pending evidence"
+          ]
+        },
+        "migration_and_blast_radius": {
+          "type": "string",
+          "minLength": 1
+        },
+        "accountable_owner_role": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reviewer_roles": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required_resolution_artifacts": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "ADR",
+              "approval",
+              "spike",
+              "validation evidence"
+            ]
+          }
+        }
+      }
+    },
+    "trade_off_review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "decision_id",
+        "reviewed_lifecycle_state",
+        "accepted_authority_constraints_inspected",
+        "option_reviews",
+        "best_option_permitted_by_current_authority",
+        "best_option_supported_by_current_evidence",
+        "weighting_mode",
+        "weighting_rationale",
+        "overlap_controls",
+        "evidence_strength",
+        "recommendation_confidence",
+        "sensitivity",
+        "disconfirming_evidence",
+        "worst_credible_failure",
+        "exit_or_migration_path",
+        "cumulative_system_wide_effects",
+        "disposition",
+        "compatibility",
+        "compatibility_issues",
+        "limitations"
+      ],
+      "properties": {
+        "decision_id": {
+          "type": "string",
+          "pattern": "^DREG-[0-9]{4}$"
+        },
+        "reviewed_lifecycle_state": {
+          "enum": [
+            "open",
+            "evidence in progress",
+            "owner selected — ADR or approval pending",
+            "accepted — authority linked",
+            "deferred",
+            "superseded"
+          ]
+        },
+        "accepted_authority_constraints_inspected": {
+          "$ref": "#/$defs/refs"
+        },
+        "option_reviews": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4,
+          "items": {
+            "$ref": "#/$defs/option_review"
+          }
+        },
+        "best_option_permitted_by_current_authority": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^OPT-[A-D]$"
+        },
+        "best_option_supported_by_current_evidence": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^OPT-[A-D]$"
+        },
+        "weighting_mode": {
+          "enum": [
+            "default",
+            "non-default"
+          ]
+        },
+        "weighting_rationale": {
+          "type": "string",
+          "minLength": 1
+        },
+        "overlap_controls": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidence_strength": {
+          "enum": [
+            "strong",
+            "moderate",
+            "weak",
+            "none"
+          ]
+        },
+        "recommendation_confidence": {
+          "enum": [
+            "high",
+            "medium",
+            "low"
+          ]
+        },
+        "sensitivity": {
+          "type": "string",
+          "minLength": 1
+        },
+        "disconfirming_evidence": {
+          "$ref": "#/$defs/strings"
+        },
+        "worst_credible_failure": {
+          "type": "string",
+          "minLength": 1
+        },
+        "exit_or_migration_path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "cumulative_system_wide_effects": {
+          "$ref": "#/$defs/strings"
+        },
+        "disposition": {
+          "enum": [
+            "reaffirm",
+            "reaffirm with clarification",
+            "reaffirm pending evidence",
+            "change recommendation",
+            "challenge owner selection",
+            "amend through successor decision",
+            "supersede through successor decision",
+            "reopen as evidence-first",
+            "retain deferred",
+            "no longer material",
+            "not assessable yet"
+          ]
+        },
+        "compatibility": {
+          "enum": [
+            "compatible",
+            "tension",
+            "conflict",
+            "unknown"
+          ]
+        },
+        "compatibility_issues": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/compatibility_issue"
+          }
+        },
+        "limitations": {
+          "$ref": "#/$defs/strings"
+        }
+      }
+    },
+    "settled_decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authority_ref",
+        "title",
+        "scope",
+        "register_effect",
+        "constrains_decision_refs"
+      ],
+      "properties": {
+        "authority_ref": {
+          "type": "string",
+          "pattern": "^DEC-[0-9]{4}$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "scope": {
+          "type": "string",
+          "minLength": 1
+        },
+        "register_effect": {
+          "type": "string",
+          "minLength": 1
+        },
+        "constrains_decision_refs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^DREG-[0-9]{4}$"
+          }
+        }
+      }
+    },
+    "not_open_matter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "title",
+        "classification",
+        "rationale",
+        "references"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^NODM-[0-9]{4}$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "classification": {
+          "enum": [
+            "validation work",
+            "specialist review",
+            "implementation detail",
+            "operational readiness",
+            "mandatory foundation",
+            "already settled authority",
+            "ordinary reversible implementation choice"
+          ]
+        },
+        "rationale": {
+          "type": "string",
+          "minLength": 1
+        },
+        "references": {
+          "$ref": "#/$defs/refs"
+        }
+      }
+    },
+    "closure_item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "title",
+        "decision_refs",
+        "depends_on",
+        "owner_role",
+        "completion_evidence",
+        "completion_evidence_refs",
+        "blocks_broad_implementation",
+        "status"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^CLOSE-[0-9]{4}$"
+        },
+        "kind": {
+          "enum": [
+            "ADR or approval",
+            "owner decision",
+            "evidence-first spike",
+            "contract draft",
+            "specialist review",
+            "gate evidence"
+          ]
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "decision_refs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^DREG-[0-9]{4}$"
+          }
+        },
+        "depends_on": {
+          "$ref": "#/$defs/closure_refs"
+        },
+        "owner_role": {
+          "type": "string",
+          "minLength": 1
+        },
+        "completion_evidence": {
+          "$ref": "#/$defs/strings"
+        },
+        "completion_evidence_refs": {
+          "$ref": "#/$defs/refs"
+        },
+        "blocks_broad_implementation": {
+          "type": "boolean"
+        },
+        "status": {
+          "enum": [
+            "open",
+            "in progress",
+            "complete",
+            "not applicable"
+          ]
+        }
+      }
+    },
+    "closure_set": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "items",
+        "dependency_order",
+        "parallel_groups",
+        "safe_work_before_full_closure",
+        "broad_implementation_boundary"
+      ],
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/closure_item"
+          }
+        },
+        "dependency_order": {
+          "$ref": "#/$defs/closure_refs"
+        },
+        "parallel_groups": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/closure_refs"
+          }
+        },
+        "safe_work_before_full_closure": {
+          "$ref": "#/$defs/strings"
+        },
+        "broad_implementation_boundary": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "report_conclusion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "basis",
+        "evidence_refs",
+        "limitations"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "supported",
+            "partially supported",
+            "not supported",
+            "not assessed",
+            "not applicable"
+          ]
+        },
+        "basis": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidence_refs": {
+          "$ref": "#/$defs/refs"
+        },
+        "limitations": {
+          "$ref": "#/$defs/strings"
+        }
+      }
+    },
+    "report_conclusions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "architecture_quality",
+        "documentation_completeness",
+        "implementation_evidence",
+        "specialist_approval",
+        "release_readiness",
+        "production_readiness",
+        "product_efficacy_or_commercial_viability"
+      ],
+      "properties": {
+        "architecture_quality": {
+          "$ref": "#/$defs/report_conclusion"
+        },
+        "documentation_completeness": {
+          "$ref": "#/$defs/report_conclusion"
+        },
+        "implementation_evidence": {
+          "$ref": "#/$defs/report_conclusion"
+        },
+        "specialist_approval": {
+          "$ref": "#/$defs/report_conclusion"
+        },
+        "release_readiness": {
+          "$ref": "#/$defs/report_conclusion"
+        },
+        "production_readiness": {
+          "$ref": "#/$defs/report_conclusion"
+        },
+        "product_efficacy_or_commercial_viability": {
+          "$ref": "#/$defs/report_conclusion"
+        }
+      }
+    }
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "document_role",
+    "permission_grant",
+    "authority_boundary",
+    "register_owner_role",
+    "review",
+    "executive_summary",
+    "dashboard",
+    "decisions",
+    "dependency_order",
+    "already_settled",
+    "not_open_matters",
+    "minimum_closure_set",
+    "trade_off_reviews",
+    "report_conclusions",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "harness.decision-governance.v1"
+    },
+    "document_role": {
+      "const": "authoritative_decision_governance_register"
+    },
+    "permission_grant": {
+      "const": false
+    },
+    "authority_boundary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "register_owner_role": {
+      "type": "string",
+      "minLength": 1
+    },
+    "review": {
+      "$ref": "#/$defs/review_state"
+    },
+    "executive_summary": {
+      "$ref": "#/$defs/executive_summary"
+    },
+    "dashboard": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/dashboard_entry"
+      }
+    },
+    "decisions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/decision"
+      }
+    },
+    "dependency_order": {
+      "$ref": "#/$defs/decision_refs"
+    },
+    "already_settled": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/settled_decision"
+      }
+    },
+    "not_open_matters": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/not_open_matter"
+      }
+    },
+    "minimum_closure_set": {
+      "$ref": "#/$defs/closure_set"
+    },
+    "trade_off_reviews": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/trade_off_review"
+      }
+    },
+    "report_conclusions": {
+      "$ref": "#/$defs/report_conclusions"
+    },
+    "limitations": {
+      "$ref": "#/$defs/strings"
+    }
+  }
+}

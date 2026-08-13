@@ -57,6 +57,12 @@ evidence is bounded; overflow is archived immutably with successor links. Hook
 execution and evidence writing remain separate from read-only `check` and from
 generated-integrity refresh.
 
+Maintain decision questions in the project-owned governance register. Keep
+recommendations, owner selections, and accepted `DEC-####` authority separate;
+reconcile every decision and trade-off review exactly once and derive the
+minimum closure graph before broad implementation. A read-only decision review
+does not refresh generated outputs.
+
 ## Recovery
 
 Run `./pb doctor` first. Structured diagnostics identify root cause, authority

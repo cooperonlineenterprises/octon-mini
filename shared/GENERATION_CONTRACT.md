@@ -103,6 +103,8 @@ It does not transfer:
 - collaborator identities, maintainer counts, access observations, activity,
   reviewer capacity, or hosted repository settings;
 - decisions, approvals, evidence, or readiness claims;
+- recommendations, owner selections, trade-off results, compatibility
+  findings, or project-specific minimum closure claims;
 - permissions or standing authorization;
 - legal, privacy, security, or compliance conclusions;
 - external accounts, credentials, URLs, vendors, providers, or provider state;
@@ -234,6 +236,10 @@ Unresolved or unknown template variables are validation failures.
 Every profile generates the seven-file governance kernel, explicit focus,
 derived compact current state, task and decision templates, staged transaction
 and diagnostic helpers, a read-only validator, and positive and negative tests.
+It also generates an empty project-owned decision-governance register plus
+blank owner-workbook, trade-off-review, and read-only-review templates. The
+register contains no decision question, recommendation, owner selection,
+accepted authority, evidence result, or readiness conclusion.
 It also generates a project-check evidence store, an explicit project-check
 writer, an unassessed privacy-minimized collaboration profile, and compact SCM
 and package triggers. The full provider-neutral Git portfolio and domain
@@ -272,6 +278,13 @@ The scaffold validator must:
   transitions, plan and task acyclicity, dependency-gated readiness,
   reciprocal plan/task links, structured blockers, dossier traceability,
   nested instructions, extension compatibility, and path authority;
+- validate the decision-governance inventory, controlled type/timing/lifecycle/
+  disposition/compatibility vocabularies, unique `DREG-####` IDs, accepted
+  reciprocal `DEC-####` authority links, recommendation/selection/acceptance separation,
+  evidence-first owner and stop conditions, option gates, non-overlapping
+  balanced attributes, accepted outside-register constraints, dashboard/review
+  reconciliation, closure evidence, and acyclic decision and minimum-closure
+  dependencies;
 - validate collaboration evidence, freshness, confidence, team-band and
   workflow-selection coherence without counting read-only people, bots,
   automation, or activity as write authority;
@@ -297,6 +310,10 @@ The generator may create initial empty stores and unassessed configuration. It
 must not create an accepted decision, completed task, passing evidence record,
 human approval, or readiness certification. A generated empty ready frontier
 does not establish project adoption or permission.
+
+A generated maturity field is unassessed. Structural validation never advances
+a requirement or gate from `Architecturally specified` through
+`Production-proven`, and no maturity level implies a higher one.
 
 The source-only Pattern Catalog, its records and fixtures, and the Architecture
 Proof schema and templates are not generated, adopted, or copied into a
@@ -383,6 +400,13 @@ Commands are represented as argument arrays and executed without implicit
 shell interpretation. Structural `--check` validates configuration and
 existing evidence only. It must never execute a project hook, update evidence,
 or reinterpret a configured command as permission.
+
+A read-only review must also avoid refresh and generation. It records the
+pre-existing repository revision/status and useful fingerprints, exact commands
+and exit statuses, unavailable/skipped checks, and the same observations after
+review. A stale projection is reported by source and affected output rather
+than rewritten. Any review-caused file or external-system change prevents a
+read-only assurance claim.
 
 The separately invoked project-check writer is an explicit mutating workflow.
 It runs only configured hooks, records unavailable and not-applicable outcomes

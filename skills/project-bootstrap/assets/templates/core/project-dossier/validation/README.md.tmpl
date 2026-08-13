@@ -11,3 +11,14 @@ owns validation methods, commands, interpretation, and limitations.
 evidence and not an approval record.
 
 Project-specific validators and evidence have not yet been established.
+
+For a demonstrably read-only assurance review, instantiate
+`.agent/templates/read-only-review.md`, record repository status, revision,
+fingerprints, exact commands and exit statuses before and after, and do not run
+refresh or the project-check evidence writer. Report stale projections without
+rewriting them. Separate pre-existing drift from any change caused by an
+executed command.
+
+Requirement and gate maturity is a declared, evidence-linked assessment using
+the canonical seven-level ladder. The structural validator never promotes a
+level, and completion at one level does not imply a higher one.

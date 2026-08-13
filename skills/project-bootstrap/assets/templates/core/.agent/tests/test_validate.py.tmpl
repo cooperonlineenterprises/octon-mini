@@ -191,6 +191,165 @@ def write_json(path: Path, value: object) -> None:
     )
 
 
+def decision_option(option_id: str = "OPT-A") -> dict[str, object]:
+    return {
+        "id": option_id,
+        "title": "Bounded synthetic option",
+        "description": "Exercise decision-governance validation without project facts.",
+        "advantages": ["Deterministic fixture"],
+        "disadvantages": ["Synthetic only"],
+        "risks": ["Not evidence for a real project"],
+        "best_fit_conditions": ["Validator mutation testing"],
+    }
+
+
+def decision_register_item(
+    decision_id: str = "DREG-9001",
+    *,
+    depends_on: list[str] | None = None,
+    dependents: list[str] | None = None,
+) -> dict[str, object]:
+    return {
+        "id": decision_id,
+        "title": "Choose the bounded fixture contract",
+        "exact_decision": "Which one credible synthetic contract should the fixture evaluate?",
+        "practical_importance": "It exercises register reconciliation and trade-off semantics.",
+        "decision_type": "architecture decision",
+        "timing": "required now",
+        "lifecycle_state": "open",
+        "blocking": False,
+        "accepted_constraints": ["The fixture grants no authority."],
+        "explicit_exclusions": ["No project implementation or readiness conclusion."],
+        "option_set_rationale": "One option is credible because this is a validator-only fixture.",
+        "options": [decision_option()],
+        "depends_on": depends_on or [],
+        "recommendation": {
+            "option_id": "OPT-A",
+            "rationale": "The only credible fixture option exercises the full contract.",
+            "supporting_evidence_refs": [],
+            "accepted_compromise": "Synthetic coverage only.",
+            "confidence": "medium",
+        },
+        "owner_selection": {
+            "option_id": None,
+            "selected_by_role": None,
+            "selected_on": None,
+            "selection_rationale": None,
+        },
+        "authority_ref": None,
+        "evidence_plan": {
+            "evidence_owner_role": None,
+            "evidence_producing_step": None,
+            "expected_evidence": [],
+            "stop_condition": None,
+            "evidence_refs": [],
+        },
+        "accountable_owner_role": "test_owner",
+        "specialist_reviewer_roles": [],
+        "links": {
+            "requirement_refs": [],
+            "risk_refs": [],
+            "plan_refs": [],
+            "gate_refs": [],
+            "dependent_decision_refs": dependents or [],
+        },
+        "work_blocked": [],
+        "reversal_or_successor_conditions": ["Replace through a new fixture decision."],
+        "authoritative_references": [],
+        "limitations": ["Synthetic validator fixture."],
+    }
+
+
+def decision_option_review(option_id: str = "OPT-A") -> dict[str, object]:
+    gates = [
+        {
+            "gate": gate,
+            "result": "pass",
+            "material": True,
+            "rationale": "Synthetic pass used only to test contract mechanics.",
+            "evidence_refs": [],
+        }
+        for gate in VALIDATOR.DECISION_NONNEGOTIABLE_GATES
+    ]
+    attributes = [
+        {
+            "attribute": attribute,
+            "score": 3,
+            "weight": 1,
+            "rationale": "Neutral synthetic score.",
+            "evidence_refs": [],
+        }
+        for attribute in VALIDATOR.DECISION_BALANCED_ATTRIBUTES
+    ]
+    return {
+        "option_id": option_id,
+        "gate_results": gates,
+        "eligibility": "eligible",
+        "balanced_attributes": attributes,
+        "weighted_total": 36,
+    }
+
+
+def decision_trade_off_review(decision_id: str = "DREG-9001") -> dict[str, object]:
+    return {
+        "decision_id": decision_id,
+        "reviewed_lifecycle_state": "open",
+        "accepted_authority_constraints_inspected": [],
+        "option_reviews": [decision_option_review()],
+        "best_option_permitted_by_current_authority": "OPT-A",
+        "best_option_supported_by_current_evidence": "OPT-A",
+        "weighting_mode": "default",
+        "weighting_rationale": "Every default attribute has weight 1.",
+        "overlap_controls": "Each controlled attribute appears exactly once.",
+        "evidence_strength": "weak",
+        "recommendation_confidence": "medium",
+        "sensitivity": "The synthetic result is not stable evidence for a real project.",
+        "disconfirming_evidence": ["No project evidence was inspected."],
+        "worst_credible_failure": "A malformed register could be accepted by an incomplete validator.",
+        "exit_or_migration_path": "Discard the fixture after validation.",
+        "cumulative_system_wide_effects": ["None outside validator coverage."],
+        "disposition": "reaffirm",
+        "compatibility": "compatible",
+        "compatibility_issues": [],
+        "limitations": ["Synthetic validator fixture."],
+    }
+
+
+def populated_decision_register(test_root: Path) -> dict[str, object]:
+    value = VALIDATOR.load_json(
+        test_root / ".agent/decisions/governance-register.json"
+    )
+    decision = decision_register_item()
+    value["dashboard"] = [
+        {
+            field: decision[field]
+            for field in (
+                "id",
+                "title",
+                "decision_type",
+                "timing",
+                "lifecycle_state",
+                "blocking",
+                "accountable_owner_role",
+            )
+        }
+    ]
+    value["decisions"] = [decision]
+    value["dependency_order"] = ["DREG-9001"]
+    value["trade_off_reviews"] = [decision_trade_off_review()]
+    value["executive_summary"].update(
+        total_registered=1,
+        unresolved=1,
+        blocking=0,
+        evidence_first=0,
+        counts_by_lifecycle={
+            state: 1 if state == "open" else 0
+            for state in VALIDATOR.DECISION_REGISTER_LIFECYCLES
+        },
+    )
+    return value
+
+
 def adopt_sample_extension(test_root: Path) -> dict[str, object]:
     decision = VALIDATOR.parse_json_header(
         test_root / ".agent/templates/decision.md"
@@ -2984,6 +3143,353 @@ class HarnessValidatorTests(unittest.TestCase):
                 )
         finally:
             temporary.cleanup()
+
+    def test_decision_governance_positive_fixture_reconciles(self) -> None:
+        temporary, test_root = clone()
+        with temporary:
+            register = populated_decision_register(test_root)
+            write_json(
+                test_root / ".agent/decisions/governance-register.json",
+                register,
+            )
+            records, record_errors = VALIDATOR.collect_records(test_root)
+            self.assertEqual(record_errors, [])
+            self.assertEqual(
+                VALIDATOR.check_decision_governance(test_root, records), []
+            )
+
+    def test_accepted_register_entry_requires_reciprocal_decision_link(self) -> None:
+        temporary, test_root = clone()
+        with temporary:
+            authority = VALIDATOR.parse_json_header(
+                test_root / ".agent/templates/decision.md"
+            )
+            authority.update(
+                id="DEC-9001",
+                status="accepted",
+                previous_status="proposed",
+                title="Accept the bounded fixture contract",
+                authority_source="authority:synthetic-test",
+                owner="test_owner",
+                scope="Synthetic reciprocal-link coverage only.",
+                governance_register_refs=[],
+            )
+            authority_path = test_root / ".agent/decisions/DEC-9001-fixture.md"
+            authority_path.write_text(
+                "---\n"
+                + json.dumps(authority, indent=2, sort_keys=True)
+                + "\n---\n\n# Synthetic accepted decision\n",
+                encoding="utf-8",
+            )
+            register = populated_decision_register(test_root)
+            decision = register["decisions"][0]
+            decision["lifecycle_state"] = "accepted — authority linked"
+            decision["owner_selection"] = {
+                "option_id": "OPT-A",
+                "selected_by_role": "test_owner",
+                "selected_on": "2030-01-02",
+                "selection_rationale": "Synthetic reciprocal-link coverage.",
+            }
+            decision["authority_ref"] = "DEC-9001"
+            register["dashboard"][0]["lifecycle_state"] = decision["lifecycle_state"]
+            register["trade_off_reviews"][0]["reviewed_lifecycle_state"] = decision["lifecycle_state"]
+            register["executive_summary"]["unresolved"] = 0
+            register["executive_summary"]["counts_by_lifecycle"]["open"] = 0
+            register["executive_summary"]["counts_by_lifecycle"]["accepted — authority linked"] = 1
+            register_path = test_root / ".agent/decisions/governance-register.json"
+            write_json(register_path, register)
+
+            records, record_errors = VALIDATOR.collect_records(test_root)
+            self.assertEqual(record_errors, [])
+            errors = VALIDATOR.check_decision_governance(test_root, records)
+            self.assertTrue(any("does not link back to DREG-9001" in item for item in errors), errors)
+
+            authority["governance_register_refs"] = ["DREG-9001"]
+            authority_path.write_text(
+                "---\n"
+                + json.dumps(authority, indent=2, sort_keys=True)
+                + "\n---\n\n# Synthetic accepted decision\n",
+                encoding="utf-8",
+            )
+            records, record_errors = VALIDATOR.collect_records(test_root)
+            self.assertEqual(record_errors, [])
+            self.assertEqual(
+                VALIDATOR.check_decision_governance(test_root, records), []
+            )
+
+    def test_settled_constraint_must_be_inspected_by_affected_review(self) -> None:
+        temporary, test_root = clone()
+        with temporary:
+            authority = VALIDATOR.parse_json_header(
+                test_root / ".agent/templates/decision.md"
+            )
+            authority.update(
+                id="DEC-9002",
+                status="accepted",
+                previous_status="proposed",
+                title="Synthetic outside-register constraint",
+                authority_source="authority:synthetic-test",
+                owner="test_owner",
+                scope="Synthetic constraint-inspection coverage only.",
+                governance_register_refs=[],
+            )
+            authority_path = test_root / ".agent/decisions/DEC-9002-constraint.md"
+            authority_path.write_text(
+                "---\n"
+                + json.dumps(authority, indent=2, sort_keys=True)
+                + "\n---\n\n# Synthetic accepted constraint\n",
+                encoding="utf-8",
+            )
+            register = populated_decision_register(test_root)
+            register["already_settled"] = [
+                {
+                    "authority_ref": "DEC-9002",
+                    "title": "Synthetic accepted constraint",
+                    "scope": "Bounded fixture scope.",
+                    "register_effect": "Constrains the synthetic option review.",
+                    "constrains_decision_refs": ["DREG-9001"],
+                }
+            ]
+            register_path = test_root / ".agent/decisions/governance-register.json"
+            write_json(register_path, register)
+            records, record_errors = VALIDATOR.collect_records(test_root)
+            self.assertEqual(record_errors, [])
+            errors = VALIDATOR.check_decision_governance(test_root, records)
+            self.assertTrue(
+                any("did not inspect constraining authority DEC-9002" in item for item in errors),
+                errors,
+            )
+
+            register["trade_off_reviews"][0][
+                "accepted_authority_constraints_inspected"
+            ] = ["DEC-9002"]
+            write_json(register_path, register)
+            records, record_errors = VALIDATOR.collect_records(test_root)
+            self.assertEqual(record_errors, [])
+            self.assertEqual(
+                VALIDATOR.check_decision_governance(test_root, records), []
+            )
+
+    def test_decision_governance_mutations_fail_closed(self) -> None:
+        cases: list[tuple[str, object, str]] = []
+        fixture = VALIDATOR.load_json(
+            ROOT
+            / ".agent/tests/fixtures/invalid/decision-governance-mutations.json"
+        )
+        fixture_expectations = {
+            item["id"]: item["expected_diagnostic"]
+            for item in fixture["mutations"]
+        }
+
+        def dashboard_mismatch(value: dict[str, object]) -> None:
+            value["dashboard"][0]["title"] = "Stale dashboard title"
+
+        cases.append(("dashboard-mismatch", dashboard_mismatch, "dashboard DREG-9001 field title"))
+
+        def selected_as_accepted(value: dict[str, object]) -> None:
+            decision = value["decisions"][0]
+            decision["lifecycle_state"] = "owner selected — ADR or approval pending"
+            decision["owner_selection"] = {
+                "option_id": "OPT-A",
+                "selected_by_role": "test_owner",
+                "selected_on": "2030-01-02",
+                "selection_rationale": "Synthetic mutation.",
+            }
+            decision["authority_ref"] = "DEC-9001"
+            value["dashboard"][0]["lifecycle_state"] = decision["lifecycle_state"]
+            value["trade_off_reviews"][0]["reviewed_lifecycle_state"] = decision["lifecycle_state"]
+
+        cases.append(("selected-as-accepted", selected_as_accepted, "non-accepted entry cannot be represented as accepted authority"))
+
+        def evidence_first_without_stop(value: dict[str, object]) -> None:
+            decision = value["decisions"][0]
+            decision["timing"] = "evidence-first"
+            decision["lifecycle_state"] = "evidence in progress"
+            decision["evidence_plan"] = {
+                "evidence_owner_role": "test_owner",
+                "evidence_producing_step": "Run the bounded synthetic probe.",
+                "expected_evidence": ["A bounded result."],
+                "stop_condition": None,
+                "evidence_refs": [],
+            }
+            value["dashboard"][0]["timing"] = decision["timing"]
+            value["dashboard"][0]["lifecycle_state"] = decision["lifecycle_state"]
+            value["trade_off_reviews"][0]["reviewed_lifecycle_state"] = decision["lifecycle_state"]
+            value["executive_summary"]["evidence_first"] = 1
+            value["executive_summary"]["counts_by_lifecycle"]["open"] = 0
+            value["executive_summary"]["counts_by_lifecycle"]["evidence in progress"] = 1
+
+        cases.append(("evidence-first-without-stop", evidence_first_without_stop, "evidence-first decision requires stop_condition"))
+
+        def decision_cycle(value: dict[str, object]) -> None:
+            decision = value["decisions"][0]
+            decision["depends_on"] = ["DREG-9001"]
+            decision["links"]["dependent_decision_refs"] = ["DREG-9001"]
+
+        cases.append(("decision-cycle", decision_cycle, "dependency cycle"))
+
+        def unknown_decision_dependency(value: dict[str, object]) -> None:
+            value["decisions"][0]["depends_on"] = ["DREG-9999"]
+
+        cases.append(("unknown-decision-dependency", unknown_decision_dependency, "references unknown dependency DREG-9999"))
+
+        def material_unknown_not_evidence_first(value: dict[str, object]) -> None:
+            option_review = value["trade_off_reviews"][0]["option_reviews"][0]
+            option_review["gate_results"][0]["result"] = "unknown"
+            option_review["eligibility"] = "evidence-first"
+            option_review["balanced_attributes"] = []
+            option_review["weighted_total"] = None
+            value["trade_off_reviews"][0]["best_option_permitted_by_current_authority"] = None
+            value["trade_off_reviews"][0]["best_option_supported_by_current_evidence"] = None
+
+        cases.append(("material-unknown-not-evidence-first", material_unknown_not_evidence_first, "the unresolved decision must remain evidence-first"))
+
+        def hidden_gate_failure(value: dict[str, object]) -> None:
+            option_review = value["trade_off_reviews"][0]["option_reviews"][0]
+            option_review["gate_results"][0]["result"] = "fail"
+
+        cases.append(("gate-failure-hidden-by-score", hidden_gate_failure, "eligibility hides a gate failure"))
+
+        def duplicate_attribute(value: dict[str, object]) -> None:
+            attributes = value["trade_off_reviews"][0]["option_reviews"][0]["balanced_attributes"]
+            attributes[-1]["attribute"] = attributes[0]["attribute"]
+
+        cases.append(("attribute-double-counted", duplicate_attribute, "balanced attribute counted twice"))
+
+        def missing_review(value: dict[str, object]) -> None:
+            value["trade_off_reviews"] = []
+
+        cases.append(("missing-review", missing_review, "every registered decision must be reviewed exactly once"))
+
+        def accepted_without_authority(value: dict[str, object]) -> None:
+            decision = value["decisions"][0]
+            decision["lifecycle_state"] = "accepted — authority linked"
+            decision["owner_selection"] = {
+                "option_id": "OPT-A",
+                "selected_by_role": "test_owner",
+                "selected_on": "2030-01-02",
+                "selection_rationale": "Synthetic mutation.",
+            }
+            value["dashboard"][0]["lifecycle_state"] = decision["lifecycle_state"]
+            value["trade_off_reviews"][0]["reviewed_lifecycle_state"] = decision["lifecycle_state"]
+            value["executive_summary"]["unresolved"] = 0
+            value["executive_summary"]["counts_by_lifecycle"]["open"] = 0
+            value["executive_summary"]["counts_by_lifecycle"]["accepted — authority linked"] = 1
+
+        cases.append(("accepted-without-authority", accepted_without_authority, "accepted entry requires a resolving accepted DEC-####"))
+
+        def complete_closure_without_evidence(value: dict[str, object]) -> None:
+            value["minimum_closure_set"] = {
+                "items": [
+                    {
+                        "id": "CLOSE-9001",
+                        "kind": "evidence-first spike",
+                        "title": "Run the bounded fixture probe",
+                        "decision_refs": ["DREG-9001"],
+                        "depends_on": [],
+                        "owner_role": "test_owner",
+                        "completion_evidence": ["A passing bounded result."],
+                        "completion_evidence_refs": [],
+                        "blocks_broad_implementation": True,
+                        "status": "complete",
+                    }
+                ],
+                "dependency_order": ["CLOSE-9001"],
+                "parallel_groups": [],
+                "safe_work_before_full_closure": ["Read-only analysis."],
+                "broad_implementation_boundary": "Do not begin authoritative implementation.",
+            }
+
+        cases.append(("complete-closure-without-evidence", complete_closure_without_evidence, "complete item requires resolvable completion evidence references"))
+
+        self.assertEqual(
+            fixture_expectations,
+            {case_id: expected for case_id, _, expected in cases},
+        )
+
+        for label, mutate, expected in cases:
+            with self.subTest(label=label):
+                temporary, test_root = clone()
+                with temporary:
+                    register = populated_decision_register(test_root)
+                    mutate(register)
+                    write_json(
+                        test_root / ".agent/decisions/governance-register.json",
+                        register,
+                    )
+                    records, _ = VALIDATOR.collect_records(test_root)
+                    errors = VALIDATOR.check_decision_governance(test_root, records)
+                    self.assertTrue(
+                        any(expected in item for item in errors),
+                        errors,
+                    )
+
+    def test_handoff_claim_conflict_is_detected(self) -> None:
+        temporary, test_root = clone()
+        with temporary:
+            path = test_root / "project-dossier/handoff/START_HERE.md"
+            path.write_text(
+                path.read_text(encoding="utf-8")
+                + '\n<!-- pb-handoff-claim {"kind":"gate","ref":"GATE-0001","status":"passed"} -->\n',
+                encoding="utf-8",
+            )
+            records, _ = VALIDATOR.collect_records(test_root)
+            errors = VALIDATOR.check_decision_governance(test_root, records)
+            self.assertTrue(
+                any("subordinate handoff claim" in item for item in errors),
+                errors,
+            )
+
+    def test_decision_governance_validation_is_read_only(self) -> None:
+        before = snapshot(ROOT)
+        records, record_errors = VALIDATOR.collect_records(ROOT)
+        self.assertEqual(record_errors, [])
+        self.assertEqual(VALIDATOR.check_decision_governance(ROOT, records), [])
+        self.assertEqual(snapshot(ROOT), before)
+
+    def test_decision_register_change_invalidates_generated_integrity(self) -> None:
+        temporary, test_root = clone()
+        with temporary:
+            register_path = test_root / ".agent/decisions/governance-register.json"
+            register = VALIDATOR.load_json(register_path)
+            register["executive_summary"]["summary"] = (
+                "Synthetic valid source change that must stale derived integrity."
+            )
+            write_json(register_path, register)
+            findings = VALIDATOR.check_integrity(test_root)
+            self.assertTrue(
+                any("stale source fingerprint" in item for item in findings),
+                findings,
+            )
+
+    def test_maturity_assessment_cannot_claim_implementation_without_evidence(self) -> None:
+        temporary, test_root = clone()
+        with temporary:
+            gates_path = test_root / "project-dossier/validation/QUALITY_GATES.json"
+            gates = VALIDATOR.load_json(gates_path)
+            gates["gates"][0]["maturity_assessment"] = {
+                "level": "4. Demonstrated by executable implementation",
+                "basis_kind": "structural validation",
+                "assessed_on": "2030-01-02",
+                "assessor_role": "test_owner",
+                "evidence_refs": [],
+                "limitations": ["Synthetic mutation."],
+            }
+            write_json(gates_path, gates)
+            records, _ = VALIDATOR.collect_records(test_root)
+            errors = VALIDATOR.check_maturity_assessments(records)
+            self.assertTrue(
+                any("requires explicit evidence references" in item for item in errors),
+                errors,
+            )
+            self.assertTrue(
+                any("requires basis kind 'executable implementation'" in item for item in errors),
+                errors,
+            )
+            self.assertTrue(
+                any("requires resolving pass EVD evidence" in item for item in errors),
+                errors,
+            )
 
     def test_accepted_decision_requires_explicit_external_authority(self) -> None:
         temporary, test_root = clone()

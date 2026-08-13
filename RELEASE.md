@@ -98,17 +98,22 @@ Before tagging a release:
    package payload; Minimal must not inherit production controls, Standard must
    retain traceability and trigger registries, and High Assurance must add its
    risk-justified governance stores without silently assessing any trigger;
-10. confirm no generated profile contains project facts, collaborator
+10. confirm the decision-governance valid baseline and every negative mutation
+    pass in source and self-contained installed-skill validation; verify
+    reciprocal `DREG-####`/accepted `DEC-####` links, evidence-first unknowns,
+    closure evidence, stale-register integrity detection, and no-write
+    `./pb check` behavior without refreshing generated outputs;
+11. confirm no generated profile contains project facts, collaborator
     identities, hosted settings, secrets, permissions, accepted decisions,
     configured hooks, passing evidence, providers, or readiness claims;
-11. commit the exact validated source and publish its required self-PR under
+12. commit the exact validated source and publish its required self-PR under
     current authority;
-12. after a separately authorized `merge_commit` integration, manually
+13. after a separately authorized `merge_commit` integration, manually
     dispatch the `validate` workflow on the exact integrated `main` revision
     and confirm the full Python 3.11-3.14 and Ubuntu/macOS/Windows matrix
     passes; the automatic `main-smoke` check is not a substitute for this
     release gate; and
-13. only with separate current release authority, create an annotated
+14. only with separate current release authority, create an annotated
     `v<version>` tag on that exact validated integrated revision.
 
 Do not move a published version tag. A correction receives a new patch

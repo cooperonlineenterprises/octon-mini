@@ -130,6 +130,14 @@
           ],
           "pattern": "^DEC-[0-9]{4}$"
         },
+        "governance_register_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^DREG-[0-9]{4}$"
+          }
+        },
         "limitations": {
           "$ref": "#/$defs/strings"
         }
