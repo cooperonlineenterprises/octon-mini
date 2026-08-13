@@ -9,23 +9,47 @@
     "schema_version",
     "document_role",
     "permission_grant",
-    "records"
+    "archive_root",
+    "current_record_limit",
+    "records",
+    "successor_relationships"
   ],
   "properties": {
     "schema_version": {
-      "const": "harness.project-check-evidence-store.v1"
+      "const": "harness.project-check-evidence-store.v2"
     },
     "document_role": {
-      "const": "project_owned_execution_evidence"
+      "const": "bounded_current_index_of_project_owned_execution_evidence"
     },
     "permission_grant": {
       "const": false
     },
+    "archive_root": {
+      "const": ".agent/project-checks/archive"
+    },
+    "current_record_limit": {
+      "const": 25
+    },
     "records": {
       "type": "array",
+      "maxItems": 25,
       "uniqueItems": true,
       "items": {
         "$ref": "#/$defs/evidence_record"
+      }
+    },
+    "successor_relationships": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["predecessor", "successor", "recorded_at"],
+        "properties": {
+          "predecessor": {"type": "string", "pattern": "^PCE-[a-f0-9]{32}$"},
+          "successor": {"type": "string", "pattern": "^PCE-[a-f0-9]{32}$"},
+          "recorded_at": {"type": "string", "format": "date-time"}
+        }
       }
     }
   },

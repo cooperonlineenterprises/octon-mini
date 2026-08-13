@@ -196,7 +196,7 @@ class ArchitecturalPatternContractTests(unittest.TestCase):
         policy = self.scaffolder.load_generation_policy()
         self.assertEqual(
             policy["schema_version"],
-            "project-blueprint.generation-policy.v2",
+            "project-blueprint.profile-manifest.v1",
         )
         self.assertEqual(policy["default_disposition"], "source_only")
         self.assertTrue(
@@ -206,7 +206,7 @@ class ArchitecturalPatternContractTests(unittest.TestCase):
                 if rule["disposition"] in {"generated", "profile_optional"}
             )
         )
-        for profile in ("minimal", "standard", "high-assurance"):
+        for profile in self.scaffolder.profile_layers(policy):
             self.scaffolder.validate_generation_boundary(
                 profile,
                 self.scaffolder.collect_templates(profile),
@@ -451,8 +451,8 @@ class ArchitecturalPatternContractTests(unittest.TestCase):
             "launders information authority",
         )
 
-    def test_3_1_transition_is_additive_and_preserves_kernel_3_0(self) -> None:
-        migration = (ROOT / "migrations/3.0.0-to-3.1.0.md").read_text(
+    def test_4_0_transition_is_explicit_and_preserves_source_only_boundaries(self) -> None:
+        migration = (ROOT / "migrations/3.1.0-to-4.0.0.md").read_text(
             encoding="utf-8"
         )
         normalized_migration = " ".join(migration.split())
@@ -460,10 +460,10 @@ class ArchitecturalPatternContractTests(unittest.TestCase):
         scaffolder = CONTRACTS.load_scaffolder(ROOT)
         self.assertEqual(
             (ROOT / "VERSION").read_text(encoding="utf-8").strip(),
-            "3.1.0",
+            "4.0.0",
         )
-        self.assertEqual(blueprint["modules"]["harness"]["kernel_version"], "3.0.0")
-        self.assertEqual(scaffolder.KERNEL_VERSION, "3.0.0")
+        self.assertEqual(blueprint["modules"]["harness"]["kernel_version"], "4.0.0")
+        self.assertEqual(scaffolder.KERNEL_VERSION, "4.0.0")
         self.assertNotIn(
             ".agent/schemas/context-pack-manifest.schema.json",
             {path.as_posix() for path in scaffolder.schema_outputs("minimal")},
@@ -472,12 +472,12 @@ class ArchitecturalPatternContractTests(unittest.TestCase):
             ".agent/schemas/context-pack-manifest.schema.json",
             {path.as_posix() for path in scaffolder.schema_outputs("standard")},
         )
-        self.assertIn(
+        self.assertNotIn(
             ".agent/schemas/context-pack-manifest.schema.json",
             {path.as_posix() for path in scaffolder.schema_outputs("high-assurance")},
         )
         self.assertIn(
-            "Nothing in this migration updates a project automatically",
+            "Nothing in this guide updates a project automatically",
             normalized_migration,
         )
         self.assertIn(

@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://project-blueprint.local/schemas/harness-diagnostics.schema.json",
+  "title": "Read-only Project Blueprint Diagnostic Report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "permission_grant", "read_only", "structural_conformance", "findings", "derived_repair", "limitations"],
+  "properties": {
+    "schema_version": {"const": "harness.diagnostic-report.v1"},
+    "permission_grant": {"const": false},
+    "read_only": {"const": true},
+    "structural_conformance": {"enum": ["pass", "fail", "not_assessed"]},
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "message", "root_cause", "authority_source", "dependent_symptoms", "safe_next_action", "repair_class"],
+        "properties": {
+          "code": {"type": "string", "pattern": "^PB-DIAG-[0-9]{4}$"},
+          "message": {"type": "string", "minLength": 1},
+          "root_cause": {"type": "string", "minLength": 1},
+          "authority_source": {"type": "string", "minLength": 1},
+          "dependent_symptoms": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+          "safe_next_action": {"type": "string", "minLength": 1},
+          "repair_class": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "derived_repair": {
+      "type": ["object", "null"],
+      "required": ["operation", "argv", "source_fingerprint", "canonical_digest", "requires_explicit_acceptance"],
+      "properties": {
+        "operation": {"const": "refresh_derived_outputs"},
+        "argv": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+        "source_fingerprint": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "canonical_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "requires_explicit_acceptance": {"const": true}
+      }
+    },
+    "limitations": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+  }
+}

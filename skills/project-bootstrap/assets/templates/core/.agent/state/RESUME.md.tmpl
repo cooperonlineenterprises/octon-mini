@@ -5,20 +5,20 @@
 - Blueprint: {{BLUEPRINT_VERSION}} / `{{PROFILE}}`
 - Generated: {{CREATED_DATE}}
 - Adoption: not assessed
-- Active task: none
+- Active task and next action: use the derived `./pb work resume` view
 - Implementation state: not assessed
 - External authority: none created by this harness
 
 ## Resume safely
 
 1. Read root-to-leaf `AGENTS.md`.
-2. Read `.agent/policy.json`, `.agent/context.json`, and
-   `.agent/state/current.json`.
+2. Run `./pb work resume`, then read `.agent/policy.json`,
+   `.agent/context.json`, and only the linked current task/decision/evidence.
 3. Inspect version-control and filesystem state.
 4. Read only the active task and linked accepted decisions/evidence.
 5. Read `project-dossier/handoff/START_HERE.md`.
-6. Run the read-only `check` and `ready_frontier` commands in
-   `.agent/validators.json` before selecting planned work.
+6. Run `./pb check`; inspect the derived ready frontier before selecting
+   planned work.
 
 Keep this page short. Put detail in the owning task, decision, or evidence
 record.

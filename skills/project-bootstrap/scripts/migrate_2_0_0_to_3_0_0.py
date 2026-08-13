@@ -214,6 +214,12 @@ def current_template(relative: str) -> dict[str, Any]:
         / "core"
         / relative
     )
+    if not path.is_file() and relative == ".agent/workflows/small-team-git.json.tmpl":
+        path = (
+            Path(__file__).resolve().parents[1]
+            / "assets/packages/small-team-git-portfolio/templates"
+            / relative
+        )
     value, _ = load_json_document(path)
     return value
 
@@ -700,16 +706,12 @@ def validate_candidate_schemas(live: dict[str, Any]) -> None:
         (root / "shared/schemas/harness-git-workflows.schema.json").read_bytes()
     )
     validate_schema = namespace["validate_schema"]
-    for field, definition in (
-        ("project", "project"),
-        ("tools", "tools"),
-        ("validators", "validators"),
-    ):
-        findings = validate_schema(
-            live[field], {"$ref": f"#/$defs/{definition}"}, root_schema=kernel
-        )
-        if findings:
-            raise MigrationError(f"candidate {field} fails v3 schema: {findings}")
+    # The v3 project contract is exhaustively checked by validate_migrated_result
+    # above. Do not reinterpret that frozen historical output through a newer
+    # current-project schema after the Blueprint advances beyond v3.
+    # Tools and validators are exhaustively checked against their frozen v3
+    # vocabularies in validate_migrated_result. A later kernel major must not
+    # retroactively reinterpret that historical output through current defs.
     findings = validate_schema(live["git_workflows"], workflow_schema)
     if findings:
         raise MigrationError(f"candidate git_workflows fails v3 schema: {findings}")

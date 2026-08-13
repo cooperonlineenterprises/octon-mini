@@ -19,137 +19,33 @@ from typing import Any
 
 sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parents[2]
-KERNEL_VERSION = "3.0.0"
-KERNEL_FILES = (
-    ".agent/policy.json",
-    ".agent/context.json",
-    ".agent/schema.json",
-    ".agent/lifecycle.json",
-    ".agent/tools.json",
-    ".agent/validators.json",
-    ".agent/project.json",
+KERNEL_VERSION = "4.0.0"
+EXPECTED_GIT_PORTFOLIO_SHA256 = "{{GIT_PORTFOLIO_SHA256}}"
+
+
+def generated_string_list(raw: str) -> list[str]:
+    """Decode a rendered manifest projection; source templates use an empty view."""
+    if raw.startswith("{{"):
+        return []
+    value = json.loads(raw)
+    if (
+        not isinstance(value, list)
+        or any(not isinstance(item, str) or not item for item in value)
+        or len(value) != len(set(value))
+    ):
+        raise ValueError("generated manifest projection must be a unique string array")
+    return value
+
+
+KERNEL_FILES = tuple(generated_string_list('''{{KERNEL_FILES_JSON}}'''))
+PROFILE_OPERATIONAL_FILES = set(
+    generated_string_list('''{{PROFILE_OPERATIONAL_FILES_JSON}}''')
 )
-CORE_OPERATIONAL_FILES = {
-    "AGENTS.md",
-    ".project-blueprint-origin.json",
-    ".agent/START_HERE.md",
-    ".agent/context.json",
-    ".agent/decisions/README.md",
-    ".agent/generated/README.md",
-    ".agent/lifecycle.json",
-    ".agent/policy.json",
-    ".agent/project.json",
-    ".agent/project-checks/README.md",
-    ".agent/project-checks/evidence.json",
-    ".agent/schema.json",
-    ".agent/scripts/refresh.py",
-    ".agent/scripts/run_project_checks.py",
-    ".agent/scripts/validate.py",
-    ".agent/state/RESUME.md",
-    ".agent/state/current.json",
-    ".agent/tasks/README.md",
-    ".agent/templates/decision.md",
-    ".agent/templates/pull-request.md",
-    ".agent/templates/task.md",
-    ".agent/tests/fixtures/invalid/duplicate-key.json",
-    ".agent/tests/fixtures/invalid/event-sequence.jsonl",
-    ".agent/tests/fixtures/invalid/nested-agent-weakening.md",
-    ".agent/tests/fixtures/invalid/non-finite.json",
-    ".agent/tests/fixtures/valid/kernel.json",
-    ".agent/tests/fixtures/valid/recovery-event.jsonl",
-    ".agent/tests/test_validate.py",
-    ".agent/tools.json",
-    ".agent/validators.json",
-    ".agent/workflows/README.md",
-    ".agent/workflows/github-adapter.md",
-    ".agent/workflows/small-team-git.json",
-}
-STANDARD_OPERATIONAL_FILES = CORE_OPERATIONAL_FILES | {
-    ".agent/artifacts/registry.json",
-    ".agent/checklists/task-closure.md",
-    ".agent/events/README.md",
-    ".agent/evidence/README.md",
-    ".agent/extensions/README.md",
-    ".agent/extensions/operations-observability/README.md",
-    ".agent/extensions/operations-observability/config.json",
-    ".agent/extensions/operations-observability/config.schema.json",
-    ".agent/extensions/operations-observability/records.json",
-    ".agent/extensions/operations-observability/records.schema.json",
-    ".agent/extensions/operations-observability/tests/fixtures/authority-mutation.json",
-    ".agent/extensions/operations-observability/tests/fixtures/broken-reference.json",
-    ".agent/extensions/operations-observability/tests/fixtures/invalid.json",
-    ".agent/extensions/operations-observability/tests/fixtures/stale-evidence.json",
-    ".agent/extensions/operations-observability/tests/fixtures/valid.json",
-    ".agent/extensions/operations-observability/tests/test_validate.py",
-    ".agent/extensions/operations-observability/validate.py",
-    ".agent/extensions/registry.json",
-    ".agent/extensions/security-supply-chain/README.md",
-    ".agent/extensions/security-supply-chain/config.json",
-    ".agent/extensions/security-supply-chain/config.schema.json",
-    ".agent/extensions/security-supply-chain/records.json",
-    ".agent/extensions/security-supply-chain/records.schema.json",
-    ".agent/extensions/security-supply-chain/tests/fixtures/authority-mutation.json",
-    ".agent/extensions/security-supply-chain/tests/fixtures/broken-reference.json",
-    ".agent/extensions/security-supply-chain/tests/fixtures/invalid.json",
-    ".agent/extensions/security-supply-chain/tests/fixtures/stale-evidence.json",
-    ".agent/extensions/security-supply-chain/tests/fixtures/valid.json",
-    ".agent/extensions/security-supply-chain/tests/test_validate.py",
-    ".agent/extensions/security-supply-chain/validate.py",
-    ".agent/reviews/README.md",
-    ".agent/templates/artifact.json",
-    ".agent/templates/event.json",
-    ".agent/templates/evidence.md",
-    ".agent/templates/review.md",
-}
-HIGH_ASSURANCE_OPERATIONAL_FILES = STANDARD_OPERATIONAL_FILES | {
-    ".agent/approvals/README.md",
-    ".agent/approvals/registry.json",
-    ".agent/checkpoints/README.md",
-    ".agent/coordination/README.md",
-    ".agent/coordination/leases.json",
-    ".agent/evaluations/README.md",
-    ".agent/evaluations/registry.json",
-    ".agent/extensions/sample-restriction/README.md",
-    ".agent/extensions/sample-restriction/config.json",
-    ".agent/extensions/sample-restriction/validate.py",
-    ".agent/generated/manifest.json",
-    ".agent/generated/validation-report.json",
-    ".agent/metrics/README.md",
-    ".agent/metrics/registry.json",
-    ".agent/templates/checkpoint.md",
-    ".agents/README.md",
-    ".agents/agents/reviewer.json",
-    ".agents/skills/change-review/SKILL.md",
-    ".agents/skills/change-review/references/provenance.json",
-    ".agents/workflows/safe-change.json",
-}
-DERIVED_OPERATIONAL_FILES = {
-    ".agent/generated/manifest.json",
-    ".agent/generated/validation-report.json",
-}
-PROFILE_OPERATIONAL_FILES = {
-    "minimal": CORE_OPERATIONAL_FILES,
-    "standard": STANDARD_OPERATIONAL_FILES,
-    "high-assurance": HIGH_ASSURANCE_OPERATIONAL_FILES,
-}
-REQUIRED_SCHEMA_FILES = {
-    ".agent/schemas/artifact-catalog.schema.json",
-    ".agent/schemas/dossier-artifact-registry.schema.json",
-    ".agent/schemas/dossier-path-authority.schema.json",
-    ".agent/schemas/dossier-records.schema.json",
-    ".agent/schemas/harness-artifact-registry.schema.json",
-    ".agent/schemas/harness-assurance-records.schema.json",
-    ".agent/schemas/harness-capability-records.schema.json",
-    ".agent/schemas/harness-current-state.schema.json",
-    ".agent/schemas/harness-extension-registry.schema.json",
-    ".agent/schemas/harness-git-workflows.schema.json",
-    ".agent/schemas/harness-kernel.schema.json",
-    ".agent/schemas/harness-project-check-evidence.schema.json",
-    ".agent/schemas/harness-record.schema.json",
-    ".agent/schemas/project-blueprint-origin.schema.json",
-    ".agent/schemas/reference-evidence.schema.json",
-}
+DERIVED_OPERATIONAL_FILES = set(
+    generated_string_list('''{{DERIVED_OPERATIONAL_FILES_JSON}}''')
+)
 DERIVED_EXCLUSIONS = {
+    ".agent/state/current.json",
     "project-dossier/ARTIFACT_CATALOG.json",
     "project-dossier/MANIFEST.json",
     "project-dossier/CHECKSUMS.sha256",
@@ -374,13 +270,13 @@ EXPECTED_LIFECYCLES = {
         "terminal": ["completed", "cancelled"],
         "transitions": {
             "proposed": ["ready", "cancelled"],
-            "ready": ["in_progress", "blocked", "cancelled"],
-            "in_progress": ["validating", "blocked", "cancelled"],
-            "validating": ["in_progress", "review", "blocked"],
+            "ready": ["in_progress", "blocked", "completed", "cancelled"],
+            "in_progress": ["validating", "completed", "blocked", "cancelled"],
+            "validating": ["in_progress", "review", "completed", "blocked"],
             "review": ["in_progress", "completed", "blocked"],
-            "blocked": ["ready", "cancelled"],
+            "blocked": ["ready", "in_progress", "cancelled"],
             "completed": ["reopened"],
-            "reopened": ["ready", "cancelled"],
+            "reopened": ["ready", "in_progress", "completed", "cancelled"],
             "cancelled": [],
         },
         "gates": {
@@ -627,6 +523,40 @@ def freshness_deadline(value: Any) -> datetime | None:
 def _collaboration_baseline_errors(profile: dict[str, Any]) -> list[str]:
     """Require an unassessed profile to remain fact-free and non-selecting."""
     errors: list[str] = []
+    if profile.get("schema_version") == "harness.collaboration-profile.v2":
+        facts = profile.get("facts", {})
+        if not isinstance(facts, dict) or set(facts) != {
+            "writer_count",
+            "solo_integration_preference",
+            "independent_review_capacity",
+            "concurrency",
+            "external_contribution_mode",
+        }:
+            return ["collaboration_profile facts must use the closed v2 contract"]
+        for fact_id, fact in facts.items():
+            if not isinstance(fact, dict):
+                errors.append(f"collaboration_profile facts.{fact_id} must be an object")
+                continue
+            values = [value for key, value in fact.items() if key != "evidence"]
+            if any(value is not None for value in values) or fact.get("evidence") is not None:
+                errors.append(f"collaboration_profile facts.{fact_id} must remain unknown before assessment")
+        if profile.get("team_band") != "unknown" or profile.get("concurrent_work") is not False:
+            errors.append("collaboration_profile unassessed v2 result must remain unknown and nonconcurrent")
+        if profile.get("conflicting_signals") != []:
+            errors.append("collaboration_profile conflicting_signals must be empty before assessment")
+        if profile.get("workflow_selection") != {
+            "status": "not_assessed",
+            "base_workflow": None,
+            "modifiers": [],
+            "review_mode": "not_assessed",
+            "integration_method": None,
+            "adoption_decision_ref": None,
+            "used_fact_ids": [],
+        }:
+            errors.append("collaboration_profile unassessed v2 baseline must not select a workflow")
+        if "generated_unassessed_baseline" not in profile.get("limitations", []):
+            errors.append("collaboration_profile v2 baseline must disclose its generated limitation")
+        return errors
     expected_nulls = {
         "declared_write_capable_humans": None,
         "independent_review_capacity": None,
@@ -697,6 +627,93 @@ def derive_collaboration_assessment(
     now: datetime | None = None,
 ) -> tuple[dict[str, Any], list[str]]:
     """Derive a non-authorizing small-team classification from aggregate facts."""
+    if profile.get("schema_version") == "harness.collaboration-profile.v2":
+        now = now or datetime.now().astimezone()
+        errors: list[str] = []
+        facts = profile.get("facts", {})
+        writer = facts.get("writer_count", {}) if isinstance(facts, dict) else {}
+        writer_count = writer.get("value") if isinstance(writer, dict) else None
+        band = (
+            "solo" if writer_count == 1
+            else "pair" if writer_count == 2
+            else "tiny" if isinstance(writer_count, int) and 3 <= writer_count <= 5
+            else "unsupported" if isinstance(writer_count, int) and writer_count > 5
+            else "unknown"
+        )
+        concurrency = facts.get("concurrency", {}) if isinstance(facts, dict) else {}
+        concurrent = bool(
+            isinstance(concurrency, dict)
+            and isinstance(concurrency.get("human_writers"), int)
+            and isinstance(concurrency.get("agents_or_automation"), int)
+            and concurrency["human_writers"] + concurrency["agents_or_automation"] > 1
+        )
+        used = ["writer_count"]
+        selection = {
+            "base_workflow": None,
+            "modifiers": ["concurrent_work"] if concurrent else [],
+            "review_mode": "not_assessed",
+            "integration_method": None,
+        }
+        status = "withheld"
+        required_ids: list[str] = []
+        if profile.get("assessment_status") == "not_assessed":
+            status = "not_assessed"
+        elif profile.get("conflicting_signals"):
+            status = "withheld"
+        elif band == "solo":
+            required_ids = ["writer_count", "solo_integration_preference"]
+            preference = facts.get("solo_integration_preference", {}).get("value")
+            used.append("solo_integration_preference")
+            if preference in {"direct", "reviewable"}:
+                selection["base_workflow"] = "solo_hybrid" if preference == "reviewable" or concurrent else "solo_direct"
+                selection["review_mode"] = "self_review" if selection["base_workflow"] == "solo_hybrid" else "none"
+                selection["integration_method"] = "not_applicable" if selection["base_workflow"] == "solo_direct" else None
+                status = "proposed"
+        elif band in {"pair", "tiny"}:
+            required_ids = ["writer_count", "independent_review_capacity"]
+            capacity = facts.get("independent_review_capacity", {}).get("value")
+            used.append("independent_review_capacity")
+            if isinstance(capacity, bool):
+                selection["base_workflow"] = "pair_pr" if band == "pair" else "tiny_pr"
+                selection["review_mode"] = "one_peer_when_available" if capacity else "block_when_peer_unavailable"
+                status = "proposed"
+        if concurrent:
+            required_ids.append("concurrency")
+            used.append("concurrency")
+        stored_used = profile.get("workflow_selection", {}).get("used_fact_ids", [])
+        if "external_contribution_mode" in stored_used:
+            required_ids.append("external_contribution_mode")
+            used.append("external_contribution_mode")
+        stale = False
+        for fact_id in set(required_ids):
+            fact = facts.get(fact_id, {}) if isinstance(facts, dict) else {}
+            evidence = fact.get("evidence") if isinstance(fact, dict) else None
+            if not isinstance(evidence, dict):
+                errors.append(f"collaboration_profile facts.{fact_id} lacks evidence used by the result")
+                status = "withheld"
+                continue
+            observed = freshness_deadline(evidence.get("observed_at"))
+            expires = freshness_deadline(evidence.get("expires_at"))
+            if observed is None or expires is None or expires <= observed:
+                errors.append(f"collaboration_profile facts.{fact_id} evidence time bounds are invalid")
+                status = "withheld"
+            if expires is not None and expires < now:
+                stale = True
+                status = "withheld"
+        if stale:
+            errors.append("collaboration_profile evidence used by the result is stale")
+        return {
+            "schema_version": "harness.collaboration-assessment.v2",
+            "permission_grant": False,
+            "assessment_status": profile.get("assessment_status"),
+            "team_band": band,
+            "concurrent_work": concurrent,
+            "status": status,
+            "recommendation": selection,
+            "used_fact_ids": sorted(set(used if status == "proposed" else [])),
+            "limitations": ["Only facts used by the result require current evidence."],
+            "non_authorization": "This proposal adopts no workflow and grants no permission.",
+        }, errors
     now = now or datetime.now().astimezone()
     errors: list[str] = []
     limitations: list[str] = []
@@ -1021,6 +1038,42 @@ def check_collaboration_profile(
     if profile.get("assessment_status") == "not_assessed":
         return [f".agent/project.json: {item}" for item in _collaboration_baseline_errors(profile)]
 
+    if profile.get("schema_version") == "harness.collaboration-profile.v2":
+        try:
+            schema = load_schema(root, "harness-collaboration-profile.schema.json")
+        except (OSError, ValueError, json.JSONDecodeError) as error:
+            return [f".agent/project.json: {error}"]
+        result = [
+            f".agent/project.json: collaboration_profile {item}"
+            for item in validate_schema(profile, schema)
+        ]
+        report, report_errors = derive_collaboration_assessment(profile)
+        result.extend(f".agent/project.json: {item}" for item in report_errors)
+        if profile.get("team_band") != report["team_band"]:
+            result.append(".agent/project.json: stored team_band differs from progressive collaboration evidence")
+        if profile.get("concurrent_work") != report["concurrent_work"]:
+            result.append(".agent/project.json: concurrent_work modifier differs from used concurrency fact")
+        selection = profile.get("workflow_selection", {})
+        expected_status = report["status"]
+        if expected_status == "proposed" and selection.get("status") not in {"proposed", "adopted"}:
+            result.append(".agent/project.json: supported collaboration result must remain proposed or explicitly adopted")
+        if expected_status != "proposed" and selection.get("status") not in {expected_status, "not_assessed"}:
+            result.append(".agent/project.json: incomplete collaboration evidence must select no workflow")
+        if expected_status == "proposed":
+            for field in ("base_workflow", "modifiers", "review_mode"):
+                if selection.get(field) != report["recommendation"][field]:
+                    result.append(f".agent/project.json: workflow_selection.{field} differs from progressive evidence result")
+            if sorted(selection.get("used_fact_ids", [])) != report["used_fact_ids"]:
+                result.append(".agent/project.json: workflow_selection.used_fact_ids is incomplete")
+        elif any((selection.get("base_workflow") is not None, selection.get("modifiers") != [], selection.get("used_fact_ids") != [])):
+            result.append(".agent/project.json: withheld collaboration result must not select a workflow")
+        if selection.get("status") == "adopted":
+            decision_ref = selection.get("adoption_decision_ref")
+            record = records.get(decision_ref) if isinstance(decision_ref, str) else None
+            if record is None or record[0].get("status") != "accepted" or not str(record[0].get("authority_source", "")).startswith(("authority:", "external:")):
+                result.append(".agent/project.json: adopted workflow lacks accepted project-owned authority")
+        return list(dict.fromkeys(result))
+
     report, errors = derive_collaboration_assessment(profile)
     result = [f".agent/project.json: {item}" for item in errors]
     if profile.get("team_band") != report["team_band"]:
@@ -1256,8 +1309,48 @@ def check_tool_operation_contract(tools: dict[str, Any]) -> list[str]:
     return list(dict.fromkeys(errors))
 
 
-def check_git_workflows(root: Path) -> list[str]:
+def check_git_workflows(
+    root: Path,
+    records: dict[str, tuple[dict[str, Any], str]] | None = None,
+) -> list[str]:
     """Validate the complete provider-neutral one-to-five-person workflow portfolio."""
+    scm_path = root / ".agent/scm.json"
+    try:
+        scm = load_json(scm_path)
+        scm_schema = load_schema(root, "harness-scm.schema.json")
+    except (OSError, ValueError, json.JSONDecodeError) as error:
+        return [f".agent/scm.json: {error}"]
+    errors = [
+        f".agent/scm.json: {item}" for item in validate_schema(scm, scm_schema)
+    ]
+    if not isinstance(scm, dict):
+        return errors
+    selection = scm.get("selection")
+    decision_ref = scm.get("selection_decision_ref")
+    if selection == "not_assessed":
+        if decision_ref is not None:
+            errors.append(".agent/scm.json: unassessed SCM cannot cite a selection decision")
+    else:
+        record = records.get(decision_ref) if records is not None and isinstance(decision_ref, str) else None
+        if (
+            record is None
+            or record[0].get("status") != "accepted"
+            or not str(record[0].get("authority_source", "")).startswith(("authority:", "external:"))
+        ):
+            errors.append(".agent/scm.json: assessed SCM selection lacks an accepted project-owned decision")
+    portfolio = scm.get("portfolio", {})
+    if isinstance(portfolio, dict) and portfolio.get("sha256") != EXPECTED_GIT_PORTFOLIO_SHA256:
+        errors.append(".agent/scm.json: portfolio digest differs from the versioned package")
+    workflow_root = root / ".agent/workflows"
+    if scm.get("selection") != "git":
+        if isinstance(portfolio, dict) and portfolio.get("status") != "not_installed":
+            errors.append(".agent/scm.json: non-Git selection cannot install the Git portfolio")
+        if workflow_root.exists():
+            errors.append(".agent/workflows: Git portfolio is installed without Git selection")
+        return errors
+    if not isinstance(portfolio, dict) or portfolio.get("status") != "installed":
+        errors.append(".agent/scm.json: Git selection requires the vendored portfolio")
+        return errors
     path = root / ".agent/workflows/small-team-git.json"
     try:
         value = load_json(path)
@@ -1265,10 +1358,10 @@ def check_git_workflows(root: Path) -> list[str]:
         tools = load_json(root / ".agent/tools.json")
     except (OSError, ValueError, json.JSONDecodeError) as error:
         return [f".agent/workflows/small-team-git.json: {error}"]
-    errors = [
+    errors.extend(
         f".agent/workflows/small-team-git.json: {item}"
         for item in validate_schema(value, schema)
-    ]
+    )
     if not isinstance(value, dict) or not isinstance(tools, dict):
         return errors
     if _contract_digest(value) != EXPECTED_GIT_WORKFLOW_SHA256:
@@ -1611,6 +1704,7 @@ def repository_files(
             continue
         if source_only and (
             rel.startswith(".agent/generated/")
+            or rel.startswith(".agent/transactions/")
             or rel in DERIVED_EXCLUSIONS
             or any(rel == item or rel.startswith(item + "/") for item in exclusions)
         ):
@@ -1646,7 +1740,11 @@ def project_check_source_fingerprint(root: Path = ROOT) -> str:
     digest = hashlib.sha256()
     for path in repository_files(root, source_only=True):
         rel = relative(path, root)
-        if rel == PROJECT_CHECK_EVIDENCE_PATH or path.name == ".DS_Store":
+        if (
+            rel == PROJECT_CHECK_EVIDENCE_PATH
+            or rel.startswith(".agent/project-checks/archive/")
+            or path.name == ".DS_Store"
+        ):
             continue
         digest.update(rel.encode("utf-8", errors="surrogateescape"))
         digest.update(b"\0")
@@ -2237,6 +2335,7 @@ def check_project_command_contract(
     expected_project_checks = {
         "evidence_schema": ".agent/schemas/harness-project-check-evidence.schema.json",
         "evidence_store": PROJECT_CHECK_EVIDENCE_PATH,
+        "evidence_archive": ".agent/project-checks/archive",
         "writer_argv": [
             "python",
             "-B",
@@ -2250,7 +2349,7 @@ def check_project_command_contract(
             "--write-evidence",
             "--verify-adoption",
         ],
-        "execution": "explicit_writer_only",
+        "execution": "explicit_writer_only_with_selective_hooks_and_full_adoption_verification",
         "shell_interpretation": False,
     }
     if project.get("project_checks") != expected_project_checks:
@@ -2315,10 +2414,12 @@ def load_project_check_evidence(
             for item in checks
             if isinstance(item, dict)
         ]
-        if len(hooks) != len(PROJECT_COMMAND_HOOKS) or set(hooks) != set(
+        if not hooks or len(hooks) != len(set(hooks)) or not set(hooks) <= set(
             PROJECT_COMMAND_HOOKS
         ):
-            errors.append(f"{location}: check results must cover each hook exactly once")
+            errors.append(f"{location}: check results must cover a unique nonempty hook subset")
+        if "--verify-adoption" in writer_argv and set(hooks) != set(PROJECT_COMMAND_HOOKS):
+            errors.append(f"{location}: adoption verification must cover every hook")
         for check_index, result in enumerate(checks):
             if not isinstance(result, dict):
                 continue
@@ -2557,9 +2658,11 @@ def check_kernel(root: Path) -> list[str]:
         "artifacts",
         "checklists",
         "checkpoints",
+        "commands.json",
         "context.json",
         "coordination",
         "decisions",
+        "diagnostics",
         "evaluations",
         "events",
         "evidence",
@@ -2567,11 +2670,13 @@ def check_kernel(root: Path) -> list[str]:
         "generated",
         "lifecycle.json",
         "metrics",
+        "packages.json",
         "policy.json",
         "project.json",
         "project-checks",
         "reviews",
         "schema.json",
+        "scm.json",
         "schemas",
         "scripts",
         "state",
@@ -2579,6 +2684,7 @@ def check_kernel(root: Path) -> list[str]:
         "templates",
         "tests",
         "tools.json",
+        "transactions",
         "validators.json",
         "workflows",
     }
@@ -2768,6 +2874,7 @@ def check_kernel(root: Path) -> list[str]:
     project = values.get(".agent/project.json", {})
     profile = project.get("project", {}).get("profile")
     refresh_writes = [
+        ".agent/state/current.json",
         "project-dossier/ARTIFACT_CATALOG.json",
         "project-dossier/MANIFEST.json",
         "project-dossier/machine-readable/path-authority.json",
@@ -2796,17 +2903,26 @@ def check_kernel(root: Path) -> list[str]:
             "writes": [],
         },
         "test": {
-            "run": (
-                "python -B -m unittest discover -s .agent/tests "
-                '-p "test_*.py"'
-            ),
+            "run": "python -B .agent/tests/test_validate.py --tier integration",
+            "writes": [],
+        },
+        "test_fast": {
+            "run": "python -B .agent/tests/test_validate.py --tier fast",
+            "writes": [],
+        },
+        "test_integration": {
+            "run": "python -B .agent/tests/test_validate.py --tier integration",
+            "writes": [],
+        },
+        "test_release": {
+            "run": "python -B .agent/tests/test_validate.py --tier release",
             "writes": [],
         },
         "project_checks": {
             "run": (
                 "python -B .agent/scripts/run_project_checks.py --write-evidence"
             ),
-            "writes": [PROJECT_CHECK_EVIDENCE_PATH],
+            "writes": [".agent/project-checks/archive", PROJECT_CHECK_EVIDENCE_PATH],
         },
         "adoption_verify": {
             "run": (
@@ -2916,9 +3032,7 @@ def check_origin(
                     f"{path_error}"
                 )
         profile = origin.get("profile")
-        required_operational = (
-            PROFILE_OPERATIONAL_FILES.get(profile, set()) | REQUIRED_SCHEMA_FILES
-        )
+        required_operational = PROFILE_OPERATIONAL_FILES
         for required_path in sorted(required_operational):
             if required_path not in generated_path_set:
                 errors.append(
@@ -2935,6 +3049,9 @@ def check_origin(
                 )
         try:
             project = load_json(root / ".agent/project.json")
+            registry = load_json(
+                root / "project-dossier/machine-readable/artifact-registry.json"
+            )
             if (
                 not isinstance(project, dict)
                 or not isinstance(project.get("project"), dict)
@@ -2944,6 +3061,13 @@ def check_origin(
             ):
                 errors.append(
                     ".project-blueprint-origin.json: project identity/profile mismatch"
+                )
+            if (
+                not isinstance(registry, dict)
+                or registry.get("layout") != origin.get("layout")
+            ):
+                errors.append(
+                    ".project-blueprint-origin.json: physical layout differs from the artifact registry"
                 )
             if (
                 isinstance(project, dict)
@@ -2979,6 +3103,7 @@ def check_origin(
                 migration_ids: set[str] = set()
                 expected_from = initial.get("blueprint_version")
                 expected_profile = initial.get("profile")
+                expected_layout = initial.get("layout")
                 previous_date = initial.get("generated_on")
                 for index, migration in enumerate(history):
                     if not isinstance(migration, dict):
@@ -2998,6 +3123,11 @@ def check_origin(
                     if migration.get("from_profile") != expected_profile:
                         errors.append(
                             ".project-blueprint-origin.json: migration profile chain "
+                            f"breaks at index {index}"
+                        )
+                    if migration.get("from_layout") != expected_layout:
+                        errors.append(
+                            ".project-blueprint-origin.json: migration layout chain "
                             f"breaks at index {index}"
                         )
                     if not str(migration.get("authority_source", "")).startswith(
@@ -3035,6 +3165,7 @@ def check_origin(
                         )
                     expected_from = migration.get("to_blueprint_version")
                     expected_profile = migration.get("to_profile")
+                    expected_layout = migration.get("to_layout")
                     previous_date = migrated_on
                 if expected_from != origin.get("blueprint_version"):
                     errors.append(
@@ -3045,6 +3176,11 @@ def check_origin(
                     errors.append(
                         ".project-blueprint-origin.json: migration history does not "
                         "reach current profile"
+                    )
+                if expected_layout != origin.get("layout"):
+                    errors.append(
+                        ".project-blueprint-origin.json: migration history does not "
+                        "reach current layout"
                     )
                 if history and history[-1].get("generator_version") != origin.get(
                     "generator_version"
@@ -3060,12 +3196,44 @@ def check_origin(
                         "generation_id",
                         "generated_on",
                         "profile",
+                        "layout",
                     ):
                         if initial.get(field) != origin.get(field):
                             errors.append(
                                 ".project-blueprint-origin.json: initial generation "
                                 f"{field} differs without migration history"
                             )
+        inventory = origin.get("installed_inventory")
+        if isinstance(inventory, dict):
+            inventory_paths = inventory.get("paths", [])
+            path_values = [
+                item.get("path")
+                for item in inventory_paths
+                if isinstance(item, dict)
+            ]
+            if len(path_values) != len(set(path_values)):
+                errors.append(
+                    ".project-blueprint-origin.json: installed inventory paths must be unique"
+                )
+            if set(path_values) != generated_path_set:
+                errors.append(
+                    ".project-blueprint-origin.json: installed inventory differs from generated_paths"
+                )
+            for item in inventory_paths:
+                if not isinstance(item, dict):
+                    continue
+                role = item.get("role")
+                digest = item.get("sha256")
+                mode = item.get("mode")
+                if role in {"derived", "provenance"}:
+                    if digest is not None or mode is not None:
+                        errors.append(
+                            ".project-blueprint-origin.json: derived/provenance inventory entries must not claim a pristine hash"
+                        )
+                elif digest is None or mode is None:
+                    errors.append(
+                        ".project-blueprint-origin.json: static installed inventory entry lacks hash or mode"
+                    )
     return errors
 
 
@@ -3994,6 +4162,17 @@ def check_current_state(
     )
     if not isinstance(current, dict):
         return errors + [".agent/state/current.json: expected object"]
+    focus_path = root / ".agent/state/focus.json"
+    try:
+        focus = load_json(focus_path)
+    except (OSError, ValueError, json.JSONDecodeError) as error:
+        return errors + [f".agent/state/focus.json: {error}"]
+    if not isinstance(focus, dict):
+        return errors + [".agent/state/focus.json: expected object"]
+    if current.get("next_action") != focus.get("next_action"):
+        errors.append(
+            ".agent/state/current.json: next_action differs from authoritative focus source"
+        )
     try:
         project = load_json(root / ".agent/project.json")
         project_slug = (
@@ -4082,10 +4261,6 @@ def check_current_state(
                     ".agent/state/current.json: external-effects authority "
                     f"reference {reference} is not an accepted decision or external source"
                 )
-    if current.get("adoption_status") == "adopted" and current.get("blocked_by"):
-        errors.append(
-            ".agent/state/current.json: adopted status contradicts active blockers"
-        )
     try:
         project = load_json(root / ".agent/project.json")
         policy = load_json(root / ".agent/policy.json")
@@ -4132,10 +4307,6 @@ def check_current_state(
         )
     if adoption_status in {"adopted", "superseded"}:
         decision_ref = project_data.get("adoption_decision_ref")
-        if adoption_status == "adopted" and current.get("blocked_by"):
-            errors.append(
-                ".agent/state/current.json: adopted project retains blockers"
-            )
         if (
             decision_ref not in records
             or not str(decision_ref).startswith("DEC-")
@@ -4171,6 +4342,40 @@ def check_current_state(
                 )
     if adoption_status == "adopted":
         errors.extend(check_adopted_project_conformance(root, project, records))
+    expected_active = sorted(
+        record_id
+        for record_id, (record, _) in records.items()
+        if record_id.startswith("TASK-")
+        and record.get("status")
+        in {"ready", "in_progress", "validating", "review", "blocked", "reopened"}
+    )
+    expected_decisions = sorted(
+        record_id
+        for record_id, (record, _) in records.items()
+        if record_id.startswith("DEC-") and record.get("status") == "accepted"
+    )
+    if current.get("active_tasks") != expected_active:
+        errors.append(".agent/state/current.json: active_tasks projection is stale")
+    if current.get("accepted_decisions") != expected_decisions:
+        errors.append(".agent/state/current.json: accepted_decisions projection is stale")
+    if focus.get("current_task_id") is not None and focus.get("current_task_id") not in expected_active:
+        errors.append(".agent/state/focus.json: current_task_id is not active")
+    return errors
+
+
+def check_focus(root: Path = ROOT) -> list[str]:
+    path = root / ".agent/state/focus.json"
+    try:
+        focus = load_json(path)
+        schema = load_schema(root, "harness-focus.schema.json")
+    except (OSError, ValueError, json.JSONDecodeError) as error:
+        return [f".agent/state/focus.json: {error}"]
+    errors = [
+        f".agent/state/focus.json: {item}"
+        for item in validate_schema(focus, schema)
+    ]
+    if isinstance(focus, dict) and focus.get("permission_grant") is not False:
+        errors.append(".agent/state/focus.json: focus must not grant permission")
     return errors
 
 
@@ -5790,6 +5995,196 @@ def check_extensions(
     return errors
 
 
+def check_packages(root: Path) -> list[str]:
+    path = root / ".agent/packages.json"
+    try:
+        registry = load_json(path)
+        schema = load_schema(root, "harness-package-registry.schema.json")
+        project = load_json(root / ".agent/project.json")
+    except (OSError, ValueError, json.JSONDecodeError) as error:
+        return [f".agent/packages.json: {error}"]
+    errors = [
+        f".agent/packages.json: {item}" for item in validate_schema(registry, schema)
+    ]
+    if not isinstance(registry, dict) or not isinstance(project, dict):
+        return errors
+    installed = {
+        item.get("id"): item
+        for item in registry.get("packages", [])
+        if isinstance(item, dict) and isinstance(item.get("id"), str)
+    }
+    if len(installed) != len(registry.get("packages", [])):
+        errors.append(".agent/packages.json: package IDs must be unique")
+    for package_id, item in installed.items():
+        digest = hashlib.sha256()
+        for relative_path in item.get("installed_paths", []):
+            candidate, path_error = safe_relative_path(root, relative_path, must_exist=True)
+            if path_error or candidate is None or (root / candidate).is_symlink():
+                errors.append(f".agent/packages.json: {package_id} installed path is absent or unsafe: {relative_path}")
+                continue
+            installed_path = root / candidate
+            if not installed_path.is_file():
+                errors.append(f".agent/packages.json: {package_id} installed path is not a regular file: {relative_path}")
+                continue
+            digest.update(relative_path.encode("utf-8"))
+            digest.update(b"\0")
+            digest.update(installed_path.read_bytes())
+            digest.update(b"\0")
+        if digest.hexdigest() != item.get("installed_paths_sha256"):
+            errors.append(f".agent/packages.json: {package_id} installed content digest is stale")
+        receipt_ref = item.get("validation_receipt_ref")
+        active_receipt = os.environ.get("PROJECT_BLUEPRINT_ACTIVE_TRANSACTION_RECEIPT")
+        receipt_path = root / ".agent/transactions/receipts" / f"{receipt_ref}.json"
+        receipt_valid = False
+        if receipt_ref == active_receipt:
+            receipt_valid = True
+        elif isinstance(receipt_ref, str) and receipt_path.is_file() and not receipt_path.is_symlink():
+            try:
+                receipt = load_json(receipt_path)
+                receipt_valid = (
+                    isinstance(receipt, dict)
+                    and receipt.get("receipt_id") == receipt_ref
+                    and receipt.get("operation") == "maintain.package.install"
+                    and receipt.get("status") == "applied"
+                    and all(
+                        result.get("exit_code") == 0
+                        for result in receipt.get("validation", [])
+                        if isinstance(result, dict)
+                    )
+                )
+            except (OSError, ValueError, json.JSONDecodeError):
+                receipt_valid = False
+        if not receipt_valid or receipt_ref not in item.get("evidence_refs", []):
+            errors.append(f".agent/packages.json: {package_id} lacks its successful transaction validation receipt")
+    package_contract = project.get("packages", {})
+    assessments = package_contract.get("trigger_assessments", {}) if isinstance(package_contract, dict) else {}
+    for package_id, fact_id in (
+        ("operations-observability", "operations_observability"),
+        ("security-supply-chain", "security_supply_chain"),
+    ):
+        status = assessments.get(fact_id) if isinstance(assessments, dict) else None
+        if status == "applicable" and package_id not in installed:
+            errors.append(f".agent/packages.json: applicable trigger lacks installed package {package_id}")
+        if status != "applicable" and package_id in installed:
+            errors.append(f".agent/packages.json: {package_id} is installed without an applicable trigger")
+    scm = load_json(root / ".agent/scm.json")
+    git_installed = "small-team-git-portfolio" in installed
+    if isinstance(scm, dict) and ((scm.get("selection") == "git") != git_installed):
+        errors.append(".agent/packages.json: Git package installation differs from SCM selection")
+    return errors
+
+
+def check_transactions(root: Path) -> list[str]:
+    """Validate durable plans/receipts and surface interrupted applies."""
+    transaction_root = root / ".agent/transactions"
+    if not transaction_root.exists():
+        return []
+    try:
+        schema = load_schema(root, "harness-transaction.schema.json")
+    except (OSError, ValueError, json.JSONDecodeError) as error:
+        return [f".agent/transactions: {error}"]
+    definitions = schema.get("$defs", {}) if isinstance(schema, dict) else {}
+    errors: list[str] = []
+    groups = (
+        ("plans", "plan"),
+        ("receipts", "receipt"),
+        ("pending", "pending"),
+        ("recovered", "recovery"),
+    )
+    for directory_name, definition_name in groups:
+        directory = transaction_root / directory_name
+        if not directory.exists():
+            continue
+        if directory.is_symlink() or not directory.is_dir():
+            errors.append(f".agent/transactions/{directory_name}: expected a real directory")
+            continue
+        definition = definitions.get(definition_name)
+        if not isinstance(definition, dict):
+            errors.append(f".agent/transactions: schema lacks {definition_name} definition")
+            continue
+        for path in sorted(directory.glob("*.json")):
+            location = relative(path, root)
+            if path.is_symlink() or not path.is_file():
+                errors.append(f"{location}: transaction artifact must be a regular file")
+                continue
+            try:
+                value = load_json(path)
+            except (OSError, ValueError, json.JSONDecodeError) as error:
+                errors.append(f"{location}: {error}")
+                continue
+            errors.extend(
+                f"{location}: {item}"
+                for item in validate_schema(
+                    value,
+                    definition,
+                    root_schema=schema,
+                )
+            )
+            if not isinstance(value, dict):
+                continue
+            if definition_name == "plan":
+                unsigned = dict(value)
+                digest = unsigned.pop("canonical_plan_digest", None)
+                expected = hashlib.sha256(
+                    json.dumps(
+                        unsigned,
+                        ensure_ascii=False,
+                        allow_nan=False,
+                        sort_keys=True,
+                        separators=(",", ":"),
+                    ).encode("utf-8")
+                ).hexdigest()
+                if digest != expected:
+                    errors.append(f"{location}: canonical plan digest is invalid")
+            if definition_name == "receipt" and value.get("status") == "rollback_in_progress":
+                errors.append(
+                    f"{location}: interrupted rollback requires explicit retry with this receipt"
+                )
+            for item in value.get("paths", []):
+                if not isinstance(item, dict):
+                    continue
+                before = item.get("before")
+                after = item.get("after")
+                if isinstance(before, dict) and before.get("path") != item.get("path"):
+                    errors.append(f"{location}: receipt before-state path differs from entry")
+                if isinstance(after, dict):
+                    errors.extend(
+                        f"{location}: after {detail}"
+                        for detail in validate_schema(
+                            after,
+                            definitions.get("path_state", {}),
+                            root_schema=schema,
+                        )
+                    )
+                    if after.get("path") != item.get("path"):
+                        errors.append(f"{location}: receipt after-state path differs from entry")
+            if definition_name == "pending":
+                # The transaction engine keeps its write-ahead journal present
+                # through read-only post-apply validation. Suppress only the
+                # exact, digest-bound journal declared by that engine process;
+                # ordinary `pb check` calls still surface every pending apply.
+                active_receipt = os.environ.get(
+                    "PROJECT_BLUEPRINT_ACTIVE_TRANSACTION_RECEIPT"
+                )
+                active_digest = os.environ.get(
+                    "PROJECT_BLUEPRINT_ACTIVE_TRANSACTION_PLAN_DIGEST"
+                )
+                active_location = (
+                    f".agent/transactions/pending/{active_receipt}.json"
+                    if active_receipt
+                    else None
+                )
+                if not (
+                    location == active_location
+                    and value.get("receipt_id") == active_receipt
+                    and value.get("plan_digest") == active_digest
+                ):
+                    errors.append(
+                        f"{location}: pending transaction requires explicit interruption recovery"
+                    )
+    return errors
+
+
 def expected_manifest_files(root: Path) -> dict[str, str]:
     return {
         relative(path, root): hash_path_identity(path)
@@ -6264,31 +6659,44 @@ def git_scope(root: Path) -> dict[str, Any]:
     return result
 
 
-def check_sources(root: Path = ROOT) -> list[str]:
+def check_sources(
+    root: Path = ROOT,
+    *,
+    scan_repository_files: bool = True,
+) -> list[str]:
     """Validate authoritative/project-maintained inputs before derived refresh."""
     errors: list[str] = []
     errors.extend(check_runtime())
-    errors.extend(check_files_and_json(root, include_derived=False))
+    if scan_repository_files:
+        errors.extend(check_files_and_json(root, include_derived=False))
     errors.extend(check_kernel(root))
     errors.extend(check_project_check_evidence(root))
+    errors.extend(check_focus(root))
     records, record_errors = collect_records(root)
     errors.extend(record_errors)
     errors.extend(check_origin(root, records))
     errors.extend(check_collaboration_profile(root, records))
-    errors.extend(check_git_workflows(root))
+    errors.extend(check_git_workflows(root, records))
     errors.extend(check_references_and_lifecycle(root, records))
     errors.extend(check_plan_and_traceability(records))
-    errors.extend(check_current_state(root, records))
     errors.extend(check_governance_semantics(root, records))
     errors.extend(check_dossier_registry(root))
     errors.extend(check_capabilities(root, records))
     errors.extend(check_extensions(root, records))
+    errors.extend(check_packages(root))
+    errors.extend(check_transactions(root))
     return list(dict.fromkeys(safe_diagnostic(item) for item in errors))
 
 
 def check(root: Path = ROOT, include_generated: bool = True) -> list[str]:
-    errors = check_sources(root)
+    # The complete file scan subsumes the source-only scan. Keeping the source
+    # contract checks while enumerating repository payload once is material at
+    # 10k+ files and does not narrow validation coverage.
+    errors = check_sources(root, scan_repository_files=False)
     errors.extend(check_files_and_json(root, include_derived=True))
+    records, record_errors = collect_records(root)
+    errors.extend(record_errors)
+    errors.extend(check_current_state(root, records))
     errors.extend(check_dossier_catalog(root))
     if include_generated:
         errors.extend(check_integrity(root, include_generated=True))
@@ -6301,9 +6709,19 @@ def main() -> int:
     )
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--check", action="store_true")
+    mode.add_argument("--check-sources", action="store_true")
     mode.add_argument("--ready-frontier", action="store_true")
     mode.add_argument("--assess-collaboration", action="store_true")
     args = parser.parse_args()
+    if args.check_sources:
+        errors = check_sources()
+        for error in errors:
+            print(f"[FAIL] {safe_diagnostic(error)}", file=sys.stderr)
+        if errors:
+            return 1
+        print("[PASS] authoritative and project-maintained sources are structurally valid")
+        print("[INFO] derived freshness and target-project readiness were not assessed")
+        return 0
     if args.assess_collaboration:
         try:
             project = load_json(ROOT / ".agent/project.json")
@@ -6317,6 +6735,12 @@ def main() -> int:
             root_schema=kernel_schema,
         )
         profile = project.get("collaboration_profile") if isinstance(project, dict) else None
+        if isinstance(profile, dict) and profile.get("schema_version") == "harness.collaboration-profile.v2":
+            try:
+                collaboration_schema = load_schema(ROOT, "harness-collaboration-profile.schema.json")
+                schema_errors.extend(validate_schema(profile, collaboration_schema))
+            except (OSError, ValueError, json.JSONDecodeError) as error:
+                schema_errors.append(str(error))
         if schema_errors or not isinstance(profile, dict):
             for error in schema_errors:
                 print(f"[FAIL] .agent/project.json: {safe_diagnostic(error)}", file=sys.stderr)

@@ -29,10 +29,13 @@ MANIFEST_RELATIVE = "project-dossier/MANIFEST.json"
 CHECKSUMS_RELATIVE = "project-dossier/CHECKSUMS.sha256"
 GENERATED_MANIFEST_RELATIVE = ".agent/generated/manifest.json"
 VALIDATION_REPORT_RELATIVE = ".agent/generated/validation-report.json"
+CURRENT_STATE_RELATIVE = ".agent/state/current.json"
+FOCUS_RELATIVE = ".agent/state/focus.json"
 CORE_DERIVED = {
     CATALOG_RELATIVE,
     PATH_AUTHORITY_RELATIVE,
     MANIFEST_RELATIVE,
+    CURRENT_STATE_RELATIVE,
 }
 HIGH_ASSURANCE_DERIVED = {
     CHECKSUMS_RELATIVE,
@@ -269,6 +272,106 @@ def build_checksums(
     )
 
 
+def build_current_state(
+    validator,
+    project: dict[str, object],
+    generated_at: str,
+) -> dict[str, object]:
+    focus = validator.load_json(ROOT / FOCUS_RELATIVE)
+    if not isinstance(focus, dict):
+        raise ValueError("focus source must be an object")
+    records, record_errors = validator.collect_records(ROOT)
+    if record_errors:
+        raise ValueError("record collection failed while deriving current state")
+    active_statuses = {
+        "ready",
+        "in_progress",
+        "validating",
+        "review",
+        "blocked",
+        "reopened",
+    }
+    active_tasks = sorted(
+        record_id
+        for record_id, (record, _) in records.items()
+        if record_id.startswith("TASK-") and record.get("status") in active_statuses
+    )
+    accepted_decisions = sorted(
+        record_id
+        for record_id, (record, _) in records.items()
+        if record_id.startswith("DEC-") and record.get("status") == "accepted"
+    )
+    now = datetime.now(timezone.utc)
+    fresh_evidence: list[str] = []
+    for record_id, (record, _) in records.items():
+        if not record_id.startswith("EVD-") or record.get("result") in {
+            "not_run",
+            "not_assessed",
+        }:
+            continue
+        deadline = validator.freshness_deadline(record.get("fresh_until"))
+        if deadline is not None and deadline >= now:
+            fresh_evidence.append(record_id)
+
+    project_data = project.get("project", {})
+    if not isinstance(project_data, dict):
+        raise ValueError("project identity must be an object")
+    adoption_status = project_data.get("adoption_status")
+    blocked_by: set[str] = set()
+    if adoption_status != "adopted":
+        blocked_by.update(
+            {
+                "project_scope_and_threat_model_not_assessed",
+                "authority_posture_not_adopted",
+            }
+        )
+        commands = project.get("commands", {})
+        if isinstance(commands, dict) and any(
+            isinstance(value, dict) and value.get("status") == "not_assessed"
+            for value in commands.values()
+        ):
+            blocked_by.add("project_commands_not_configured")
+    external_refs: set[str] = set()
+    for task_id in active_tasks:
+        task = records[task_id][0]
+        for blocker in task.get("blocked_by", []):
+            if isinstance(blocker, str) and blocker:
+                blocked_by.add(blocker)
+        basis = task.get("authority_basis")
+        if isinstance(basis, str) and basis.startswith(("authority:", "external:")):
+            external_refs.add(basis)
+        elif isinstance(basis, str) and basis in accepted_decisions:
+            external_refs.add(basis)
+
+    current_focus = focus.get("current_task_id")
+    if current_focus is not None and current_focus not in active_tasks:
+        raise ValueError("focus current_task_id is not an active task")
+    return {
+        "schema_version": "harness.current-state.v2",
+        "document_role": "fully_derived_non_authoritative_operational_view",
+        "permission_grant": False,
+        "project_slug": project_data.get("id"),
+        "generated_at": generated_at,
+        "generated_from": [
+            ".agent/project.json",
+            FOCUS_RELATIVE,
+            ".agent/tasks",
+            ".agent/decisions",
+        ],
+        "adoption_status": adoption_status,
+        "active_tasks": active_tasks,
+        "accepted_decisions": accepted_decisions,
+        "fresh_evidence": sorted(fresh_evidence),
+        "blocked_by": sorted(blocked_by),
+        "next_action": focus.get("next_action"),
+        "external_effects_authority_refs": sorted(external_refs),
+        "limitations": [
+            "Derived view only; authority and operator intent remain in their named sources.",
+            "Structural projection does not establish implementation readiness.",
+        ],
+    }
+
+
 def main() -> int:
     if sys.version_info < (3, 11):
         print("Python 3.11+ is required.", file=sys.stderr)
@@ -468,6 +571,10 @@ def main() -> int:
                 staged[relative] = path
 
             catalog = build_catalog(registry, identifier)
+            stage_json(
+                CURRENT_STATE_RELATIVE,
+                build_current_state(validator, project, generated_at),
+            )
             stage_json(CATALOG_RELATIVE, catalog)
             stage_json(
                 PATH_AUTHORITY_RELATIVE,
@@ -496,6 +603,7 @@ def main() -> int:
                 )
 
             replacement_order = (
+                CURRENT_STATE_RELATIVE,
                 CATALOG_RELATIVE,
                 PATH_AUTHORITY_RELATIVE,
                 GENERATED_MANIFEST_RELATIVE,

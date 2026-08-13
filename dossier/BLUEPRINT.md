@@ -1,6 +1,6 @@
 # Universal Project Dossier Blueprint
 
-Blueprint version: 3.1.0
+Blueprint version: 4.0.0
 Reference-analysis date: 2026-08-10
 
 This document defines a domain-neutral project dossier for software, product,
@@ -1348,10 +1348,10 @@ Adds:
 - explicit review cadence and owners;
 - traceability, dependency readiness, and a read-only ready-frontier derivation;
 - evidence and handoff maintenance checks; and
-- project extensions when domain rules are consumed mechanically, including
-  disabled and unassessed operations/observability and security/supply-chain
-  entry points that validate project-owned declarations without supplying
-  operational or assurance facts.
+- trigger and package registries for domain rules consumed mechanically.
+  Operations/observability and security/supply-chain payloads remain absent
+  until a reviewed, content-addressed installation; absence is not an automatic
+  `not_applicable` assessment.
 
 ### High-assurance or agent-operable dossier
 
@@ -1368,9 +1368,10 @@ Adds every triggered conditional artifact plus:
 - recovery and interrupted-refresh tests;
 - independent CI or protected validation where risk warrants;
 - data, supply-chain, approval, and retention evidence; and
-- context/evaluation packages for repeated agent work. The Context Pack schema
-  is available for a triggered CTX-0001 assessment, but no pack manifest is
-  generated and schema presence does not establish applicability.
+- context/evaluation package triggers for repeated agent work. The Context Pack
+  schema itself is installed only after a triggered CTX-0001 assessment and
+  accepted trust decision; no default profile includes a pack manifest or its
+  optional schema.
 
 The scaffold includes trigger-assessment entry points for every conditional
 and optional conceptual type, each initially `not_assessed`. An omitted type
@@ -1385,7 +1386,21 @@ production-readiness conclusion.
 
 ## 6. Recommended directory structure
 
-**[Recommended]** The reusable physical layout is:
+Physical layout is independent of assurance, collaboration, and concurrency.
+New snapshots default to `compact`: only representations with aligned
+authority, owner, lifecycle, review cadence, sensitivity, and retention may
+share a file. In the v4 compact map, `REP-0002` retains its stable ID and
+combines `DOS-0002` with `DOS-0003`; the absorbed `REP-0003` is recorded in the
+authoritative registry and is not silently reassigned. The `separated` layout
+retains one physical representation per catalog row and is required whenever
+those governance boundaries differ.
+
+Changing layouts is an explicit registry-aware migration, not a refresh side
+effect. Refresh may rebuild derived catalogs and manifests but may not move a
+source file, reuse a stable ID, change ownership, or decide that two concerns
+can be combined.
+
+**[Recommended for separated layout]** The reusable physical layout is:
 
 ```text
 project-dossier/

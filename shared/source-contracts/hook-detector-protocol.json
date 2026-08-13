@@ -1,0 +1,34 @@
+{
+  "schema_version": "project-blueprint.hook-detector-protocol.v1",
+  "document_role": "authoritative_non_authorizing_detector_protocol",
+  "permission_grant": false,
+  "kernel_responsibilities": [
+    "candidate_schema",
+    "provenance_and_confidence",
+    "argv_without_shell_interpretation",
+    "version_probe_shape",
+    "side_effect_classification",
+    "preview_and_explicit_override",
+    "bounded_read_only_detection"
+  ],
+  "recipe_responsibilities": [
+    "ecosystem_markers",
+    "tool_specific_argv",
+    "archetype_rules",
+    "tool_specific_limitations"
+  ],
+  "safety": {
+    "execute_candidates_during_detection": false,
+    "shell_interpretation": false,
+    "inline_shell_flags": ["-c", "/c", "-command", "-encodedcommand"],
+    "absolute_executable_required": false,
+    "path_traversal_arguments_prohibited": true,
+    "external_or_unknown_requires_explicit_authorization": true,
+    "candidate_adoption_requires_review": true,
+    "missing_or_conflicting_evidence_selects_no_hook": true
+  },
+  "limitations": [
+    "Detection proposes configuration and never establishes tool availability, correctness, adoption, authority, or readiness.",
+    "Version probes are validated as argv but are not executed by read-only detection."
+  ]
+}

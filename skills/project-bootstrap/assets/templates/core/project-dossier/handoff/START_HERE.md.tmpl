@@ -11,7 +11,8 @@
 
 ## Resume in this order
 
-1. Read applicable instructions and `.agent/START_HERE.md`.
+1. Read applicable instructions and `.agent/START_HERE.md`; run
+   `./pb work resume`.
 2. Inspect repository and source-control state.
 3. Read `project-dossier/AUTHORITY.md`.
 4. Reconcile `project-dossier/machine-readable/artifact-registry.json` and
@@ -19,9 +20,10 @@
    applicability.
 5. Establish provenance and a directly observed current-state baseline.
 6. Record requirements, findings, registers, and a dependency-aware plan.
-7. Derive the ready frontier before selecting planned work; dates do not
+7. Inspect the derived ready frontier before selecting planned work; dates do not
    satisfy dependencies or establish priority.
 8. Assess every project check hook. Run configured hooks only through the
    explicit evidence writer after confirming authority for declared effects.
-9. Refresh derived views and run the read-only harness check before claiming
-   completion; neither structural success nor adoption proves readiness.
+9. Use the evidence-bound `./pb work close` plan/apply path, refresh derived
+   views, and run `./pb check` before claiming completion; neither structural
+   success nor adoption proves readiness.

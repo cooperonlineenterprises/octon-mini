@@ -796,9 +796,8 @@ def validate_generated_inventory_boundaries(root: Path = ROOT) -> list[str]:
     except ValueError as error:
         return [f"generation policy cannot be loaded: {error}"]
     try:
-        diagnostics = scaffolder.generation_policy_diagnostics(
-            policy, ("minimal", "standard", "high-assurance")
-        )
+        profiles = tuple(scaffolder.profile_layers(policy))
+        diagnostics = scaffolder.generation_policy_diagnostics(policy, profiles)
     except ValueError as error:
         return [f"generation policy diagnostics failed: {error}"]
     for finding in diagnostics.get("findings", []):
@@ -827,7 +826,7 @@ def validate_generated_inventory_boundaries(root: Path = ROOT) -> list[str]:
             errors.append(
                 f"source-only rule {rule.get('id')}: source path is a symlink"
             )
-    for profile in ("minimal", "standard", "high-assurance"):
+    for profile in profiles:
         try:
             templates = scaffolder.collect_templates(profile, policy)
             schemas = scaffolder.schema_outputs(profile, policy)
@@ -865,7 +864,10 @@ def validate_repository(root: Path = ROOT) -> list[str]:
         root / "patterns/schemas/pattern-record.schema.json",
         root / "patterns/architecture-proof/schema.json",
         root / "shared/source-contracts/information-state-semantics.schema.json",
-        root / "shared/source-contracts/generation-policy.schema.json",
+        root / "shared/source-contracts/profile-manifest.schema.json",
+        root / "shared/source-contracts/commands.schema.json",
+        root / "shared/source-contracts/diagnostic-catalog.schema.json",
+        root / "shared/source-contracts/hook-detector-protocol.schema.json",
         root / "shared/optional-schemas/context-pack-manifest.schema.json",
     )
     for path in schema_paths:
@@ -881,10 +883,10 @@ def validate_repository(root: Path = ROOT) -> list[str]:
     errors.extend(validate_information_state_contract(root))
     try:
         generation_policy = load_json(
-            root / "shared/source-contracts/generation-policy.json"
+            root / "shared/source-contracts/profile-manifest.json"
         )
         generation_policy_schema = load_json(
-            root / "shared/source-contracts/generation-policy.schema.json"
+            root / "shared/source-contracts/profile-manifest.schema.json"
         )
     except (OSError, ValueError, json.JSONDecodeError) as error:
         errors.append(f"generation policy cannot be loaded: {error}")
@@ -893,7 +895,21 @@ def validate_repository(root: Path = ROOT) -> list[str]:
             schema_issues(
                 generation_policy,
                 generation_policy_schema,
-                "shared/source-contracts/generation-policy.json",
+                "shared/source-contracts/profile-manifest.json",
+            )
+        )
+    for name in ("commands", "diagnostic-catalog", "hook-detector-protocol"):
+        try:
+            contract = load_json(root / f"shared/source-contracts/{name}.json")
+            schema = load_json(root / f"shared/source-contracts/{name}.schema.json")
+        except (OSError, ValueError, json.JSONDecodeError) as error:
+            errors.append(f"shared/source-contracts/{name}: cannot load contract: {error}")
+            continue
+        errors.extend(
+            schema_issues(
+                contract,
+                schema,
+                f"shared/source-contracts/{name}.json",
             )
         )
     context_fixture = load_json(
@@ -961,8 +977,8 @@ def main() -> int:
     print("- semantic roles: 10 cross-walked without a universal status enum")
     print("- optional contracts: Context Pack v1 and Architecture Proof v1")
     print(
-        "- generation policy: v2 explicit allowlists, capability-scoped "
-        "degradation, and strict repository drift validation"
+        "- profile manifest: v1 explicit allowlists, derived profile projections, "
+        "capability-scoped degradation, and strict repository drift validation"
     )
     return 0
 

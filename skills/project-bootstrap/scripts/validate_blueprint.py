@@ -45,11 +45,6 @@ def repository_path(value: str) -> Path:
     except ValueError:
         return ROOT / path
     return SKILL_ROOT / relative
-PROFILE_LAYERS = {
-    "minimal": ("core",),
-    "standard": ("core", "standard"),
-    "high-assurance": ("core", "standard", "high-assurance"),
-}
 REQUIRED_PATHS = (
     ".github/workflows/validate.yml",
     ".gitignore",
@@ -61,7 +56,11 @@ REQUIRED_PATHS = (
     "README.md",
     "RELEASE.md",
     "VERSION",
+    "VELOCITY_ROADMAP.md",
+    "VELOCITY_VALIDATION.md",
     "blueprint.json",
+    "docs/COMPATIBILITY.md",
+    "docs/GOLDEN_PATHS.md",
     "dossier/BLUEPRINT.md",
     "dossier/artifact-types.json",
     "dossier/references/REFERENCE_EVIDENCE.md",
@@ -72,6 +71,7 @@ REQUIRED_PATHS = (
     "migrations/1.0.1-to-2.0.0.md",
     "migrations/2.0.0-to-3.0.0.md",
     "migrations/3.0.0-to-3.1.0.md",
+    "migrations/3.1.0-to-4.0.0.md",
     "patterns/README.md",
     "patterns/catalog.json",
     "patterns/schemas/pattern-catalog.schema.json",
@@ -95,8 +95,14 @@ REQUIRED_PATHS = (
     "shared/reference-evidence.json",
     "shared/source-contracts/information-state-semantics.json",
     "shared/source-contracts/information-state-semantics.schema.json",
-    "shared/source-contracts/generation-policy.json",
-    "shared/source-contracts/generation-policy.schema.json",
+    "shared/source-contracts/commands.json",
+    "shared/source-contracts/commands.schema.json",
+    "shared/source-contracts/diagnostic-catalog.json",
+    "shared/source-contracts/diagnostic-catalog.schema.json",
+    "shared/source-contracts/hook-detector-protocol.json",
+    "shared/source-contracts/hook-detector-protocol.schema.json",
+    "shared/source-contracts/profile-manifest.json",
+    "shared/source-contracts/profile-manifest.schema.json",
     "shared/schemas/artifact-catalog.schema.json",
     "shared/schemas/dossier-artifact-registry.schema.json",
     "shared/schemas/dossier-path-authority.schema.json",
@@ -104,13 +110,22 @@ REQUIRED_PATHS = (
     "shared/schemas/harness-artifact-registry.schema.json",
     "shared/schemas/harness-assurance-records.schema.json",
     "shared/schemas/harness-capability-records.schema.json",
+    "shared/schemas/harness-collaboration-profile.schema.json",
     "shared/schemas/harness-current-state.schema.json",
+    "shared/schemas/harness-diagnostics.schema.json",
     "shared/schemas/harness-extension-registry.schema.json",
+    "shared/schemas/harness-focus.schema.json",
     "shared/schemas/harness-git-workflows.schema.json",
+    "shared/schemas/harness-hook-candidate.schema.json",
     "shared/schemas/harness-kernel.schema.json",
+    "shared/schemas/harness-package-registry.schema.json",
     "shared/schemas/harness-project-check-evidence.schema.json",
     "shared/schemas/harness-record.schema.json",
+    "shared/schemas/harness-scm.schema.json",
+    "shared/schemas/harness-transaction.schema.json",
+    "shared/schemas/project-blueprint-migration-seed.schema.json",
     "shared/schemas/project-blueprint-origin.schema.json",
+    "shared/schemas/project-blueprint-upgrade.schema.json",
     "shared/schemas/reference-evidence.schema.json",
     "skills/project-bootstrap/SKILL.md",
     "skills/project-bootstrap/agents/openai.yaml",
@@ -121,12 +136,23 @@ REQUIRED_PATHS = (
     "skills/project-bootstrap/scripts/install_skill.py",
     "skills/project-bootstrap/scripts/migrate_1_0_1_to_2_0_0.py",
     "skills/project-bootstrap/scripts/migrate_2_0_0_to_3_0_0.py",
+    "skills/project-bootstrap/scripts/migrate_3_1_0_to_4_0_0.py",
+    "skills/project-bootstrap/scripts/adopt_project.py",
+    "skills/project-bootstrap/scripts/benchmark_validation.py",
+    "skills/project-bootstrap/scripts/collaboration_project.py",
+    "skills/project-bootstrap/scripts/detect_project.py",
+    "skills/project-bootstrap/scripts/init_project.py",
+    "skills/project-bootstrap/scripts/package_project.py",
+    "skills/project-bootstrap/scripts/pb.py",
     "skills/project-bootstrap/scripts/plan_adoption.py",
     "skills/project-bootstrap/scripts/scaffold_project.py",
     "skills/project-bootstrap/scripts/test_acceptance.py",
     "skills/project-bootstrap/scripts/test_architectural_patterns.py",
     "skills/project-bootstrap/scripts/test_migration_1_0_1_to_2_0_0.py",
     "skills/project-bootstrap/scripts/test_migration_2_0_0_to_3_0_0.py",
+    "skills/project-bootstrap/scripts/test_migration_3_1_0_to_4_0_0.py",
+    "skills/project-bootstrap/scripts/test_velocity_workflows.py",
+    "skills/project-bootstrap/scripts/upgrade_project.py",
     "skills/project-bootstrap/scripts/validate_blueprint.py",
     "skills/project-bootstrap/scripts/validate_source_contracts.py",
     "skills/project-bootstrap/scripts/validate_skill_package.py",
@@ -156,6 +182,7 @@ REQUIRED_PATHS = (
     "skills/project-bootstrap/fixtures/migrations/2.0.0-to-3.0.0/invalid/fabricated-workflow-adoption.json",
     "skills/project-bootstrap/fixtures/migrations/2.0.0-to-3.0.0/invalid/mixed-live-project-version.json",
     "skills/project-bootstrap/fixtures/migrations/2.0.0-to-3.0.0/invalid/mixed-live-validator-version.json",
+    "skills/project-bootstrap/fixtures/migrations/3.1.0-to-4.0.0/README.md",
     "skills/project-bootstrap/fixtures/migrations/2.0.0-to-3.0.0/invalid/nonexternal-migration-authority.json",
 )
 DOSSIER_HEADINGS = (
@@ -172,38 +199,6 @@ DOSSIER_HEADINGS = (
     "## 11. Gaps and new recommendations",
 )
 HARNESS_HEADINGS = tuple(f"## {number}." for number in range(1, 18))
-REQUIRED_KERNEL = {
-    "AGENTS.md",
-    ".agent/START_HERE.md",
-    ".agent/policy.json",
-    ".agent/context.json",
-    ".agent/schema.json",
-    ".agent/lifecycle.json",
-    ".agent/tools.json",
-    ".agent/validators.json",
-    ".agent/project.json",
-    ".agent/project-checks/README.md",
-    ".agent/project-checks/evidence.json",
-    ".agent/state/current.json",
-    ".agent/state/RESUME.md",
-    ".agent/templates/task.md",
-    ".agent/templates/decision.md",
-    ".agent/templates/pull-request.md",
-    ".agent/scripts/validate.py",
-    ".agent/scripts/refresh.py",
-    ".agent/scripts/run_project_checks.py",
-    ".agent/tests/test_validate.py",
-    ".agent/workflows/README.md",
-    ".agent/workflows/github-adapter.md",
-    ".agent/workflows/small-team-git.json",
-    "project-dossier/README.md",
-    "project-dossier/AUTHORITY.md",
-    "project-dossier/CANONICAL_SOURCE_MAP.md",
-    "project-dossier/SUPERSESSION.json",
-    "project-dossier/canonical/constraints-gates-and-readiness.md",
-    "project-dossier/handoff/ADOPTION_CHECKLIST.md",
-    "project-dossier/validation/QUALITY_GATES.json",
-}
 
 
 class DuplicateKeyError(ValueError):
@@ -216,10 +211,13 @@ SUPPORTED_SCHEMA_KEYWORDS = {
     "$ref",
     "$schema",
     "additionalProperties",
+    "allOf",
     "const",
     "description",
     "enum",
+    "else",
     "format",
+    "if",
     "items",
     "maxItems",
     "maximum",
@@ -230,6 +228,7 @@ SUPPORTED_SCHEMA_KEYWORDS = {
     "properties",
     "required",
     "title",
+    "then",
     "type",
     "uniqueItems",
 }
@@ -391,6 +390,27 @@ def lint_supported_schema(
             issues,
             root_schema=root_schema,
         )
+    all_of = schema.get("allOf")
+    if all_of is not None:
+        if not isinstance(all_of, list):
+            issues.append(f"{location}.allOf: expected array")
+        else:
+            for index, child in enumerate(all_of):
+                lint_supported_schema(
+                    child,
+                    f"{location}.allOf[{index}]",
+                    issues,
+                    root_schema=root_schema,
+                )
+    for field in ("if", "then", "else"):
+        child = schema.get(field)
+        if child is not None:
+            lint_supported_schema(
+                child,
+                f"{location}.{field}",
+                issues,
+                root_schema=root_schema,
+            )
 
 
 def load_scaffolder():
@@ -471,7 +491,7 @@ def validate_docs(issues: list[str]) -> None:
             issues.append(f"{path.relative_to(ROOT)} exposes an absolute source path")
 
 
-def validate_config_and_schemas(issues: list[str]) -> None:
+def validate_config_and_schemas(issues: list[str], scaffolder: Any) -> None:
     try:
         config = load_json(ROOT / "blueprint.json")
     except (ValueError, json.JSONDecodeError) as error:
@@ -483,26 +503,50 @@ def validate_config_and_schemas(issues: list[str]) -> None:
         issues.append("blueprint.json must require an empty new-project target")
     if config.get("minimum_python") != "3.11":
         issues.append("blueprint.json Python minimum must be 3.11")
-    if config.get("profiles") != list(PROFILE_LAYERS):
-        issues.append("blueprint.json profile order mismatch")
+    if config.get("schema_version") != "project-blueprint.v3":
+        issues.append("blueprint.json schema version must be project-blueprint.v3")
+    try:
+        manifest = scaffolder.load_generation_policy()
+        profiles = tuple(scaffolder.profile_layers(manifest))
+    except ValueError as error:
+        issues.append(f"invalid authoritative profile manifest: {error}")
+        return
     if config.get("reference_evidence_registry") != "shared/reference-evidence.json":
         issues.append("blueprint.json reference-evidence registry path mismatch")
-    kernel = config.get("modules", {}).get("harness", {}).get("kernel_files")
-    if set(kernel or []) != {
-        ".agent/policy.json",
-        ".agent/context.json",
-        ".agent/schema.json",
-        ".agent/lifecycle.json",
-        ".agent/tools.json",
-        ".agent/validators.json",
-        ".agent/project.json",
-    }:
-        issues.append("blueprint.json kernel files do not match the seven-file kernel")
+    workflow_paths = {
+        "workflow_interface": "skills/project-bootstrap/scripts/pb.py",
+        "new_project_initializer": "skills/project-bootstrap/scripts/init_project.py",
+        "established_project_adopter": "skills/project-bootstrap/scripts/adopt_project.py",
+        "live_project_upgrader": "skills/project-bootstrap/scripts/upgrade_project.py",
+        "advanced_new_project_generator": (
+            "skills/project-bootstrap/scripts/scaffold_project.py"
+        ),
+        "advanced_existing_project_planner": (
+            "skills/project-bootstrap/scripts/plan_adoption.py"
+        ),
+    }
+    for key, expected_path in workflow_paths.items():
+        if config.get(key) != expected_path:
+            issues.append(f"blueprint.json {key} path mismatch")
+        elif not repository_path(expected_path).is_file():
+            issues.append(f"blueprint.json {key} path is absent")
+    kernel = scaffolder.kernel_paths(manifest)
+    if len(kernel) != 7 or any(path.parent != Path(".agent") for path in kernel):
+        issues.append("profile manifest kernel files do not define the seven-file kernel")
     harness = config.get("modules", {}).get("harness", {})
-    if harness.get("collaboration_workflow_file") != (
-        ".agent/workflows/small-team-git.json"
-    ):
-        issues.append("blueprint.json collaboration workflow path mismatch")
+    expected_trigger_contract = {
+        "command_manifest": "shared/source-contracts/commands.json",
+        "scm_trigger_file": ".agent/scm.json",
+        "package_registry_file": ".agent/packages.json",
+        "collaboration_workflow_package": "small-team-git-portfolio",
+        "installed_collaboration_workflow_file": (
+            ".agent/workflows/small-team-git.json"
+        ),
+        "collaboration_workflow_installed_by_default": False,
+    }
+    for key, value in expected_trigger_contract.items():
+        if harness.get(key) != value:
+            issues.append(f"blueprint.json harness {key} contract mismatch")
     if harness.get("supported_base_workflows") != [
         "solo_direct",
         "solo_hybrid",
@@ -518,7 +562,7 @@ def validate_config_and_schemas(issues: list[str]) -> None:
         "architectural_pattern_catalog": "patterns/catalog.json",
         "pattern_catalog_generated": False,
         "pattern_catalog_automatic_adoption": False,
-        "generation_policy": "shared/source-contracts/generation-policy.json",
+        "profile_manifest": "shared/source-contracts/profile-manifest.json",
         "information_state_semantics": (
             "shared/source-contracts/information-state-semantics.json"
         ),
@@ -526,16 +570,25 @@ def validate_config_and_schemas(issues: list[str]) -> None:
         "architecture_proof_generated": False,
     }:
         issues.append("blueprint.json source-governance contract differs")
-    context_contract = config.get("optional_contracts", {}).get(
-        "context_pack_manifest"
-    )
-    if context_contract != {
-        "schema": "shared/optional-schemas/context-pack-manifest.schema.json",
-        "minimum_profile": "high-assurance",
-        "manifest_generated": False,
-        "permission_grant": False,
-    }:
-        issues.append("blueprint.json optional Context Pack contract differs")
+    if "profiles" in config or "optional_contracts" in config:
+        issues.append(
+            "blueprint.json must not duplicate profile or optional-package inventory"
+        )
+
+    profile_schema_path = ROOT / "shared/source-contracts/profile-manifest.schema.json"
+    try:
+        profile_schema = load_json(profile_schema_path)
+    except (ValueError, json.JSONDecodeError) as error:
+        issues.append(f"invalid profile-manifest schema: {error}")
+    else:
+        lint_supported_schema(
+            profile_schema,
+            "profile-manifest.schema.json",
+            issues,
+        )
+
+    if not profiles:
+        issues.append("profile manifest resolved no profiles")
 
     for path in sorted((ROOT / "shared/schemas").glob("*.schema.json")):
         try:
@@ -550,7 +603,125 @@ def validate_config_and_schemas(issues: list[str]) -> None:
         lint_supported_schema(schema, path.name, issues)
 
 
+def markdown_anchors(text: str) -> set[str]:
+    anchors: set[str] = set()
+    for heading in re.findall(r"^#{1,6}\s+(.+?)\s*$", text, re.MULTILINE):
+        normalized = heading.strip().casefold()
+        normalized = re.sub(r"[^a-z0-9 _-]", "", normalized)
+        normalized = re.sub(r"[\s_]+", "-", normalized).strip("-")
+        anchors.add(normalized)
+    return anchors
+
+
+def validate_manifest_projections(issues: list[str], scaffolder: Any) -> None:
+    try:
+        manifest = scaffolder.load_generation_policy()
+        profiles = scaffolder.profile_contracts(manifest)
+    except ValueError as error:
+        issues.append(f"cannot validate manifest projections: {error}")
+        return
+
+    for projection in manifest.get("documentation_projections", []):
+        if not isinstance(projection, dict):
+            continue
+        source = projection.get("source")
+        for raw_target in projection.get("targets", []):
+            if not isinstance(raw_target, str):
+                continue
+            raw_path, separator, anchor = raw_target.partition("#")
+            target = repository_path(raw_path)
+            if not target.is_file():
+                issues.append(
+                    f"manifest documentation projection target is absent: {raw_target}"
+                )
+                continue
+            text = target.read_text(encoding="utf-8")
+            if separator and anchor not in markdown_anchors(text):
+                issues.append(
+                    f"manifest documentation projection anchor is absent: {raw_target}"
+                )
+            if source == "profiles":
+                folded = text.casefold()
+                for profile_id, profile in profiles.items():
+                    label = str(profile.get("label", "")).casefold()
+                    if profile_id.casefold() not in folded and label not in folded:
+                        issues.append(
+                            f"{raw_path}: profile projection omits {profile_id}"
+                        )
+            elif source == "acceptance_criteria":
+                if raw_path == "harness/BLUEPRINT.md":
+                    section = text.split("## 14. Acceptance criteria", 1)[-1].split(
+                        "## 15. Evidence crosswalk", 1
+                    )[0]
+                    documented = {
+                        int(match.group(1))
+                        for match in re.finditer(
+                            r"^(\d+)\. ", section, re.MULTILINE
+                        )
+                    }
+                    expected = {
+                        int(item["id"])
+                        for item in manifest.get("acceptance_criteria", [])
+                        if isinstance(item, dict) and isinstance(item.get("id"), int)
+                    }
+                    if documented != expected:
+                        issues.append(
+                            "harness acceptance criteria differ from the profile manifest"
+                        )
+                elif raw_path.endswith("test_acceptance.py") and (
+                    'PROFILE_MANIFEST["acceptance_criteria"]' not in text
+                ):
+                    issues.append(
+                        "acceptance suite does not derive coverage from the profile manifest"
+                    )
+
+    profile_fields = {"profile", "from_profile", "to_profile", "minimum_profile"}
+    expected_profile_ids = set(profiles)
+
+    def visit(value: Any, location: str) -> None:
+        if isinstance(value, dict):
+            for key, child in value.items():
+                child_location = f"{location}.{key}"
+                if (
+                    key in profile_fields
+                    and isinstance(child, dict)
+                    and isinstance(child.get("enum"), list)
+                    and set(child["enum"]) != expected_profile_ids
+                ):
+                    issues.append(
+                        f"{child_location}: profile enum differs from the manifest"
+                    )
+                visit(child, child_location)
+        elif isinstance(value, list):
+            for index, child in enumerate(value):
+                visit(child, f"{location}[{index}]")
+
+    for path in sorted((ROOT / "shared/schemas").glob("*.schema.json")):
+        try:
+            visit(load_json(path), path.name)
+        except (OSError, ValueError, json.JSONDecodeError):
+            continue
+
+    validator_template = (
+        SKILL_ROOT / "assets/templates/core/.agent/scripts/validate.py.tmpl"
+    ).read_text(encoding="utf-8")
+    if (
+        "{{PROFILE_OPERATIONAL_FILES_JSON}}" not in validator_template
+        or "{{KERNEL_FILES_JSON}}" not in validator_template
+        or "CORE_OPERATIONAL_FILES" in validator_template
+    ):
+        issues.append(
+            "generated validator inventories are not projected from the manifest"
+        )
+
+
 def validate_artifact_types(issues: list[str], scaffolder: Any) -> None:
+    try:
+        manifest = scaffolder.load_generation_policy()
+        profiles = tuple(scaffolder.profile_layers(manifest))
+    except ValueError as error:
+        issues.append(f"cannot validate artifact profiles: {error}")
+        return
     try:
         source = load_json(ROOT / "dossier/artifact-types.json")
     except (ValueError, json.JSONDecodeError) as error:
@@ -639,7 +810,7 @@ def validate_artifact_types(issues: list[str], scaffolder: Any) -> None:
             issues.append(
                 f"representation {representation_id}: invalid artifact_type_ids"
             )
-        if representation.get("profile") not in PROFILE_LAYERS:
+        if representation.get("profile") not in profiles:
             issues.append(f"representation {representation_id}: invalid profile")
         status = representation.get("applicability", {}).get("status")
         if len(type_refs or []) > 1 and status != "combined":
@@ -651,17 +822,15 @@ def validate_artifact_types(issues: list[str], scaffolder: Any) -> None:
                 f"representation {representation_id}: singleton marked combined"
             )
 
-    for profile in PROFILE_LAYERS:
+    for profile in profiles:
         try:
             expected_paths = (
                 set(scaffolder.collect_templates(profile))
                 | set(scaffolder.schema_outputs(profile))
-                | set(scaffolder.PROJECT_LOCAL_SOURCE_PATHS)
-                | set(scaffolder.DERIVED_PATHS)
-                | {Path(".project-blueprint-origin.json")}
+                | set(scaffolder.project_local_source_paths(profile, manifest))
+                | set(scaffolder.derived_output_paths(profile, manifest))
+                | {scaffolder.origin_path(manifest)}
             )
-            if profile == "high-assurance":
-                expected_paths |= set(scaffolder.HIGH_DERIVED_PATHS)
             selected = scaffolder.selected_artifact_registry(
                 profile,
                 date.today().isoformat(),
@@ -676,6 +845,14 @@ def validate_artifact_types(issues: list[str], scaffolder: Any) -> None:
 
 
 def validate_templates(issues: list[str], scaffolder: Any) -> None:
+    try:
+        manifest = scaffolder.load_generation_policy()
+        profiles = tuple(scaffolder.profile_layers(manifest))
+        ranks = scaffolder.profile_ranks(manifest)
+        highest_profile = max(ranks, key=ranks.__getitem__)
+    except ValueError as error:
+        issues.append(f"cannot validate templates without profile manifest: {error}")
+        return
     variables = {
         "PROJECT_NAME": 'Template "Validation" [α]',
         "PROJECT_NAME_JSON": json.dumps('Template "Validation" [α]', ensure_ascii=False),
@@ -683,9 +860,15 @@ def validate_templates(issues: list[str], scaffolder: Any) -> None:
         "CREATED_DATE": "2030-01-02",
         "BLUEPRINT_VERSION": (ROOT / "VERSION").read_text(encoding="utf-8").strip(),
         "HARNESS_KERNEL_VERSION": scaffolder.KERNEL_VERSION,
-        "PROFILE": "high-assurance",
+        "PROFILE": highest_profile,
         "HARNESS_REFRESH_COMMAND": "python -B .agent/scripts/refresh.py --refresh",
         "HARNESS_REFRESH_WRITES": "[]",
+        "PROFILE_OPERATIONAL_FILES_JSON": "[]",
+        "DERIVED_OPERATIONAL_FILES_JSON": "[]",
+        "KERNEL_FILES_JSON": "[]",
+        "GIT_PORTFOLIO_SHA256": str(
+            scaffolder.package_contract(manifest, "small-team-git-portfolio")["sha256"]
+        ),
     }
     templates_root = SKILL_ROOT / "assets/templates"
     extension_registry_template = (
@@ -699,22 +882,36 @@ def validate_templates(issues: list[str], scaffolder: Any) -> None:
             "extension registry must use the harness-kernel version axis, "
             "not the blueprint release version"
         )
-    for profile in PROFILE_LAYERS:
+    for profile in profiles:
         try:
             templates = scaffolder.collect_templates(profile)
+            variables["PROFILE"] = profile
+            variables["PROFILE_OPERATIONAL_FILES_JSON"] = json.dumps(
+                scaffolder.canonical_posix_paths(
+                    scaffolder.operational_project_paths(profile, manifest)
+                ),
+                separators=(",", ":"),
+            )
+            variables["DERIVED_OPERATIONAL_FILES_JSON"] = json.dumps(
+                scaffolder.canonical_posix_paths(
+                    scaffolder.derived_output_paths(profile, manifest)
+                    & scaffolder.operational_project_paths(profile, manifest)
+                ),
+                separators=(",", ":"),
+            )
+            variables["KERNEL_FILES_JSON"] = json.dumps(
+                scaffolder.canonical_posix_paths(scaffolder.kernel_paths(manifest)),
+                separators=(",", ":"),
+            )
         except ValueError as error:
             issues.append(f"{profile} template collection failed: {error}")
             continue
-        required_paths = {Path(item) for item in REQUIRED_KERNEL}
-        missing = sorted(required_paths - set(templates) - {
-            Path("project-dossier/ARTIFACT_CATALOG.json"),
-            Path("project-dossier/machine-readable/path-authority.json"),
-        })
+        missing = sorted(set(scaffolder.kernel_paths(manifest)) - set(templates))
         if missing:
-            issues.append(f"{profile} missing kernel/dossier paths: {missing}")
+            issues.append(f"{profile} missing manifest-declared kernel paths: {missing}")
         if any(path.suffix in {".yaml", ".yml"} for path in templates):
             issues.append(f"{profile} canonical templates still emit YAML")
-        if profile != "high-assurance" and any(
+        if profile != highest_profile and any(
             path.as_posix().startswith(".agents/") for path in templates
         ):
             issues.append(f"{profile} unexpectedly emits capability packages")
@@ -762,16 +959,25 @@ def validate_skill_and_release(issues: list[str]) -> None:
     skill = (SKILL_ROOT / "SKILL.md").read_text(encoding="utf-8")
     if "TODO" in skill:
         issues.append("SKILL.md contains TODO")
-    if "never facts, permissions, decisions" not in skill:
+    non_transfer_terms = (
+        "Transfer structure and validators",
+        "facts",
+        "identities",
+        "permissions",
+        "accepted decisions",
+        "evidence",
+        "readiness",
+    )
+    if not all(term in skill for term in non_transfer_terms):
         issues.append("SKILL.md lacks explicit non-transfer boundary")
-    if "plan_adoption.py" not in skill:
+    if "pb adopt plan|apply" not in skill or "bounded semantic" not in skill:
         issues.append("SKILL.md lacks established-project adoption routing")
     openai = (SKILL_ROOT / "agents/openai.yaml").read_text(encoding="utf-8")
     if "$project-bootstrap" not in openai:
         issues.append("agents/openai.yaml does not invoke $project-bootstrap")
     version = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
-    if version != "3.1.0":
-        issues.append(f"development VERSION must be 3.1.0, found {version!r}")
+    if version != "4.0.0":
+        issues.append(f"development VERSION must be 4.0.0, found {version!r}")
     for path in ("CHANGELOG.md", "RELEASE.md"):
         if version not in (ROOT / path).read_text(encoding="utf-8"):
             issues.append(f"{path} lacks the {version} release")
@@ -801,8 +1007,8 @@ def validate_skill_and_release(issues: list[str]) -> None:
     kernel_version = config.get("modules", {}).get("harness", {}).get(
         "kernel_version"
     )
-    if kernel_version != "3.0.0":
-        issues.append("blueprint.json harness kernel must remain 3.0.0")
+    if kernel_version != "4.0.0":
+        issues.append("blueprint.json harness kernel must be 4.0.0")
     scaffolder = load_scaffolder()
     if scaffolder.GENERATOR_VERSION != version:
         issues.append("scaffolder generator version differs from VERSION")
@@ -987,9 +1193,27 @@ def validate_executable_contracts(issues: list[str]) -> None:
             [
                 sys.executable,
                 "-B",
+                str(SKILL_ROOT / "scripts/test_migration_3_1_0_to_4_0_0.py"),
+            ],
+            ROOT,
+            "3.1.0 to 4.0.0 migration and live-upgrade fixtures",
+        ),
+        (
+            [
+                sys.executable,
+                "-B",
+                str(SKILL_ROOT / "scripts/test_velocity_workflows.py"),
+            ],
+            ROOT,
+            "4.0.0 guided, adoption, collaboration, lifecycle, and recovery workflows",
+        ),
+        (
+            [
+                sys.executable,
+                "-B",
                 str(
                     SKILL_ROOT
-                    / "assets/templates/standard/.agent/extensions/"
+                    / "assets/packages/operations-observability/templates/.agent/extensions/"
                     "operations-observability/tests/test_validate.py.tmpl"
                 ),
             ],
@@ -1002,7 +1226,7 @@ def validate_executable_contracts(issues: list[str]) -> None:
                 "-B",
                 str(
                     SKILL_ROOT
-                    / "assets/templates/standard/.agent/extensions/"
+                    / "assets/packages/security-supply-chain/templates/.agent/extensions/"
                     "security-supply-chain/tests/test_validate.py.tmpl"
                 ),
             ],
@@ -1025,33 +1249,42 @@ def validate_executable_contracts(issues: list[str]) -> None:
             )
 
 
-def validate_profile_builds(issues: list[str]) -> None:
-    scaffolder = SKILL_ROOT / "scripts/scaffold_project.py"
+def validate_profile_builds(issues: list[str], scaffolder: Any) -> None:
+    try:
+        manifest = scaffolder.load_generation_policy()
+        profiles = tuple(scaffolder.profile_layers(manifest))
+    except ValueError as error:
+        issues.append(f"cannot build profiles without profile manifest: {error}")
+        return
+    scaffolder_script = SKILL_ROOT / "scripts/scaffold_project.py"
     with tempfile.TemporaryDirectory(prefix="project-blueprint-source-check-") as temp:
-        for profile in PROFILE_LAYERS:
-            target = Path(temp) / profile
-            result = subprocess.run(
-                [
-                    sys.executable,
-                    "-B",
-                    str(scaffolder),
-                    "--target",
-                    str(target),
-                    "--project-name",
-                    f'Source Check "{profile}"',
-                    "--profile",
-                    profile,
-                ],
-                cwd=ROOT,
-                capture_output=True,
-                text=True,
-                check=False,
-            )
-            if result.returncode:
-                issues.append(
-                    f"{profile} profile generation failed: "
-                    f"{result.stderr.strip() or result.stdout.strip()}"
+        for profile in profiles:
+            for layout in ("compact", "separated"):
+                target = Path(temp) / f"{profile}-{layout}"
+                result = subprocess.run(
+                    [
+                        sys.executable,
+                        "-B",
+                        str(scaffolder_script),
+                        "--target",
+                        str(target),
+                        "--project-name",
+                        f'Source Check "{profile}" ({layout})',
+                        "--profile",
+                        profile,
+                        "--layout",
+                        layout,
+                    ],
+                    cwd=ROOT,
+                    capture_output=True,
+                    text=True,
+                    check=False,
                 )
+                if result.returncode:
+                    issues.append(
+                        f"{profile}/{layout} profile generation failed: "
+                        f"{result.stderr.strip() or result.stdout.strip()}"
+                    )
 
 
 def main() -> int:
@@ -1072,13 +1305,14 @@ def main() -> int:
         print(f"FAIL: {error}")
         return 1
     validate_docs(issues)
-    validate_config_and_schemas(issues)
+    validate_config_and_schemas(issues, scaffolder)
+    validate_manifest_projections(issues, scaffolder)
     validate_artifact_types(issues, scaffolder)
     validate_templates(issues, scaffolder)
     validate_skill_and_release(issues)
     validate_ci_contract(issues)
     validate_executable_contracts(issues)
-    validate_profile_builds(issues)
+    validate_profile_builds(issues, scaffolder)
     if issues:
         print(f"FAIL: {len(issues)} issue(s)")
         for issue in issues:
@@ -1088,7 +1322,8 @@ def main() -> int:
     print("PASS: Project Blueprint source and profile builds are valid")
     print(f"- required files: {len(REQUIRED_PATHS)}")
     print(f"- templates: {template_count}")
-    print(f"- profiles: {', '.join(PROFILE_LAYERS)}")
+    manifest = scaffolder.load_generation_policy()
+    print(f"- profiles: {', '.join(scaffolder.profile_layers(manifest))}")
     print("- structured kernel: strict JSON")
     return 0
 

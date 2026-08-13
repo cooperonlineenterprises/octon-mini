@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://project-blueprint.local/source-schemas/hook-detector-protocol.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "document_role", "permission_grant", "kernel_responsibilities", "recipe_responsibilities", "safety", "limitations"],
+  "properties": {
+    "schema_version": {"const": "project-blueprint.hook-detector-protocol.v1"},
+    "document_role": {"const": "authoritative_non_authorizing_detector_protocol"},
+    "permission_grant": {"const": false},
+    "kernel_responsibilities": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "recipe_responsibilities": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "safety": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["execute_candidates_during_detection", "shell_interpretation", "inline_shell_flags", "absolute_executable_required", "path_traversal_arguments_prohibited", "external_or_unknown_requires_explicit_authorization", "candidate_adoption_requires_review", "missing_or_conflicting_evidence_selects_no_hook"],
+      "properties": {
+        "execute_candidates_during_detection": {"const": false},
+        "shell_interpretation": {"const": false},
+        "inline_shell_flags": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "absolute_executable_required": {"const": false},
+        "path_traversal_arguments_prohibited": {"const": true},
+        "external_or_unknown_requires_explicit_authorization": {"const": true},
+        "candidate_adoption_requires_review": {"const": true},
+        "missing_or_conflicting_evidence_selects_no_hook": {"const": true}
+      }
+    },
+    "limitations": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+  }
+}

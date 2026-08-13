@@ -1,6 +1,6 @@
 {
-  "schema_version": "harness.validators.v3",
-  "validator_version": "3.0.0",
+  "schema_version": "harness.validators.v4",
+  "validator_version": "4.0.0",
   "runtime": {
     "executable": "python",
     "minimum_version": "3.11",
@@ -12,10 +12,13 @@
     "check": {"run": "python -B .agent/scripts/validate.py --check", "writes": []},
     "ready_frontier": {"run": "python -B .agent/scripts/validate.py --ready-frontier", "writes": []},
     "collaboration_assessment": {"run": "python -B .agent/scripts/validate.py --assess-collaboration", "writes": []},
-    "test": {"run": "python -B -m unittest discover -s .agent/tests -p \"test_*.py\"", "writes": []},
+    "test": {"run": "python -B .agent/tests/test_validate.py --tier integration", "writes": []},
+    "test_fast": {"run": "python -B .agent/tests/test_validate.py --tier fast", "writes": []},
+    "test_integration": {"run": "python -B .agent/tests/test_validate.py --tier integration", "writes": []},
+    "test_release": {"run": "python -B .agent/tests/test_validate.py --tier release", "writes": []},
     "project_checks": {
       "run": "python -B .agent/scripts/run_project_checks.py --write-evidence",
-      "writes": [".agent/project-checks/evidence.json"]
+      "writes": [".agent/project-checks/archive", ".agent/project-checks/evidence.json"]
     },
     "adoption_verify": {
       "run": "python -B .agent/scripts/run_project_checks.py --write-evidence --verify-adoption",

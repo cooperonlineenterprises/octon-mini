@@ -1,60 +1,61 @@
-# Profile Selection
+# Profile, Layout, and Collaboration Selection
 
-## Minimal
+These are independent axes. Do not make team size a risk profile, make layout
+an assurance level, or count agents as human writers.
 
-Use for an early or low-risk project with few integrations and low operational
-risk. It creates the root router, seven-file governance kernel, complete
-small-team Git workflow portfolio, decision and task contracts, compact state,
-portable read-only validation, positive/negative fixtures, and the dossier's
-target, current-state, conformance, plan, provenance, validation, and handoff
-entry points.
-It also includes the authoritative project-local artifact registry,
-refreshable generated artifact catalog, per-file path authority, manifest, and
-local schema snapshot.
+## Assurance profile
 
-## Standard
+- **Minimal** — early, low-risk, or low-integration work. It includes the full
+  deny-by-default kernel, transactional workflow interface, decisions/tasks,
+  derived current state, focus, diagnosis/recovery, validation fixtures, and
+  the core dossier. This is the interactive recommendation, never a silent
+  non-interactive default.
+- **Standard** — add structured traceability, durable review/evidence records,
+  requirements/findings/plans/RAIDQ, events, artifacts, and an empty extension
+  registry when those needs are real.
+- **High Assurance** — add sensitivity, protected enforcement, long-lived
+  operation, role separation, reproducibility, checkpoints, trust/transition/
+  history controls, and checksums. Conditional controls remain unassessed
+  until project owners assess them.
 
-Use when structured traceability, durable review evidence, or project-extension
-risks justify it. It adds evidence, reviews, events, artifact metadata, project
-extensions, closure guidance, structured requirements, findings, plans, RAIDQ,
-sources, and machine-readable evidence stores. It also supplies independently
-adoptable operations and observability plus security and supply-chain extension
-contracts. These extensions start disabled and `not_assessed`; they contain no
-provider, tool, control, evidence, approval, or readiness fact.
+Operations/observability, security/supply-chain, the sample restriction, and
+the optional Context Pack schema are trigger-installed packages, not universal
+profile payloads. Their absence never establishes non-applicability.
 
-## High assurance
+## Physical layout
 
-Use when sensitive data, material external effects, protected enforcement,
-long-lived agent operation, role separation, or audit and reproducibility
-matter. It adds constrained agents/skills/workflows, checkpoints,
-generated-integrity refresh, trust, operations, research, transition, history,
-supersession, stronger validation, and checksums.
-It also scaffolds unassessed trigger-entry points for approval attestations,
-concurrency leases, recovery, harness evaluations and metrics, data
-governance, supply-chain inventory, and bounded context packs. Their presence
-does not establish applicability; activate, combine, or mark them not
-applicable through the appropriate project records and artifact registry with
-an evidence-based rationale.
-High Assurance includes the optional Context Pack manifest schema but does not
-generate a manifest, select a consumer or source, or assess CTX-0001. Minimal
-and Standard do not include that optional schema.
-An adopted High-Assurance project must have every conditional and optional
-trigger assessed, with applicable controls owned and supported by current
-evidence. The disabled sample restriction extension proves the versioned
-interface and can be deliberately trusted, enabled, and disabled without a
-kernel change. The two production-control extension packages remain optional
-entry points rather than automatic controls.
+- **compact** (new-project default) combines conceptual artifact types only
+  where authority, ownership, lifecycle, sensitivity, review, and retention
+  are compatible;
+- **separated** keeps distinct representations when those concerns differ or
+  a project prefers explicit files.
 
-Every profile supports `solo_direct`, `solo_hybrid`, `pair_pr`, `tiny_pr`, and
-the `concurrent_work` modifier. Select the base workflow from fresh human
-write-capable topology; select the profile independently from actual project
-risk. One to five maintainers, agent concurrency, or a PR workflow does not by
-itself require Standard or High Assurance. More than five maintainers is
-outside the workflow portfolio rather than a trigger for an enterprise profile.
+Both preserve conceptual artifact IDs. Layout changes require explicit
+registry migration; representation IDs are never silently reassigned.
 
-Choose a larger profile because a risk or assurance trigger exists, not because
-the project has more maintainers or more files.
+## Collaboration
 
-No profile creates a trusted policy, accepted decision, approval, verified
-project state, or readiness result. Those arise only through target-project
-adoption and evidence.
+- **solo**: one write-capable human; use only the explicit solo integration
+  preference;
+- **pair**: two write-capable humans; use independent-review-capacity evidence;
+- **tiny**: three to five write-capable humans; use independent-review-capacity
+  evidence;
+- above five: outside the supported portfolio, not a trigger for a larger
+  assurance profile.
+
+Add `concurrent_work` only when current evidence shows simultaneous human,
+agent, or automation work. Every fact used by a result requires a source,
+observation time, expiry, and limitations. Missing, stale, or conflicting
+evidence selects no workflow. `solo_direct`, `solo_hybrid`, `pair_pr`, and
+`tiny_pr` remain proposals until an accepted project-owned decision adopts one.
+
+## SCM and packages
+
+The kernel stores only a compact SCM trigger and pinned Git-portfolio digest.
+Detection proposes Git but does not select it. An accepted decision triggers a
+transactional, content-addressed vendor install. Non-Git projects carry no
+active portfolio dependency.
+
+Choose the smallest profile that covers actual risk. No selection creates
+policy trust, collaborator identity, approval, evidence, permission, adoption,
+or readiness.

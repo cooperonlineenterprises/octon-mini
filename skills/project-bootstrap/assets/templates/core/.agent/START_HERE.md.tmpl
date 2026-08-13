@@ -10,11 +10,14 @@
 1. Current user and platform instructions.
 2. Applicable `AGENTS.md` files.
 3. `.agent/policy.json` and `.agent/context.json`.
-4. `.agent/state/current.json`.
+4. `./pb work resume`, then `.agent/state/focus.json` and the derived
+   `.agent/state/current.json` only as needed.
 5. Relevant accepted decisions and active task records.
-6. The read-only `ready_frontier` command before selecting planned work.
-7. `.agent/project.json` and `.agent/workflows/small-team-git.json` for the
-   collaboration assessment and provider-neutral workflow contract.
+6. The derived ready frontier before selecting planned work.
+7. `.agent/project.json`, `.agent/scm.json`, and `.agent/packages.json` for
+   collaboration and trigger state. Read
+   `.agent/workflows/small-team-git.json` only if its pinned package is
+   installed and registered.
 8. Applicable extensions and validators.
 9. Direct inspection of the affected implementation.
 10. `project-dossier/README.md` for intended and observed project information.
@@ -28,21 +31,23 @@
 - Implementation state: not assessed
 - External or production authority: none created by this harness
 
-Current task status lives only in `.agent/tasks/`. Durable intent lives only in
-accepted `.agent/decisions/`. Generated files are point-in-time derived
-evidence. Inspect the repository and record the first evidence-backed baseline
-before using status or planning claims.
+Current task status lives only in `.agent/tasks/`; operator direction lives in
+`.agent/state/focus.json`; `.agent/state/current.json` is a derived view.
+Durable intent lives only in accepted `.agent/decisions/`. Generated files are
+point-in-time derived evidence. Inspect the repository and record the first
+evidence-backed baseline before using status or planning claims.
 
 The collaboration profile stores only aggregate counts, safe evidence
-references, freshness, and limitations. It grants no access or permission and
-contains no generated collaborator fact. Run the separate read-only assessment
-when project-owned observations exist:
+references, observation/expiry, and limitations. It grants no access or
+permission and contains no generated collaborator fact. Plan a progressive
+assessment only when current project-owned observations exist:
 
 ```text
-python -B .agent/scripts/validate.py --assess-collaboration
+./pb maintain collaboration plan --help
 ```
 
-The command writes nothing, uses no network, and never adopts its result.
+Planning writes only the requested review artifact, uses no network, and never
+adopts its result. Apply requires the exact reviewed digest.
 Unknown, stale, or conflicting evidence selects no workflow. One to five human
 writers may use only `solo_direct`, `solo_hybrid`, `pair_pr`, or `tiny_pr`;
 simultaneous humans or agents add `concurrent_work` without changing human team
@@ -54,9 +59,19 @@ resolved structured blockers, and reciprocal plan/task links. It is not
 permission or priority. Dates remain audit, freshness, expiry, or explicit
 external-constraint data and never select the next task.
 
-`validate.py --check` is read-only and never executes project test, lint,
+`./pb check` is read-only and never executes project test, lint,
 build, or closure hooks. Those hooks begin `not_assessed`. Project owners must
 configure safe argv contracts or record an owned `not_applicable` rationale;
 configured hooks run only through the explicit project-check evidence writer
 after authority for declared side effects is confirmed. Structural success,
 harness adoption, and target-project readiness are separate conclusions.
+
+## Routine commands
+
+```text
+./pb work resume
+./pb work start --help
+./pb work close --help
+./pb check
+./pb doctor
+```

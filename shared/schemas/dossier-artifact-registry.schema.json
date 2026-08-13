@@ -11,6 +11,7 @@
     "permission_grant",
     "dossier_version",
     "profile",
+    "layout",
     "project_slug",
     "generated_on",
     "artifact_types",
@@ -18,7 +19,7 @@
   ],
   "properties": {
     "schema_version": {
-      "const": "project-dossier.artifact-registry.v2"
+      "const": "project-dossier.artifact-registry.v3"
     },
     "document_role": {
       "const": "authoritative_project_local_artifact_metadata"
@@ -35,6 +36,12 @@
         "minimal",
         "standard",
         "high-assurance"
+      ]
+    },
+    "layout": {
+      "enum": [
+        "compact",
+        "separated"
       ]
     },
     "project_slug": {

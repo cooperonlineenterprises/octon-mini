@@ -4,9 +4,14 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import importlib.util
 import json
+import os
+import re
+import subprocess
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -19,6 +24,39 @@ IGNORED_DISCOVERY_PARTS = {
     "node_modules",
     "vendor",
     "__pycache__",
+    ".agent",
+    ".agents",
+    "build",
+    "dist",
+    "target",
+    "coverage",
+    ".coverage",
+    ".next",
+    ".cache",
+}
+DEFAULT_MAX_FILES = 200
+DEFAULT_MAX_FILE_BYTES = 256 * 1024
+DEFAULT_MAX_TOTAL_BYTES = 4 * 1024 * 1024
+SENSITIVE_NAME = re.compile(
+    r"(?i)(?:^|[._-])(?:secret|credential|private|sensitive|confidential|pii)(?:[._-]|$)"
+)
+SENSITIVE_SUFFIXES = {".pem", ".key", ".p12", ".pfx", ".kdbx"}
+ALLOWLIST_NAMES = {
+    "agents.md", "claude.md", "readme", "readme.md", "readme.rst",
+    "package.json", "pyproject.toml", "cargo.toml", "go.mod", "makefile",
+    "dockerfile", "pom.xml", "build.gradle", "build.gradle.kts",
+    "citation.cff", "requirements.txt", "mkdocs.yml", "dvc.yaml",
+    "dbt_project.yml",
+}
+ALLOWLIST_SUFFIXES = {".md", ".rst", ".txt", ".json", ".toml", ".yaml", ".yml"}
+SEMANTIC_RULES = {
+    "repository_instructions": ("permission", "authority", "instruction", "policy"),
+    "decisions_and_work_state": ("decision", "status", "task", "plan", "owner"),
+    "project_definition_and_requirements": ("objective", "scope", "requirement", "constraint"),
+    "architecture_or_outcome_model": ("architecture", "component", "outcome", "system"),
+    "current_state_and_conformance": ("current state", "finding", "conformance", "gap"),
+    "plans_and_registers": ("roadmap", "risk", "assumption", "question", "milestone"),
+    "provenance_validation_and_handoff": ("evidence", "source", "validation", "handoff", "resume"),
 }
 FUNCTIONAL_EQUIVALENT_PATTERNS = {
     "repository_instructions": (
@@ -86,6 +124,241 @@ def load_scaffolder():
     return module
 
 
+def load_detector():
+    path = Path(__file__).with_name("detect_project.py")
+    spec = importlib.util.spec_from_file_location("project_blueprint_detector", path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"cannot load detector protocol: {path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def path_metadata_digest(path: Path, relative: str) -> str:
+    try:
+        metadata = path.lstat()
+        payload = f"{relative}\0{metadata.st_mode & 0o7777}\0{metadata.st_size}".encode("utf-8")
+    except OSError:
+        payload = f"{relative}\0unreadable".encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
+
+
+def content_digest(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def sensitive_path(relative: Path) -> bool:
+    name = relative.name.casefold()
+    return (
+        name.startswith(".env")
+        or relative.suffix.casefold() in SENSITIVE_SUFFIXES
+        or name in {"id_rsa", "id_ed25519", "kubeconfig"}
+        or any(SENSITIVE_NAME.search(part) for part in relative.parts)
+    )
+
+
+def allowlisted_text(relative: Path) -> bool:
+    name = relative.name.casefold()
+    return name in ALLOWLIST_NAMES or relative.suffix.casefold() in ALLOWLIST_SUFFIXES
+
+
+def git_ignored_paths(target: Path, paths: list[Path]) -> set[str]:
+    if not (target / ".git").exists() or not paths:
+        return set()
+    payload = "\0".join(path.as_posix() for path in paths) + "\0"
+    try:
+        result = subprocess.run(
+            ["git", "check-ignore", "--stdin", "-z"],
+            cwd=target,
+            input=payload,
+            capture_output=True,
+            text=True,
+            check=False,
+            env={**os.environ, "GIT_OPTIONAL_LOCKS": "0"},
+        )
+    except OSError:
+        return set()
+    if result.returncode not in {0, 1}:
+        return set()
+    return {item for item in result.stdout.split("\0") if item}
+
+
+def semantic_signals(text: str) -> dict[str, list[str]]:
+    normalized = text.casefold()
+    return {
+        concern: sorted(token for token in tokens if token in normalized)
+        for concern, tokens in SEMANTIC_RULES.items()
+        if any(token in normalized for token in tokens)
+    }
+
+
+def semantic_inspection(
+    target: Path,
+    *,
+    max_files: int = DEFAULT_MAX_FILES,
+    max_file_bytes: int = DEFAULT_MAX_FILE_BYTES,
+    max_total_bytes: int = DEFAULT_MAX_TOTAL_BYTES,
+    sensitive_opt_in: set[str] | None = None,
+) -> dict[str, Any]:
+    if max_files < 1 or max_file_bytes < 1 or max_total_bytes < 1:
+        raise ValueError("semantic inspection limits must be positive")
+    opt_in = sensitive_opt_in or set()
+    candidate_paths: list[Path] = []
+    exclusions: list[dict[str, Any]] = []
+    for path in sorted(target.rglob("*")):
+        try:
+            relative = path.relative_to(target)
+        except ValueError:
+            continue
+        relative_string = relative.as_posix()
+        if any(part in IGNORED_DISCOVERY_PARTS for part in relative.parts):
+            continue
+        if path.is_symlink():
+            exclusions.append(
+                {
+                    "path": relative_string,
+                    "reason": "symlink_excluded",
+                    "evidence_kind": "path_type_metadata",
+                    "sha256": path_metadata_digest(path, relative_string),
+                }
+            )
+            continue
+        if not path.is_file():
+            continue
+        if sensitive_path(relative) and relative_string not in opt_in:
+            exclusions.append(
+                {
+                    "path": relative_string,
+                    "reason": "sensitive_path_requires_exact_opt_in",
+                    "evidence_kind": "path_type_metadata_without_content_read",
+                    "sha256": path_metadata_digest(path, relative_string),
+                }
+            )
+            continue
+        if not allowlisted_text(relative) and relative_string not in opt_in:
+            continue
+        candidate_paths.append(relative)
+
+    ignored = git_ignored_paths(target, candidate_paths)
+    inspected: list[dict[str, Any]] = []
+    total = 0
+    limited = False
+    for relative in candidate_paths:
+        relative_string = relative.as_posix()
+        path = target / relative
+        if relative_string in ignored:
+            exclusions.append(
+                {
+                    "path": relative_string,
+                    "reason": "ignored_artifact",
+                    "evidence_kind": "path_type_metadata_without_content_read",
+                    "sha256": path_metadata_digest(path, relative_string),
+                }
+            )
+            continue
+        try:
+            size = path.stat().st_size
+        except OSError:
+            exclusions.append(
+                {
+                    "path": relative_string,
+                    "reason": "unreadable_metadata",
+                    "evidence_kind": "path_type_metadata",
+                    "sha256": path_metadata_digest(path, relative_string),
+                }
+            )
+            continue
+        if size > max_file_bytes:
+            exclusions.append(
+                {
+                    "path": relative_string,
+                    "reason": "per_file_limit",
+                    "evidence_kind": "content_hash_without_semantic_read",
+                    "sha256": content_digest(path),
+                    "size": size,
+                }
+            )
+            continue
+        if len(inspected) >= max_files or total + size > max_total_bytes:
+            exclusions.append(
+                {
+                    "path": relative_string,
+                    "reason": "aggregate_inspection_limit",
+                    "evidence_kind": "content_hash_without_semantic_read",
+                    "sha256": content_digest(path),
+                    "size": size,
+                }
+            )
+            limited = True
+            continue
+        try:
+            data = path.read_bytes()
+            if b"\0" in data:
+                raise UnicodeDecodeError("utf-8", data, 0, 1, "NUL byte")
+            text = data.decode("utf-8")
+        except (OSError, UnicodeDecodeError):
+            exclusions.append(
+                {
+                    "path": relative_string,
+                    "reason": "binary_or_non_utf8",
+                    "evidence_kind": "content_hash_without_semantic_read",
+                    "sha256": content_digest(path),
+                    "size": size,
+                }
+            )
+            continue
+        total += size
+        inspected.append(
+            {
+                "path": relative_string,
+                "size": size,
+                "sha256": hashlib.sha256(data).hexdigest(),
+                "signals": semantic_signals(text),
+                "content_retained": False,
+            }
+        )
+    return {
+        "limits": {
+            "max_files": max_files,
+            "max_file_bytes": max_file_bytes,
+            "max_total_bytes": max_total_bytes,
+        },
+        "files_inspected": len(inspected),
+        "bytes_inspected": total,
+        "limit_reached": limited,
+        "inspected": inspected,
+        "excluded": sorted(exclusions, key=lambda item: item["path"]),
+        "sensitive_opt_in": sorted(opt_in),
+        "content_retention": "none",
+    }
+
+
+def semantic_equivalents(inspection: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
+    result = {concern: [] for concern in FUNCTIONAL_EQUIVALENT_PATTERNS}
+    for item in inspection["inspected"]:
+        for concern, matches in item["signals"].items():
+            if concern not in result:
+                continue
+            confidence = "high" if len(matches) >= 3 else "medium" if len(matches) >= 2 else "low"
+            result[concern].append(
+                {
+                    "path": item["path"],
+                    "confidence": confidence,
+                    "rule": "bounded case-insensitive concern vocabulary match",
+                    "matched_terms": matches,
+                    "sha256": item["sha256"],
+                    "limitations": [
+                        "Vocabulary matches do not establish functional equivalence, ownership, or authority."
+                    ],
+                }
+            )
+    return {key: sorted(value, key=lambda item: item["path"]) for key, value in result.items()}
+
+
 def classify_existing(target: Path) -> dict[str, Any]:
     indicators = {
         "root_instructions": (target / "AGENTS.md").is_file(),
@@ -130,6 +403,7 @@ def origin_summary(target: Path, scaffolder: Any) -> dict[str, Any] | None:
         "status": "valid_shape_not_fully_validated",
         "blueprint_version": value.get("blueprint_version"),
         "profile": value.get("profile"),
+        "layout": value.get("layout"),
         "harness_kernel_version": value.get("harness_kernel_version"),
     }
 
@@ -154,7 +428,16 @@ def functional_equivalent_candidates(target: Path) -> dict[str, list[str]]:
     return discovered
 
 
-def build_plan(target: Path, profile: str) -> dict[str, Any]:
+def build_plan(
+    target: Path,
+    profile: str,
+    *,
+    layout: str = "compact",
+    max_files: int = DEFAULT_MAX_FILES,
+    max_file_bytes: int = DEFAULT_MAX_FILE_BYTES,
+    max_total_bytes: int = DEFAULT_MAX_TOTAL_BYTES,
+    sensitive_opt_in: set[str] | None = None,
+) -> dict[str, Any]:
     scaffolder = load_scaffolder()
     scaffolder.require_runtime()
     if not target.is_absolute():
@@ -178,17 +461,15 @@ def build_plan(target: Path, profile: str) -> dict[str, Any]:
             "scaffold_project.py --diagnose-generation-policy "
             f"--profile {profile} for read-only recovery guidance"
         )
-    templates, schemas = scaffolder.resolve_generation_inputs(profile, policy)
-    scaffolder.validate_generation_boundary(profile, templates, schemas, policy)
+    templates, schemas = scaffolder.resolve_generation_inputs(profile, policy, layout)
+    scaffolder.validate_generation_boundary(profile, templates, schemas, policy, layout)
     intended = (
         set(templates)
         | set(schemas)
-        | scaffolder.DERIVED_PATHS
-        | scaffolder.PROJECT_LOCAL_SOURCE_PATHS
-        | {Path(".project-blueprint-origin.json")}
+        | scaffolder.derived_output_paths(profile, policy)
+        | scaffolder.project_local_source_paths(profile, policy)
+        | {scaffolder.origin_path(policy)}
     )
-    if profile == "high-assurance":
-        intended |= scaffolder.HIGH_DERIVED_PATHS
 
     collisions = sorted(
         path.as_posix() for path in intended if (resolved / path).exists()
@@ -201,14 +482,87 @@ def build_plan(target: Path, profile: str) -> dict[str, Any]:
         for path in resolved.iterdir()
         if path.name not in {".git", ".DS_Store"}
     )
-    return {
-        "schema_version": "project-blueprint.adoption-plan.v1",
+    inspection = semantic_inspection(
+        resolved,
+        max_files=max_files,
+        max_file_bytes=max_file_bytes,
+        max_total_bytes=max_total_bytes,
+        sensitive_opt_in=sensitive_opt_in,
+    )
+    path_candidates = functional_equivalent_candidates(resolved)
+    semantic_candidates = semantic_equivalents(inspection)
+    likely_equivalents: dict[str, list[dict[str, Any]]] = {}
+    for concern in FUNCTIONAL_EQUIVALENT_PATTERNS:
+        by_path: dict[str, dict[str, Any]] = {
+            item["path"]: item for item in semantic_candidates.get(concern, [])
+        }
+        for path_value in path_candidates.get(concern, []):
+            if path_value in by_path:
+                by_path[path_value]["path_name_candidate"] = True
+                if by_path[path_value]["confidence"] == "low":
+                    by_path[path_value]["confidence"] = "medium"
+            else:
+                by_path[path_value] = {
+                    "path": path_value,
+                    "confidence": "low",
+                    "rule": "path/name pattern only",
+                    "matched_terms": [],
+                    "sha256": path_metadata_digest(resolved / path_value, path_value),
+                    "path_name_candidate": True,
+                    "limitations": [
+                        "Path/name evidence alone does not establish functional equivalence, ownership, or authority."
+                    ],
+                }
+        likely_equivalents[concern] = sorted(by_path.values(), key=lambda item: item["path"])
+    authority_conflicts = sorted(
+        {
+            item["path"]
+            for concern in ("repository_instructions", "agent_policy_and_context")
+            for item in likely_equivalents.get(concern, [])
+        }
+        | {
+            item
+            for item in collisions
+            if item == "AGENTS.md" or item.startswith(".agent/")
+        }
+    )
+    ambiguity = [
+        {
+            "id": f"FEQ-{index:04d}",
+            "concern": concern,
+            "path": item["path"],
+            "confidence": item["confidence"],
+            "required_disposition": [
+                "add_parallel_after_review",
+                "manual_reconcile_before_replan",
+                "confirmed_equivalent_requires_project_specific_mapping",
+            ],
+        }
+        for index, (concern, item) in enumerate(
+            (
+                (concern, item)
+                for concern, items in likely_equivalents.items()
+                for item in items
+            ),
+            1,
+        )
+    ]
+    detector = load_detector()
+    detection = detector.detect(resolved)
+    always_review_prefixes = ("AGENTS.md", ".agent/", "project-dossier/")
+    review_additions = sorted(
+        item for item in absent if item == always_review_prefixes[0] or item.startswith(always_review_prefixes[1:])
+    )
+    safe_additions = sorted(set(absent) - set(review_additions))
+    plan = {
+        "schema_version": "project-blueprint.adoption-proposal.v2",
         "authority": (
             "Read-only inventory and reconciliation guidance; not permission "
             "to modify, replace, or accept project content."
         ),
         "target": str(resolved),
         "requested_profile": profile,
+        "requested_layout": layout,
         "blueprint_version": scaffolder.blueprint_version(),
         "generation_capability": {
             "mode": mode,
@@ -224,12 +578,33 @@ def build_plan(target: Path, profile: str) -> dict[str, Any]:
         "existing_top_level_names": existing_top_level,
         "collisions": collisions,
         "candidate_new_paths": absent,
-        "functional_equivalent_candidates": functional_equivalent_candidates(
-            resolved
-        ),
+        "confirmed_collisions": [
+            {
+                "path": item,
+                "type": "symlink" if (resolved / item).is_symlink() else "directory" if (resolved / item).is_dir() else "file",
+                "authority_bearing": item in authority_conflicts,
+            }
+            for item in collisions
+        ],
+        "likely_functional_equivalents": likely_equivalents,
+        "authority_bearing_conflicts": authority_conflicts,
+        "safe_additions": safe_additions,
+        "review_required_additions": review_additions,
+        "project_owned_facts_required": [
+            "adoption authority and accepted disposition",
+            "collaboration writer count and only evidence used by the selected result",
+            "project hook applicability, owner, argv, version probe, timeout, freshness, and side effects",
+            "operations/observability and security/supply-chain trigger assessments",
+            "SCM selection and any workflow adoption",
+            "target-project readiness claims",
+        ],
+        "hook_and_archetype_proposals": detection,
+        "semantic_inspection": inspection,
+        "unresolved_ambiguity": ambiguity,
+        "functional_equivalent_candidates": path_candidates,
         "functional_equivalence_limit": (
-            "Path/name candidates only. Inspect content and authority before "
-            "accepting any candidate as a functional equivalent."
+            "Bounded vocabulary and path/name evidence only. Content is not retained; "
+            "functional equivalence, ownership, and authority always require review."
         ),
         "required_sequence": [
             "Read applicable target-project instructions root to leaf.",
@@ -247,6 +622,9 @@ def build_plan(target: Path, profile: str) -> dict[str, Any]:
             "Do not treat absent blueprint paths as proof of a project gap until functional equivalents are reviewed.",
         ],
     }
+    unsigned = json.dumps(plan, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    plan["canonical_proposal_digest"] = hashlib.sha256(unsigned).hexdigest()
+    return plan
 
 
 def render_markdown(plan: dict[str, Any]) -> str:
@@ -255,7 +633,9 @@ def render_markdown(plan: dict[str, Any]) -> str:
         "",
         f"- Target: `{plan['target']}`",
         f"- Requested profile: `{plan['requested_profile']}`",
+        f"- Requested layout: `{plan['requested_layout']}`",
         f"- Blueprint version: `{plan['blueprint_version']}`",
+        f"- Proposal digest: `{plan['canonical_proposal_digest']}`",
         f"- Authority: {plan['authority']}",
         f"- Generation capability: `{plan['generation_capability']['mode']}`",
         "",
@@ -317,12 +697,32 @@ def render_markdown(plan: dict[str, Any]) -> str:
     )
     lines.extend(["", "## Functional-equivalent candidates", ""])
     lines.append(f"- Limitation: {plan['functional_equivalence_limit']}")
-    for concern, candidates in plan["functional_equivalent_candidates"].items():
+    for concern, candidates in plan["likely_functional_equivalents"].items():
         lines.append(f"- {concern}:")
         lines.extend(
-            [f"  - `{item}`" for item in candidates]
+            [f"  - `{item['path']}` ({item['confidence']}; {item['rule']})" for item in candidates]
             or ["  - none observed"]
         )
+    inspection = plan["semantic_inspection"]
+    lines.extend(
+        [
+            "",
+            "## Bounded semantic inspection",
+            "",
+            f"- files inspected: `{inspection['files_inspected']}` / `{inspection['limits']['max_files']}`",
+            f"- bytes inspected: `{inspection['bytes_inspected']}` / `{inspection['limits']['max_total_bytes']}`",
+            f"- excluded paths: `{len(inspection['excluded'])}`",
+            f"- aggregate limit reached: `{str(inspection['limit_reached']).lower()}`",
+            "- inspected content retained: `false`",
+            "",
+            "## Mutation classification",
+            "",
+            f"- safe additions after plan review: `{len(plan['safe_additions'])}`",
+            f"- authority/governance additions requiring explicit review: `{len(plan['review_required_additions'])}`",
+            f"- authority-bearing conflicts: `{len(plan['authority_bearing_conflicts'])}`",
+            f"- unresolved functional-equivalence dispositions: `{len(plan['unresolved_ambiguity'])}`",
+        ]
+    )
     lines.extend(["", "## Required reconciliation sequence", ""])
     for index, item in enumerate(plan["required_sequence"], 1):
         lines.append(f"{index}. {item}")
@@ -345,8 +745,17 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--target", required=True, type=Path)
     parser.add_argument(
         "--profile",
-        choices=("minimal", "standard", "high-assurance"),
-        default="standard",
+        required=True,
+    )
+    parser.add_argument("--layout", choices=("compact", "separated"), default="compact")
+    parser.add_argument("--max-files", type=int, default=DEFAULT_MAX_FILES)
+    parser.add_argument("--max-file-bytes", type=int, default=DEFAULT_MAX_FILE_BYTES)
+    parser.add_argument("--max-total-bytes", type=int, default=DEFAULT_MAX_TOTAL_BYTES)
+    parser.add_argument(
+        "--include-sensitive-path",
+        action="append",
+        default=[],
+        help="exact target-relative path explicitly opted into bounded semantic inspection",
     )
     parser.add_argument("--format", choices=("markdown", "json"), default="markdown")
     return parser.parse_args()
@@ -355,7 +764,21 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     try:
-        plan = build_plan(args.target.expanduser(), args.profile)
+        opt_in: set[str] = set()
+        for raw in args.include_sensitive_path:
+            relative = Path(raw)
+            if relative.is_absolute() or any(part in {"", ".", ".."} for part in relative.parts):
+                raise ValueError(f"unsafe --include-sensitive-path: {raw!r}")
+            opt_in.add(relative.as_posix())
+        plan = build_plan(
+            args.target.expanduser(),
+            args.profile,
+            layout=args.layout,
+            max_files=args.max_files,
+            max_file_bytes=args.max_file_bytes,
+            max_total_bytes=args.max_total_bytes,
+            sensitive_opt_in=opt_in,
+        )
     except (OSError, RuntimeError, ValueError) as error:
         print(f"ERROR: {error}", file=sys.stderr)
         return 2

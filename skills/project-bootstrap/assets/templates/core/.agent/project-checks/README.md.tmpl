@@ -4,8 +4,10 @@ This directory contains project-owned execution evidence. It is not generated
 proof of readiness, permission, approval, security, compliance, or production
 safety.
 
-`.agent/project-checks/evidence.json` is an append-only record store written
-only by the explicit command below:
+`.agent/project-checks/evidence.json` is a bounded current index written only
+by the explicit command below. Prior immutable records move to
+date-partitioned `.agent/project-checks/archive/` files; the current index keeps
+successor relationships and never rewrites an archive.
 
 ```text
 python -B .agent/scripts/run_project_checks.py --write-evidence
@@ -15,6 +17,10 @@ The writer executes only hooks deliberately marked `configured` in
 `.agent/project.json`. Commands and version probes are argv arrays and are
 passed directly to the operating system without `shell=True`. Hooks marked
 `not_applicable` or `not_assessed` are recorded as skipped and never executed.
+Routine work may select exact hooks with repeated `--hook` arguments or use
+reviewed changed-scope routing with `--changed-scope`. These modes are mutually
+exclusive. `--verify-adoption` rejects selective routing and executes the
+complete configured boundary.
 
 The writer records the exact argv, observed tool-version output, executable
 fingerprint, source revision and fingerprint, Git dirty/untracked/ignored

@@ -12,7 +12,8 @@ Generate the smallest justified profile around:
 1. short root instruction routing;
 2. the seven-file `.agent/` governance kernel;
 3. project profile and extension contracts;
-4. operational records and compact current state; and
+4. operational records, explicit focus, derived current state, and staged
+   repository-local transactions; and
 5. optional `.agents/` capability packages and generated integrity.
 
 The harness is project-local and subordinate to higher authority. Generated
@@ -30,12 +31,16 @@ endpoints, or domain constants from this blueprint or another project.
 - commands and checks: `.agent/validators.json`;
 - stable project hooks, collaboration assessment, and workflow adoption:
   `.agent/project.json`;
-- provider-neutral workflow definitions: `.agent/workflows/small-team-git.json`;
+- command inventory: derived `.agent/commands.json`;
+- SCM and package triggers: `.agent/scm.json` and `.agent/packages.json`;
+- installed provider-neutral Git workflow, when selected:
+  `.agent/workflows/small-team-git.json`;
 - explicit target-project check evidence: `.agent/project-checks/evidence.json`;
 - active work: `.agent/tasks/`;
 - durable intent: `.agent/decisions/`;
 - direct observation: `.agent/evidence/`;
-- concise resumption: `.agent/state/`; and
+- explicit operator focus plus derived resumption: `.agent/state/`;
+- plan/apply/recovery receipts: `.agent/transactions/`; and
 - generated integrity: `.agent/generated/`, always non-authoritative.
 
 The kernel uses strict JSON with duplicate-key rejection and a local schema
@@ -65,18 +70,19 @@ five is explicitly unsupported. Read-only humans, bots, automation, and recent
 activity do not alter the write-capable-human count. Simultaneous humans or
 agents add `concurrent_work` without changing the human band.
 
-Assessment requires project-owned evidence, observation and freshness times,
-limitations, and `confirmed`, `inferred`, `conflicted`, or `unknown`
-confidence. Unknown, stale, or conflicting state selects nothing. Store only
-aggregate counts and safe references, never collaborator identities. The
-read-only assessment command reads the stored aggregate, writes nothing, uses
-no network, and never runs under ordinary `--check`.
+Assessment v2 requires project-owned evidence, observation and expiry times,
+and limitations for every fact used by its result. Unknown, stale, or
+conflicting state selects nothing. Store only aggregate counts and safe
+references, never collaborator identities. Planning reads the stored project
+and supplied evidence without changing it; apply is an exact digest-bound
+transaction. Ordinary `--check` never invents or refreshes collaboration facts.
 
 A recommendation cannot adopt or authorize a workflow. Adoption requires an
 accepted project-owned decision, and each Git or hosted operation still follows
-its own authority class. The workflow catalog is provider-neutral and every
-operation reference resolves to the exact, fail-closed catalogs in
-`.agent/tools.json`. GitHub is optional and generated projects assert no hosted
+its own authority class. The compact kernel ships no full Git portfolio. Once
+Git is selected, a pinned, decision-bound package transaction installs the
+provider-neutral catalog, whose operation references resolve to the exact,
+fail-closed catalogs in `.agent/tools.json`. GitHub is optional and generated projects assert no hosted
 reviewer, check, protection, environment, release, credential, permission, or
 CI fact.
 
@@ -88,15 +94,18 @@ enterprise issue/portfolio governance.
 ## Adoption boundary
 
 Scaffolding proves only that the baseline files were generated consistently.
-Target-project adoption must inspect actual scope and risks, resolve or
-explicitly classify sentinels, record the authority posture, assess every
+Established projects use bounded semantic adoption with explicit exclusions,
+collision and functional-equivalence review, no overwrite, exact fingerprints,
+staged validation, and receipts. Target-project adoption must still inspect
+actual scope and risks, resolve or explicitly classify sentinels, record the authority posture, assess every
 target-project hook, execute configured hooks only through the explicit
 shell-free evidence writer, run read-only checks and mutation tests in a clean
 environment, and complete a real task lifecycle. Structural conformance,
 project-harness adoption, and demonstrated target-project readiness are
 separate conclusions.
 
-Standard and High Assurance include disabled, unassessed operations and
-observability plus security and supply-chain extensions. Their strict records
-can support production-governance adoption, but their presence or successful
-validation proves neither external execution nor a qualified conclusion.
+No profile includes operations/observability or security/supply-chain content
+by default. Trigger assessment may install a pinned package only after an
+accepted trust decision. Its strict records can support production-governance
+adoption, but presence or successful validation proves neither external
+execution nor a qualified conclusion.

@@ -1,0 +1,280 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://project-blueprint.local/schemas/harness-transaction.schema.json",
+  "title": "Project Blueprint Transaction Artifacts",
+  "description": "Non-authorizing, content-addressed plans, write-ahead recovery journals, and exact rollback receipts.",
+  "$defs": {
+    "strings": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "path_state": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "type", "mode", "sha256"],
+      "properties": {
+        "path": {"type": "string", "pattern": "^[^/]+(?:/[^/]+)*$"},
+        "type": {"enum": ["absent", "file", "directory", "symlink", "other"]},
+        "mode": {"type": ["integer", "null"], "minimum": 0, "maximum": 4095},
+        "sha256": {"type": ["string", "null"], "pattern": "^[a-f0-9]{64}$"}
+      }
+    },
+    "operation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["action", "path", "content_base64", "mode", "rationale"],
+      "properties": {
+        "action": {"enum": ["create", "replace", "delete"]},
+        "path": {"type": "string", "pattern": "^[^/]+(?:/[^/]+)*$"},
+        "content_base64": {"type": ["string", "null"]},
+        "mode": {"type": ["integer", "null"], "minimum": 0, "maximum": 4095},
+        "rationale": {"type": "string", "minLength": 1}
+      }
+    },
+    "source_evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "reference", "observed_at", "sha256", "limitations"],
+      "properties": {
+        "kind": {"type": "string", "minLength": 1},
+        "reference": {"type": "string", "minLength": 1},
+        "observed_at": {"type": "string", "format": "date-time"},
+        "sha256": {"type": ["string", "null"], "pattern": "^[a-f0-9]{64}$"},
+        "limitations": {"$ref": "#/$defs/strings"}
+      }
+    },
+    "analysis_item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "summary", "source_refs", "rule", "confidence", "limitations"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^[a-z][a-z0-9_.-]+$"},
+        "summary": {"type": "string", "minLength": 1},
+        "source_refs": {"$ref": "#/$defs/strings"},
+        "rule": {"type": ["string", "null"]},
+        "confidence": {"enum": ["low", "medium", "high", "deterministic"]},
+        "limitations": {"$ref": "#/$defs/strings"}
+      }
+    },
+    "analysis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["observations", "inferences", "explicit_decisions", "authorization_gates"],
+      "properties": {
+        "observations": {"type": "array", "items": {"$ref": "#/$defs/analysis_item"}},
+        "inferences": {"type": "array", "items": {"$ref": "#/$defs/analysis_item"}},
+        "explicit_decisions": {"type": "array", "items": {"$ref": "#/$defs/analysis_item"}},
+        "authorization_gates": {"type": "array", "items": {"$ref": "#/$defs/analysis_item"}}
+      }
+    },
+    "instruction_fingerprint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "paths", "digest"],
+      "properties": {
+        "algorithm": {"const": "sha256_path_nul_content_nul_v1"},
+        "paths": {"$ref": "#/$defs/strings"},
+        "digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+      }
+    },
+    "argv_set": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}
+    },
+    "validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["staged_argv", "declared_write_paths", "post_apply_argv"],
+      "properties": {
+        "staged_argv": {"$ref": "#/$defs/argv_set"},
+        "declared_write_paths": {"$ref": "#/$defs/strings"},
+        "post_apply_argv": {"$ref": "#/$defs/argv_set"}
+      }
+    },
+    "plan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "artifact_kind",
+        "permission_grant",
+        "operation",
+        "scope",
+        "created_at",
+        "planned_receipt_id",
+        "source_evidence",
+        "analysis",
+        "assumptions",
+        "confidence",
+        "limitations",
+        "governing_instruction_fingerprint",
+        "evidence_preimages",
+        "targets",
+        "operations",
+        "conflicts",
+        "excluded_paths",
+        "validation",
+        "rollback_plan",
+        "canonical_plan_digest"
+      ],
+      "properties": {
+        "schema_version": {"const": "harness.transaction-plan.v2"},
+        "artifact_kind": {"const": "transaction_plan"},
+        "permission_grant": {"const": false},
+        "operation": {"type": "string", "pattern": "^[a-z][a-z0-9_.-]+$"},
+        "scope": {"type": "string", "minLength": 1},
+        "created_at": {"type": "string", "format": "date-time"},
+        "planned_receipt_id": {"type": "string", "pattern": "^RCPT-[a-f0-9]{24}$"},
+        "source_evidence": {"type": "array", "items": {"$ref": "#/$defs/source_evidence"}},
+        "analysis": {"$ref": "#/$defs/analysis"},
+        "assumptions": {"$ref": "#/$defs/strings"},
+        "confidence": {"enum": ["low", "medium", "high", "deterministic"]},
+        "limitations": {"$ref": "#/$defs/strings"},
+        "governing_instruction_fingerprint": {"$ref": "#/$defs/instruction_fingerprint"},
+        "evidence_preimages": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/path_state"}},
+        "targets": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/path_state"}},
+        "operations": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/operation"}},
+        "conflicts": {"$ref": "#/$defs/strings"},
+        "excluded_paths": {"$ref": "#/$defs/strings"},
+        "validation": {"$ref": "#/$defs/validation"},
+        "rollback_plan": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["strategy", "refuse_if_post_apply_changed", "interruption_recovery"],
+          "properties": {
+            "strategy": {"const": "receipt_embeds_exact_preimage"},
+            "refuse_if_post_apply_changed": {"const": true},
+            "interruption_recovery": {"const": "write_ahead_pending_journal"}
+          }
+        },
+        "canonical_plan_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+      }
+    },
+    "receipt_path": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "before", "after", "before_content_base64"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "before": {"$ref": "#/$defs/path_state"},
+        "after": {"$ref": "#/$defs/path_state"},
+        "before_content_base64": {"type": ["string", "null"]}
+      }
+    },
+    "validation_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["phase", "argv", "exit_code", "stdout_sha256", "stderr_sha256"],
+      "properties": {
+        "phase": {"enum": ["staged", "post_apply"]},
+        "argv": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+        "exit_code": {"type": "integer"},
+        "stdout_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "stderr_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+      }
+    },
+    "receipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "artifact_kind",
+        "permission_grant",
+        "receipt_id",
+        "operation",
+        "plan_digest",
+        "applied_at",
+        "status",
+        "paths",
+        "created_directories",
+        "validation",
+        "rollback"
+      ],
+      "properties": {
+        "schema_version": {"const": "harness.transaction-receipt.v2"},
+        "artifact_kind": {"const": "transaction_receipt"},
+        "permission_grant": {"const": false},
+        "receipt_id": {"type": "string", "pattern": "^RCPT-[a-f0-9]{24}$"},
+        "operation": {"type": "string", "minLength": 1},
+        "plan_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "applied_at": {"type": "string", "format": "date-time"},
+        "status": {"enum": ["applied", "rollback_in_progress", "rolled_back"]},
+        "paths": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/receipt_path"}},
+        "created_directories": {"$ref": "#/$defs/strings"},
+        "validation": {"type": "array", "items": {"$ref": "#/$defs/validation_result"}},
+        "rollback": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["available", "refuse_if_post_apply_changed", "command"],
+          "properties": {
+            "available": {"type": "boolean"},
+            "refuse_if_post_apply_changed": {"const": true},
+            "command": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}
+          }
+        }
+      }
+    },
+    "pending": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "artifact_kind",
+        "permission_grant",
+        "receipt_id",
+        "operation",
+        "plan_digest",
+        "started_at",
+        "paths",
+        "created_directories",
+        "recovery_rule"
+      ],
+      "properties": {
+        "schema_version": {"const": "harness.transaction-pending.v1"},
+        "artifact_kind": {"const": "transaction_pending"},
+        "permission_grant": {"const": false},
+        "receipt_id": {"type": "string", "pattern": "^RCPT-[a-f0-9]{24}$"},
+        "operation": {"type": "string", "minLength": 1},
+        "plan_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "started_at": {"type": "string", "format": "date-time"},
+        "paths": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/receipt_path"}},
+        "created_directories": {"$ref": "#/$defs/strings"},
+        "recovery_rule": {"const": "restore_only_when_each_path_matches_its_preimage_or_planned_postimage"}
+      }
+    },
+    "recovery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "artifact_kind",
+        "permission_grant",
+        "receipt_id",
+        "operation",
+        "plan_digest",
+        "started_at",
+        "recovered_at",
+        "status",
+        "paths",
+        "created_directories",
+        "recovery_rule"
+      ],
+      "properties": {
+        "schema_version": {"const": "harness.transaction-recovery.v1"},
+        "artifact_kind": {"const": "transaction_recovery"},
+        "permission_grant": {"const": false},
+        "receipt_id": {"type": "string", "pattern": "^RCPT-[a-f0-9]{24}$"},
+        "operation": {"type": "string", "minLength": 1},
+        "plan_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "started_at": {"type": "string", "format": "date-time"},
+        "recovered_at": {"type": "string", "format": "date-time"},
+        "status": {"const": "recovered_to_preimage"},
+        "paths": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/receipt_path"}},
+        "created_directories": {"$ref": "#/$defs/strings"},
+        "recovery_rule": {"const": "restore_only_when_each_path_matches_its_preimage_or_planned_postimage"}
+      }
+    }
+  }
+}

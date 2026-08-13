@@ -84,6 +84,95 @@ The governed-change record contains only the module names `impact`, `action`,
 universal verbs, action enum, external-effect infrastructure, or recovery
 implementation.
 
+## SRC-DEC-0007 — Authoritative profile manifest and explicit profile selection
+
+| Field | Accepted decision |
+|---|---|
+| Status | `accepted` |
+| Authority | Explicit repository-owner velocity-roadmap implementation authorization on 2026-08-12 |
+| Scope | Blueprint source profiles, generated inventories, package declarations, acceptance coverage, and their independent-snapshot projections |
+| Placement | `shared/source-contracts/profile-manifest.json` with a versioned source schema |
+| Decision | Maintain one authoritative profile manifest and derive generator choices, project-local and derived paths, generated validator inventories, package declarations, and acceptance reporting from it |
+| Selection effect | Non-interactive generation and adoption planning require an explicit profile; a future interactive flow may propose Minimal but cannot adopt it without confirmation |
+| Permission effect | None; manifest data and profile recommendations grant no project authority |
+| Compatibility | Breaking source-tooling transition in the 4.0.0 velocity program; existing independent snapshots remain unchanged until an explicit migration |
+
+Generated projects receive only the selected, rendered projection needed for
+their independent validator. They do not depend on the Blueprint source
+manifest at runtime. The manifest remains allowlist-driven, source paths remain
+`source_only` by default, and its documentation and acceptance projections are
+validated rather than independently maintained.
+
+## SRC-DEC-0008 — Staged repository-local transactions and derived operating state
+
+| Field | Accepted decision |
+|---|---|
+| Status | `accepted` |
+| Authority | Explicit repository-owner velocity-roadmap implementation authorization on 2026-08-12 |
+| Scope | Generated repository-local lifecycle, maintenance, recovery, and evidence-index mutations |
+| Decision | Use one closed plan/apply contract with canonical digests, instruction and path preimages, staging, declared derived writes, write-ahead recovery, exact receipts, and postimage-bound rollback |
+| State effect | `state/current.json` becomes derived; non-derivable operator focus remains an explicit source in `state/focus.json` |
+| Permission effect | None; a transaction executes only already-authorized repository-local work and cannot create authority, facts, review, evidence, or external-effect permission |
+| Compatibility | Harness-kernel v4 change requiring explicit migration; existing independent snapshots remain unchanged |
+
+There is no force bypass. Planning, check, doctor, resume, discovery, and
+diagnostic modes are read-only. Generated-integrity refresh and project-check
+evidence remain distinct explicit writers. An interrupted apply restores exact
+preimages only while each affected path still matches its recorded preimage or
+planned postimage.
+
+## SRC-DEC-0009 — Progressive collaboration and trigger-installed capabilities
+
+| Field | Accepted decision |
+|---|---|
+| Status | `accepted` |
+| Authority | Explicit repository-owner velocity-roadmap implementation authorization on 2026-08-12 |
+| Scope | Collaboration assessment, concurrent-work modifier, SCM selection, domain packages, and optional schemas |
+| Decision | Derive solo, pair, or tiny only from current aggregate evidence used by the result; model concurrency separately; ship only trigger metadata in the kernel and install capability payloads through pinned, decision-bound transactions |
+| Profile effect | None; collaboration and concurrency never select Minimal, Standard, or High Assurance |
+| Permission effect | None; detection and derived workflow selection are proposals unless an accepted project decision adopts them |
+| Compatibility | Collaboration profile v2 and package registry v1 require explicit migration or reviewed legacy seeding |
+
+Missing trigger evidence is `not_assessed`, not `not_applicable`. Package
+content, accepted trust decision, applicability when claimed, installed digest,
+validation receipt, owner, and lifecycle state are independently bound. The
+full Git portfolio and domain mechanisms are absent from every default profile.
+
+## SRC-DEC-0010 — Bounded semantic adoption and three-way live upgrades
+
+| Field | Accepted decision |
+|---|---|
+| Status | `accepted` |
+| Authority | Explicit repository-owner velocity-roadmap implementation authorization on 2026-08-12 |
+| Scope | Established-repository adoption and upgrades of generated independent snapshots |
+| Decision | Inspect established projects through bounded allowlisted recipes; preserve all existing bytes; upgrade by comparing recorded old baseline, current project state, and candidate snapshot |
+| Automatic boundary | Safe additions, exact-pristine non-authoritative implementation assets, and declared derived regeneration only |
+| Review boundary | Instructions, policy, configuration, workflows, dossier sources and registries, records, stable IDs, deletions, moves, symlinks, permissions, and modified content |
+| Permission effect | None; structural installation or upgrade never marks adoption or readiness |
+
+Plans retain hashes and matched vocabulary rather than inspected content.
+Every ambiguity is proposal-bound, previewable, and explicitly dispositioned.
+Legacy 3.1 projects lacking an installed-baseline inventory require reviewed
+seed data; no baseline is reconstructed by assertion or guess.
+
+## SRC-DEC-0011 — Compact representation and tiered validation
+
+| Field | Accepted decision |
+|---|---|
+| Status | `accepted` |
+| Authority | Explicit repository-owner velocity-roadmap implementation authorization on 2026-08-12 |
+| Scope | New-project physical dossier layout and generated validation cost |
+| Decision | Default new snapshots to the compact representation map while retaining separated layout; expose fast, integration, and release tiers with bounded mutation baselines and explicit scale benchmarks |
+| Semantic effect | None; combining physical representations does not combine authority ownership, lifecycle, stable artifact IDs, or substantive review obligations |
+| Profile effect | None; layout remains independent of assurance and collaboration |
+| Compatibility | Layout is recorded in origin inventory v2; moves between layouts require explicit registry-aware migration |
+
+Primitive scaffolding runs structural checks plus the fast bounded mutation
+tier before atomic placement. Guided init, adoption, upgrade, release
+validation, and other consequential boundaries stage the complete applicable
+release tier. Full-tree tests remain where host metadata, ignore behavior,
+symlinks, whole-tree fingerprinting, or cross-file integration is material.
+
 ## Explicitly deferred by these decisions
 
 The following remain outside the accepted implementation:

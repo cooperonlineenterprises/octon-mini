@@ -1,0 +1,1 @@
+{"schema_version":"project-blueprint.detector-recipe.v1","id":"design-brand","markers":["brand","design","assets","styleguide"],"archetypes":["design","brand","non_software"],"hooks":[],"limitations":["Design and brand path names are weak evidence and propose no publication or external action."]}

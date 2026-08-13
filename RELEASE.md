@@ -2,19 +2,18 @@
 
 ## Current development version
 
-- Blueprint source and generator: `3.1.0` (unreleased)
-- Harness kernel: `3.0.0` (unchanged)
-- Compatibility: additive source governance and one High-Assurance-only
-  optional schema
+- Blueprint source and generator: `4.0.0` (unreleased)
+- Harness kernel: `4.0.0`
+- Compatibility: major migration with independent snapshots, reviewed
+  three-way upgrades, and no automatic target-project rewrite
 
-Version `3.1.0` implements accepted source decisions `SRC-DEC-0003` through
-`SRC-DEC-0006`. It is not yet a completed release, tag, GitHub Release, or
-generated-project migration. Pattern Catalog and Architecture Proof assets are
-source-only. Existing `3.0.0` generated snapshots remain independent and are
-not updated automatically. Generation policy v2 explicitly enumerates reviewed
-inputs, degrades truthfully by ignoring unreviewed additions, isolates missing
-dependencies to affected profiles, and preserves fail-closed safety and exact-
-stage boundaries.
+Version `4.0.0` implements the source-only velocity program recorded in
+`VELOCITY_ROADMAP.md`. It is not yet a completed release, tag, GitHub Release,
+or target-project adoption decision. Existing snapshots remain independent and
+are not updated automatically. Upgrade automation is limited to exact-pristine
+non-authoritative implementation assets, safe additions, and explicit derived
+regeneration; all authority-bearing or ambiguous paths require reviewed
+dispositions and exact digest acceptance.
 
 ## Current release
 
@@ -77,24 +76,28 @@ Before tagging a release:
    with an explicit `--reference-root ID=/absolute/path` for each registered
    repository and disclose any unavailable checkout;
 2. run `validate_blueprint.py`;
-3. run both `test_migration_1_0_1_to_2_0_0.py` and
-   `test_migration_2_0_0_to_3_0_0.py`, and confirm valid transformation,
-   exact idempotence, rollback evidence, and every fail-closed fixture;
-4. run `test_acceptance.py`;
+3. run `test_migration_1_0_1_to_2_0_0.py`,
+   `test_migration_2_0_0_to_3_0_0.py`, and
+   `test_migration_3_1_0_to_4_0_0.py`, and confirm valid transformation,
+   exact idempotence, reviewed legacy seeding, rollback evidence, and every
+   fail-closed fixture;
+4. run `test_velocity_workflows.py`, `test_acceptance.py`, and
+   `benchmark_validation.py --enforce`; retain the host-specific benchmark
+   report and disclose any threshold failure;
 5. install the skill into a fresh temporary destination, run the installed
    package, blueprint, reference, and acceptance validators from that
-   destination, and generate and check all three profiles from the bundled
-   source;
+   destination, and generate and check all three profiles in compact and
+   separated layouts from the bundled source;
 6. when available, run the skill-creator `quick_validate.py` as a compatibility
    check against the installed Codex tooling;
 7. confirm the pull-request `required` gate passes; local success is not
    evidence that hosted CI passed;
 8. review the changelog and every migration from the previous release;
 9. inspect generated profile snapshots: every profile must contain the same
-   non-authorizing small-team workflow portfolio, Minimal must not inherit
-   production controls, Standard must retain traceability and disabled
-   extension entry points, and High Assurance must add unassessed
-   trigger/control entry points;
+   non-authorizing collaboration/SCM/package triggers but no full Git or domain
+   package payload; Minimal must not inherit production controls, Standard must
+   retain traceability and trigger registries, and High Assurance must add its
+   risk-justified governance stores without silently assessing any trigger;
 10. confirm no generated profile contains project facts, collaborator
     identities, hosted settings, secrets, permissions, accepted decisions,
     configured hooks, passing evidence, providers, or readiness claims;

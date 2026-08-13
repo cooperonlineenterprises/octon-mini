@@ -100,7 +100,8 @@ each:
 | `.agent/project.json` | stable project profile, collaboration assessment, workflow adoption, and project command hooks |
 
 `project.json` must not become a second status report. Mutable work status
-belongs in tasks and `.agent/state/current.json`.
+belongs in tasks and explicit operator direction belongs in
+`.agent/state/focus.json`; `.agent/state/current.json` is fully derived.
 
 ### Layer 3: capability packages
 
@@ -132,11 +133,13 @@ Extension code is executable project code, not untrusted data. Enabling it
 requires an accepted trust decision, least-privilege execution, a minimized
 environment, and a read-only enforcement or before/after mutation check.
 
-Standard and High Assurance include disabled, unassessed, tool-neutral
-operations/observability and security/supply-chain packages. They validate
-project-owned declarations and evidence links only. Their presence cannot
-assert a provider, deployment, monitor, scanner, SBOM, signature, qualified
-review, compliance conclusion, or production readiness.
+No profile includes a domain package by default. The compact package registry
+and detector recipes may propose operations/observability,
+security/supply-chain, SCM, reference, or optional-schema packages. Applicable
+content is installed only through a pinned, accepted-trust-decision-bound
+transaction and starts disabled where enablement is meaningful. Presence still
+cannot assert a provider, deployment, monitor, scanner, SBOM, signature,
+qualified review, compliance conclusion, or production readiness.
 
 The extension root is closed: only its README, registry, and roots named by
 that registry are valid immediate children. Likewise, the capability root
@@ -198,9 +201,11 @@ resumable and auditable.
 │   ├── lifecycle.json
 │   ├── tools.json
 │   ├── validators.json
+│   ├── commands.json                  # derived command inventory
 │   ├── project.json
-│   ├── workflows/
-│   │   └── small-team-git.json        # provider-neutral, non-authorizing
+│   ├── packages.json                  # trigger/package lifecycle registry
+│   ├── scm.json                       # compact unassessed SCM trigger
+│   ├── workflows/                     # present only after reviewed SCM install
 │   ├── schemas/                       # local versioned schema snapshot
 │   ├── approvals/                     # conditional attestation metadata
 │   ├── coordination/                  # conditional leases/write ownership
@@ -211,16 +216,25 @@ resumable and auditable.
 │   ├── reviews/                      # standard+
 │   ├── events/                       # standard+
 │   ├── artifacts/                    # standard, when durable outputs matter
-│   ├── extensions/                   # standard+; disabled control entry points
+│   ├── extensions/                   # trigger-installed domain packages
 │   ├── evaluations/                  # conditional rubric/fixtures/results
 │   ├── metrics/                      # conditional harness outcome measures
 │   ├── checkpoints/                  # high-assurance
 │   ├── state/
-│   │   ├── current.json
+│   │   ├── current.json              # fully derived, never hand-edited
+│   │   ├── focus.json                # project-owned operator intent
 │   │   └── RESUME.md
+│   ├── transactions/
+│   │   ├── plans/                     # immutable reviewed inputs
+│   │   ├── pending/                   # write-ahead recovery journals
+│   │   ├── receipts/                  # exact postimages and resumable rollback state
+│   │   └── recovered/                 # validated recovery evidence
 │   ├── templates/
 │   ├── generated/                    # staging in all; HA integrity evidence
 │   ├── scripts/
+│   │   ├── pb.py                      # workflow-oriented project interface
+│   │   ├── pb_transaction.py          # staged plan/apply/recover/rollback
+│   │   ├── pb_doctor.py               # coded read-only diagnostics
 │   │   ├── validate.py
 │   │   ├── run_project_checks.py     # explicit evidence writer; may run hooks
 │   │   └── refresh.py                # every profile; writes declared derivatives
@@ -230,7 +244,8 @@ resumable and auditable.
 │   ├── agents/
 │   ├── skills/
 │   └── workflows/
-├── project-dossier/                   # documentation, never permission
+├── project-dossier/                   # compact or separated documentation
+├── pb                                 # generated project launcher
 └── .project-blueprint-origin.json
 ```
 
@@ -393,12 +408,14 @@ automation change only this modifier, never the human team band. A
 High-Assurance coordination lease is an optional stronger realization when a
 named risk warrants it; the modifier itself applies in every profile.
 
-`.agent/workflows/small-team-git.json` is the provider-neutral, non-authorizing
-workflow source. Every operation it uses resolves to the ordered catalogs in
-`.agent/tools.json`. A recommendation does not adopt a workflow. Adoption
-requires a resolving accepted project-owned `DEC-####`, but neither the
-decision nor the workflow grants permission to edit, fetch, push, publish a
-PR, replace history, create a release tag, or perform recovery.
+`.agent/scm.json` is the default unassessed trigger. After Git is explicitly
+selected, the pinned small-team Git package installs
+`.agent/workflows/small-team-git.json` as the provider-neutral,
+non-authorizing workflow source. Every operation it uses resolves to the
+ordered catalogs in `.agent/tools.json`. A recommendation does not adopt a
+workflow. Adoption requires a resolving accepted project-owned `DEC-####`, but
+neither the decision nor the workflow grants permission to edit, fetch, push,
+publish a PR, replace history, create a release tag, or perform recovery.
 
 Team size selects only the base workflow. Project risk independently adds
 validation, review, protected enforcement, external-effect gates, or qualified
@@ -437,19 +454,23 @@ readiness by itself.
 | Concern | Store | Mutability | Meaning |
 |---|---|---|---|
 | collaboration topology and adoption | `project.json` | reassessed project source plus accepted decision reference | which small-team workflow fits without creating permission |
-| provider-neutral Git workflow | `workflows/small-team-git.json` | versioned kernel contract | complete supported steps and explicit enterprise exclusions |
+| package lifecycle | `packages.json` | project-owned assessment plus transaction receipt | which pinned trigger content is installed and validated |
+| provider-neutral Git workflow | trigger-installed `workflows/small-team-git.json` | content-addressed package contract | complete supported steps only when Git is selected |
 | durable intent | `decisions/` | immutable plus successor | why a lasting choice exists |
 | active work | `tasks/` | lifecycle updates | what is being done |
 | observation | `evidence/` | immutable record | what was inspected or executed |
+| target-project check evidence | `project-checks/evidence.json` plus immutable archive | bounded current index plus successor-linked archive | what selected configured hooks actually returned for an exact subject |
 | review finding | `reviews/` | disposition updates | what a separate pass found |
 | chronology | `events/` | append-only | meaningful transitions |
 | approval attestation | `approvals/` | immutable plus revocation/successor | who attested to what, under which external authority |
 | coordination lease | `coordination/` | expiring lifecycle | who owns a write scope and until when |
-| current view | `state/current.json` | project-maintained compact operational index | what to resume now |
+| current view | `state/current.json` | fully derived compact operational index | mechanically rebuildable state |
+| operator focus | `state/focus.json` | project-owned non-authorizing intent | current focus, next action, and handoff pointer |
 | artifact metadata | `artifacts/registry.json` | lifecycle updates | provenance and promotion |
 | evaluation | `evaluations/` | versioned fixtures and results | whether repeated work meets a declared rubric |
 | harness metric | `metrics/` | generated/observed series | whether the harness improves closure, safety, and resumption |
 | generated integrity | `generated/` | regenerated | point-in-time inventory and results |
+| repository-local mutations | `transactions/` | immutable plans/receipts plus recoverable pending journals | what exact preimages, operations, validation, postimages, and rollback rule applied |
 
 Each record declares `schema_version`, stable ID, purpose/title, scope,
 authority source, owner/maintainer, inputs, outputs or links, side effects,
@@ -472,20 +493,23 @@ authorized channel; they cannot manufacture that authority. They identify the
 principal or role, action, resource/scope, constraints, validity window,
 source reference, evidence fingerprint, revocation state, and successor.
 Secret material and reusable credentials are never copied into the record.
-`state/current.json` is a project-maintained source summary, not a generated
-view and not an authorization channel. Its task, decision, evidence, and
-external-authority references must resolve and remain status-consistent;
-updates to owning records require a deliberate compaction update.
+`state/current.json` is a fully derived view and not an authorization channel.
+Refresh rebuilds it from project configuration, tasks, decisions, evidence,
+and `state/focus.json`. Its task, decision, evidence, and external-authority
+references must resolve and remain status-consistent. Operators update focus,
+not the derived view.
 
 ### Task lifecycle
 
 ```text
 proposed → ready → in_progress → validating → review → completed
-             │         ├──────────────→ blocked
-             │         └──────────────→ cancelled
-             └────────────────────────→ blocked
-blocked → ready
-completed → reopened → ready
+             │          │          │        └──────→ blocked
+             │          │          └───────────────→ completed
+             │          ├──────────────────────────→ completed
+             │          └──────────────────────────→ blocked/cancelled
+             └─────────────────────────────────────→ completed/blocked/cancelled
+blocked → ready | in_progress | cancelled
+completed → reopened → ready | in_progress | completed | cancelled
 ```
 
 - `ready` requires scope, authority basis, acceptance criteria, a validation
@@ -500,7 +524,15 @@ completed → reopened → ready
   unresolved structured dependency, gate, blocker, or plan condition.
 - `reopened` links the evidence that invalidated completion.
 
-Entering or re-entering execution always passes through `ready`. If a completed
+`ready`, `in_progress`, `validating`, `review`, or `reopened` may move directly
+to `completed` only when the completed-state gate is fully populated. This
+removes status-only ceremony; it does not waive implementation result,
+criteria, review and closure evidence, external-effect disclosure, or
+limitations. A blocked task may resume `in_progress` only through the explicit
+reopen workflow with invalidating/resolving evidence.
+
+Initial execution passes through `ready`; evidence-bound reopening may resume
+directly when its original readiness contract remains satisfied. If a completed
 dependency reopens, a gate expires, or a blocker becomes active, affected
 nonterminal downstream tasks move to `blocked`; downstream `completed` claims
 become invalid until reassessed. The validator rejects task cycles and any
@@ -765,12 +797,12 @@ Use for small, early, or low-risk projects. Required:
 
 - root router and seven-file kernel;
 - decision and task stores plus templates;
-- compact current state and resumption page;
+- compact derived current state, explicit focus, and resumption page;
 - portable read-only validator;
 - unassessed target-project hook contracts and a separately explicit evidence
   writer;
-- the full provider-neutral small-team Git workflow portfolio and unassessed
-  collaboration profile;
+- compact SCM/package triggers and an unassessed collaboration profile;
+- staged plan/apply/recovery transactions and coded read-only diagnostics;
 - project-local derivative source plus refresh command;
 - valid and invalid fixtures with mutation tests; and
 - dossier minimal profile.
@@ -793,15 +825,14 @@ or comparable coordination risks justify it. Add:
 - meaningful transition events;
 - optional artifact registry;
 - extension registry and project validator interface;
-- disabled, unassessed operations/observability and security/supply-chain
-  extension packages for deliberate project adoption;
+- trigger assessment and content-addressed package installation interfaces;
 - task-closure checklist; and
 - structured dossier traceability, dependency readiness, ready-frontier
   derivation, and evidence.
 
-The extension registry, both production-control extension entry points, and
-Standard operational stores remain required even when disabled, empty, or
-unadopted, so absence cannot silently disable their assessment.
+The extension and package registries plus Standard operational stores remain
+required. Domain package absence is not treated as `not_applicable`; trigger
+assessment remains explicit without shipping every domain mechanism.
 
 Exit when an unfamiliar maintainer can execute, validate, review, hand off,
 and resume a real task without undocumented steps.
@@ -818,16 +849,16 @@ justify it. Add:
 - stronger dossier governance, transition, history, and supersession;
 - conditional approval-attestation, coordination-lease, data-handling,
   incident/recovery, evaluation, and metrics contracts;
-- CI/mutation/recovery guidance; and
+- CI/mutation/recovery guidance and stronger conditional trigger review; and
 - environment-specific approval and enforcement hooks.
 
 Before the profile can be represented as adopted, every conditional and
 optional artifact trigger must be assessed. Applicable controls require an
 owner, active reviewed representation, and current resolving evidence;
-`not_applicable` requires a dated, attributed rationale. The generated
-production-control extensions remain disabled and unassessed until separately
-adopted and trusted, and qualified security, privacy, compliance, legal, and
-production conclusions remain outside automatic validation.
+`not_applicable` requires a dated, attributed rationale. Trigger-installed
+production-control extensions remain disabled until separately enabled, and
+qualified security, privacy, compliance, legal, and production conclusions
+remain outside automatic validation.
 
 The governed capability and assurance-store entry points remain required.
 Generated capability baselines may be deprecated or superseded through their
@@ -846,24 +877,27 @@ High Assurance, and concurrency alone does not require a coordination lease.
 
 ### Initial adoption
 
-1. Inventory use cases, protected resources, data classes, and unacceptable
-   effects.
-2. Identify actual sandbox, Git, CI, secret, cloud, and human enforcement
-   boundaries.
+1. Run the bounded semantic adoption planner and review its exact inspected,
+   excluded, collision, authority, and functional-equivalence results.
+2. Inventory use cases, protected resources, data classes, unacceptable
+   effects, and actual sandbox, Git, CI, secret, cloud, and human enforcement
+   boundaries that cannot be derived safely.
 3. Choose read-only, per-task mutation, or standing reversible local posture.
 4. Assess collaboration from project-owned, fresh, privacy-minimized evidence;
    derive the team band and recommendation without granting permission. Adopt
    a supported workflow only through a separate accepted project decision.
-5. Preview and generate the smallest risk-justified profile.
-6. Inspect the target repository and resolve every template sentinel from
-   evidence or mark it explicitly not applicable with a reason.
+5. Preview the smallest risk-justified profile and compact or separated layout,
+   then apply the exact no-overwrite transaction digest. Structural installation
+   leaves adoption `in_progress`.
+6. Resolve every retained project-owned unknown from evidence or mark it
+   explicitly not applicable with an owner, date, and reason.
 7. Record the threat model and authority posture as a project decision;
    never ship the example ID as accepted fact.
 8. Assess every project command; configure applicable hooks with direct argv,
    owners, freshness, version probes, and declared effects, or record an owned
    `not_applicable` rationale.
 9. Assess extension needs and ownership. Operations/observability and
-   security/supply-chain packages remain disabled until a project trust
+   security/supply-chain packages remain absent until a project trust
    decision and project-owned records justify deliberate adoption.
 10. Assess conditional approval, coordination, data, recovery, evaluation, and
    metric triggers; record every omission with a reason and every applicable
@@ -937,16 +971,16 @@ A harness is complete only when these demonstrations pass:
    distinguishes failure, unavailable, skipped, and not-applicable states.
 8. Managed-source changes invalidate stale generated evidence.
 9. Synthetic credentials are detected and output is redacted.
-10. A sample extension validates and can be disabled without kernel edits;
-    both production-control extensions reject invalid, stale-evidence,
-    broken-reference, and authority-expansion cases while remaining disabled
-    and unassessed by default.
+10. A trigger-installed sample extension validates and can be disabled without
+    kernel edits; production-control packages reject invalid, stale-evidence,
+    broken-reference, authority-expansion, unpinned-content, and unbound-review
+    cases while remaining absent from every default profile.
 11. Another maintainer resumes interrupted work from compact state, task, and
     linked evidence within an agreed time.
 12. Interrupted refresh and corrupted event recovery are exercised.
 13. Harness and real project checks pass on the exact handed-off revision; an
-    adopted High-Assurance harness has no unresolved conditional or optional
-    trigger assessment.
+    adopted High-Assurance harness has no unresolved mandatory conditional or
+    optional trigger assessment.
 14. Final reporting states scope, failures, skipped checks, limitations, dirty
     state, and external effects without overclaiming.
 15. Fresh solo, pair, and tiny-team assessments select only the supported
@@ -986,18 +1020,18 @@ partial matrix as complete acceptance.
 
 ## 16. Implementation and adoption checklist
 
-1. Select a coverage profile from named coordination, risk, and assurance
-   triggers.
-2. Generate only into a nonexistent or empty directory; use the read-only
-   adoption planner for an existing project.
+1. Select assurance from risk, collaboration from current writer count,
+   concurrency as a separate modifier, and layout from representation needs.
+2. Use guided initialization for a new project or semantic plan/apply adoption
+   for an existing project; review and accept the exact digest.
 3. Inspect `.project-blueprint-origin.json`, the artifact catalog, and all
    proposed or unassessed sentinels.
 4. Read applicable project instructions and classify real authority sources.
 5. Record fresh aggregate collaboration evidence, derive the team band, and
    adopt a supported workflow through an accepted project decision; do not
    treat the assessment or decision as operation authority.
-6. Adopt project scope, commands, owners, and extension needs through accepted
-   project decisions; generation supplies none of them.
+6. Adopt project scope, commands, owners, and applicable trigger packages
+   through accepted project decisions; generation supplies none of them.
 7. Populate intended state, dated current state, findings, plan, risks,
    provenance, evidence, and handoff without collapsing their information
    states.
@@ -1007,9 +1041,10 @@ partial matrix as complete acceptance.
    among independent ready items.
 9. Register every dossier representation in the project-local artifact source;
    run refresh to derive catalog, path authority, and integrity outputs.
-10. Run the read-only validator and its mutation/recovery tests.
+10. Run changed-scope checks during work and the read-only validator, complete
+    project checks, release tier, and recovery tests at adoption/release gates.
 11. Demonstrate one real dependency-gated task lifecycle through the adopted
-    Git workflow and a safe handoff.
+    SCM workflow when applicable and a safe focus-derived handoff.
 12. Record conditional trigger decisions, remaining unknowns, and limits; do
     not translate structural success
     into a readiness claim.
