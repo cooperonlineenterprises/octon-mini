@@ -199,6 +199,20 @@ records remain the only durable decision authority.
 19. Trade-off totals cannot offset a failed non-negotiable gate or conceal a
     material unknown. Unknown evidence remains unknown and normally routes the
     decision to evidence-first work.
+20. Work-completion planning is read-only, performs no refresh or hosted
+    observation, and creates no receipt. An automatic completion hook may only
+    request that plan and is disabled by default.
+21. A reviewed completion digest binds exact task, authority, repository,
+    revisions, paths, validation, review, integration, and cleanup inputs; it
+    is not permission. Every planned external operation still requires current
+    task-scoped authorization and immediate pre-action revalidation.
+22. External Git and provider effects are monotonic and resumable, not
+    atomically reversible. Cleanup follows proven integration and
+    fast-forward synchronization, and no self or agent review becomes peer
+    approval.
+23. Structural validation, documentation, a commit, a PR, or a completion
+    receipt does not establish release, production, efficacy, or commercial
+    readiness.
 
 ## 5. Recommended directory structure
 
@@ -246,6 +260,7 @@ records remain the only durable decision authority.
 │   ├── generated/                    # staging in all; HA integrity evidence
 │   ├── scripts/
 │   │   ├── pb.py                      # workflow-oriented project interface
+│   │   ├── pb_finish.py               # read-only plan plus resumable completion
 │   │   ├── pb_transaction.py          # staged plan/apply/recover/rollback
 │   │   ├── pb_doctor.py               # coded read-only diagnostics
 │   │   ├── validate.py
@@ -449,6 +464,84 @@ promotion pipelines, and enterprise issue-triage or portfolio governance.
 Simple PRs, CI, one-peer review, and risk-justified branch protection remain
 valid small-team controls.
 
+### 7.2 Governed work-completion orchestrator
+
+`work.finish` extends the accepted small-team workflow, command, hook,
+operation, transaction, receipt, task, evidence, and lifecycle models. It is
+not a second workflow framework. Every base workflow and the
+`concurrent_work` modifier use `.agent/scripts/pb_finish.py`; Minimal,
+Standard, and High Assurance use that same engine and may add controls without
+forking it.
+
+The project interface is `pb work finish plan`, `pb work finish apply
+--accept-digest <digest>`, and `pb work finish resume`. The optional
+completion-event hook may invoke only `plan`. Generated projects begin with
+the feature and its optional `commands.work_completion_plan` hook unassessed
+and disabled. Enabling binds that hook to the exact shell-free, read-only plan
+argv; it cannot invoke apply. Planning reads the accepted workflow decision,
+completed task's optional `work_completion` contract, exact dirty paths,
+local revisions and remote-tracking refs, configured read-only validation
+hooks, the required no-active-Git-hooks policy, assurance references, and
+cleanup policy. Active Git hooks block, and active `core.fsmonitor` blocks
+before status inspection so planning cannot knowingly invoke a hidden hook or
+daemon. It prints a deterministic,
+non-authorizing plan without staging, refreshing, committing, fetching,
+publishing, querying a provider, writing a receipt, or changing an external
+system.
+
+The exact current `work.close` transaction receipt and its unchanged dirty
+postimages are automatically added to the eligible staging inventory. This
+does not create a blanket `.agent/transactions` exclusion: an older, altered,
+ambiguous, or unrelated plan/receipt remains ordinary dirty state and blocks
+unless the task explicitly owns its exact path.
+
+After a successful `work.close` transaction, the generated command dispatcher
+checks that project-owned hook record. In `plan_only_on_completion_event` mode
+it invokes the exact configured plan argv and prints the resulting plan. A
+disabled or absent hook does nothing. If planning blocks, the already-applied
+closure receipt remains truthful and the command reports the post-closure
+block; no external or destructive follow-on action is attempted.
+
+Apply reconstructs the same plan from canonical sources, accepts only the
+reviewed digest and unchanged preconditions, and requires a current
+task-scoped attestation for the exact repository, branches, plan, validity
+interval, and external operation list. The attestation records authorization
+granted through an independent authority channel; neither it nor the command
+creates that permission. Authority is rechecked before every network or
+hosted effect, and live local, remote, PR, check, review, integration, branch,
+and worktree state is re-observed before the dependent action.
+
+The engine stages only task-declared exact paths and rejects unrelated dirty
+work, pre-staged content, conflicts, empty commits, missing authority, changed
+revisions, unassessed checks, draft or mismatched PRs, stale checks, self
+approval where a peer is required, unsupported integration, non-fast-forward
+synchronization, and unsafe cleanup. `solo_direct` does not gain a PR or task
+branch requirement. `solo_hybrid` records self-review and its limitations.
+`pair_pr` and `tiny_pr` require an actual approval by another explicitly
+configured eligible provider identity, distinct from the author, using no
+more than one. Concurrent work additionally requires the recorded
+base, write scope, branch/worktree owner, completed handback, and resolved
+partial results.
+
+Because external systems cannot participate in the repository-local atomic
+transaction, progress is an evidence-backed monotonic receipt. Its states are
+`planned`, `locally_committed`, `branch_published`, `pull_request_open`,
+`checks_pending`, `checks_failed`, `checks_passed`, `review_pending`,
+`review_satisfied`, `integrated`, `remote_branch_cleaned`,
+`default_branch_synchronized`, `local_branch_cleaned`, `completed`, and
+`blocked`. The append-only receipt and authorization history preserve
+successful prior effects and let `resume`
+observe them before acting, preventing duplicate commit, PR, merge, push, or
+deletion. Receipts live under the Git common directory rather than the source
+worktree; they are local, nonportable progress evidence until explicitly
+exported by a project-owned evidence process.
+
+Cleanup proves integration before remote deletion, synchronizes the local
+default branch only by fast-forward to the exact remote revision, then proves
+the task branch is non-current, non-default, integrated, and unused by another
+worktree before local deletion. A partial failure retains exact evidence,
+names the remaining state, and stops for safe resume or fix-forward.
+
 ## 8. Record and state model
 
 The semantic crosswalk is orthogonal to every record lifecycle:
@@ -485,6 +578,7 @@ readiness by itself.
 | harness metric | `metrics/` | generated/observed series | whether the harness improves closure, safety, and resumption |
 | generated integrity | `generated/` | regenerated | point-in-time inventory and results |
 | repository-local mutations | `transactions/` | immutable plans/receipts plus recoverable pending journals | what exact preimages, operations, validation, postimages, and rollback rule applied |
+| work-completion progress | Git common directory `project-blueprint/work-completion/receipts/` | monotonic resumable local receipts | which exact local and external completion effects are proven, blocked, or still pending without claiming rollback |
 
 Each record declares `schema_version`, stable ID, purpose/title, scope,
 authority source, owner/maintainer, inputs, outputs or links, side effects,
@@ -741,6 +835,17 @@ Validation layers are:
 8. generated manifest, fingerprint, checksum scope, and freshness;
 9. positive and negative/mutation tests; and
 10. recovery from stale reports, corrupted records, and interrupted refresh.
+
+Work-completion validation additionally checks the optional disabled baseline,
+enabled repository/provider/check/hook/cleanup assessment, accepted workflow
+authority, task completion contract, plan and authorization digests, unique
+operation inventory, receipt state and progress shape, exact path ownership,
+non-writing planning, stale precondition rejection, hosted head binding,
+review independence, integration-before-cleanup, fast-forward-only sync, and
+idempotent resume. Only configured `read_only` project hooks may run in the
+completion engine's ephemeral `--observe-only` mode; that mode writes no
+evidence or generated projection and cannot substitute for durable target
+project evidence.
 
 Decision validation additionally checks controlled type/timing/lifecycle,
 disposition and compatibility values; unique `DREG-####` IDs; dashboard/sheet/
@@ -1056,6 +1161,12 @@ A harness is complete only when these demonstrations pass:
     over-five states fail safely; concurrency does not change human count;
     every workflow operation resolves; and enterprise workflow identifiers are
     absent or rejected.
+16. Governed completion planning changes no repository or external state;
+    accepted digests stale when relevant inputs change; all four workflows and
+    concurrent handback enforce their distinct requirements; missing or stale
+    authority/check/review/PR/revision/ownership evidence blocks; interruption
+    after every external action resumes without duplication; and cleanup occurs
+    only after integration and fast-forward synchronization are proven.
 
 Passing these criteria proves the harness is usable and testable. It does not
 prove production safety, security, accessibility, legal compliance,
@@ -1065,7 +1176,7 @@ Acceptance has two explicit gates:
 
 | Gate | Criteria | Required evidence |
 |---|---|---|
-| Blueprint release automation | 2, 4–10, 12, and 15, plus structural portions of 1, 3, and 14 | cross-profile valid/invalid fixtures, collaboration and workflow matrices, operation-reference coverage, unchanged-tree checks, stale/partial refresh recovery, extension confinement, secret redaction |
+| Blueprint release automation | 2, 4–10, 12, 15, and 16, plus structural portions of 1, 3, and 14 | cross-profile valid/invalid fixtures, collaboration and workflow matrices, operation-reference coverage, unchanged-tree checks, stale/partial refresh and completion recovery, extension confinement, secret redaction |
 | Target-project adoption | human portions of 1 and 3, plus 11, 13, and 14 | timed unfamiliar-maintainer exercise, actual platform enforcement, one real task/closure, exact project revision checks, truthful handoff report |
 
 The release suite reports every criterion as `automated_pass`,

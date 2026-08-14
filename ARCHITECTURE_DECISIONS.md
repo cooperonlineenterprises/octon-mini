@@ -191,6 +191,27 @@ reused as a durable `DEC-####` identity. `accepted — authority linked` require
 a resolving accepted `DEC-####`. Generated Markdown is a review projection,
 and structural conformance remains distinct from implementation and readiness.
 
+## SRC-DEC-0013 — Governed small-team work completion
+
+| Field | Accepted decision |
+|---|---|
+| Status | `accepted` |
+| Authority | Explicit repository-owner implementation authorization on 2026-08-13 |
+| Scope | The existing small-team Git portfolio, generated `pb work finish` interface, transaction receipts, project completion hook, and optional hosted-provider adapters |
+| Decision | Add one provider-neutral, digest-bound, resumable completion orchestrator that applies the already-adopted `solo_direct`, `solo_hybrid`, `pair_pr`, or `tiny_pr` policy and the existing `concurrent_work` modifier |
+| External-effect boundary | A read-only plan may identify external operations; apply or resume may execute them only from an exact current task-scoped authorization attestation bound to the reviewed plan, repository, refs, and operation set |
+| Recovery boundary | Local and hosted effects are recorded as monotonic, inspect-before-act progress. They are not represented as atomically rollbackable; retry must recognize exact already-completed effects and stop on ambiguous state |
+| Trigger boundary | Project completion hooks are disabled by default and may automatically invoke only read-only planning. They never invoke apply, create standing authority, or silently adopt provider settings |
+| Authority effect | None in generated projects; workflow adoption, configuration, a plan, a receipt, and this source decision grant no target-project operation permission |
+| Compatibility | Additive within unreleased Blueprint 4.0; existing independent snapshots and installed Git portfolios change only through explicit upgrade or content-addressed package update |
+
+This is a narrow exception to the previously deferred external-effect
+infrastructure. It authorizes only small-team source-control completion through
+the closed Git and hosted-change operation catalogs. It does not authorize a
+universal action system, deployment or release orchestration, communications,
+production operations, financial or legal effects, provider configuration, or
+enterprise workflow families.
+
 ## Explicitly deferred by these decisions
 
 The following remain outside the accepted implementation:
@@ -200,7 +221,8 @@ The following remain outside the accepted implementation:
 - generic policy or rights locks;
 - corpus-use machinery;
 - universal action, lifecycle, readiness, trust, or state enums; and
-- external-effect infrastructure.
+- general-purpose external-effect infrastructure outside the narrow
+  `SRC-DEC-0013` small-team work-completion exception.
 
 Their exact future triggers remain recorded in
 `ARCHITECTURAL_PATTERN_INTEGRATION_REVIEW.md`.

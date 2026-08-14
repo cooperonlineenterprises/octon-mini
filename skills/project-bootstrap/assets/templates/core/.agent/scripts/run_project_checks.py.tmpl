@@ -774,23 +774,31 @@ def main() -> int:
             "This command may have the side effects declared by project hooks."
         )
     )
-    parser.add_argument("--write-evidence", action="store_true", required=True)
+    output_mode = parser.add_mutually_exclusive_group(required=True)
+    output_mode.add_argument("--write-evidence", action="store_true")
+    output_mode.add_argument(
+        "--observe-only",
+        action="store_true",
+        help="run only configured read-only hooks and emit ephemeral JSON without writing evidence",
+    )
     parser.add_argument("--verify-adoption", action="store_true")
     parser.add_argument("--hook", action="append", choices=HOOKS)
     parser.add_argument("--changed-scope", action="store_true")
     parser.add_argument("--acknowledge-side-effects", action="store_true")
     args = parser.parse_args()
+    if args.observe_only and args.verify_adoption:
+        parser.error("observe-only execution cannot refresh or verify adoption")
     if args.verify_adoption and (args.hook or args.changed_scope):
         parser.error("adoption verification always executes the full assessed hook set")
     if args.hook and args.changed_scope:
         parser.error("use either explicit --hook selection or --changed-scope routing")
 
-    if EVIDENCE_PATH.is_symlink() or not EVIDENCE_PATH.is_file():
+    if args.write_evidence and (EVIDENCE_PATH.is_symlink() or not EVIDENCE_PATH.is_file()):
         print("[FAIL] project-check evidence destination is absent or unsafe", file=sys.stderr)
         return 2
     try:
         project = load_json(ROOT / ".agent/project.json")
-        store = load_json(EVIDENCE_PATH)
+        store = load_json(EVIDENCE_PATH) if args.write_evidence else None
     except (OSError, ValueError, json.JSONDecodeError) as error:
         print(f"[FAIL] unable to load project-check contracts: {error}", file=sys.stderr)
         return 2
@@ -799,7 +807,8 @@ def main() -> int:
         return 2
     commands = project["commands"]
     errors: list[str] = []
-    if set(commands) != set(HOOKS):
+    allowed_hooks = set(HOOKS) | {"work_completion_plan"}
+    if not set(HOOKS) <= set(commands) or not set(commands) <= allowed_hooks:
         errors.append("project command hook set differs from the closed contract")
     selected_hooks = list(HOOKS)
     if args.hook:
@@ -831,18 +840,30 @@ def main() -> int:
             selected_hooks = list(HOOKS)
     for hook in selected_hooks:
         errors.extend(validate_command(hook, commands.get(hook)))
+        command = commands.get(hook)
+        if (
+            args.observe_only
+            and isinstance(command, dict)
+            and command.get("status") == "configured"
+            and command.get("side_effects", {}).get("classification") != "read_only"
+        ):
+            errors.append(f"{hook}: observe-only execution requires a configured read_only hook")
     if errors:
         for error in errors:
             print(f"[FAIL] {error}", file=sys.stderr)
         return 2
 
-    store_before = hashlib.sha256(EVIDENCE_PATH.read_bytes()).hexdigest()
+    store_before = (
+        hashlib.sha256(EVIDENCE_PATH.read_bytes()).hexdigest()
+        if args.write_evidence
+        else None
+    )
     started = utc_now()
     source_before = source_state(project)
     checks: list[dict[str, Any]] = []
     skipped: list[dict[str, Any]] = []
     declared_external_effects: set[str] = set()
-    for hook in HOOKS:
+    for hook in selected_hooks:
         command = commands[hook]
         declared_external_effects.update(command["side_effects"]["external_effects"])
         result, skipped_result = execute_hook(
@@ -895,6 +916,13 @@ def main() -> int:
             "Command output is represented only by hashes; secret-bearing output is not persisted.",
         ],
     }
+    if args.observe_only:
+        record["limitations"].append(
+            "Observe-only mode did not append the ephemeral result to the project evidence store."
+        )
+        print(json.dumps(record, indent=2, sort_keys=True))
+        return 0 if overall == "pass" else 1
+    assert store is not None and store_before is not None
     if hashlib.sha256(EVIDENCE_PATH.read_bytes()).hexdigest() != store_before:
         print(
             "[FAIL] a project check changed the reserved evidence store; refusing to overwrite it",

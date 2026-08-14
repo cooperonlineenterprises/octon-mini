@@ -171,6 +171,7 @@ def installation_plan(
     trust_ref: str,
     *,
     assess_applicable: bool = False,
+    update: bool = False,
 ) -> dict[str, Any]:
     target = target.resolve()
     if not (target / ".project-blueprint-origin.json").is_file():
@@ -184,23 +185,67 @@ def installation_plan(
         raise ValueError(f"package {package_id} is unavailable for profile {profile}")
     registry_path = target / ".agent/packages.json"
     registry = load_json(registry_path)
-    if any(
-        isinstance(item, dict) and item.get("id") == package_id
-        for item in registry.get("packages", [])
-    ):
-        raise ValueError(f"package {package_id} is already installed")
+    installed = next(
+        (
+            item
+            for item in registry.get("packages", [])
+            if isinstance(item, dict) and item.get("id") == package_id
+        ),
+        None,
+    )
+    if installed is not None and not update:
+        raise ValueError(f"package {package_id} is already installed; use an explicit update plan")
+    if installed is None and update:
+        raise ValueError(f"package {package_id} is not installed and cannot be updated")
+    if update and package_id != "small-team-git-portfolio":
+        raise ValueError("package update is currently limited to the governed Git portfolio")
     files = package_files(package)
     operations: list[dict[str, Any]] = []
-    for relative, content in files.items():
-        operations.append(
-            TRANSACTION.operation(
-                "create",
-                relative,
-                content,
-                f"Vendor reviewed content-addressed package {package_id}.",
-                mode=0o755 if relative.endswith("/validate.py") else 0o644,
+    if update:
+        assert installed is not None
+        old_paths = installed.get("installed_paths")
+        if not isinstance(old_paths, list) or any(not isinstance(item, str) for item in old_paths):
+            raise ValueError("installed package inventory is malformed")
+        current: dict[str, bytes] = {}
+        for relative in old_paths:
+            path = target.joinpath(*PurePosixPath(relative).parts)
+            if path.is_symlink() or not path.is_file():
+                raise ValueError(f"installed package path is absent or unsafe: {relative}")
+            current[relative] = path.read_bytes()
+        if installed_content_digest(current) != installed.get("installed_paths_sha256"):
+            raise ValueError("installed package content differs from its recorded baseline; update refuses overwrite")
+        if installed.get("version") == package["version"] and installed.get("sha256") == package["sha256"]:
+            raise ValueError("installed package already matches the requested version and digest")
+        for relative in sorted(set(old_paths) - set(files)):
+            operations.append(
+                TRANSACTION.operation(
+                    "delete",
+                    relative,
+                    None,
+                    f"Remove an exact-pristine path retired by package {package_id}.",
+                )
             )
-        )
+        for relative, content in files.items():
+            operations.append(
+                TRANSACTION.operation(
+                    "replace" if relative in current else "create",
+                    relative,
+                    content,
+                    f"Update reviewed content-addressed package {package_id} without preserving provider or workflow settings in package files.",
+                    mode=0o755 if relative.endswith("/validate.py") else 0o644,
+                )
+            )
+    else:
+        for relative, content in files.items():
+            operations.append(
+                TRANSACTION.operation(
+                    "create",
+                    relative,
+                    content,
+                    f"Vendor reviewed content-addressed package {package_id}.",
+                    mode=0o755 if relative.endswith("/validate.py") else 0o644,
+                )
+            )
 
     if package["kind"] in {"domain_extension", "reference_extension"}:
         assessment_key = package_id.replace("-", "_")
@@ -262,10 +307,13 @@ def installation_plan(
 
     if package_id == "small-team-git-portfolio":
         scm = load_json(target / ".agent/scm.json")
-        scm.update(selection="git", selection_decision_ref=trust_ref)
-        if "git" not in scm["detected_candidates"] and (target / ".git").exists():
-            scm["detected_candidates"].append("git")
+        if not update:
+            scm.update(selection="git", selection_decision_ref=trust_ref)
+            if "git" not in scm["detected_candidates"] and (target / ".git").exists():
+                scm["detected_candidates"].append("git")
         scm["portfolio"]["status"] = "installed"
+        scm["portfolio"]["version"] = package["version"]
+        scm["portfolio"]["sha256"] = package["sha256"]
         operations.append(
             TRANSACTION.operation(
                 "replace",
@@ -277,21 +325,35 @@ def installation_plan(
 
     installed_paths = sorted(files)
     planned_receipt_id = TRANSACTION.new_receipt_id()
-    registry["packages"].append(
-        {
-            "id": package_id,
-            "kind": package["kind"],
-            "version": package["version"],
-            "sha256": package["sha256"],
-            "installed_paths": installed_paths,
-            "installed_paths_sha256": installed_content_digest(files),
-            "owner": owner,
-            "trust_decision_ref": trust_ref,
-            "validation_status": "pass",
-            "validation_receipt_ref": planned_receipt_id,
-            "evidence_refs": [trust_ref, planned_receipt_id],
-        }
+    prior_evidence = (
+        installed.get("evidence_refs", [])
+        if update and isinstance(installed, dict)
+        else []
     )
+    if not isinstance(prior_evidence, list) or any(
+        not isinstance(item, str) or not item for item in prior_evidence
+    ):
+        raise ValueError("installed package evidence inventory is malformed")
+    registry_entry = {
+        "id": package_id,
+        "kind": package["kind"],
+        "version": package["version"],
+        "sha256": package["sha256"],
+        "installed_paths": installed_paths,
+        "installed_paths_sha256": installed_content_digest(files),
+        "owner": owner,
+        "trust_decision_ref": trust_ref,
+        "validation_status": "pass",
+        "validation_receipt_ref": planned_receipt_id,
+        "evidence_refs": sorted(
+            set(prior_evidence) | {trust_ref, planned_receipt_id}
+        ),
+    }
+    if update:
+        assert installed is not None
+        registry["packages"][registry["packages"].index(installed)] = registry_entry
+    else:
+        registry["packages"].append(registry_entry)
     operations.append(
         TRANSACTION.operation(
             "replace",
@@ -302,8 +364,8 @@ def installation_plan(
     )
     return TRANSACTION.build_plan(
         target,
-        operation_name="maintain.package.install",
-        scope=f"Install triggered package {package_id}",
+        operation_name="maintain.package.update" if update else "maintain.package.install",
+        scope=f"{'Update' if update else 'Install'} triggered package {package_id}",
         operations=operations,
         evidence=[
             TRANSACTION.source_evidence(
@@ -318,6 +380,7 @@ def installation_plan(
         limitations=[
             "Installation never marks a trigger not applicable.",
             "Extensions are installed disabled; enabling requires current project configuration.",
+            "A package update changes only exact-pristine package-owned paths and never enables work completion or rewrites project-owned workflow authority or settings.",
         ],
         planned_receipt_id=planned_receipt_id,
         **transaction_validation(target),
@@ -343,6 +406,11 @@ def main() -> int:
         action="store_true",
         help="also record applicability when the accepted trust decision explicitly covers it",
     )
+    plan.add_argument(
+        "--update",
+        action="store_true",
+        help="plan an exact-pristine update of an already installed supported package",
+    )
     plan.add_argument("--output", type=Path, required=True)
     apply = commands.add_parser("apply")
     apply.add_argument("--target", type=Path, required=True)
@@ -358,14 +426,15 @@ def main() -> int:
                     args.owner,
                     args.trust_decision_ref,
                     assess_applicable=args.assess_applicable,
+                    update=args.update,
                 ),
                 args.output,
             )
             return 0
         target = args.target.resolve()
         plan_value = TRANSACTION.load_plan(args.plan)
-        if plan_value.get("operation") != "maintain.package.install":
-            raise ValueError("plan is not a package-install transaction")
+        if plan_value.get("operation") not in {"maintain.package.install", "maintain.package.update"}:
+            raise ValueError("plan is not a package install/update transaction")
         receipt, receipt_path = TRANSACTION.apply_plan(
             target,
             plan_value,

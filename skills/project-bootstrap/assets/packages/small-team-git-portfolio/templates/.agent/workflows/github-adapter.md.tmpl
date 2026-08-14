@@ -32,7 +32,9 @@ conflicting adoption input remains unresolved.
 
 | Provider-neutral operation | Example GitHub behavior |
 |---|---|
+| `locate_pull_request` | Locate at most one PR for exact repository, base, head, and head revision; ambiguity or mismatch blocks. |
 | `observe_change_checks` | Read the exact PR or commit checks without claiming they are required or successful. |
+| `observe_pull_request_reviews` | Read review evidence for the exact PR and head; distinguish author, self-review, and an eligible other developer. |
 | `open_pull_request` | Open a PR for exact base/head refs after separately authorized branch publication. |
 | `submit_pull_request_review` | Submit an exact review while stating self versus peer review truthfully. |
 | `merge_pull_request` | Merge the exact PR with the one adopted method only after current validation, review, and merge authority are established. |
@@ -43,6 +45,14 @@ deletion, and permissions live at the hosted enforcement boundary and must be
 verified independently. Repository files can recommend restrictions but
 cannot create or prove those controls.
 
+The governed work-completion engine uses `gh` only as the optional adapter for
+these hosted observations and actions. It does not derive project authority
+from `gh` configuration or authentication. Planning never invokes `gh`.
+Apply requires an exact current authorization attestation before the first
+provider call and rechecks its validity before each later call. The adapter
+locates before it creates, re-observes after it acts, and records identifiers
+and revisions so `resume` can recognize a previously completed action.
+
 ## Lightweight small-team guidance
 
 - `solo_direct` does not require a PR. If GitHub is used, CI may run after the
@@ -50,7 +60,9 @@ cannot create or prove those controls.
 - `solo_hybrid` may use a self-PR. Record self-review limitations outside any
   implication of independent approval.
 - `pair_pr` and `tiny_pr` require a PR and block when required review capacity
-  is absent. Never add more than one required peer approval.
+  is absent. Configure eligible provider reviewer identities explicitly and
+  require an approval by one of them, distinct from the author. Never add more
+  than one required peer approval.
 - Use lightweight path ownership only when project evidence shows it improves
   reviewer selection; do not generate a CODEOWNERS hierarchy.
 - If CI runs on both branch pushes and PR events, restrict ordinary push

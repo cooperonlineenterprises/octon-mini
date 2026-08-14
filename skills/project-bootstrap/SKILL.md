@@ -44,6 +44,13 @@ generated-project availability; primitive scripts remain advanced diagnostics.
   Lifecycle writers allocate IDs and synchronize mechanical links and derived
   state, but never invent scope, authority, criteria, review, evidence, or
   external-effect authorization.
+- Governed completion: use `pb work finish plan|apply|resume` only after the
+  project explicitly enables the shared engine and adopts the installed
+  small-team Git workflow. Planning is read-only. Apply requires the exact
+  digest, unchanged preconditions, and current task-scoped authorization for
+  its exact external operations; external progress is resumable and cannot
+  claim atomic rollback. The disabled-by-default completion event may dispatch
+  only the exact read-only plan hook after successful task closure.
 - Configuration: use `pb maintain hooks`, `pb maintain collaboration`,
   `pb maintain registry`, and source `pb maintain package` plan/apply flows.
   Package applicability, owner, trust decision, version, digest, and successful
@@ -60,8 +67,10 @@ generated-project availability; primitive scripts remain advanced diagnostics.
   upgrade is limited to safe additions, exact-pristine non-authoritative
   implementation assets, and derived regeneration.
 
-Every plan is non-authorizing, content-addressed, instruction- and
-path-fingerprint-bound, staged, validated, receipted, and recoverable. Stale or
+Every plan is non-authorizing and content-addressed. Repository-local mutation
+plans are instruction- and path-fingerprint-bound, staged, validated,
+receipted, and exactly recoverable. Governed external completion instead uses
+monotonic evidence-backed receipts and safe resume or fix-forward. Stale or
 ambiguous plans fail closed.
 
 ## Non-negotiable boundaries
@@ -84,6 +93,8 @@ ambiguous plans fail closed.
 - Trigger absence never means `not_applicable`.
 - The Git portfolio is installed only when Git is explicitly selected; an
   uninstalled portfolio is not a runtime dependency.
+- Generated work completion and its event hook start disabled. A completion
+  event may automatically create only a read-only plan; it cannot apply.
 - Require Python 3.11 or newer and strict JSON for the kernel.
 
 ## Commands
@@ -114,6 +125,7 @@ Inside a generated project:
 ```text
 ./pb check
 ./pb work resume
+./pb work finish plan
 ./pb doctor
 python -B .agent/tests/test_validate.py --tier fast
 ```

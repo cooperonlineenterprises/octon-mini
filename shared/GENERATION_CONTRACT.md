@@ -205,6 +205,14 @@ regeneration. Project-owned, authority-bearing, modified, deleted, moved,
 permission, symlink, workflow, record, stable-ID, and configuration cases
 require explicit review.
 
+Adding `work.finish` to an existing generated project is therefore an explicit
+upgrade or pinned package update. Safe automation may add the previously
+absent engine and schema and may preserve an exact-pristine disabled baseline,
+but it must not enable the hook or overwrite project-owned accepted decisions,
+workflow adoption, task records, hook commands, provider settings, branch
+rules, cleanup policy, or authorization policy. A project can keep the
+feature disabled indefinitely and remain structurally valid.
+
 A breaking migration must also ship executable valid and invalid fixtures. A
 legacy snapshot without exact installed baselines requires reviewed seed data;
 the migrator may not infer pristine hashes or authority from current bytes. Its
@@ -350,6 +358,32 @@ integration, release, or destructive authority. Project risks may add controls
 without changing the team band or automatically selecting an assurance
 profile.
 
+Every profile also receives one shared `work.finish` implementation and a
+disabled, non-authorizing `work_completion` configuration. The implementation
+is inert while the trigger-installed Git portfolio is absent or completion is
+disabled. A project may enable it only after adopting one supported workflow,
+assessing its repository, provider, optional self-PR, required checks,
+eligible provider reviewer identities where peer review is required, the exact
+`commands.work_completion_plan` read-only argv, read-only validation hooks,
+an explicit no-active-Git-hooks policy, cleanup, and assurance references, and preserving
+the accepted workflow authority link. Team size and assurance profile never
+select another completion engine.
+
+An enabled completion event hook references the existing project command-hook
+model and is restricted to the exact shell-free argv for `pb work finish
+plan`.
+Planning performs no write, refresh, fetch, provider query, receipt update, or
+external action. Apply is bound to the deterministic plan digest and current
+preconditions; exact task-scoped external authorization is supplied at run
+time and revalidated before each effect. Configuration, generation, package
+installation, workflow adoption, or command invocation cannot supply it.
+External effects use monotonic resumable receipts and never claim the exact
+rollback guarantees of repository-local transactions.
+The generated dispatcher consults the hook only after a successful
+`work.close` transaction. It prints the read-only plan or reports a
+post-closure planning block; it never treats the event as authorization to
+apply.
+
 ## Proposal and transaction rules
 
 The source and generated workflow interfaces project one authoritative command
@@ -378,6 +412,12 @@ environment, release, successful CI result, or hosted permission. Any hosted
 observation is gathered separately through an explicit read-only network
 action; any push or PR publication remains explicitly authorized external
 mutation.
+
+The optional adapter separates read-only PR location, check observation, and
+review observation from PR creation and merge. It cannot infer required check
+names, reviewer eligibility, merge method, branch deletion, or authority from
+provider defaults. An agent or self-review never satisfies required peer
+approval.
 
 The generated portfolio excludes GitFlow, merge queues, release trains,
 stacked-PR dependency trains, fork-first internal contribution, multi-level

@@ -83,7 +83,9 @@ GIT_OPERATION_IDS = (
     "force_push",
 )
 HOSTED_OPERATION_IDS = (
+    "locate_pull_request",
     "observe_change_checks",
+    "observe_pull_request_reviews",
     "open_pull_request",
     "submit_pull_request_review",
     "merge_pull_request",
@@ -340,6 +342,16 @@ def main() -> int:
         print("FAIL: Python 3.11+ is required")
         return 2
     failures: list[str] = []
+    work_completion = run(
+        [sys.executable, "-B", str(SKILL_ROOT / "scripts/test_work_completion.py")],
+        ROOT,
+    )
+    require(
+        work_completion.returncode == 0,
+        "governed work-completion positive/negative/mutation suite failed: "
+        + (work_completion.stderr.strip() or work_completion.stdout.strip()),
+        failures,
+    )
     scaffolder_namespace = runpy.run_path(str(SCAFFOLDER))
     canonical_posix_paths = scaffolder_namespace["canonical_posix_paths"]
     refresh_path_values = (
@@ -1657,6 +1669,83 @@ def main() -> int:
                         and scm["portfolio"]["status"] == "installed"
                         and (package_target / ".agent/workflows/small-team-git.json").is_file(),
                         "Git selection did not transactionally vendor its independent portfolio",
+                        failures,
+                    )
+                    # Simulate an exact-pristine earlier portfolio baseline and
+                    # prove that update is explicit, digest-bound, and does not
+                    # rewrite workflow adoption or provider configuration.
+                    installed["version"] = "1.0.0"
+                    installed["sha256"] = "0" * 64
+                    (package_target / ".agent/packages.json").write_text(
+                        json.dumps(registry, indent=2, sort_keys=True) + "\n",
+                        encoding="utf-8",
+                    )
+                    scm["portfolio"]["version"] = "1.0.0"
+                    scm["portfolio"]["sha256"] = "0" * 64
+                    (package_target / ".agent/scm.json").write_text(
+                        json.dumps(scm, indent=2, sort_keys=True) + "\n",
+                        encoding="utf-8",
+                    )
+                    update_path = package_target / ".agent/transactions/plans/package-update.json"
+                    updated = run(
+                        [
+                            sys.executable,
+                            "-B",
+                            str(PACKAGE_SCRIPT),
+                            "plan",
+                            "--target",
+                            str(package_target),
+                            "--package",
+                            package_id,
+                            "--owner",
+                            "acceptance-suite",
+                            "--trust-decision-ref",
+                            decision_id,
+                            "--update",
+                            "--output",
+                            str(update_path),
+                        ],
+                        ROOT,
+                    )
+                    require(
+                        updated.returncode == 0,
+                        f"{package_id} explicit update plan failed: {updated.stderr or updated.stdout}",
+                        failures,
+                    )
+                    if updated.returncode == 0:
+                        update_plan = json.loads(update_path.read_text(encoding="utf-8"))
+                        updated = run(
+                            [
+                                sys.executable,
+                                "-B",
+                                str(PACKAGE_SCRIPT),
+                                "apply",
+                                "--target",
+                                str(package_target),
+                                "--plan",
+                                str(update_path),
+                                "--accept-digest",
+                                update_plan["canonical_plan_digest"],
+                            ],
+                            ROOT,
+                        )
+                        require(
+                            updated.returncode == 0,
+                            f"{package_id} explicit update apply failed: {updated.stderr or updated.stdout}",
+                            failures,
+                        )
+                    registry = json.loads((package_target / ".agent/packages.json").read_text(encoding="utf-8"))
+                    installed = next(item for item in registry["packages"] if item["id"] == package_id)
+                    scm = json.loads((package_target / ".agent/scm.json").read_text(encoding="utf-8"))
+                    package_contract = next(
+                        item for item in PROFILE_MANIFEST["packages"] if item["id"] == package_id
+                    )
+                    require(
+                        installed["version"] == package_contract["version"]
+                        and installed["sha256"] == package_contract["sha256"]
+                        and scm["portfolio"]["version"] == package_contract["version"]
+                        and scm["portfolio"]["sha256"] == package_contract["sha256"],
+                        "Git portfolio update did not bind the current package version",
                         failures,
                     )
                 elif package_id in PRODUCTION_EXTENSIONS:

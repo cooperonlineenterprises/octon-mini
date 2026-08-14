@@ -48,6 +48,10 @@ agent, or automation work. Every fact used by a result requires a source,
 observation time, expiry, and limitations. Missing, stale, or conflicting
 evidence selects no workflow. `solo_direct`, `solo_hybrid`, `pair_pr`, and
 `tiny_pr` remain proposals until an accepted project-owned decision adopts one.
+When explicitly enabled, every supported workflow uses the same governed
+`work.finish` engine. Assurance controls may add checks or review gates but do
+not select a second engine; generated completion and its event hook start
+disabled and grant no authority.
 
 ## SCM and packages
 

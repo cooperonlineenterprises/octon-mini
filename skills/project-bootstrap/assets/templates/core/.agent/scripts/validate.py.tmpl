@@ -58,6 +58,7 @@ PROJECT_COMMAND_HOOKS = (
     "project_build",
     "project_closure",
 )
+OPTIONAL_PROJECT_COMMAND_HOOKS = ("work_completion_plan",)
 SHELL_EXECUTABLES = {
     "bash",
     "cmd",
@@ -155,6 +156,8 @@ REFERENCE_KEYS = {
     "evidence_ref",
     "evidence_refs",
     "closure_evidence",
+    "self_review_refs",
+    "coordination_evidence_refs",
     "inspected_evidence",
     "source_refs",
     "artifact_refs",
@@ -447,7 +450,9 @@ GIT_OPERATION_IDS = (
     "force_push",
 )
 HOSTED_CHANGE_OPERATION_IDS = (
+    "locate_pull_request",
     "observe_change_checks",
+    "observe_pull_request_reviews",
     "open_pull_request",
     "submit_pull_request_review",
     "merge_pull_request",
@@ -474,10 +479,10 @@ EXPECTED_GIT_CATALOG_SHA256 = (
     "568adc992d3cf270a80daedc1b1537ef03da38fcfc37365587b9765f864eaf5a"
 )
 EXPECTED_HOSTED_CHANGE_CATALOG_SHA256 = (
-    "f47ecdf0e8dbe5dc24b2211fb38f614fc41b7697cc07dfe2ec946e209d5503b0"
+    "768e10bf5dabc89f4ab977c7b7397a46cd65efb46cb5094fe5fa09a296cf41b4"
 )
 EXPECTED_GIT_WORKFLOW_SHA256 = (
-    "9619f00e485c4769ee87195a73c46de219839704b5e5995727e824a54c568ea5"
+    "41003ffaa99f2dbfc02f38688d6415fc756e3da95197f6fff07d067c5430beea"
 )
 EXPECTED_REQUIRED_CORE_CHECKS = [
     "python_runtime_floor",
@@ -2238,7 +2243,11 @@ def check_project_command_contract(
 ) -> list[str]:
     errors: list[str] = []
     commands = project.get("commands")
-    if not isinstance(commands, dict) or set(commands) != set(PROJECT_COMMAND_HOOKS):
+    allowed_hook_sets = {
+        frozenset(PROJECT_COMMAND_HOOKS),
+        frozenset((*PROJECT_COMMAND_HOOKS, *OPTIONAL_PROJECT_COMMAND_HOOKS)),
+    }
+    if not isinstance(commands, dict) or frozenset(commands) not in allowed_hook_sets:
         return [".agent/project.json: project command hook set differs from contract"]
     required_fields = {
         "status",
@@ -2251,7 +2260,7 @@ def check_project_command_contract(
         "evidence_freshness_days",
         "side_effects",
     }
-    for hook in PROJECT_COMMAND_HOOKS:
+    for hook in commands:
         command = commands.get(hook)
         location = f".agent/project.json: commands.{hook}"
         if not isinstance(command, dict) or set(command) != required_fields:
@@ -2405,6 +2414,181 @@ def check_project_command_contract(
     if project.get("project_checks") != expected_project_checks:
         errors.append(".agent/project.json: project-check writer contract differs from kernel")
     return errors
+
+
+def check_work_completion_config(root: Path, project: dict[str, Any]) -> list[str]:
+    """Validate the optional, disabled-by-default completion adoption contract."""
+    if "work_completion" not in project:
+        return []
+    value = project.get("work_completion")
+    try:
+        schema = load_schema(root, "harness-work-completion.schema.json")
+    except (OSError, ValueError, json.JSONDecodeError) as error:
+        return [f".agent/project.json: work-completion schema unavailable: {error}"]
+    fragment = {
+        "$schema": schema.get("$schema"),
+        "$defs": schema.get("$defs", {}),
+        **schema.get("$defs", {}).get("completion_config", {}),
+    }
+    errors = [
+        f".agent/project.json: work_completion {item}"
+        for item in validate_schema(value, fragment)
+    ]
+    if errors or not isinstance(value, dict):
+        return errors
+    hook = value.get("completion_hook", {})
+    commands = project.get("commands", {})
+    command_hook = (
+        commands.get("work_completion_plan")
+        if isinstance(commands, dict)
+        else None
+    )
+    repository = value.get("repository", {})
+    provider = value.get("provider", {})
+    checks = value.get("required_hosted_checks", {})
+    cleanup = value.get("cleanup", {})
+    if value.get("status") == "disabled":
+        expected = {
+            "hook": "disabled",
+            "repository": {"identity": None, "remote": None, "default_branch": None},
+            "git_hooks": "not_assessed",
+            "provider_adapter": "not_assessed",
+            "hosted_repository": None,
+            "eligible_peer_reviewers": [],
+            "solo_hybrid_pull_request": "not_assessed",
+            "checks": {"status": "not_assessed", "names": []},
+            "validation_hooks": [],
+            "cleanup": {"remote_task_branch": "not_assessed", "local_task_branch": "not_assessed"},
+        }
+        observed = {
+            "hook": hook.get("mode"),
+            "repository": repository,
+            "git_hooks": value.get("git_hooks"),
+            "provider_adapter": provider.get("adapter"),
+            "hosted_repository": provider.get("hosted_repository"),
+            "eligible_peer_reviewers": value.get("eligible_peer_reviewers"),
+            "solo_hybrid_pull_request": value.get("solo_hybrid_pull_request"),
+            "checks": checks,
+            "validation_hooks": value.get("validation_hooks"),
+            "cleanup": cleanup,
+        }
+        if observed != expected:
+            errors.append(
+                ".agent/project.json: disabled work completion must retain the non-authorizing unassessed baseline"
+            )
+        if command_hook is not None and command_hook.get("status") != "not_assessed":
+            errors.append(
+                ".agent/project.json: disabled work completion cannot configure its completion-event command hook"
+            )
+        return errors
+    if hook.get("mode") not in {"disabled", "plan_only_on_completion_event"}:
+        errors.append(
+            ".agent/project.json: enabled completion hook must remain disabled or plan-only"
+        )
+    expected_plan_argv = [
+        "python", "-B", ".agent/scripts/pb.py", "work", "finish", "plan"
+    ]
+    if (
+        not isinstance(command_hook, dict)
+        or command_hook.get("status") != "configured"
+        or command_hook.get("argv") != expected_plan_argv
+        or command_hook.get("side_effects") != {
+            "classification": "read_only",
+            "repository_write_paths": [],
+            "external_effects": [],
+        }
+    ):
+        errors.append(
+            ".agent/project.json: enabled work completion requires the exact configured read-only work_completion_plan command hook"
+        )
+    if any(not isinstance(repository.get(field), str) or not repository[field] for field in ("identity", "remote", "default_branch")):
+        errors.append(
+            ".agent/project.json: enabled work completion requires explicit repository identity, remote, and default branch"
+        )
+    if value.get("git_hooks") != "require_none":
+        errors.append(
+            ".agent/project.json: enabled work completion requires an explicit no-active-Git-hooks policy"
+        )
+    selection = project.get("collaboration_profile", {}).get("workflow_selection", {})
+    workflow = selection.get("base_workflow")
+    if selection.get("status") != "adopted" or workflow not in SUPPORTED_BASE_WORKFLOWS:
+        errors.append(
+            ".agent/project.json: work completion requires an adopted small-team workflow authority"
+        )
+    if checks.get("status") != "configured":
+        errors.append(
+            ".agent/project.json: enabled work completion must explicitly assess required hosted checks"
+        )
+    if provider.get("adapter") not in {"none", "github_cli"}:
+        errors.append(
+            ".agent/project.json: enabled work completion must explicitly assess provider handling"
+        )
+    if provider.get("adapter") == "none" and checks.get("names"):
+        errors.append(
+            ".agent/project.json: named hosted checks require an assessed hosted provider adapter"
+        )
+    if checks.get("names") and (
+        provider.get("adapter") != "github_cli"
+        or not isinstance(provider.get("hosted_repository"), str)
+        or not provider["hosted_repository"]
+    ):
+        errors.append(
+            ".agent/project.json: named hosted checks require an explicit hosted repository"
+        )
+    if provider.get("adapter") == "none" and provider.get("hosted_repository") is not None:
+        errors.append(
+            ".agent/project.json: provider adapter none requires hosted_repository=null"
+        )
+    hooks = value.get("validation_hooks", [])
+    if not hooks:
+        errors.append(
+            ".agent/project.json: enabled work completion requires at least one validation hook"
+        )
+    for hook_name in hooks:
+        command = commands.get(hook_name, {}) if isinstance(commands, dict) else {}
+        if command.get("status") != "configured" or command.get("side_effects", {}).get("classification") != "read_only":
+            errors.append(
+                f".agent/project.json: work-completion hook {hook_name} must be configured read_only"
+            )
+    pr_required = workflow in {"pair_pr", "tiny_pr"} or (
+        workflow == "solo_hybrid" and value.get("solo_hybrid_pull_request") == "enabled"
+    )
+    if workflow == "solo_hybrid" and value.get("solo_hybrid_pull_request") == "not_assessed":
+        errors.append(
+            ".agent/project.json: solo_hybrid self-PR handling must be explicitly assessed"
+        )
+    if pr_required and (
+        provider.get("adapter") != "github_cli"
+        or not isinstance(provider.get("hosted_repository"), str)
+        or not provider["hosted_repository"]
+    ):
+        errors.append(
+            ".agent/project.json: the adopted pull-request path requires an assessed provider adapter"
+        )
+    eligible_reviewers = value.get("eligible_peer_reviewers", [])
+    if workflow in {"pair_pr", "tiny_pr"} and not eligible_reviewers:
+        errors.append(
+            ".agent/project.json: peer-review workflows require explicit eligible provider reviewer identities"
+        )
+    if workflow not in {"pair_pr", "tiny_pr"} and eligible_reviewers:
+        errors.append(
+            ".agent/project.json: eligible peer reviewers are only applicable to peer-review workflows"
+        )
+    if workflow == "solo_direct" and cleanup != {
+        "remote_task_branch": "disabled",
+        "local_task_branch": "disabled",
+    }:
+        errors.append(
+            ".agent/project.json: solo_direct must not introduce task-branch cleanup"
+        )
+    if workflow != "solo_direct" and cleanup != {
+        "remote_task_branch": "required",
+        "local_task_branch": "required",
+    }:
+        errors.append(
+            ".agent/project.json: branch-based completion must reconcile both remote and local task-branch cleanup"
+        )
+    return list(dict.fromkeys(errors))
 
 
 def load_project_check_evidence(
@@ -3045,6 +3229,7 @@ def check_kernel(root: Path) -> list[str]:
     ):
         errors.append(".agent: governance kernel project identity mismatch")
     errors.extend(check_project_command_contract(root, project))
+    errors.extend(check_work_completion_config(root, project))
     for group in ("source", "tests", "generated", "instruction_roots"):
         for index, item in enumerate(project.get("paths", {}).get(group, [])):
             _, path_error = safe_relative_path(root, item)

@@ -15,6 +15,13 @@ non-authoritative implementation assets, safe additions, and explicit derived
 regeneration; all authority-bearing or ambiguous paths require reviewed
 dispositions and exact digest acceptance.
 
+Accepted source decision `SRC-DEC-0013` narrowly permits the shared governed
+small-team work-completion exception to the repository-local transaction
+boundary. It creates no delivery authority for this repository or any target
+project. The capability and automatic event hook are generated disabled;
+external apply requires separate exact current task-scoped authorization and
+uses resumable progress evidence rather than an atomic rollback claim.
+
 ## Current release
 
 - Blueprint version: `3.0.0`
@@ -81,7 +88,8 @@ Before tagging a release:
    `test_migration_3_1_0_to_4_0_0.py`, and confirm valid transformation,
    exact idempotence, reviewed legacy seeding, rollback evidence, and every
    fail-closed fixture;
-4. run `test_velocity_workflows.py`, `test_acceptance.py`, and
+4. run `test_velocity_workflows.py`, `test_work_completion.py`,
+   `test_acceptance.py`, and
    `benchmark_validation.py --enforce`; retain the host-specific benchmark
    report and disclose any threshold failure;
 5. install the skill into a fresh temporary destination, run the installed
@@ -106,14 +114,19 @@ Before tagging a release:
 11. confirm no generated profile contains project facts, collaborator
     identities, hosted settings, secrets, permissions, accepted decisions,
     configured hooks, passing evidence, providers, or readiness claims;
-12. commit the exact validated source and publish its required self-PR under
+12. confirm work-completion planning preserves complete repository and Git
+    fingerprints; all four workflows and concurrent handback pass their
+    positive and negative matrices; stale digests, remote/check/PR/review/
+    ownership mismatches block; every external-action interruption resumes
+    without duplication; and integration/synchronization precede cleanup;
+13. commit the exact validated source and publish its required self-PR under
     current authority;
-13. after a separately authorized `merge_commit` integration, manually
+14. after a separately authorized `merge_commit` integration, manually
     dispatch the `validate` workflow on the exact integrated `main` revision
     and confirm the full Python 3.11-3.14 and Ubuntu/macOS/Windows matrix
     passes; the automatic `main-smoke` check is not a substitute for this
     release gate; and
-14. only with separate current release authority, create an annotated
+15. only with separate current release authority, create an annotated
     `v<version>` tag on that exact validated integrated revision.
 
 Do not move a published version tag. A correction receives a new patch
