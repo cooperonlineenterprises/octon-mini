@@ -266,8 +266,10 @@ def detect(target: Path) -> dict[str, Any]:
     if not target.is_absolute():
         raise DetectionError("--target must be an absolute path")
     target = target.resolve()
-    if not target.is_dir():
-        raise DetectionError("--target must be an existing directory")
+    if target.exists() and not target.is_dir():
+        raise DetectionError("--target must be a directory")
+    if not target.exists() and not target.parent.is_dir():
+        raise DetectionError("a nonexistent target requires an existing parent directory")
     observed_at = now()
     archetypes: list[dict[str, Any]] = []
     hooks: list[dict[str, Any]] = []

@@ -7,6 +7,7 @@ import importlib.util
 import json
 import re
 import sys
+import tempfile
 from datetime import date, datetime, timezone
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -935,6 +936,79 @@ def validate_decision_governance_fixtures(root: Path = ROOT) -> list[str]:
     return errors
 
 
+def validate_guided_setup_contracts(root: Path = ROOT) -> list[str]:
+    errors: list[str] = []
+    catalog_path = root / "shared/source-contracts/setup-questions.json"
+    catalog_schema_path = root / "shared/source-contracts/setup-questions.schema.json"
+    answers_schema_path = root / "shared/schemas/project-blueprint-setup-answers.schema.json"
+    session_schema_path = root / "shared/schemas/project-blueprint-setup-session.schema.json"
+    try:
+        catalog = load_json(catalog_path)
+        catalog_schema = load_json(catalog_schema_path)
+        answers_schema = load_json(answers_schema_path)
+        session_schema = load_json(session_schema_path)
+    except (OSError, ValueError, json.JSONDecodeError) as error:
+        return [f"guided setup contracts cannot be loaded: {error}"]
+    errors.extend(schema_issues(catalog, catalog_schema, "shared/source-contracts/setup-questions.json"))
+    try:
+        spec = importlib.util.spec_from_file_location(
+            "source_contract_guided_setup",
+            SKILL_ROOT / "scripts/setup_session.py",
+        )
+        if spec is None or spec.loader is None:
+            raise RuntimeError("cannot load guided setup engine")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        module.validate_catalog(catalog)
+        with tempfile.TemporaryDirectory(prefix="project-blueprint-setup-schema-") as temporary:
+            target = Path(temporary) / "target"
+            target.mkdir()
+            session = module.create_session("initialization", target)
+            errors.extend(
+                schema_issues(
+                    session,
+                    session_schema,
+                    "generated initialization setup session",
+                )
+            )
+    except (OSError, RuntimeError, ValueError) as error:
+        errors.append(f"guided setup catalog semantics failed: {error}")
+    for path in sorted((SKILL_ROOT / "fixtures/guided-setup/valid").glob("*.json")):
+        try:
+            value = load_json(path)
+        except (OSError, ValueError, json.JSONDecodeError) as error:
+            errors.append(f"{path.relative_to(SKILL_ROOT)} cannot be loaded: {error}")
+            continue
+        errors.extend(schema_issues(value, answers_schema, str(path.relative_to(SKILL_ROOT))))
+    mutation_path = SKILL_ROOT / "fixtures/guided-setup/invalid/mutations.json"
+    try:
+        mutations = load_json(mutation_path)
+    except (OSError, ValueError, json.JSONDecodeError) as error:
+        errors.append(f"guided setup mutation inventory cannot be loaded: {error}")
+        return errors
+    if (
+        not isinstance(mutations, dict)
+        or set(mutations) != {"schema_version", "permission_grant", "mutations", "limitations"}
+        or mutations.get("schema_version") != "project-blueprint.setup-mutations.v1"
+        or mutations.get("permission_grant") is not False
+        or not isinstance(mutations.get("mutations"), list)
+        or not mutations["mutations"]
+    ):
+        errors.append("guided setup mutation inventory uses an invalid closed contract")
+        return errors
+    identifiers: list[str] = []
+    for index, item in enumerate(mutations["mutations"]):
+        if not isinstance(item, dict) or set(item) != {"id", "operation", "expected_diagnostic"}:
+            errors.append(f"guided setup mutation {index} uses an invalid closed contract")
+            continue
+        if any(not isinstance(item[key], str) or not item[key] for key in item):
+            errors.append(f"guided setup mutation {index} has an empty field")
+        identifiers.append(item["id"])
+    if len(identifiers) != len(set(identifiers)):
+        errors.append("guided setup mutation IDs must be unique")
+    return errors
+
+
 def validate_repository(root: Path = ROOT) -> list[str]:
     errors: list[str] = []
     schema_paths = (
@@ -946,7 +1020,10 @@ def validate_repository(root: Path = ROOT) -> list[str]:
         root / "shared/source-contracts/commands.schema.json",
         root / "shared/source-contracts/diagnostic-catalog.schema.json",
         root / "shared/source-contracts/hook-detector-protocol.schema.json",
+        root / "shared/source-contracts/setup-questions.schema.json",
         root / "shared/optional-schemas/context-pack-manifest.schema.json",
+        root / "shared/schemas/project-blueprint-setup-answers.schema.json",
+        root / "shared/schemas/project-blueprint-setup-session.schema.json",
     )
     for path in schema_paths:
         try:
@@ -976,7 +1053,7 @@ def validate_repository(root: Path = ROOT) -> list[str]:
                 "shared/source-contracts/profile-manifest.json",
             )
         )
-    for name in ("commands", "diagnostic-catalog", "hook-detector-protocol"):
+    for name in ("commands", "diagnostic-catalog", "hook-detector-protocol", "setup-questions"):
         try:
             contract = load_json(root / f"shared/source-contracts/{name}.json")
             schema = load_json(root / f"shared/source-contracts/{name}.schema.json")
@@ -1038,6 +1115,7 @@ def validate_repository(root: Path = ROOT) -> list[str]:
         errors.append("architecture-proof templates do not cover the five accepted kinds")
     errors.extend(validate_generated_inventory_boundaries(root))
     errors.extend(validate_decision_governance_fixtures(root))
+    errors.extend(validate_guided_setup_contracts(root))
     return errors
 
 
@@ -1067,6 +1145,12 @@ def main() -> int:
     print(
         "- profile manifest: v1 explicit allowlists, derived profile projections, "
         "capability-scoped degradation, and strict repository drift validation"
+    )
+    guided_mutation_count = len(
+        load_json(SKILL_ROOT / "fixtures/guided-setup/invalid/mutations.json")["mutations"]
+    )
+    print(
+        f"- guided setup: one catalog, strict session/answer contracts, and {guided_mutation_count} fail-closed mutations"
     )
     return 0
 

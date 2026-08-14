@@ -89,6 +89,7 @@ hardlinks that could mutate the live tree through staged commands.
 | Boundary | Cases | Executable evidence |
 |---|---|---|
 | profile/layout generation | 3 profiles × compact/separated | `validate_blueprint.py` profile builds |
+| guided setup | init/adopt/upgrade, conversational/TTY/flag equivalence, immutable resume, staleness, work-completion prerequisites, target no-write | `test_guided_setup.py` |
 | guided creation | explicit Minimal, compact, solo facts, first task, plan/apply/resume | `test_velocity_workflows.py` |
 | established adoption | dirty Git repository, low conflict apply, existing-byte preservation, exact collision refusal | `test_velocity_workflows.py`; `test_acceptance.py` |
 | archetype detection | software/product, research, brand/non-software, operations/hybrid | `test_velocity_workflows.py` |
@@ -203,6 +204,7 @@ recorded architecture decision and must not conceal a regression.
 
 ```text
 python3 -B skills/project-bootstrap/scripts/test_velocity_workflows.py
+python3 -B skills/project-bootstrap/scripts/test_guided_setup.py
 python3 -B skills/project-bootstrap/scripts/test_migration_3_1_0_to_4_0_0.py
 python3 -B skills/project-bootstrap/scripts/validate_blueprint.py
 python3 -B skills/project-bootstrap/scripts/test_acceptance.py

@@ -37,6 +37,7 @@ def load_module(name: str, path: Path):
 SCAFFOLDER = load_module("pb_init_scaffolder", SCRIPT_ROOT / "scaffold_project.py")
 DETECTOR = load_module("pb_init_detector", SCRIPT_ROOT / "detect_project.py")
 COLLABORATION = load_module("pb_init_collaboration", SCRIPT_ROOT / "collaboration_project.py")
+SETUP = load_module("pb_init_setup", SCRIPT_ROOT / "setup_session.py")
 TRANSACTION = load_module(
     "pb_init_transaction",
     SKILL_ROOT / "assets/templates/core/.agent/scripts/pb_transaction.py.tmpl",
@@ -70,7 +71,7 @@ def ensure_target_container(target: Path) -> None:
     if not target.exists():
         if not target.parent.is_dir():
             raise InitError("target parent must already exist")
-        target.mkdir()
+        return
     if target.is_symlink() or not target.is_dir():
         raise InitError("target must be a real directory")
     unexpected: list[str] = []
@@ -112,6 +113,32 @@ def first_task_requested(args: argparse.Namespace) -> bool:
 
 
 def create_candidate(args: argparse.Namespace, destination: Path) -> None:
+    generation_payload = {
+        "operation": "init.project",
+        "blueprint_version": SCAFFOLDER.blueprint_version(),
+        "target_identity": str(args.target.expanduser().resolve()),
+        "project_name": args.project_name,
+        "project_slug": args.project_slug,
+        "profile": args.profile,
+        "layout": args.layout,
+        "writer_count": args.writer_count,
+        "first_task": {
+            key: getattr(args, key)
+            for key in (
+                "first_task_title",
+                "first_task_scope",
+                "first_task_authority_basis",
+                "first_task_owner",
+                "first_task_operator",
+                "first_task_acceptance",
+                "first_task_validation",
+                "first_task_next_action",
+            )
+        },
+    }
+    generation_identifier = hashlib.sha256(
+        json.dumps(generation_payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()[:32]
     run(
         [
             sys.executable,
@@ -124,6 +151,8 @@ def create_candidate(args: argparse.Namespace, destination: Path) -> None:
             args.profile,
             "--layout",
             args.layout,
+            "--generation-id",
+            generation_identifier,
             *(["--project-slug", args.project_slug] if args.project_slug else []),
         ],
         SCRIPT_ROOT,
@@ -226,8 +255,11 @@ def analysis_for(args: argparse.Namespace, detection: dict[str, Any]) -> dict[st
     decisions = [
         {
             "id": "init.profile_and_layout",
-            "summary": f"Explicit initialization input selects {args.profile} assurance with {args.layout} physical layout.",
-            "source_refs": ["cli:--profile", "cli:--layout"],
+            "summary": f"Reviewed initialization inputs select {args.profile} assurance with {args.layout} physical layout; the selection is not accepted project authority.",
+            "source_refs": [
+                "setup-question:setup.assurance-profile",
+                "setup-question:setup.layout",
+            ],
             "rule": None,
             "confidence": "deterministic",
             "limitations": ["Profile selection does not establish project readiness."],
@@ -255,12 +287,37 @@ def analysis_for(args: argparse.Namespace, detection: dict[str, Any]) -> dict[st
                 "limitations": ["Task creation does not claim completion or authorize external effects."],
             }
         )
-    return {
+    result = {
         "observations": observations,
         "inferences": inferences,
         "explicit_decisions": decisions,
         "authorization_gates": [],
     }
+    binding = getattr(args, "_setup_binding", None)
+    if binding is not None:
+        session, _ = binding
+        result["observations"].append(
+            {
+                "id": "init.guided_setup_session",
+                "summary": "A current non-authorizing guided setup session supplied reviewed inputs and preserved unresolved optional matters.",
+                "source_refs": [session["canonical_session_digest"]],
+                "rule": "project-blueprint.setup-session.v1",
+                "confidence": "deterministic",
+                "limitations": ["The session does not create accepted authority or runtime authorization."],
+            }
+        )
+        if session["work_completion_assessment"]["status"] == "pending_prerequisites":
+            result["authorization_gates"].append(
+                {
+                    "id": "init.work_completion_pending",
+                    "summary": "The work-completion selection remains pending its dependency-ordered prerequisites and is not enabled by initialization.",
+                    "source_refs": [session["canonical_session_digest"]],
+                    "rule": "work_completion_requires_separate_project_owned_configuration",
+                    "confidence": "deterministic",
+                    "limitations": session["work_completion_assessment"]["missing_prerequisites"],
+                }
+            )
+    return result
 
 
 def build_plan(args: argparse.Namespace) -> dict[str, Any]:
@@ -317,6 +374,7 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
                     f"target-fingerprint:{detection['target_fingerprint']}",
                     limitations=detection["limitations"],
                 ),
+                *SETUP.transaction_evidence(getattr(args, "_setup_binding", None), TRANSACTION),
             ],
             assumptions=[],
             confidence="deterministic",
@@ -329,12 +387,12 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
         )
 
 
-def add_common(parser: argparse.ArgumentParser, *, profile_required: bool) -> None:
+def add_common(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--target", type=Path, required=True)
-    parser.add_argument("--project-name", required=True)
+    parser.add_argument("--project-name")
     parser.add_argument("--project-slug")
-    parser.add_argument("--profile", choices=("minimal", "standard", "high-assurance"), required=profile_required)
-    parser.add_argument("--layout", choices=("compact", "separated"), default="compact")
+    parser.add_argument("--profile", choices=("minimal", "standard", "high-assurance"), required=False)
+    parser.add_argument("--layout", choices=("compact", "separated"))
     parser.add_argument("--writer-count", type=int)
     parser.add_argument("--collaboration-source")
     parser.add_argument("--collaboration-observed-at")
@@ -378,23 +436,45 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Guided Project Blueprint initialization")
     commands = parser.add_subparsers(dest="command", required=True)
     plan = commands.add_parser("plan")
-    add_common(plan, profile_required=True)
+    add_common(plan)
     plan.add_argument("--output", type=Path, required=True)
+    plan.add_argument("--setup-session", type=Path)
     apply = commands.add_parser("apply")
     apply.add_argument("--target", type=Path, required=True)
     apply.add_argument("--plan", type=Path, required=True)
     apply.add_argument("--accept-digest", required=True)
     interactive = commands.add_parser("interactive")
-    add_common(interactive, profile_required=False)
+    add_common(interactive)
     interactive.add_argument("--output", type=Path)
+    SETUP.add_setup_parser(commands, "initialization")
     args = parser.parse_args()
     try:
+        if args.command == "setup":
+            return SETUP.run_setup(args)
         if args.command == "apply":
             target = args.target.expanduser().resolve()
             value = TRANSACTION.load_plan(args.plan)
             if value.get("operation") != "init.project":
                 raise InitError("plan is not a guided-initialization transaction")
-            receipt, receipt_path = TRANSACTION.apply_plan(target, value, args.accept_digest)
+            SETUP.verify_plan_binding(target, value)
+            target_created = False
+            if not target.exists():
+                if not target.parent.is_dir():
+                    raise InitError("target parent must already exist")
+                target.mkdir()
+                target_created = True
+            try:
+                ensure_target_container(target)
+                receipt, receipt_path = TRANSACTION.apply_plan(
+                    target, value, args.accept_digest
+                )
+            except BaseException:
+                if target_created:
+                    try:
+                        target.rmdir()
+                    except OSError:
+                        pass
+                raise
             print(f"[APPLIED] {receipt['receipt_id']}")
             print(f"[RECEIPT] {receipt_path}")
             print("[STATUS] structurally conforming; adoption and readiness remain unassessed")
@@ -403,13 +483,22 @@ def main() -> int:
             if not sys.stdin.isatty():
                 raise InitError("interactive init requires a terminal; use `init plan` with explicit --profile")
             if args.profile is None:
-                print("[PROPOSAL] Minimal assurance (collaboration size is assessed separately).")
+                profile_question = SETUP.question_map(SETUP.load_catalog())["setup.assurance-profile"]
+                print(f"[QUESTION] {profile_question['prompt']}")
+                print("[PROPOSAL] Minimal assurance only when actual project risk supports it; collaboration size is assessed separately.")
                 if input("Select Minimal? [y/N] ").strip().lower() not in {"y", "yes"}:
                     raise InitError("profile was not explicitly confirmed")
                 args.profile = "minimal"
             output = args.output or args.target / ".agent/transactions/plans/init.json"
         else:
             output = args.output
+            args._setup_binding = SETUP.prepare_plan_session("initialization", args)
+        if args.project_name is None:
+            raise InitError("initialization requires --project-name or setup.project-name")
+        if args.profile is None:
+            raise InitError("initialization requires --profile or setup.assurance-profile")
+        if args.layout is None:
+            args.layout = "compact"
         validate_collaboration_inputs(args)
         value = build_plan(args)
         TRANSACTION.write_new_json(output, value)
@@ -427,7 +516,7 @@ def main() -> int:
             print(f"[APPLIED] {receipt['receipt_id']}")
             print(f"[RECEIPT] {receipt_path}")
         return 0
-    except (OSError, RuntimeError, ValueError, InitError, TRANSACTION.TransactionError) as error:
+    except (OSError, RuntimeError, ValueError, InitError, SETUP.SetupError, TRANSACTION.TransactionError) as error:
         print(f"[FAIL] {error}", file=sys.stderr)
         return 2
 

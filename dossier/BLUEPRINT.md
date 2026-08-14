@@ -29,6 +29,11 @@ apply, what evidence supports a claim, and how work can resume safely.
 The dossier is documentation. It does not grant permission, activate a plan,
 approve a release, or prove implementation merely by describing it.
 
+A Blueprint setup session is likewise an orchestration input, not dossier or
+project authority. Observations, recommendations, user selections, and
+accepted-authority references from setup remain distinct. Only the project's
+existing decision or approval process can make a policy selection durable.
+
 Primary audiences:
 
 - project owners and decision-makers;

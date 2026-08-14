@@ -89,7 +89,7 @@ Before tagging a release:
    exact idempotence, reviewed legacy seeding, rollback evidence, and every
    fail-closed fixture;
 4. run `test_velocity_workflows.py`, `test_work_completion.py`,
-   `test_acceptance.py`, and
+   `test_guided_setup.py`, `test_acceptance.py`, and
    `benchmark_validation.py --enforce`; retain the host-specific benchmark
    report and disclose any threshold failure;
 5. install the skill into a fresh temporary destination, run the installed
@@ -119,14 +119,19 @@ Before tagging a release:
     positive and negative matrices; stale digests, remote/check/PR/review/
     ownership mismatches block; every external-action interruption resumes
     without duplication; and integration/synchronization precede cleanup;
-13. commit the exact validated source and publish its required self-PR under
+13. confirm setup question generation leaves the target unchanged; catalog,
+    target, instruction, evidence, Blueprint, and session staleness fail
+    closed; AI, TTY, and legacy-flag inputs reconcile through stable question
+    IDs; init/adopt/upgrade use their existing planners; and work-completion
+    setup neither enables missing prerequisites nor creates authorization;
+14. commit the exact validated source and publish its required self-PR under
     current authority;
-14. after a separately authorized `merge_commit` integration, manually
+15. after a separately authorized `merge_commit` integration, manually
     dispatch the `validate` workflow on the exact integrated `main` revision
     and confirm the full Python 3.11-3.14 and Ubuntu/macOS/Windows matrix
     passes; the automatic `main-smoke` check is not a substitute for this
     release gate; and
-15. only with separate current release authority, create an annotated
+16. only with separate current release authority, create an annotated
     `v<version>` tag on that exact validated integrated revision.
 
 Do not move a published version tag. A correction receives a new patch

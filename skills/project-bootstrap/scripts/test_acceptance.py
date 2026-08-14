@@ -352,6 +352,16 @@ def main() -> int:
         + (work_completion.stderr.strip() or work_completion.stdout.strip()),
         failures,
     )
+    guided_setup = run(
+        [sys.executable, "-B", str(SKILL_ROOT / "scripts/test_guided_setup.py")],
+        ROOT,
+    )
+    require(
+        guided_setup.returncode == 0,
+        "guided setup positive/negative/mutation suite failed: "
+        + (guided_setup.stderr.strip() or guided_setup.stdout.strip()),
+        failures,
+    )
     scaffolder_namespace = runpy.run_path(str(SCAFFOLDER))
     canonical_posix_paths = scaffolder_namespace["canonical_posix_paths"]
     refresh_path_values = (
@@ -1831,6 +1841,10 @@ def main() -> int:
     print(
         "- adoption: read-only planning/checks plus separately explicit, "
         "fingerprint-bound project-check evidence"
+    )
+    print(
+        "- guided setup: one catalog and shared session engine across init, adopt, "
+        "and upgrade with target-read-only inspection and stale-digest refusal"
     )
     print(
         "- validator: adversarial authority, progressive collaboration classification, "

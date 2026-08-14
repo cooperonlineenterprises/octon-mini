@@ -1,6 +1,6 @@
 ---
 name: project-bootstrap
-description: Create, adopt, operate, recover, or upgrade a project-specific agent harness and project dossier from the versioned Project Blueprint. Use for new or established repositories, governed agent operation, compact or separated dossier layout, progressive solo/pair/tiny collaboration, transactional work lifecycle, validation, recovery, and deliberate Blueprint upgrades.
+description: Create, adopt, operate, recover, or upgrade a project-specific agent harness and project dossier from the versioned Project Blueprint. Use for guided or conversational setup interviews, new or established repositories, governed agent operation, compact or separated dossier layout, progressive solo/pair/tiny collaboration, transactional work lifecycle, validation, recovery, and deliberate Blueprint upgrades.
 ---
 
 # Project Bootstrap
@@ -17,7 +17,9 @@ facts, identities, permissions, accepted decisions, evidence, or readiness.
    - harness: `references/harness-model.md`;
    - profile/layout/collaboration: `references/profile-selection.md`;
    - creation, adoption, maintenance, recovery, upgrade:
-     `references/generation-workflow.md`.
+     `references/generation-workflow.md`;
+   - conversational, TTY, or answer-file setup and resume:
+     `references/guided-setup.md`.
 4. Keep these axes independent:
    - Minimal, Standard, High Assurance: project risk and assurance;
    - solo, pair, tiny: one, two, or three-to-five write-capable humans;
@@ -31,9 +33,18 @@ authoritative command inventory is projected to every generated
 `.agent/commands.json`, where each command labels its bootstrap-source or
 generated-project availability; primitive scripts remain advanced diagnostics.
 
+- Guided setup: use `pb init|adopt|upgrade setup`. Determine mode from target
+  evidence, stop on ambiguity, inspect read-only, and ask only unresolved
+  dependency-eligible catalog questions—normally one to three at a time. State
+  importance, choices, recommendation/rationale, allowed unknown or deferral,
+  and blocked consequences without preselecting an answer. Keep observations,
+  inferences, recommendations, selections, accepted-authority references,
+  unknowns, deferrals, and runtime authorization distinct. Write a session only
+  to an explicitly requested external path, use immutable successors, summarize
+  before planning, and bind `--setup-session` into the existing planner.
 - New project: `pb init plan|apply`. Non-interactive planning requires an
-  explicit profile. Interactive `pb init` proposes Minimal and requires
-  confirmation. Archetypes, hooks, and collaboration are proposals; create a
+  explicit profile flag or a reviewed setup-session answer. Interactive
+  `pb init` proposes Minimal and requires confirmation. Archetypes, hooks, and collaboration are proposals; create a
   first task only from explicitly supplied purpose, scope, authority,
   acceptance, ownership, validation, and next action.
 - Established project: `pb adopt plan|apply`. Use the default bounded semantic
@@ -81,6 +92,8 @@ ambiguous plans fail closed.
 - Stable IDs and authority ownership are never silently reassigned.
 - Generated snapshots remain independent and versioned.
 - `check`, detection, diagnosis, planning, and resume views are read-only.
+- Guided question generation is target-read-only; session output is explicit,
+  external to the target, non-authorizing, and secret-free.
 - Generated-integrity and project-check evidence writes stay explicit and
   separate.
 - External, destructive, credentialed, financial, legal, publication,
@@ -102,12 +115,22 @@ ambiguous plans fail closed.
 Run from the skill directory or use absolute paths.
 
 ```text
+python3 scripts/pb.py init setup \
+  --target /absolute/project/path \
+  --output /absolute/review-area/setup-01.json
+
 python3 scripts/pb.py init plan \
   --target /absolute/project/path \
   --project-name "Project Name" \
   --profile minimal \
   --layout compact \
   --output /absolute/project/path/.agent/transactions/plans/init.json
+
+python3 scripts/pb.py init setup \
+  --target /absolute/project/path \
+  --session /absolute/review-area/setup-01.json \
+  --record-plan /absolute/review-area/init-plan.json \
+  --output /absolute/review-area/setup-02.json
 
 python3 scripts/pb.py init apply \
   --target /absolute/project/path \
@@ -116,6 +139,7 @@ python3 scripts/pb.py init apply \
 
 python3 scripts/pb.py adopt plan --help
 python3 scripts/pb.py upgrade plan --help
+python3 scripts/test_guided_setup.py
 python3 scripts/validate_blueprint.py
 python3 scripts/test_acceptance.py
 ```
@@ -133,6 +157,9 @@ python -B .agent/tests/test_validate.py --tier fast
 ## Output contract
 
 Report the Blueprint version, profile, layout, collaboration assessment and
-workflow-adoption status, exact plan/receipt identity, collisions or deferred
-review, validation tier run, rollback/recovery path, and remaining adoption or
-readiness work. Never describe structural success as permission or readiness.
+workflow-adoption status, setup-session digest/status, recommendations versus
+selections versus accepted authority, unknowns/deferrals, exact plan/receipt
+identity, collisions or deferred review, work-completion closure sequence,
+validation tier run, rollback/recovery path, and remaining adoption or readiness
+work. Never describe setup, structural success, or a selected option as
+permission or readiness.

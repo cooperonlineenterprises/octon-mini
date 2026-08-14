@@ -21,6 +21,14 @@ policy remains non-authorizing and deny-by-default. Do not transfer
 permissions, accepted decisions, current status, evidence, identities,
 endpoints, or domain constants from this blueprint or another project.
 
+Guided setup is source-side orchestration over the existing init, adopt, and
+upgrade planners, not a second project harness or apply engine. Its session is
+a reviewed input artifact outside the target. It records recommendations,
+selections, and accepted-authority references separately and always records
+`permission_grant: false`. Generated projects receive its schemas and CLI
+support only in a new snapshot or explicit reviewed upgrade; the catalog and
+agent procedure remain Blueprint source guidance.
+
 ## Information owners
 
 - permission boundary: `.agent/policy.json`;

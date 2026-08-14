@@ -4,8 +4,11 @@
   "permission_grant": false,
   "commands": [
     {"name": "init", "availability": "bootstrap_source", "read_only": false, "mutation_model": "bootstrap_source_plan_apply_receipt", "authorization_gate": "explicit_profile_and_reviewed_digest"},
+    {"name": "init.setup", "availability": "bootstrap_source", "read_only": false, "mutation_model": "target_read_only_optional_explicit_external_setup_session_artifact", "authorization_gate": "none_for_inspection_explicit_path_for_session_write"},
     {"name": "adopt", "availability": "bootstrap_source", "read_only": false, "mutation_model": "bootstrap_source_proposal_review_plan_apply_receipt", "authorization_gate": "authority_preservation_and_reviewed_digest"},
+    {"name": "adopt.setup", "availability": "bootstrap_source", "read_only": false, "mutation_model": "target_read_only_optional_explicit_external_setup_session_artifact", "authorization_gate": "none_for_inspection_explicit_path_for_session_write"},
     {"name": "upgrade", "availability": "bootstrap_source", "read_only": false, "mutation_model": "bootstrap_source_three_way_plan_apply_receipt", "authorization_gate": "project_owned_authority_evidence_review_and_digest"},
+    {"name": "upgrade.setup", "availability": "bootstrap_source", "read_only": false, "mutation_model": "target_read_only_optional_explicit_external_setup_session_artifact", "authorization_gate": "none_for_inspection_explicit_path_for_session_write"},
     {"name": "detect", "availability": "bootstrap_source", "read_only": true, "mutation_model": "none", "authorization_gate": "none"},
     {"name": "check", "availability": "generated_project", "read_only": true, "mutation_model": "none", "authorization_gate": "none"},
     {"name": "doctor", "availability": "generated_project", "read_only": true, "mutation_model": "explicit_derived_repair_only", "authorization_gate": "reviewed_digest_for_repair"},

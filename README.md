@@ -21,8 +21,8 @@ Version 4.0 makes the universal kernel thinner and ordinary operation faster:
 
 - one authoritative profile/layout/package/inventory/acceptance manifest;
 - one workflow-oriented `pb` command inventory projected into every snapshot;
-- guided, previewable, digest-bound initialization, adoption, maintenance,
-  work lifecycle, recovery, and live upgrades;
+- one catalog-driven, resumable, non-authorizing setup interview feeding the
+  existing digest-bound initialization, adoption, and upgrade planners;
 - read-only semantic detection and diagnosis;
 - fully derived current state plus a small authoritative focus source;
 - selective project checks and bounded immutable evidence history;
@@ -76,6 +76,7 @@ project-owned decision. Team size never selects assurance.
 | `docs/GOLDEN_PATHS.md` | verified operating paths |
 | `docs/COMPATIBILITY.md` | v4 compatibility, migration, and deprecation boundary |
 | `docs/DECISION_GOVERNANCE.md` | authoritative decision, review, maturity, handoff, and read-only assurance practice |
+| `docs/GUIDED_SETUP.md` | canonical setup interview, session, authority, staleness, and migration practice |
 | `VELOCITY_VALIDATION.md` | benchmarks, touchpoints, validation matrix |
 
 Strict JSON and Python 3.11+ keep the generated kernel portable and
@@ -83,6 +84,30 @@ duplicate-key rejecting. Extensions may add formats only with a pinned parser
 and validated adapter.
 
 ## New project
+
+An AI agent or TTY can first run the shared setup interview. Question
+generation is target-read-only; the optional session output is explicit and
+must be outside the target:
+
+```text
+python3 skills/project-bootstrap/scripts/pb.py init setup \
+  --target /absolute/path/to/new-project \
+  --output /absolute/review-area/setup-01.json
+
+# Supply a digest-bound answer batch, or use --tty, and write a successor.
+python3 skills/project-bootstrap/scripts/pb.py init setup \
+  --target /absolute/path/to/new-project \
+  --session /absolute/review-area/setup-01.json \
+  --answers /absolute/review-area/answers-01.json \
+  --output /absolute/review-area/setup-02.json
+```
+
+The interview asks only unresolved, dependency-eligible questions, normally
+one to three at a time. It preserves observations, inferences,
+recommendations, owner selections, accepted-authority references, unknowns,
+deferrals, and runtime authorization as different information roles. No
+answer is preselected, and setup never stores secrets or grants permission.
+See `docs/GUIDED_SETUP.md`.
 
 Plan without changing the target:
 
@@ -94,6 +119,12 @@ python3 skills/project-bootstrap/scripts/pb.py init plan \
   --layout compact \
   --output /absolute/path/to/new-project/.agent/transactions/plans/init.json
 ```
+
+After a session reaches `ready_for_plan`, the same existing planner accepts
+`--setup-session /absolute/review-area/setup-02.json` instead of duplicate
+setup flags. The plan binds the exact session digest and bytes. Apply
+revalidates the session, target, instructions, plan digest, and ordinary
+transaction preconditions.
 
 Review the observations, inferences, explicit decisions, authorization gates,
 exact operations, validation, rollback, and digest. Then apply that digest:
@@ -123,6 +154,10 @@ Use content-aware adoption rather than the empty-project generator:
 ```text
 python3 skills/project-bootstrap/scripts/pb.py adopt plan --help
 ```
+
+Use `pb adopt setup` before planning when a guided interview is desired. It
+does not replace the bounded semantic proposal/review contract; proposal-bound
+collision and functional-equivalence dispositions remain authoritative.
 
 Default inspection is bounded to 200 allowlisted text/config files, 256 KiB
 each, and 4 MiB total. It excludes secrets, `.env*`, private keys, symlinks,
@@ -230,6 +265,10 @@ project, and candidate Blueprint:
 ```text
 python3 skills/project-bootstrap/scripts/pb.py upgrade plan --help
 ```
+
+`pb upgrade setup` uses the same session engine. Every nonautomatic path still
+requires one exact disposition in the existing proposal-bound upgrade review;
+the session references that review rather than duplicating it.
 
 Only exact-pristine non-authoritative implementation assets, safe additions,
 and derived regeneration are automatic. Instructions, policy, project config,

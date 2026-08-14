@@ -7,6 +7,10 @@ runtime link to Blueprint source and does not rewrite 3.x projects
 automatically. Existing 3.0/3.1 snapshots may continue using their own bundled
 validators, subject to their recorded limitations.
 
+Existing 4.0 snapshots and existing `pb init|adopt|upgrade plan` invocations
+remain valid without guided setup. Legacy flags map to stable setup-question
+IDs; they are not removed or silently defaulted.
+
 ## Migration
 
 - 1.0.1→2.0.0 and 2.0.0→3.0.0 remain closed reference transformations with
@@ -49,6 +53,11 @@ validators, subject to their recorded limitations.
   policy. A package update updates only an already installed exact-pristine
   portfolio; the core engine and schema arrive through the reviewed Blueprint
   upgrade.
+- guided setup is opt-in orchestration over the existing planners. Existing
+  projects receive its CLI support and schemas only through an explicit
+  Blueprint upgrade or skill-package update. The source question catalog is
+  not projected into target authority, and new questions remain unanswered or
+  deferred rather than receiving defaults.
 
 ## Deprecated entry points
 
@@ -60,6 +69,8 @@ because it lacks content/decision/receipt binding.
 Directly copying `pb_finish.py`, enabling its hook without a reviewed project
 configuration, or treating a prior authorization as standing permission is
 also unsupported.
+Directly copying a setup session between targets, hand-editing its digest, or
+treating an interview selection as accepted authority is unsupported.
 The legacy read-only `validate.py --assess-collaboration` report remains a
 compatibility diagnostic; new facts and workflow proposals use collaboration
 plan/apply so evidence and changes are reviewable and receipted.
