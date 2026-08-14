@@ -72,6 +72,13 @@ harness adoption, and target-project readiness are separate conclusions.
 ./pb work resume
 ./pb work start --help
 ./pb work close --help
+./pb work finish plan
 ./pb check
 ./pb doctor
 ```
+
+`work finish` is disabled in the generated baseline. If a project explicitly
+adopts it, `plan` remains read-only and non-authorizing; `apply` requires the
+exact reviewed digest plus current task-scoped authorization for every planned
+external operation. The optional completion event hook may create only the
+plan and can remain disabled.

@@ -289,11 +289,25 @@
       "unknown_operations": "deny",
       "operations": [
         {
+          "id": "locate_pull_request",
+          "effects": ["read_only_observation", "network_access"],
+          "authority_class": "explicit_current_authorization",
+          "normal_workflow": true,
+          "safeguards": ["require_exact_repository_base_and_head_refs", "reject_missing_duplicate_or_mismatched_results", "bind_observations_to_the_exact_head_revision"]
+        },
+        {
           "id": "observe_change_checks",
           "effects": ["read_only_observation", "network_access"],
           "authority_class": "explicit_current_authorization",
           "normal_workflow": true,
           "safeguards": ["require_current_platform_and_task_scoped_network_access", "do_not_infer_required_checks_or_success_from_availability"]
+        },
+        {
+          "id": "observe_pull_request_reviews",
+          "effects": ["read_only_observation", "network_access"],
+          "authority_class": "explicit_current_authorization",
+          "normal_workflow": true,
+          "safeguards": ["bind_reviews_to_the_exact_pull_request_and_head_revision", "distinguish_author_from_other_eligible_reviewers", "never_convert_agent_or_self_review_into_peer_approval"]
         },
         {
           "id": "open_pull_request",

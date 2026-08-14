@@ -1090,7 +1090,8 @@
             "project_test": {"$ref": "#/$defs/project_command"},
             "project_lint": {"$ref": "#/$defs/project_command"},
             "project_build": {"$ref": "#/$defs/project_command"},
-            "project_closure": {"$ref": "#/$defs/project_command"}
+            "project_closure": {"$ref": "#/$defs/project_command"},
+            "work_completion_plan": {"$ref": "#/$defs/project_command"}
           }
         },
         "project_checks": {
@@ -1141,6 +1142,9 @@
               "const": false
             }
           }
+        },
+        "work_completion": {
+          "type": "object"
         },
         "packages": {
           "type": "object",

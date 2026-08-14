@@ -12,7 +12,7 @@ assurance profile.
 ### Added
 
 - one authoritative profile, layout, package, inventory, and acceptance
-  manifest, including criterion-level coverage for all 15 acceptance criteria;
+  manifest, including criterion-level coverage for all 16 acceptance criteria;
 - fast, integration, and release validation tiers, bounded mutation baselines,
   scale benchmarks, structured diagnostic codes, and read-only `pb doctor`;
 - a shared staged plan/apply framework with target and instruction
@@ -43,6 +43,18 @@ assurance profile.
   conclusions; and
 - a demonstrably read-only review protocol, subordinate-handoff claim checks,
   domain-neutral worked example, and positive/negative mutation fixtures.
+- one provider-neutral `work.finish` engine shared by `solo_direct`,
+  `solo_hybrid`, `pair_pr`, `tiny_pr`, `concurrent_work`, and every assurance
+  profile, with write-free planning, exact digest/current authorization,
+  opt-in post-closure plan-only dispatch, read-only hook observation,
+  append-only Git-common-directory receipts and authorization history,
+  idempotent resume, peer-review truthfulness, fast-forward synchronization,
+  fail-closed Git-hook/fsmonitor observation, visible binding of exact closure
+  evidence, safe cleanup, and
+  positive/negative/interruption mutation coverage;
+- explicit exact-pristine updates for an installed small-team Git portfolio,
+  without enabling completion or overwriting project-owned workflow,
+  provider, branch, hook, cleanup, or authorization settings; and
 
 ### Changed
 
@@ -71,6 +83,9 @@ additions, and derived regeneration are automatic. Instructions, policy,
 configuration, workflows, dossier sources, registries, records, stable IDs,
 deletions, moves, permissions, and symlinks require explicit review. Structural
 conformance, harness adoption, and target-project readiness remain distinct.
+Governed completion and its event hook remain disabled after migration until a
+project explicitly adopts their repository, provider, checks, read-only hooks,
+and cleanup inputs. External progress is resumable, not atomically reversible.
 
 ## 3.1.0 — Unreleased
 

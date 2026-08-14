@@ -1,0 +1,37 @@
+{
+  "schema_version": "harness.work-completion-config.v1",
+  "status": "enabled",
+  "permission_grant": false,
+  "completion_hook": {
+    "mode": "disabled",
+    "command_hook_ref": "work_completion_plan",
+    "external_or_destructive_actions": false
+  },
+  "repository": {
+    "identity": "fixture-repository",
+    "remote": "origin",
+    "default_branch": "main"
+  },
+  "git_hooks": "require_none",
+  "provider": {
+    "adapter": "none",
+    "hosted_repository": null,
+    "configuration_is_authority": false
+  },
+  "eligible_peer_reviewers": [],
+  "solo_hybrid_pull_request": "disabled",
+  "required_hosted_checks": {
+    "status": "configured",
+    "names": []
+  },
+  "validation_hooks": ["project_test"],
+  "cleanup": {
+    "remote_task_branch": "disabled",
+    "local_task_branch": "disabled"
+  },
+  "assurance_control_refs": [],
+  "authorization_model": "runtime_task_scoped_attestation_bound_to_reviewed_plan",
+  "limitations": [
+    "Fixture configuration grants no authority and asserts no real provider state."
+  ]
+}

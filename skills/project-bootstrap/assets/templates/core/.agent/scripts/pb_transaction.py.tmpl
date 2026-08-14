@@ -310,6 +310,136 @@ def write_new_json(path: Path, value: object) -> None:
         os.fsync(handle.fileno())
 
 
+def git_common_directory(root: Path) -> Path:
+    """Resolve the current repository's Git common directory without mutating it."""
+    result = subprocess.run(
+        ["git", "rev-parse", "--git-common-dir"],
+        cwd=root,
+        capture_output=True,
+        check=False,
+        shell=False,
+        env={**os.environ, "GIT_OPTIONAL_LOCKS": "0"},
+    )
+    if result.returncode:
+        raise TransactionError("work completion requires an initialized Git repository")
+    raw = result.stdout.decode("utf-8", errors="strict").strip()
+    if not raw or "\x00" in raw or "\n" in raw or "\r" in raw:
+        raise TransactionError("Git common-directory observation is malformed")
+    path = Path(raw)
+    candidate = path if path.is_absolute() else root / path
+    try:
+        resolved = candidate.resolve(strict=True)
+    except OSError as error:
+        raise TransactionError("Git common directory is unavailable") from error
+    if not resolved.is_dir():
+        raise TransactionError("Git common directory is not a directory")
+    return resolved
+
+
+def work_completion_receipt_directory(root: Path) -> Path:
+    """Return the local, non-source progress store used by resumable external effects."""
+    return git_common_directory(root) / "project-blueprint" / "work-completion" / "receipts"
+
+
+def work_completion_receipt_path(root: Path, receipt_id: str) -> Path:
+    if re.fullmatch(r"WCR-[a-f0-9]{24}", receipt_id) is None:
+        raise TransactionError("work-completion receipt identity is malformed")
+    return work_completion_receipt_directory(root) / f"{receipt_id}.json"
+
+
+def load_work_completion_receipt(root: Path, receipt_id: str) -> dict[str, Any]:
+    path = work_completion_receipt_path(root, receipt_id)
+    if path.is_symlink() or not path.is_file():
+        raise TransactionError(f"work-completion receipt is unavailable: {receipt_id}")
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise TransactionError(f"cannot load work-completion receipt: {error}") from error
+    if not isinstance(value, dict) or value.get("receipt_id") != receipt_id:
+        raise TransactionError("work-completion receipt envelope is invalid")
+    return value
+
+
+def write_work_completion_receipt(
+    root: Path,
+    receipt: dict[str, Any],
+    *,
+    create: bool,
+) -> Path:
+    """Durably create or replace one exact local external-progress receipt."""
+    receipt_id = receipt.get("receipt_id")
+    if not isinstance(receipt_id, str):
+        raise TransactionError("work-completion receipt lacks an identity")
+    path = work_completion_receipt_path(root, receipt_id)
+    data = (json.dumps(receipt, indent=2, sort_keys=True, allow_nan=False) + "\n").encode("utf-8")
+    if create:
+        if path.exists() or path.is_symlink():
+            raise TransactionError(f"work-completion receipt already exists: {receipt_id}")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        except FileExistsError as error:
+            raise TransactionError(f"work-completion receipt already exists: {receipt_id}") from error
+        with os.fdopen(descriptor, "wb") as handle:
+            handle.write(data)
+            handle.flush()
+            os.fsync(handle.fileno())
+        return path
+    if path.is_symlink() or not path.is_file():
+        raise TransactionError(f"work-completion receipt cannot be resumed: {receipt_id}")
+    try:
+        previous = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise TransactionError(f"cannot compare work-completion receipt: {error}") from error
+    if not isinstance(previous, dict):
+        raise TransactionError("existing work-completion receipt is malformed")
+    for field in (
+        "schema_version",
+        "artifact_kind",
+        "permission_grant",
+        "receipt_id",
+        "plan_digest",
+        "plan",
+        "started_at",
+        "rollback",
+        "resume",
+        "readiness_claim",
+        "limitations",
+    ):
+        if previous.get(field) != receipt.get(field):
+            raise TransactionError(
+                f"work-completion receipt immutable field changed: {field}"
+            )
+    for field in ("progress", "completed_operations", "authorization_history"):
+        before = previous.get(field)
+        after = receipt.get(field)
+        if (
+            not isinstance(before, list)
+            or not isinstance(after, list)
+            or after[: len(before)] != before
+        ):
+            raise TransactionError(
+                f"work-completion receipt history is not append-only: {field}"
+            )
+    if previous.get("state") == "completed" and receipt != previous:
+        raise TransactionError("completed work-completion receipts are immutable")
+    _atomic_write(path, data, 0o600)
+    return path
+
+
+def list_work_completion_receipts(root: Path) -> list[Path]:
+    directory = work_completion_receipt_directory(root)
+    if not directory.exists():
+        return []
+    if directory.is_symlink() or not directory.is_dir():
+        raise TransactionError("work-completion receipt store is unsafe")
+    return [
+        path
+        for path in sorted(directory.glob("WCR-*.json"))
+        if path.is_file() and not path.is_symlink()
+    ]
+
+
 def _decode_operations(plan: dict[str, Any]) -> dict[str, bytes | None]:
     decoded: dict[str, bytes | None] = {}
     for item in plan["operations"]:

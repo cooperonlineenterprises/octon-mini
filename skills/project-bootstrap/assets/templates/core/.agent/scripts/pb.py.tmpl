@@ -19,6 +19,7 @@ from typing import Any
 sys.dont_write_bytecode = True
 
 import pb_doctor
+import pb_finish
 import pb_transaction as transaction
 
 
@@ -350,6 +351,41 @@ def task_update_plan(args: argparse.Namespace) -> dict[str, Any]:
             blocked_by=[],
             updated_at=date.today().isoformat(),
         )
+        finish_values = [
+            args.finish_path,
+            args.finish_commit_message,
+            args.finish_pr_title,
+            args.finish_pr_body,
+            args.finish_self_review_ref,
+            args.finish_shared_base_revision,
+            args.finish_write_scope,
+            args.finish_worktree_owner,
+            args.finish_handback_complete,
+            args.finish_partial_results_resolved,
+            args.finish_coordination_evidence_ref,
+        ]
+        if any(finish_values):
+            if not args.finish_path or not args.finish_commit_message:
+                raise WorkflowError(
+                    "work-completion preparation requires --finish-path and --finish-commit-message"
+                )
+            task["work_completion"] = {
+                "eligible_staging_paths": sorted(set(args.finish_path)),
+                "commit_message": args.finish_commit_message,
+                "pull_request_title": args.finish_pr_title,
+                "pull_request_body": args.finish_pr_body,
+                "self_review_refs": sorted(set(args.finish_self_review_ref)),
+                "concurrent_work": {
+                    "shared_base_revision": args.finish_shared_base_revision,
+                    "declared_write_scope": sorted(set(args.finish_write_scope)),
+                    "worktree_owner": args.finish_worktree_owner,
+                    "handback_state": "complete" if args.finish_handback_complete else "not_assessed",
+                    "partial_result_state": "resolved" if args.finish_partial_results_resolved else "not_assessed",
+                    "coordination_evidence_refs": sorted(
+                        set(args.finish_coordination_evidence_ref)
+                    ),
+                },
+            }
         evidence.append(
             transaction.source_evidence(
                 "explicit_closure_claim",
@@ -368,6 +404,7 @@ def task_update_plan(args: argparse.Namespace) -> dict[str, Any]:
                 acceptance_criteria_met=False,
                 updated_at=date.today().isoformat(),
             )
+            task.pop("work_completion", None)
         else:
             task.update(
                 previous_status="blocked",
@@ -461,6 +498,11 @@ def apply_workflow_plan(args: argparse.Namespace, expected_prefix: str) -> int:
     receipt, receipt_path = transaction.apply_plan(ROOT, plan, args.accept_digest)
     print(f"[APPLIED] {receipt['receipt_id']}")
     print(f"[RECEIPT] {receipt_path.relative_to(ROOT)}")
+    if plan.get("operation") == "work.close":
+        completion_plan = pb_finish.run_completion_plan_event(ROOT)
+        if completion_plan is not None:
+            print("[COMPLETION PLAN EVENT]")
+            print(json.dumps(completion_plan, indent=2, sort_keys=True))
     return 0
 
 
@@ -634,9 +676,20 @@ def hooks_plan(config_path: Path) -> dict[str, Any]:
     if not isinstance(config, dict) or not isinstance(project, dict):
         raise WorkflowError("hook configuration and project must be objects")
     expected_hooks = {"project_test", "project_lint", "project_build", "project_closure"}
-    if set(config) != expected_hooks:
-        raise WorkflowError("hook configuration must explicitly assess all four project hooks")
-    project["commands"] = config
+    optional_hooks = {"work_completion_plan"}
+    if not expected_hooks <= set(config) or not set(config) <= expected_hooks | optional_hooks:
+        raise WorkflowError(
+            "hook configuration must explicitly assess all four project-check hooks and may assess work_completion_plan"
+        )
+    replacement = dict(config)
+    existing_commands = project.get("commands", {})
+    if (
+        "work_completion_plan" not in replacement
+        and isinstance(existing_commands, dict)
+        and "work_completion_plan" in existing_commands
+    ):
+        replacement["work_completion_plan"] = existing_commands["work_completion_plan"]
+    project["commands"] = replacement
     return transaction.build_plan(
         ROOT,
         operation_name="maintain.hooks",
@@ -769,6 +822,17 @@ def parser() -> argparse.ArgumentParser:
     close.add_argument("--limitation", action="append", default=[])
     close.add_argument("--next-action", required=True)
     close.add_argument("--operator", required=True)
+    close.add_argument("--finish-path", action="append", default=[])
+    close.add_argument("--finish-commit-message")
+    close.add_argument("--finish-pr-title")
+    close.add_argument("--finish-pr-body")
+    close.add_argument("--finish-self-review-ref", action="append", default=[])
+    close.add_argument("--finish-shared-base-revision")
+    close.add_argument("--finish-write-scope", action="append", default=[])
+    close.add_argument("--finish-worktree-owner")
+    close.add_argument("--finish-handback-complete", action="store_true")
+    close.add_argument("--finish-partial-results-resolved", action="store_true")
+    close.add_argument("--finish-coordination-evidence-ref", action="append", default=[])
     add_plan_apply_arguments(close)
     reopen = work_commands.add_parser("reopen")
     reopen.add_argument("task_id")
@@ -783,6 +847,17 @@ def parser() -> argparse.ArgumentParser:
     handoff.add_argument("--operator", required=True)
     add_plan_apply_arguments(handoff)
     work_commands.add_parser("resume")
+    finish = work_commands.add_parser("finish")
+    finish_commands = finish.add_subparsers(dest="finish_action", required=True)
+    finish_plan = finish_commands.add_parser("plan")
+    finish_plan.add_argument("--task-id")
+    finish_apply = finish_commands.add_parser("apply")
+    finish_apply.add_argument("--accept-digest", required=True)
+    finish_apply.add_argument("--authorization-file", required=True)
+    finish_apply.add_argument("--task-id")
+    finish_resume = finish_commands.add_parser("resume")
+    finish_resume.add_argument("--receipt-id")
+    finish_resume.add_argument("--authorization-file")
 
     maintain = commands.add_parser("maintain")
     maintain_commands = maintain.add_subparsers(dest="maintain_action", required=True)
@@ -848,6 +923,25 @@ def main() -> int:
         print(json.dumps(pb_doctor.build_report(), indent=2, sort_keys=True))
         return 0
     if args.command == "work":
+        if args.work_action == "finish":
+            if args.finish_action == "plan":
+                print(json.dumps(pb_finish.build_plan(ROOT, args.task_id), indent=2, sort_keys=True))
+                return 0
+            if args.finish_action == "apply":
+                receipt = pb_finish.apply(
+                    ROOT,
+                    args.accept_digest,
+                    project_path(args.authorization_file),
+                    args.task_id,
+                )
+            else:
+                receipt = pb_finish.resume(
+                    ROOT,
+                    args.receipt_id,
+                    project_path(args.authorization_file) if args.authorization_file else None,
+                )
+            print(json.dumps(receipt, indent=2, sort_keys=True))
+            return 0
         if args.work_action == "resume":
             return resume()
         if args.apply_plan:
@@ -908,6 +1002,6 @@ def main() -> int:
 if __name__ == "__main__":
     try:
         raise SystemExit(main())
-    except (WorkflowError, transaction.TransactionError) as error:
+    except (WorkflowError, pb_finish.FinishError, transaction.TransactionError) as error:
         print(f"[FAIL] {error}", file=sys.stderr)
         raise SystemExit(2)

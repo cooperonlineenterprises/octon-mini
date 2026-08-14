@@ -26,6 +26,8 @@ Version 4.0 makes the universal kernel thinner and ordinary operation faster:
 - read-only semantic detection and diagnosis;
 - fully derived current state plus a small authoritative focus source;
 - selective project checks and bounded immutable evidence history;
+- one opt-in, provider-neutral, digest-bound and resumable small-team
+  work-completion engine;
 - trigger-installed Git, operations/observability, security/supply-chain,
   sample restriction, and optional-schema packages;
 - compact physical dossier representation by default, with separated layout
@@ -39,8 +41,11 @@ owner selections, and accepted `DEC-####` authority remain distinct; scores
 cannot compensate for a failed gate or conceal an evidence gap. See
 `docs/DECISION_GOVERNANCE.md`.
 
-Every mutation is staged, validated, instruction- and path-fingerprint-bound,
-receipted, and recoverable. There is no force mode.
+Repository-local transactions are staged, validated, instruction- and
+path-fingerprint-bound, receipted, and exactly recoverable. External Git and
+provider effects cannot be rolled back atomically; governed work completion
+records monotonic progress and resumes or fixes forward. There is no global
+force mode.
 
 ## Independent selection axes
 
@@ -141,6 +146,7 @@ Every generated snapshot includes `./pb`:
 ./pb work close --help
 ./pb work handoff --help
 ./pb work resume
+./pb work finish plan
 ./pb check
 ./pb doctor
 ./pb maintain registry plan
@@ -154,6 +160,19 @@ reciprocal plan links, focus, derived current state, and handoff pointers. The
 operator still owns task purpose, scope, authority basis, acceptance criteria,
 priority, substantive review, closure claims, evidence, and external-effect
 authorization.
+
+`work finish` is generated disabled and becomes usable only after explicit
+project adoption of its existing small-team workflow, repository, provider,
+check, eligible peer reviewers where applicable, exact read-only completion
+command hook, and cleanup inputs. `plan` performs no writes, refresh,
+fetch, hosted query, or receipt update. `apply` reconstructs the plan from the
+completed task's exact completion contract, accepts only its reviewed digest,
+and requires current task-scoped authorization for the exact external
+operation list. `resume` observes completed effects before acting so a partial
+run does not duplicate commits, PRs, merges, pushes, or deletes. Pair and tiny
+teams require a real approval by another eligible developer; agent or
+self-review never counts. See the installed small-team workflow README for the
+configuration and receipt contract.
 
 `./pb check` is read-only and never runs hooks. Configure each test, lint,
 build, and closure hook with shell-free argv, owner, rationale, version probe,

@@ -127,6 +127,80 @@ prove sufficiency. Direct closure is mechanically supported once explicit
 criteria/review/evidence/effects inputs are present, avoiding status-only
 ceremony.
 
+## Opt-in governed work completion
+
+After the project has adopted and installed one small-team Git workflow,
+explicitly enable the existing `work_completion` block in
+`.agent/project.json` through the normal plan/apply transaction. Record the
+repository identity, remote and default branch, provider assessment, optional
+solo self-PR choice, exact required check names (including an explicitly empty
+set), eligible provider reviewer identities for pair/tiny workflows,
+configured read-only validation hooks, assurance references, and required
+local and remote cleanup for branch workflows. Set `git_hooks` to
+`require_none`; v1 blocks active Git hooks and active `core.fsmonitor` rather
+than treating hidden processes as reviewed actions. Configure
+`commands.work_completion_plan` with the exact shell-free argv
+`["python", "-B", ".agent/scripts/pb.py", "work", "finish", "plan"]` and
+`read_only` side effects. Keep the completion event `disabled`, or set only
+`plan_only_on_completion_event`; it references that command hook and may never
+invoke apply.
+
+When that event is enabled, applying a `work.close` transaction immediately
+prints the read-only completion plan. Closure has already succeeded if this
+follow-up plan reports a block; resolve or re-plan explicitly. No publication,
+integration, or cleanup begins from the event.
+
+Close the bounded task with its exact completion inputs:
+
+```text
+./pb work close TASK-0001 \
+  --criteria-met \
+  --implementation-result <result> \
+  --review-evidence EVD-0001 \
+  --closure-evidence EVD-0001 \
+  --external-effects none \
+  --next-action <action> \
+  --operator <role> \
+  --finish-path <exact-path> \
+  --finish-path .agent/transactions/plans/close.json \
+  --finish-commit-message <message> \
+  --output .agent/transactions/plans/close.json
+./pb transaction apply --plan <close-plan> --accept-digest <close-digest>
+
+./pb work finish plan
+```
+
+If the close plan is written inside the repository, list that known plan path
+explicitly as shown. The resulting exact current close receipt and its
+unchanged dirty postimages are bound into the completion plan automatically;
+other transaction artifacts are not hidden or inferred as task-owned.
+
+For concurrent work, the close command also records the exact shared base,
+write scope, worktree owner, completed handback, resolved partial-result state,
+and coordination evidence. Pair and tiny-team projects wait for one actual
+approval by a different eligible developer; no agent or self-review fills the
+gap.
+
+Review the printed plan. Obtain current task-scoped external authorization
+through the project's real authority channel and record an attestation bound
+to the exact digest, repository, branches, operation list, principal or role,
+source, validity interval, constraints, and a canonical fingerprint. Then:
+
+```text
+./pb work finish apply \
+  --accept-digest <reviewed-digest> \
+  --authorization-file <current-attestation.json>
+
+# If a later step blocks or the process is interrupted:
+./pb work finish resume --receipt-id <WCR-id>
+```
+
+Planning changes no file or external system. Apply stops on any stale,
+unknown, contradictory, failed, or unsafe material state and preserves prior
+effects in the Git-common-directory receipt. Completion proves only the exact
+Git/provider sequence recorded there; it does not prove release or production
+readiness.
+
 ## Hooks and evidence
 
 Run the detector read-only, review candidate argv and side effects, then

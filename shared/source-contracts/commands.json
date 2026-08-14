@@ -14,6 +14,7 @@
     {"name": "work.close", "availability": "generated_project", "read_only": false, "mutation_model": "plan_apply_receipt", "authorization_gate": "explicit_criteria_evidence_review_and_reviewed_digest"},
     {"name": "work.reopen", "availability": "generated_project", "read_only": false, "mutation_model": "plan_apply_receipt", "authorization_gate": "explicit_invalidating_evidence_and_reviewed_digest"},
     {"name": "work.handoff", "availability": "generated_project", "read_only": false, "mutation_model": "plan_apply_receipt", "authorization_gate": "explicit_operator_intent_and_reviewed_digest"},
+    {"name": "work.finish", "availability": "generated_project", "read_only": false, "mutation_model": "read_only_plan_then_digest_bound_resumable_progress_receipt", "authorization_gate": "accepted_workflow_authority_exact_reviewed_digest_current_task_scoped_external_authorization_and_live_preconditions"},
     {"name": "work.resume", "availability": "generated_project", "read_only": true, "mutation_model": "none", "authorization_gate": "none"},
     {"name": "maintain.registry", "availability": "generated_project", "read_only": false, "mutation_model": "proposal_review_plan_apply_receipt", "authorization_gate": "explicit_registry_choices_and_reviewed_digest"},
     {"name": "maintain.hooks", "availability": "generated_project", "read_only": false, "mutation_model": "plan_apply_receipt", "authorization_gate": "explicit_project_owned_hook_configuration"},
@@ -27,6 +28,7 @@
   "advanced_primitives": [
     ".agent/scripts/validate.py",
     ".agent/scripts/refresh.py",
+    ".agent/scripts/pb_finish.py",
     ".agent/scripts/run_project_checks.py"
   ],
   "limitations": [

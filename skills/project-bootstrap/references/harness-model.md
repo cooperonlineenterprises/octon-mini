@@ -44,6 +44,10 @@ endpoints, or domain constants from this blueprint or another project.
 - direct observation: `.agent/evidence/`;
 - explicit operator focus plus derived resumption: `.agent/state/`;
 - plan/apply/recovery receipts: `.agent/transactions/`; and
+- governed work-completion configuration: optional `work_completion` in
+  `.agent/project.json`, exact task inputs in the task's optional completion
+  contract, shared engine in `.agent/scripts/pb_finish.py`, and monotonic local
+  receipts under the repository Git common directory; and
 - generated integrity: `.agent/generated/`, always non-authoritative.
 
 The kernel uses strict JSON with duplicate-key rejection and a local schema
@@ -88,6 +92,16 @@ provider-neutral catalog, whose operation references resolve to the exact,
 fail-closed catalogs in `.agent/tools.json`. GitHub is optional and generated projects assert no hosted
 reviewer, check, protection, environment, release, credential, permission, or
 CI fact.
+
+The one shared `work.finish` engine extends these workflows across all
+assurance profiles. It starts disabled. Its optional completion event hook is
+plan-only. Planning writes nothing and performs no network or provider call.
+Apply reconstructs the reviewed plan, stages only task-owned paths, runs only
+configured read-only hooks ephemerally, and requires exact current external
+authorization. Pair and tiny workflows observe a real approval by a different
+eligible developer; they never submit or fabricate it. Resumable receipts
+retain partial external success without claiming atomic rollback, and cleanup
+follows integration proof and fast-forward synchronization.
 
 Do not add GitFlow, merge queues, release trains, stacked-PR trains, fork-first
 internal contribution, approval hierarchies or stages, dedicated release

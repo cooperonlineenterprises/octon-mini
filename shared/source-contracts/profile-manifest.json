@@ -164,8 +164,8 @@
     {
       "id": "small-team-git-portfolio",
       "kind": "scm_portfolio",
-      "version": "1.0.0",
-      "sha256": "9cfad743491344ad8304eb41cabb4f7456475b7b127776d81692cc6d4d0d7eb7",
+      "version": "1.1.0",
+    "sha256": "9957da027a3bd940c020d3d38898e06a431e43bc2be7e086d2999506bdfafea5",
       "source": "skill:assets/packages/small-team-git-portfolio/templates",
       "inventory_paths": [
         ".agent/workflows/README.md.tmpl",
@@ -287,7 +287,8 @@
     {"id": 12, "title": "interruption_and_recovery", "release_coverage": "automated_pass"},
     {"id": 13, "title": "exact_revision_handoff", "release_coverage": "project_demonstration_required"},
     {"id": 14, "title": "truthful_final_reporting", "release_coverage": "project_demonstration_required"},
-    {"id": 15, "title": "small_team_collaboration_and_workflows", "release_coverage": "automated_pass"}
+    {"id": 15, "title": "small_team_collaboration_and_workflows", "release_coverage": "automated_pass"},
+    {"id": 16, "title": "governed_resumable_work_completion", "release_coverage": "automated_pass"}
   ],
   "documentation_projections": [
     {
@@ -339,6 +340,7 @@
         ".agent/scripts/refresh.py.tmpl",
         ".agent/scripts/pb.py.tmpl",
         ".agent/scripts/pb_doctor.py.tmpl",
+        ".agent/scripts/pb_finish.py.tmpl",
         ".agent/scripts/pb_transaction.py.tmpl",
         ".agent/scripts/run_project_checks.py.tmpl",
         ".agent/scripts/validate.py.tmpl",
@@ -382,8 +384,8 @@
         "project-dossier/validation/QUALITY_GATES.json.tmpl",
         "project-dossier/validation/README.md.tmpl"
       ],
-      "inventory_count": 58,
-      "inventory_paths_sha256": "ef3f5e381c7dac481559b7e3a54f3541cfbff6107b8087e409fa3678c98d9a9e",
+      "inventory_count": 59,
+      "inventory_paths_sha256": "66c9102909d678da883ecf1340c7ae058a6793645b9e6376e9f76df00dbce681",
       "output": {
         "root": ".",
         "strip_suffix": ".tmpl"
@@ -504,13 +506,14 @@
         "harness-record.schema.json",
         "harness-scm.schema.json",
     "harness-transaction.schema.json",
+    "harness-work-completion.schema.json",
     "project-blueprint-migration-seed.schema.json",
     "project-blueprint-origin.schema.json",
     "project-blueprint-upgrade.schema.json",
     "reference-evidence.schema.json"
       ],
-      "inventory_count": 25,
-      "inventory_paths_sha256": "19e7c5dcfa4607045e59ac3c58c3079915e1d975699d52f4caec0621914ab568",
+      "inventory_count": 26,
+      "inventory_paths_sha256": "55f1f2e5fbaa4586ea6d756ca597c43b729c5d3c4f3c8a419563adea3950fc1a",
       "output": {
         "root": ".agent/schemas",
         "strip_suffix": null

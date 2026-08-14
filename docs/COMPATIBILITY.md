@@ -41,6 +41,14 @@ validators, subject to their recorded limitations.
   existing structural evidence; and
 - existing handoffs require reviewed checklist reconciliation rather than
   automatic replacement.
+- new snapshots include one shared governed `work.finish` engine but retain a
+  disabled, non-authorizing configuration and completion hook. Existing
+  snapshots receive applicable pieces only through an explicit upgrade or
+  pinned Git-package update; no update may silently adopt a workflow,
+  provider, check, cleanup, eligible reviewer, command hook, or authorization
+  policy. A package update updates only an already installed exact-pristine
+  portfolio; the core engine and schema arrive through the reviewed Blueprint
+  upgrade.
 
 ## Deprecated entry points
 
@@ -49,6 +57,9 @@ workflow-oriented `scripts/pb.py` and generated `./pb` are the documented
 paths. Direct hand-editing of `.agent/state/current.json` is unsupported.
 Direct copying of package directories or Git workflow files is unsupported
 because it lacks content/decision/receipt binding.
+Directly copying `pb_finish.py`, enabling its hook without a reviewed project
+configuration, or treating a prior authorization as standing permission is
+also unsupported.
 The legacy read-only `validate.py --assess-collaboration` report remains a
 compatibility diagnostic; new facts and workflow proposals use collaboration
 plan/apply so evidence and changes are reviewable and receipted.

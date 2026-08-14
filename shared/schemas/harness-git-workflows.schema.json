@@ -135,6 +135,7 @@
     "permission_grant",
     "provider_neutral",
     "operation_catalog_ref",
+    "completion_orchestrator",
     "supported_base_workflows",
     "supported_modifiers",
     "maximum_supported_write_capable_humans",
@@ -155,6 +156,52 @@
     },
     "operation_catalog_ref": {
       "const": ".agent/tools.json"
+    },
+    "completion_orchestrator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authority_ref",
+        "engine",
+        "commands",
+        "automatic_trigger",
+        "transaction_model",
+        "receipt_states",
+        "assurance_profiles_share_engine"
+      ],
+      "properties": {
+        "authority_ref": {"const": "project-blueprint:SRC-DEC-0013"},
+        "engine": {"const": ".agent/scripts/pb_finish.py"},
+        "commands": {
+          "const": [
+            "pb work finish plan",
+            "pb work finish apply --accept-digest <digest>",
+            "pb work finish resume"
+          ]
+        },
+        "automatic_trigger": {"const": "optional_plan_only_project_hook"},
+        "transaction_model": {"const": "digest_bound_monotonic_resumable_external_progress"},
+        "receipt_states": {
+          "const": [
+            "planned",
+            "locally_committed",
+            "branch_published",
+            "pull_request_open",
+            "checks_pending",
+            "checks_failed",
+            "checks_passed",
+            "review_pending",
+            "review_satisfied",
+            "integrated",
+            "remote_branch_cleaned",
+            "default_branch_synchronized",
+            "local_branch_cleaned",
+            "completed",
+            "blocked"
+          ]
+        },
+        "assurance_profiles_share_engine": {"const": true}
+      }
     },
     "supported_base_workflows": {
       "const": [

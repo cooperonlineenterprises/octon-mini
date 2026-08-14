@@ -57,6 +57,20 @@ evidence is bounded; overflow is archived immutably with successor links. Hook
 execution and evidence writing remain separate from read-only `check` and from
 generated-integrity refresh.
 
+If the installed Git portfolio and accepted workflow are applicable, a project
+may separately adopt the disabled `work_completion` block. Record exact
+repository/provider/check/eligible-reviewer/hook/cleanup assessments without
+changing accepted workflow authority. Close a task with its explicit staging,
+commit, PR/review, and concurrent-handback inputs; include any in-repository
+close-plan path in the exact staging inventory, while the resulting current
+close receipt and unchanged postimages are bound automatically; then run
+`./pb work finish plan`. The optional
+completion event uses the existing `commands.work_completion_plan` hook and
+may run only that exact read-only command. Apply accepts the reviewed digest
+and a current task-scoped external authorization attestation; resume uses the
+Git-common-directory receipt. Never refresh during planning or describe a
+receipt as release or production readiness.
+
 Maintain decision questions in the project-owned governance register. Keep
 recommendations, owner selections, and accepted `DEC-####` authority separate;
 reconcile every decision and trade-off review exactly once and derive the
@@ -90,6 +104,12 @@ exact-pristine non-authoritative implementation assets, and derived
 regeneration. Instructions, policy, project configuration/hooks, workflow
 adoption, dossier sources/registries, records, current facts, stable IDs,
 deletions/moves, permissions, and symlinks require proposal-bound review.
+
+The work-completion engine/schema are safe additions only when absent and
+noncolliding. The disabled project configuration, workflow package version,
+accepted decisions, hook commands, provider and branch settings, cleanup, and
+authorization policy require explicit review; upgrade never enables the
+completion hook.
 
 For 3.1→4.0, first run the reviewed legacy inventory seed workflow in
 `migrate_3_1_0_to_4_0_0.py`. It refuses assessed collaboration and every unknown
