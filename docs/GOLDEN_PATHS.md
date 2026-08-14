@@ -5,6 +5,37 @@ evidence, stable IDs, no-overwrite, and explicit external-effect gates. All
 planning and inspection commands are read-only. Replace example inputs with
 current project-owned values; do not copy them as facts.
 
+## Guided setup for any mode
+
+When facts are not already supplied through flags, create a read-only setup
+session outside the target:
+
+```text
+python3 skills/project-bootstrap/scripts/pb.py init setup \
+  --target /absolute/project \
+  --output /absolute/review/setup-session.json
+
+# Resume through the same command after recording a reviewed answer batch.
+python3 skills/project-bootstrap/scripts/pb.py init setup \
+  --target /absolute/project \
+  --session /absolute/review/setup-session.json \
+  --answers /absolute/review/setup-answers.json \
+  --output /absolute/review/setup-session-next.json
+
+python3 skills/project-bootstrap/scripts/pb.py init plan \
+  --target /absolute/project \
+  --setup-session /absolute/review/setup-session-next.json \
+  --output /absolute/review/init-plan.json
+```
+
+Use `adopt setup` or `upgrade setup` only when read-only evidence establishes
+that mode; stop if detection is ambiguous. Conversational agents, TTY
+interaction, and legacy flags use the same stable question IDs and validation
+rules. Review observations, recommendations, selections, accepted-authority
+references, unknowns, deferrals, blockers, and the exact session digest before
+planning. Session creation writes only the explicitly requested external
+artifact. Plan and apply remain the existing mode-specific transaction flow.
+
 ## New solo project
 
 One plan and one apply reach a valid scaffold and first meaningful task:

@@ -1,0 +1,43 @@
+{
+  "schema_version": "project-blueprint.setup-answers.v1",
+  "permission_grant": false,
+  "session_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+  "answers": [
+    {
+      "question_id": "setup.project-name",
+      "state": "answered",
+      "value": "Established Example",
+      "supplied_by": "agent",
+      "evidence": {"source": "user:reviewed-conversation", "observed_at": "2026-08-14T12:00:00Z", "expires_at": null, "confidence": "high", "limitations": ["Initialization input only."]}
+    },
+    {
+      "question_id": "setup.assurance-profile",
+      "state": "answered",
+      "value": "standard",
+      "supplied_by": "agent",
+      "evidence": {"source": "user:risk-based-selection", "observed_at": "2026-08-14T12:00:00Z", "expires_at": null, "confidence": "high", "limitations": ["Independent of team size."]}
+    },
+    {
+      "question_id": "setup.layout",
+      "state": "answered",
+      "value": "separated",
+      "supplied_by": "agent",
+      "evidence": {"source": "user:reviewed-conversation", "observed_at": "2026-08-14T12:00:00Z", "expires_at": null, "confidence": "high", "limitations": ["Representation selection only."]}
+    },
+    {
+      "question_id": "setup.adoption-authority",
+      "state": "answered",
+      "value": "authority:fixture-adoption-scope",
+      "supplied_by": "review_artifact",
+      "evidence": {"source": "project-authority:fixture", "observed_at": "2026-08-14T12:00:00Z", "expires_at": null, "confidence": "high", "limitations": ["Fixture reference only."]}
+    },
+    {
+      "question_id": "setup.work-finish-mode",
+      "state": "deferred",
+      "value": null,
+      "supplied_by": "agent",
+      "evidence": {"source": "user:reviewed-conversation", "observed_at": "2026-08-14T12:00:00Z", "expires_at": null, "confidence": "high", "limitations": ["Work completion remains disabled."]}
+    }
+  ],
+  "limitations": ["Fixture authority references are synthetic and grant no permission."]
+}

@@ -1,8 +1,32 @@
 # Creation, Adoption, Maintenance, Recovery, and Upgrade
 
+## Guided setup
+
+Use `scripts/pb.py init|adopt|upgrade setup` when project facts or policy
+selections are not already supplied through legacy flags. The command reads the
+target without running detected hooks, refreshing projections, querying a
+provider, or changing the target. Write a setup-session artifact only to an
+explicit path outside the target, then answer or resume it through the same
+catalog used by conversational agents and TTY interaction.
+
+Determine the mode from evidence: an empty target initializes, an established
+project without valid Blueprint provenance adopts, and a snapshot with valid
+provenance upgrades. Stop on ambiguity. Ask only eligible unresolved questions
+in catalog dependency order. Keep observations, inferences, recommendations,
+owner selections, accepted-authority references, unknowns, deferred matters,
+and runtime authorization separate. A setup answer is never standing
+permission or accepted project authority.
+
+Summarize the reviewed session, then pass it to the existing planner with
+`--setup-session`. The resulting init, adopt, or upgrade plan binds the session
+digest and current target, instruction, catalog, and Blueprint inputs. Apply
+uses the existing transaction engine and rejects stale bindings. Legacy flags
+map to stable question IDs and remain supported.
+
 ## New project
 
-1. Use `scripts/pb.py init plan` with an explicit profile and layout. A TTY-only
+1. Use `scripts/pb.py init plan` with an explicit profile and layout, or finish
+   a guided setup session and pass it with `--setup-session`. A TTY-only
    `pb init` may propose Minimal but must receive confirmation.
 2. Review the plan sections separately: observations, inferences, explicit
    decisions, and authorization gates. Hook detection runs no candidate or
@@ -17,7 +41,8 @@
 
 ## Established project
 
-Use `scripts/pb.py adopt plan|apply`. Default semantic inspection is bounded to
+Use `scripts/pb.py adopt plan|apply`, optionally with a reviewed guided setup
+session. Default semantic inspection is bounded to
 200 allowlisted UTF-8 text/config files, 256 KiB each, and 4 MiB total. It
 excludes symlinks, binaries, ignored/generated/vendor/dependency/build/coverage
 paths, credentials, private keys, `.env*`, and sensitivity-marked paths.
@@ -94,7 +119,8 @@ derived-only repair digest.
 
 ## Upgrade
 
-`scripts/pb.py upgrade plan|apply` performs a three-way comparison among the
+`scripts/pb.py upgrade plan|apply`, optionally with a reviewed guided setup
+session, performs a three-way comparison among the
 recorded old installed inventory, current project, and candidate snapshot. It
 classifies unchanged pristine, exact-pristine update, project-modified,
 additive, removed upstream, conflicting, derived, and provenance paths.

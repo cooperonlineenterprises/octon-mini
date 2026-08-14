@@ -46,6 +46,10 @@
     "pattern_catalog_automatic_adoption": false,
     "profile_manifest": "shared/source-contracts/profile-manifest.json",
     "information_state_semantics": "shared/source-contracts/information-state-semantics.json",
+    "setup_question_catalog": "shared/source-contracts/setup-questions.json",
+    "setup_question_catalog_generated": false,
+    "setup_session_schema": "shared/schemas/project-blueprint-setup-session.schema.json",
+    "setup_answers_schema": "shared/schemas/project-blueprint-setup-answers.schema.json",
     "architecture_proof_schema": "patterns/architecture-proof/schema.json",
     "architecture_proof_generated": false
   },
@@ -54,6 +58,7 @@
   "new_project_initializer": "skills/project-bootstrap/scripts/init_project.py",
   "established_project_adopter": "skills/project-bootstrap/scripts/adopt_project.py",
   "live_project_upgrader": "skills/project-bootstrap/scripts/upgrade_project.py",
+  "guided_setup_engine": "skills/project-bootstrap/scripts/setup_session.py",
   "advanced_new_project_generator": "skills/project-bootstrap/scripts/scaffold_project.py",
   "advanced_existing_project_planner": "skills/project-bootstrap/scripts/plan_adoption.py",
   "generation_contract": "shared/GENERATION_CONTRACT.md",

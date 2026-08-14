@@ -94,6 +94,14 @@ operate the skill. That bundle is not a generated project. Deliberate manual
 adoption of a source-only artifact is a separate project-owned change and is
 not authorized by this generation policy.
 
+`shared/source-contracts/setup-questions.json` is the one authoritative setup
+question catalog. It and its catalog schema are source-only. The strict setup
+answer and session schemas may be included in a newly generated snapshot or
+added through an explicit reviewed upgrade according to the profile manifest.
+A setup session itself is never generated into a project, never copied between
+projects, and never becomes project authority merely because a planner accepts
+its digest.
+
 ## Non-transfer rules
 
 Generation transfers structure, schemas, vocabulary, and validation patterns.
@@ -129,6 +137,14 @@ Generation must not invent, transfer, or upgrade facts, decisions, evidence,
 credentials, providers, authority, or readiness. A template default is not a
 project observation. A source decision is not a target-project decision. A
 generated schema is not evidence that its optional artifact applies.
+
+Guided question generation and target inspection are read-only capabilities.
+They may write a user-requested session only to an explicit external path; they
+must not mutate the target, refresh projections, execute detected hooks,
+install packages, update receipts, query hosted providers without separate
+authority, or create accepted decisions. The final plan remains an ordinary
+init, adopt, or upgrade transaction plan, bound to the canonical session
+digest and current fingerprints.
 
 ## Binding classes and revalidation
 
@@ -212,6 +228,14 @@ but it must not enable the hook or overwrite project-owned accepted decisions,
 workflow adoption, task records, hook commands, provider settings, branch
 rules, cleanup policy, or authorization policy. A project can keep the
 feature disabled indefinitely and remain structurally valid.
+
+Adding guided setup support to an existing snapshot follows the same explicit
+upgrade boundary. New catalog questions appear unresolved and receive no
+silent answer. An upgrade may add absent Blueprint-owned implementation or
+schema paths when policy permits, but it cannot overwrite instructions,
+accepted decisions, setup selections, workflow adoption, hooks, provider or
+branch settings, package choices, or any other project-owned file. Existing
+legacy CLI flags continue to map deterministically to stable question IDs.
 
 A breaking migration must also ship executable valid and invalid fixtures. A
 legacy snapshot without exact installed baselines requires reviewed seed data;

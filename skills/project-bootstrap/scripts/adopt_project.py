@@ -34,6 +34,7 @@ def load_module(name: str, path: Path):
 
 PLANNER = load_module("pb_adoption_planner", SCRIPT_ROOT / "plan_adoption.py")
 SCAFFOLDER = load_module("pb_adoption_scaffolder", SCRIPT_ROOT / "scaffold_project.py")
+SETUP = load_module("pb_adoption_setup", SCRIPT_ROOT / "setup_session.py")
 TRANSACTION = load_module(
     "pb_adoption_transaction",
     SKILL_ROOT / "assets/templates/core/.agent/scripts/pb_transaction.py.tmpl",
@@ -158,6 +159,7 @@ def generate_candidate(
     profile: str,
     layout: str,
     project_slug: str | None,
+    generation_identifier: str,
 ) -> tuple[tempfile.TemporaryDirectory[str], Path]:
     temporary = tempfile.TemporaryDirectory(prefix="project-blueprint-adoption-candidate-")
     candidate = Path(temporary.name) / "candidate"
@@ -173,6 +175,8 @@ def generate_candidate(
         profile,
         "--layout",
         layout,
+        "--generation-id",
+        generation_identifier,
     ]
     if project_slug is not None:
         command.extend(["--project-slug", project_slug])
@@ -243,6 +247,7 @@ def transaction_plan(
     layout: str,
     authority_source: str,
     review_path: Path | None,
+    setup_binding: tuple[dict[str, Any], Path] | None = None,
 ) -> dict[str, Any]:
     proposal_hash = validate_stored_proposal(proposal, target, profile, layout)
     dispositions = review_dispositions(proposal, review_path)
@@ -253,7 +258,26 @@ def transaction_plan(
         )
     if not authority_source.startswith(("authority:", "external:")):
         raise AdoptionError("--authority-source must use an authority: or external: reference")
-    temporary, candidate = generate_candidate(project_name, profile, layout, project_slug)
+    generation_identifier = hashlib.sha256(
+        TRANSACTION.canonical_bytes(
+            {
+                "operation": "adopt.install",
+                "blueprint_version": SCAFFOLDER.blueprint_version(),
+                "proposal_digest": proposal_hash,
+                "project_name": project_name,
+                "project_slug": project_slug,
+                "profile": profile,
+                "layout": layout,
+            }
+        )
+    ).hexdigest()[:32]
+    temporary, candidate = generate_candidate(
+        project_name,
+        profile,
+        layout,
+        project_slug,
+        generation_identifier,
+    )
     try:
         set_adoption_in_progress(candidate)
         origin = load_json(candidate / ".project-blueprint-origin.json")
@@ -290,6 +314,17 @@ def transaction_plan(
                 limitations=["Uninspected and excluded content may contain additional relevant context."],
             )
         ]
+        if setup_binding is not None:
+            observations.append(
+                analysis_item(
+                    "adoption.guided-setup-session",
+                    "A current non-authorizing guided setup session supplied reviewed inputs without converting selections into accepted authority.",
+                    [setup_binding[0]["canonical_session_digest"]],
+                    rule="project-blueprint.setup-session.v1",
+                    confidence="deterministic",
+                    limitations=["Optional unresolved matters remain explicit and work completion is not enabled."],
+                )
+            )
         inferences = [
             analysis_item(
                 f"adoption.{item['id'].casefold()}",
@@ -345,6 +380,7 @@ def transaction_plan(
                     limitations=["The proposal records hashes and signals, not inspected content."],
                 ),
                 TRANSACTION.source_evidence("explicit_repository_local_authority", authority_source),
+                *SETUP.transaction_evidence(setup_binding, TRANSACTION),
             ],
             assumptions=[],
             confidence="high",
@@ -378,6 +414,14 @@ def transaction_plan(
 def initial_or_exact_plan(args: argparse.Namespace) -> int:
     target = args.target.expanduser().resolve()
     output = args.output.expanduser()
+    setup_binding = SETUP.prepare_plan_session("adoption", args)
+    args._setup_binding = setup_binding
+    if args.project_name is None:
+        raise AdoptionError("adoption requires --project-name or setup.project-name")
+    if args.profile is None:
+        raise AdoptionError("adoption requires --profile or setup.assurance-profile")
+    if args.layout is None:
+        args.layout = "compact"
     if args.proposal is None:
         proposal = PLANNER.build_plan(
             target,
@@ -405,6 +449,7 @@ def initial_or_exact_plan(args: argparse.Namespace) -> int:
         layout=args.layout,
         authority_source=args.authority_source,
         review_path=args.review.expanduser() if args.review else None,
+        setup_binding=setup_binding,
     )
     write_output(output, plan)
     return 0
@@ -415,6 +460,7 @@ def apply(args: argparse.Namespace) -> int:
     plan = TRANSACTION.load_plan(args.plan.expanduser())
     if plan.get("operation") != "adopt.install":
         raise AdoptionError("plan is not an established-project adoption transaction")
+    SETUP.verify_plan_binding(target, plan)
     receipt, receipt_path = TRANSACTION.apply_plan(target, plan, args.accept_digest)
     print(f"[APPLIED] {receipt['receipt_id']}")
     print(f"[RECEIPT] {receipt_path}")
@@ -427,10 +473,10 @@ def parser() -> argparse.ArgumentParser:
     commands = root.add_subparsers(dest="command", required=True)
     plan = commands.add_parser("plan")
     plan.add_argument("--target", type=Path, required=True)
-    plan.add_argument("--project-name", required=True)
+    plan.add_argument("--project-name")
     plan.add_argument("--project-slug")
-    plan.add_argument("--profile", choices=("minimal", "standard", "high-assurance"), required=True)
-    plan.add_argument("--layout", choices=("compact", "separated"), default="compact")
+    plan.add_argument("--profile", choices=("minimal", "standard", "high-assurance"))
+    plan.add_argument("--layout", choices=("compact", "separated"))
     plan.add_argument("--authority-source")
     plan.add_argument("--proposal", type=Path)
     plan.add_argument("--review", type=Path)
@@ -439,18 +485,22 @@ def parser() -> argparse.ArgumentParser:
     plan.add_argument("--max-file-bytes", type=int, default=PLANNER.DEFAULT_MAX_FILE_BYTES)
     plan.add_argument("--max-total-bytes", type=int, default=PLANNER.DEFAULT_MAX_TOTAL_BYTES)
     plan.add_argument("--include-sensitive-path", action="append", default=[])
+    plan.add_argument("--setup-session", type=Path)
     apply_parser = commands.add_parser("apply")
     apply_parser.add_argument("--target", type=Path, required=True)
     apply_parser.add_argument("--plan", type=Path, required=True)
     apply_parser.add_argument("--accept-digest", required=True)
+    SETUP.add_setup_parser(commands, "adoption")
     return root
 
 
 def main() -> int:
     args = parser().parse_args()
     try:
+        if args.command == "setup":
+            return SETUP.run_setup(args)
         return initial_or_exact_plan(args) if args.command == "plan" else apply(args)
-    except (AdoptionError, OSError, RuntimeError, ValueError, TRANSACTION.TransactionError) as error:
+    except (AdoptionError, OSError, RuntimeError, ValueError, SETUP.SetupError, TRANSACTION.TransactionError) as error:
         print(f"[FAIL] {error}", file=sys.stderr)
         return 2
 

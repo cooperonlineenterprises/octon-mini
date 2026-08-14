@@ -61,8 +61,10 @@ REQUIRED_PATHS = (
     "blueprint.json",
     "docs/COMPATIBILITY.md",
     "docs/DECISION_GOVERNANCE.md",
+    "docs/GUIDED_SETUP.md",
     "docs/GOLDEN_PATHS.md",
     "docs/examples/DECISION_GOVERNANCE_WORKED_EXAMPLE.md",
+    "docs/examples/GUIDED_SETUP_WORKED_EXAMPLE.md",
     "dossier/BLUEPRINT.md",
     "dossier/artifact-types.json",
     "dossier/references/REFERENCE_EVIDENCE.md",
@@ -103,6 +105,8 @@ REQUIRED_PATHS = (
     "shared/source-contracts/diagnostic-catalog.schema.json",
     "shared/source-contracts/hook-detector-protocol.json",
     "shared/source-contracts/hook-detector-protocol.schema.json",
+    "shared/source-contracts/setup-questions.json",
+    "shared/source-contracts/setup-questions.schema.json",
     "shared/source-contracts/profile-manifest.json",
     "shared/source-contracts/profile-manifest.schema.json",
     "shared/schemas/artifact-catalog.schema.json",
@@ -129,12 +133,15 @@ REQUIRED_PATHS = (
     "shared/schemas/harness-work-completion.schema.json",
     "shared/schemas/project-blueprint-migration-seed.schema.json",
     "shared/schemas/project-blueprint-origin.schema.json",
+    "shared/schemas/project-blueprint-setup-answers.schema.json",
+    "shared/schemas/project-blueprint-setup-session.schema.json",
     "shared/schemas/project-blueprint-upgrade.schema.json",
     "shared/schemas/reference-evidence.schema.json",
     "skills/project-bootstrap/SKILL.md",
     "skills/project-bootstrap/agents/openai.yaml",
     "skills/project-bootstrap/references/dossier-model.md",
     "skills/project-bootstrap/references/generation-workflow.md",
+    "skills/project-bootstrap/references/guided-setup.md",
     "skills/project-bootstrap/references/harness-model.md",
     "skills/project-bootstrap/references/profile-selection.md",
     "skills/project-bootstrap/scripts/install_skill.py",
@@ -150,6 +157,7 @@ REQUIRED_PATHS = (
     "skills/project-bootstrap/scripts/pb.py",
     "skills/project-bootstrap/scripts/plan_adoption.py",
     "skills/project-bootstrap/scripts/scaffold_project.py",
+    "skills/project-bootstrap/scripts/setup_session.py",
     "skills/project-bootstrap/scripts/test_acceptance.py",
     "skills/project-bootstrap/scripts/test_architectural_patterns.py",
     "skills/project-bootstrap/scripts/test_migration_1_0_1_to_2_0_0.py",
@@ -157,6 +165,7 @@ REQUIRED_PATHS = (
     "skills/project-bootstrap/scripts/test_migration_3_1_0_to_4_0_0.py",
     "skills/project-bootstrap/scripts/test_velocity_workflows.py",
     "skills/project-bootstrap/scripts/test_work_completion.py",
+    "skills/project-bootstrap/scripts/test_guided_setup.py",
     "skills/project-bootstrap/scripts/upgrade_project.py",
     "skills/project-bootstrap/scripts/validate_blueprint.py",
     "skills/project-bootstrap/scripts/validate_source_contracts.py",
@@ -166,6 +175,11 @@ REQUIRED_PATHS = (
     "skills/project-bootstrap/fixtures/work-completion/README.md",
     "skills/project-bootstrap/fixtures/work-completion/valid-config.json",
     "skills/project-bootstrap/fixtures/work-completion/invalid-mutations.json",
+    "skills/project-bootstrap/fixtures/guided-setup/README.md",
+    "skills/project-bootstrap/fixtures/guided-setup/valid/initialization-answers.json",
+    "skills/project-bootstrap/fixtures/guided-setup/valid/adoption-answers.json",
+    "skills/project-bootstrap/fixtures/guided-setup/valid/upgrade-answers.json",
+    "skills/project-bootstrap/fixtures/guided-setup/invalid/mutations.json",
     "skills/project-bootstrap/fixtures/decision-governance/valid/empty-register.json",
     "skills/project-bootstrap/fixtures/decision-governance/invalid/mutations.json",
     "skills/project-bootstrap/fixtures/migrations/1.0.1-to-2.0.0/README.md",
@@ -529,6 +543,7 @@ def validate_config_and_schemas(issues: list[str], scaffolder: Any) -> None:
         "new_project_initializer": "skills/project-bootstrap/scripts/init_project.py",
         "established_project_adopter": "skills/project-bootstrap/scripts/adopt_project.py",
         "live_project_upgrader": "skills/project-bootstrap/scripts/upgrade_project.py",
+        "guided_setup_engine": "skills/project-bootstrap/scripts/setup_session.py",
         "advanced_new_project_generator": (
             "skills/project-bootstrap/scripts/scaffold_project.py"
         ),
@@ -578,6 +593,14 @@ def validate_config_and_schemas(issues: list[str], scaffolder: Any) -> None:
         "profile_manifest": "shared/source-contracts/profile-manifest.json",
         "information_state_semantics": (
             "shared/source-contracts/information-state-semantics.json"
+        ),
+        "setup_question_catalog": "shared/source-contracts/setup-questions.json",
+        "setup_question_catalog_generated": False,
+        "setup_session_schema": (
+            "shared/schemas/project-blueprint-setup-session.schema.json"
+        ),
+        "setup_answers_schema": (
+            "shared/schemas/project-blueprint-setup-answers.schema.json"
         ),
         "architecture_proof_schema": "patterns/architecture-proof/schema.json",
         "architecture_proof_generated": False,
@@ -1219,6 +1242,15 @@ def validate_executable_contracts(issues: list[str]) -> None:
             ],
             ROOT,
             "4.0.0 guided, adoption, collaboration, lifecycle, and recovery workflows",
+        ),
+        (
+            [
+                sys.executable,
+                "-B",
+                str(SKILL_ROOT / "scripts/test_guided_setup.py"),
+            ],
+            ROOT,
+            "guided setup catalog, read-only interview, staleness, mutation, and resume workflows",
         ),
         (
             [

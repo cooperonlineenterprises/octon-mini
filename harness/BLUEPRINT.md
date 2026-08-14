@@ -542,6 +542,70 @@ the task branch is non-current, non-default, integrated, and unused by another
 worktree before local deletion. A partial failure retains exact evidence,
 names the remaining state, and stops for safe resume or fix-forward.
 
+### 7.3 Guided, resumable setup interview
+
+Guided setup is a bootstrap-source orchestration layer over the existing
+`init`, `adopt`, and `upgrade` planners. It is not a project installer, apply
+engine, authority store, or configuration replacement. One authoritative
+catalog, `shared/source-contracts/setup-questions.json`, supplies stable
+question IDs, modes, dependencies, triggers, answer contracts, recommendation
+rules, destinations, evidence/freshness needs, sensitivity restrictions,
+migration behavior, and change consequences. TTY prompts, conversational
+agents, answer files, and legacy CLI flags use those same IDs and validation
+rules.
+
+`pb init setup`, `pb adopt setup`, and `pb upgrade setup` inspect the target
+without refreshing projections, executing hooks, installing packages, writing
+receipts, querying providers, or changing the target or an external system.
+Without `--output`, they write nothing. An explicitly requested setup-session
+output must be outside the target. A session records target and instruction
+fingerprints, Blueprint provenance and versions, catalog version/digest,
+observations, recommendations, selections, accepted-authority references,
+unknown/deferred/inapplicable states, blockers, next questions, work-completion
+closure steps, the overall minimum dependency-ordered closure sequence,
+successor relationship, and a canonical digest. It always has
+`permission_grant: false` and stores neither secrets nor unnecessary personal
+data.
+
+The agent determines mode from evidence: an empty/new target initializes, an
+established target without Blueprint provenance adopts, and a snapshot with
+valid provenance upgrades. Invalid or contradictory provenance is ambiguous
+and stops. It reads applicable instructions, asks only unresolved questions in
+dependency order—normally one to three at a time—and states importance,
+mutually exclusive choices, any recommendation and rationale, allowed unknown
+or deferred state, and what deferral blocks. No choice is preselected. Direct
+observations, inferences, recommendations, user selections, accepted authority,
+unresolved unknowns, deferred matters, and runtime authorization remain
+separate.
+
+Successor sessions are immutable: resume never overwrites its predecessor.
+Changed target content or revision, governing instructions, catalog definition,
+Blueprint version/provenance, or expiring material evidence invalidates the
+session. Reinspection preserves explicit unknown, deferred, and inapplicable
+states when their question definitions remain unchanged and their dependencies
+remain eligible, but requires factual
+answers and selections to be reviewed again. Later catalog questions appear
+unanswered and never acquire defaults.
+
+`pb init|adopt|upgrade plan --setup-session <file>` maps reviewed answers into
+the existing planner and binds the exact session bytes and canonical digest
+into ordinary transaction source evidence. Apply revalidates that session,
+the current target/instructions, transaction digest, and normal preconditions
+immediately before the existing transaction engine acts. Legacy flags remain
+supported and map deterministically to stable question IDs. A conversational
+answer is never accepted project authority, and setup never supplies runtime
+authorization.
+
+The work-completion question offers exactly disabled, on-demand, or on-demand
+plus automatic read-only planning after task closure. It offers no automatic
+apply. An enabling selection remains pending until the content-addressed Git
+portfolio, accepted supported workflow, repository/remote/default branch,
+provider assessment, explicit hosted-check set, eligible peer identities when
+required, integration method, read-only hooks, no-active-Git-hooks and inactive
+`core.fsmonitor` controls, cleanup choices, and assurance references are all
+present. Setup reports the smallest dependency-ordered closure sequence; it
+does not enable the capability or overwrite project-owned configuration.
+
 ## 8. Record and state model
 
 The semantic crosswalk is orthogonal to every record lifecycle:
@@ -1167,6 +1231,14 @@ A harness is complete only when these demonstrations pass:
     authority/check/review/PR/revision/ownership evidence blocks; interruption
     after every external action resumes without duplication; and cleanup occurs
     only after integration and fast-forward synchronization are proven.
+17. Guided question generation changes no target or projection; one catalog and
+    shared session engine govern initialization, adoption, and upgrade; TTY,
+    answer-file, and legacy-flag inputs reconcile to stable IDs; unknown and
+    deferred answers survive resume; changed target, instructions, catalog,
+    Blueprint version, evidence, session digest, or plan digest fails closed;
+    recommendations, selections, accepted authority, and runtime permission
+    remain distinct; work completion stays disabled or pending until every
+    prerequisite is proven; and malformed/mutation fixtures are rejected.
 
 Passing these criteria proves the harness is usable and testable. It does not
 prove production safety, security, accessibility, legal compliance,
@@ -1176,7 +1248,7 @@ Acceptance has two explicit gates:
 
 | Gate | Criteria | Required evidence |
 |---|---|---|
-| Blueprint release automation | 2, 4–10, 12, 15, and 16, plus structural portions of 1, 3, and 14 | cross-profile valid/invalid fixtures, collaboration and workflow matrices, operation-reference coverage, unchanged-tree checks, stale/partial refresh and completion recovery, extension confinement, secret redaction |
+| Blueprint release automation | 2, 4–10, 12, and 15–17, plus structural portions of 1, 3, and 14 | cross-profile valid/invalid fixtures, collaboration/workflow/setup matrices, operation-reference coverage, unchanged-tree checks, stale/partial refresh and completion/setup recovery, extension confinement, secret redaction |
 | Target-project adoption | human portions of 1 and 3, plus 11, 13, and 14 | timed unfamiliar-maintainer exercise, actual platform enforcement, one real task/closure, exact project revision checks, truthful handoff report |
 
 The release suite reports every criterion as `automated_pass`,
@@ -1201,8 +1273,10 @@ partial matrix as complete acceptance.
 
 1. Select assurance from risk, collaboration from current writer count,
    concurrency as a separate modifier, and layout from representation needs.
-2. Use guided initialization for a new project or semantic plan/apply adoption
-   for an existing project; review and accept the exact digest.
+2. Use the read-only guided setup interview for initialization, adoption, or
+   upgrade; summarize observations, recommendations, selections, authority,
+   unknowns, deferrals, and closure steps; then use the existing planner and
+   accept only its exact digest.
 3. Inspect `.project-blueprint-origin.json`, the artifact catalog, and all
    proposed or unassessed sentinels.
 4. Read applicable project instructions and classify real authority sources.

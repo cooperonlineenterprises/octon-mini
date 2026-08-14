@@ -12,7 +12,7 @@ assurance profile.
 ### Added
 
 - one authoritative profile, layout, package, inventory, and acceptance
-  manifest, including criterion-level coverage for all 16 acceptance criteria;
+  manifest, including criterion-level coverage for all 17 acceptance criteria;
 - fast, integration, and release validation tiers, bounded mutation baselines,
   scale benchmarks, structured diagnostic codes, and read-only `pb doctor`;
 - a shared staged plan/apply framework with target and instruction
@@ -54,7 +54,12 @@ assurance profile.
   positive/negative/interruption mutation coverage;
 - explicit exact-pristine updates for an installed small-team Git portfolio,
   without enabling completion or overwriting project-owned workflow,
-  provider, branch, hook, cleanup, or authorization settings; and
+  provider, branch, hook, cleanup, or authorization settings;
+- one guided, resumable setup interview shared by initialization, adoption,
+  and upgrade, with a canonical question catalog, strict external session
+  artifacts, dependency-ordered conversational/TTY/flag inputs, fail-closed
+  freshness binding, work-completion opt-in closure planning, and no second
+  apply or authority system.
 
 ### Changed
 
@@ -69,7 +74,7 @@ assurance profile.
   an assurance or collaboration profile;
 - primitive scaffolding uses structural plus bounded fast validation, while
   consequential init/adoption/upgrade/release transactions retain release-tier
-  staging; and
+  staging;
 - generated `pb` entry points suppress Python bytecode writes so the documented
   read-only check does not create cache files; and
 - the Blueprint, generator, and harness kernel advance to 4.0.0.
@@ -86,6 +91,9 @@ conformance, harness adoption, and target-project readiness remain distinct.
 Governed completion and its event hook remain disabled after migration until a
 project explicitly adopts their repository, provider, checks, read-only hooks,
 and cleanup inputs. External progress is resumable, not atomically reversible.
+Guided setup is added only by a new snapshot, explicit Blueprint upgrade, or
+skill-package update. Existing flags remain supported; setup answers never
+silently overwrite project-owned authority or create runtime authorization.
 
 ## 3.1.0 — Unreleased
 

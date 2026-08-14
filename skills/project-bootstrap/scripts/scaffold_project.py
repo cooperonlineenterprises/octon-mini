@@ -1794,6 +1794,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--target", type=Path)
     parser.add_argument("--project-name")
     parser.add_argument("--project-slug")
+    parser.add_argument(
+        "--generation-id",
+        help="optional exact 32-hex generation identity supplied by a digest-bound planner",
+    )
     parser.add_argument("--profile")
     parser.add_argument(
         "--layout",
@@ -1906,7 +1910,9 @@ def main() -> int:
                 f"safety_invariant_degradation: {error}"
             ) from error
         created = date.today().isoformat()
-        identifier = generation_id()
+        if args.generation_id is not None and re.fullmatch(r"[a-f0-9]{32}", args.generation_id) is None:
+            raise ValueError("--generation-id must be exactly 32 lowercase hexadecimal characters")
+        identifier = args.generation_id or generation_id()
     except ValueError as error:
         print(f"ERROR: {error}", file=sys.stderr)
         return 2

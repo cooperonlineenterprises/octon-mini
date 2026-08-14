@@ -3,6 +3,11 @@
 These are independent axes. Do not make team size a risk profile, make layout
 an assurance level, or count agents as human writers.
 
+Guided setup asks for these axes through the canonical setup-question catalog.
+It may present an evidence-based recommendation, but it never preselects an
+answer. Preserve `unknown` or `deferred` when allowed, and keep a user selection
+separate from any accepted authority needed to adopt project policy.
+
 ## Assurance profile
 
 - **Minimal** — early, low-risk, or low-integration work. It includes the full

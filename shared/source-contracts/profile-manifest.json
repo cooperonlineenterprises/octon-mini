@@ -288,7 +288,8 @@
     {"id": 13, "title": "exact_revision_handoff", "release_coverage": "project_demonstration_required"},
     {"id": 14, "title": "truthful_final_reporting", "release_coverage": "project_demonstration_required"},
     {"id": 15, "title": "small_team_collaboration_and_workflows", "release_coverage": "automated_pass"},
-    {"id": 16, "title": "governed_resumable_work_completion", "release_coverage": "automated_pass"}
+    {"id": 16, "title": "governed_resumable_work_completion", "release_coverage": "automated_pass"},
+    {"id": 17, "title": "guided_resumable_setup_interview", "release_coverage": "automated_pass"}
   ],
   "documentation_projections": [
     {
@@ -509,11 +510,13 @@
     "harness-work-completion.schema.json",
     "project-blueprint-migration-seed.schema.json",
     "project-blueprint-origin.schema.json",
+    "project-blueprint-setup-answers.schema.json",
+    "project-blueprint-setup-session.schema.json",
     "project-blueprint-upgrade.schema.json",
     "reference-evidence.schema.json"
       ],
-      "inventory_count": 26,
-      "inventory_paths_sha256": "55f1f2e5fbaa4586ea6d756ca597c43b729c5d3c4f3c8a419563adea3950fc1a",
+      "inventory_count": 28,
+      "inventory_paths_sha256": "eb44c7a02f686ece85a818f9a51e01cee87c3d0693eea0b4ba54b8cafc83bcb9",
       "output": {
         "root": ".agent/schemas",
         "strip_suffix": null

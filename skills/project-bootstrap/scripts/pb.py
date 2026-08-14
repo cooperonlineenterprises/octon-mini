@@ -16,9 +16,9 @@ SKILL_ROOT = SCRIPT_ROOT.parent
 HELP = """Project Blueprint workflow interface
 
 Bootstrap-source workflows:
-  pb init [plan|apply] ...       guided new-project initialization
-  pb adopt plan|apply ...        bounded established-project adoption
-  pb upgrade plan|apply ...      three-way live-project upgrade
+  pb init setup|plan|apply ...   guided/resumable new-project initialization
+  pb adopt setup|plan|apply ...  guided/resumable established-project adoption
+  pb upgrade setup|plan|apply ... guided/resumable live-project upgrade
   pb detect --target PATH        read-only archetype and hook proposals
   pb maintain package ...        triggered package installation
   pb maintain collaboration ... progressive collaboration assessment
@@ -103,7 +103,7 @@ def main() -> int:
         return 0
     command, rest = arguments[0], arguments[1:]
     if command == "init":
-        if not rest or rest[0] not in {"plan", "apply", "interactive"}:
+        if not rest or rest[0] not in {"setup", "plan", "apply", "interactive"}:
             rest = ["interactive", *rest]
         return execute(SCRIPT_ROOT / "init_project.py", rest)
     if command == "adopt":

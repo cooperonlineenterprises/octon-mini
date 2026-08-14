@@ -35,6 +35,7 @@ def load_module(name: str, path: Path):
 
 
 SCAFFOLDER = load_module("pb_upgrade_scaffolder", SCRIPT_ROOT / "scaffold_project.py")
+SETUP = load_module("pb_upgrade_setup", SCRIPT_ROOT / "setup_session.py")
 TRANSACTION = load_module(
     "pb_upgrade_transaction",
     SKILL_ROOT / "assets/templates/core/.agent/scripts/pb_transaction.py.tmpl",
@@ -81,7 +82,7 @@ def candidate_state(candidate: Path, path: str) -> dict[str, Any] | None:
     }
 
 
-def run_scaffold(target: Path, origin: dict[str, Any]) -> None:
+def run_scaffold(target: Path, origin: dict[str, Any], generation_identifier: str) -> None:
     result = subprocess.run(
         [
             sys.executable,
@@ -96,6 +97,8 @@ def run_scaffold(target: Path, origin: dict[str, Any]) -> None:
             origin["profile"],
             "--layout",
             origin["layout"],
+            "--generation-id",
+            generation_identifier,
         ],
         cwd=SCRIPT_ROOT,
         capture_output=True,
@@ -328,6 +331,7 @@ def exact_plan(
     dispositions: dict[str, str],
     evidence_paths: list[str],
     baseline_origin: dict[str, Any] | None = None,
+    setup_binding: tuple[dict[str, Any], Path] | None = None,
 ) -> dict[str, Any]:
     current_origin = baseline_origin or load_json(target / ".project-blueprint-origin.json")
     candidate_origin = load_json(candidate / ".project-blueprint-origin.json")
@@ -473,6 +477,7 @@ def exact_plan(
             TRANSACTION.source_evidence("accepted_upgrade_proposal", proposal["canonical_proposal_digest"]),
             TRANSACTION.source_evidence("project_owned_upgrade_authority", proposal["authority_source"]),
             *[TRANSACTION.source_evidence("migration_evidence", value) for value in proposal["evidence_refs"]],
+            *SETUP.transaction_evidence(setup_binding, TRANSACTION),
         ],
         evidence_paths=[".project-blueprint-origin.json", *evidence_paths],
         assumptions=[],
@@ -487,7 +492,21 @@ def exact_plan(
                     "rule": "installed_inventory_three_way_v1",
                     "confidence": "deterministic",
                     "limitations": ["Renames are never inferred from content similarity."],
-                }
+                },
+                *(
+                    [
+                        {
+                            "id": "upgrade.guided_setup_session",
+                            "summary": "A current non-authorizing guided setup session supplied reviewed inputs without changing accepted project authority.",
+                            "source_refs": [setup_binding[0]["canonical_session_digest"]],
+                            "rule": "project-blueprint.setup-session.v1",
+                            "confidence": "deterministic",
+                            "limitations": ["The session does not enable work completion or establish readiness."],
+                        }
+                    ]
+                    if setup_binding is not None
+                    else []
+                ),
             ],
             "inferences": [],
             "explicit_decisions": [
@@ -523,6 +542,12 @@ def write_artifact(path: Path, value: dict[str, Any]) -> None:
 
 def plan_command(args: argparse.Namespace) -> int:
     target = args.target.resolve()
+    setup_binding = SETUP.prepare_plan_session("upgrade", args)
+    args._setup_binding = setup_binding
+    if args.authority_source is None:
+        raise UpgradeError("upgrade requires --authority-source or setup.upgrade-authority")
+    if not args.evidence_ref:
+        raise UpgradeError("upgrade requires --evidence-ref or setup.upgrade-evidence")
     actual_origin = load_json(target / ".project-blueprint-origin.json")
     legacy_seed: dict[str, Any] | None = None
     if args.legacy_seed:
@@ -560,7 +585,19 @@ def plan_command(args: argparse.Namespace) -> int:
         raise UpgradeError("authority or evidence differs from the reviewed legacy migration seed")
     with tempfile.TemporaryDirectory(prefix="project-blueprint-upgrade-") as temporary:
         candidate = Path(temporary) / "candidate"
-        run_scaffold(candidate, origin)
+        generation_identifier = hashlib.sha256(
+            TRANSACTION.canonical_bytes(
+                {
+                    "operation": "upgrade.project",
+                    "from_blueprint_version": origin["blueprint_version"],
+                    "to_blueprint_version": to_version,
+                    "prior_generation_id": origin.get("generation_id"),
+                    "profile": origin["profile"],
+                    "layout": origin["layout"],
+                }
+            )
+        ).hexdigest()[:32]
+        run_scaffold(candidate, origin, generation_identifier)
         if args.proposal:
             proposal = load_json(args.proposal)
             validate_stored_proposal(proposal, target)
@@ -583,6 +620,7 @@ def plan_command(args: argparse.Namespace) -> int:
                 dispositions,
                 evidence_paths,
                 baseline_origin=origin,
+                setup_binding=setup_binding,
             )
             write_artifact(args.output, value)
             return 0
@@ -607,6 +645,7 @@ def plan_command(args: argparse.Namespace) -> int:
             {},
             evidence_paths,
             baseline_origin=origin,
+            setup_binding=setup_binding,
         )
         write_artifact(args.output, value)
         return 0
@@ -617,30 +656,35 @@ def main() -> int:
     commands = parser.add_subparsers(dest="command", required=True)
     plan = commands.add_parser("plan")
     plan.add_argument("--target", type=Path, required=True)
-    plan.add_argument("--authority-source", required=True)
-    plan.add_argument("--evidence-ref", action="append", required=True)
+    plan.add_argument("--authority-source")
+    plan.add_argument("--evidence-ref", action="append", default=[])
     plan.add_argument("--legacy-seed", type=Path)
     plan.add_argument("--proposal", type=Path)
     plan.add_argument("--review", type=Path)
     plan.add_argument("--output", type=Path, required=True)
+    plan.add_argument("--setup-session", type=Path)
     apply = commands.add_parser("apply")
     apply.add_argument("--target", type=Path, required=True)
     apply.add_argument("--plan", type=Path, required=True)
     apply.add_argument("--accept-digest", required=True)
+    SETUP.add_setup_parser(commands, "upgrade")
     args = parser.parse_args()
     try:
+        if args.command == "setup":
+            return SETUP.run_setup(args)
         if args.command == "plan":
             return plan_command(args)
         target = args.target.resolve()
         value = TRANSACTION.load_plan(args.plan)
         if value.get("operation") != "upgrade.project":
             raise UpgradeError("plan is not a live-upgrade transaction")
+        SETUP.verify_plan_binding(target, value)
         receipt, receipt_path = TRANSACTION.apply_plan(target, value, args.accept_digest)
         print(f"[APPLIED] {receipt['receipt_id']}")
         print(f"[RECEIPT] {receipt_path}")
         print("[STATUS] structural conformance passed; adoption and readiness were not inferred")
         return 0
-    except (OSError, RuntimeError, ValueError, UpgradeError, TRANSACTION.TransactionError) as error:
+    except (OSError, RuntimeError, ValueError, UpgradeError, SETUP.SetupError, TRANSACTION.TransactionError) as error:
         print(f"[FAIL] {error}", file=sys.stderr)
         return 2
 

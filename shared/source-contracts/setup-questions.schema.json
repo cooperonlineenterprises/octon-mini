@@ -1,0 +1,177 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://project-blueprint.local/source-contracts/setup-questions.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "document_role",
+    "permission_grant",
+    "catalog_version",
+    "modes",
+    "information_roles",
+    "questions",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {"const": "project-blueprint.setup-question-catalog.v1"},
+    "document_role": {"const": "authoritative_guided_setup_question_catalog"},
+    "permission_grant": {"const": false},
+    "catalog_version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+    "modes": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "uniqueItems": true,
+      "items": {"enum": ["initialization", "adoption", "upgrade"]}
+    },
+    "information_roles": {
+      "type": "array",
+      "minItems": 7,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "observation",
+          "inference",
+          "initialization_input",
+          "recommendation",
+          "owner_selection",
+          "accepted_authority_reference",
+          "runtime_authorization_forbidden"
+        ]
+      }
+    },
+    "questions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/question"}
+    },
+    "limitations": {"$ref": "#/$defs/strings"}
+  },
+  "$defs": {
+    "strings": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "condition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["question_id", "operator", "values"],
+      "properties": {
+        "question_id": {"type": "string", "pattern": "^setup\\.[a-z0-9]+(?:[.-][a-z0-9]+)*$"},
+        "operator": {"enum": ["answered", "equals", "in", "not_in"]},
+        "values": {"type": "array", "uniqueItems": true}
+      }
+    },
+    "answer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "valid_values",
+        "allow_unknown",
+        "allow_deferred",
+        "allow_not_applicable"
+      ],
+      "properties": {
+        "type": {"enum": ["string", "integer", "boolean", "enum", "string_list", "object", "object_list"]},
+        "valid_values": {"type": "array", "uniqueItems": true},
+        "allow_unknown": {"type": "boolean"},
+        "allow_deferred": {"type": "boolean"},
+        "allow_not_applicable": {"type": "boolean"}
+      }
+    },
+    "recommendation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rule", "rationale"],
+      "properties": {
+        "rule": {"type": "string", "minLength": 1},
+        "rationale": {"type": "string", "minLength": 1}
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["required", "freshness_days", "allowed_sources", "requirements"],
+      "properties": {
+        "required": {"type": "boolean"},
+        "freshness_days": {"type": ["integer", "null"], "minimum": 1},
+        "allowed_sources": {"$ref": "#/$defs/strings"},
+        "requirements": {"$ref": "#/$defs/strings"}
+      }
+    },
+    "sensitivity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["classification", "collection_restrictions"],
+      "properties": {
+        "classification": {"enum": ["non_sensitive", "project_internal", "restricted_reference_only"]},
+        "collection_restrictions": {"$ref": "#/$defs/strings"}
+      }
+    },
+    "question": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "version",
+        "family",
+        "modes",
+        "dependencies",
+        "trigger_conditions",
+        "prompt",
+        "importance",
+        "answer",
+        "blocking",
+        "recommendation",
+        "authoritative_destination",
+        "information_role",
+        "evidence",
+        "sensitivity",
+        "validation_rules",
+        "migration_behavior",
+        "change_consequences"
+      ],
+      "properties": {
+        "id": {"type": "string", "pattern": "^setup\\.[a-z0-9]+(?:[.-][a-z0-9]+)*$"},
+        "version": {"type": "integer", "minimum": 1},
+        "family": {"enum": ["project_generation", "existing_authority", "collaboration", "commands_hooks", "scm_workflow", "optional_packages", "upgrade", "work_completion"]},
+        "modes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"enum": ["initialization", "adoption", "upgrade"]}
+        },
+        "dependencies": {"$ref": "#/$defs/strings"},
+        "trigger_conditions": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/condition"}
+        },
+        "prompt": {"type": "string", "minLength": 1},
+        "importance": {"type": "string", "minLength": 1},
+        "answer": {"$ref": "#/$defs/answer"},
+        "blocking": {"type": "boolean"},
+        "recommendation": {"$ref": "#/$defs/recommendation"},
+        "authoritative_destination": {"type": "string", "minLength": 1},
+        "information_role": {
+          "enum": [
+            "observation",
+            "inference",
+            "initialization_input",
+            "recommendation",
+            "owner_selection",
+            "accepted_authority_reference",
+            "runtime_authorization_forbidden"
+          ]
+        },
+        "evidence": {"$ref": "#/$defs/evidence"},
+        "sensitivity": {"$ref": "#/$defs/sensitivity"},
+        "validation_rules": {"$ref": "#/$defs/strings"},
+        "migration_behavior": {"type": "string", "minLength": 1},
+        "change_consequences": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}
