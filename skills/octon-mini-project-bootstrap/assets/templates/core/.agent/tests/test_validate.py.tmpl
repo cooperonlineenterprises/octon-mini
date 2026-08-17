@@ -122,6 +122,13 @@ def clone() -> tuple[tempfile.TemporaryDirectory[str], Path]:
     return temporary, test_root
 
 
+def octon_command(root: Path, *arguments: str) -> list[str]:
+    command = [str(root / "octon")]
+    if os.name == "nt":
+        command = [sys.executable, "-B", *command]
+    return [*command, *arguments]
+
+
 def task_value(value: dict[str, object]) -> dict[str, object]:
     complete = {
         "schema_version": "harness.task.v2",
@@ -766,8 +773,8 @@ class HarnessValidatorTests(unittest.TestCase):
         try:
             plan = test_root / ".agent/transactions/plans/work-start.json"
             start = subprocess.run(
-                [
-                    str(test_root / "octon"), "work", "start",
+                octon_command(
+                    test_root, "work", "start",
                     "--title", "Synthetic lifecycle task",
                     "--scope", "Exercise the bounded lifecycle writer",
                     "--authority-basis", "authority:synthetic-lifecycle-owner",
@@ -776,7 +783,7 @@ class HarnessValidatorTests(unittest.TestCase):
                     "--validation", "Run the structural check",
                     "--next-action", "Perform the synthetic work",
                     "--output", str(plan),
-                ],
+                ),
                 cwd=test_root,
                 capture_output=True,
                 text=True,
@@ -793,7 +800,15 @@ class HarnessValidatorTests(unittest.TestCase):
                 )
             ).stem
             apply = subprocess.run(
-                [str(test_root / "octon"), "transaction", "apply", "--plan", str(plan), "--accept-digest", planned["canonical_plan_digest"]],
+                octon_command(
+                    test_root,
+                    "transaction",
+                    "apply",
+                    "--plan",
+                    str(plan),
+                    "--accept-digest",
+                    planned["canonical_plan_digest"],
+                ),
                 cwd=test_root,
                 capture_output=True,
                 text=True,
@@ -843,8 +858,8 @@ class HarnessValidatorTests(unittest.TestCase):
 
             close_plan = test_root / ".agent/transactions/plans/work-close.json"
             close = subprocess.run(
-                [
-                    str(test_root / "octon"), "work", "close", started_task_id,
+                octon_command(
+                    test_root, "work", "close", started_task_id,
                     "--criteria-met",
                     "--implementation-result", "Synthetic work completed",
                     "--review-evidence", evidence_id,
@@ -853,7 +868,7 @@ class HarnessValidatorTests(unittest.TestCase):
                     "--next-action", "Select the next task",
                     "--operator", "test_suite",
                     "--output", str(close_plan),
-                ],
+                ),
                 cwd=test_root,
                 capture_output=True,
                 text=True,
@@ -862,7 +877,15 @@ class HarnessValidatorTests(unittest.TestCase):
             self.assertEqual(close.returncode, 0, close.stderr or close.stdout)
             close_value = VALIDATOR.load_json(close_plan)
             close_apply = subprocess.run(
-                [str(test_root / "octon"), "transaction", "apply", "--plan", str(close_plan), "--accept-digest", close_value["canonical_plan_digest"]],
+                octon_command(
+                    test_root,
+                    "transaction",
+                    "apply",
+                    "--plan",
+                    str(close_plan),
+                    "--accept-digest",
+                    close_value["canonical_plan_digest"],
+                ),
                 cwd=test_root,
                 capture_output=True,
                 text=True,
@@ -872,7 +895,7 @@ class HarnessValidatorTests(unittest.TestCase):
             task = VALIDATOR.parse_json_header(task_path)
             self.assertEqual(task["status"], "completed")
             resume = subprocess.run(
-                [str(test_root / "octon"), "work", "resume"],
+                octon_command(test_root, "work", "resume"),
                 cwd=test_root,
                 capture_output=True,
                 text=True,
@@ -886,7 +909,13 @@ class HarnessValidatorTests(unittest.TestCase):
                 if line.startswith("[RECEIPT]")
             )
             rollback = subprocess.run(
-                [str(test_root / "octon"), "transaction", "rollback", "--receipt", receipt],
+                octon_command(
+                    test_root,
+                    "transaction",
+                    "rollback",
+                    "--receipt",
+                    receipt,
+                ),
                 cwd=test_root,
                 capture_output=True,
                 text=True,

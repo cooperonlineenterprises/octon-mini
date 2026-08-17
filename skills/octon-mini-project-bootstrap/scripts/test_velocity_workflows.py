@@ -27,8 +27,11 @@ DETECTOR = SCRIPT_ROOT / "detect_project.py"
 
 
 def run(argv: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
+    command = list(argv)
+    if command and os.name == "nt" and Path(command[0]).name.casefold() == "octon":
+        command = [sys.executable, "-B", command[0], *command[1:]]
     return subprocess.run(
-        argv,
+        command,
         cwd=cwd,
         capture_output=True,
         text=True,

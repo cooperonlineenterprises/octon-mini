@@ -1166,7 +1166,7 @@ def validate_ci_contract(issues: list[str]) -> None:
         ),
         "routine timeout": "timeout-minutes: 20",
         "main timeout": "timeout-minutes: 15",
-        "release timeout": "timeout-minutes: 30",
+        "release timeout": "timeout-minutes: 90",
         "pinned checkout action": (
             "actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803"
         ),
@@ -1322,8 +1322,17 @@ def validate_executable_contracts(issues: list[str]) -> None:
     elif not os.access(source_launcher, os.X_OK):
         issues.append("source root octon launcher must be executable")
     else:
+        source_command = (
+            [str(source_launcher)]
+            if os.name != "nt"
+            else [
+                sys.executable,
+                "-B",
+                str(SKILL_ROOT / "scripts/octon.py"),
+            ]
+        )
         help_result = subprocess.run(
-            [str(source_launcher), "--help"],
+            [*source_command, "--help"],
             cwd=ROOT,
             capture_output=True,
             text=True,
@@ -1336,7 +1345,7 @@ def validate_executable_contracts(issues: list[str]) -> None:
         if re.search(r"(?<![A-Za-z0-9_])p" + r"b(?![A-Za-z0-9_])", help_result.stdout):
             issues.append("source octon help exposes the removed legacy command")
         local_result = subprocess.run(
-            [str(source_launcher), "check"],
+            [*source_command, "check"],
             cwd=ROOT,
             capture_output=True,
             text=True,
@@ -1649,8 +1658,11 @@ def validate_profile_builds(issues: list[str], scaffolder: Any) -> None:
                         )
                 if not launcher.is_file():
                     continue
+                launcher_command = [str(launcher)]
+                if os.name == "nt":
+                    launcher_command = [sys.executable, "-B", *launcher_command]
                 help_result = subprocess.run(
-                    [str(launcher), "--help"],
+                    [*launcher_command, "--help"],
                     cwd=target,
                     capture_output=True,
                     text=True,
@@ -1662,7 +1674,7 @@ def validate_profile_builds(issues: list[str], scaffolder: Any) -> None:
                     issues.append(f"{profile}/{layout} octon help failed")
                 before = snapshot_files(target)
                 check_result = subprocess.run(
-                    [str(launcher), "check"],
+                    [*launcher_command, "check"],
                     cwd=target,
                     capture_output=True,
                     text=True,
