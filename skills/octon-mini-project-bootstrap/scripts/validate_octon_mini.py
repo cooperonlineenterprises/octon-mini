@@ -1166,7 +1166,7 @@ def validate_ci_contract(issues: list[str]) -> None:
         ),
         "routine timeout": "timeout-minutes: 20",
         "main timeout": "timeout-minutes: 15",
-        "release timeout": "timeout-minutes: 60",
+        "release timeout": "timeout-minutes: 90",
         "pinned checkout action": (
             "actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803"
         ),
