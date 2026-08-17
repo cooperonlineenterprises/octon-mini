@@ -1,9 +1,42 @@
-#!/bin/sh
-set -eu
+#!/usr/bin/env python3
+"""Extensionless Octon Mini source and installed-bundle launcher."""
 
-SOURCE_ROOT=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-DISPATCHER="$SOURCE_ROOT/skills/octon-mini-project-bootstrap/scripts/octon.py"
-if [ ! -f "$DISPATCHER" ]; then
-  DISPATCHER="$SOURCE_ROOT/../../scripts/octon.py"
-fi
-exec python3 -B "$DISPATCHER" "$@"
+from __future__ import annotations
+
+import runpy
+import sys
+from pathlib import Path
+
+
+sys.dont_write_bytecode = True
+ROOT = Path(__file__).resolve().parent
+LAUNCHER = Path(__file__).resolve()
+DISPATCHER_CANDIDATES = (
+    ROOT / "skills/octon-mini-project-bootstrap/scripts/octon.py",
+    ROOT.parent.parent / "scripts/octon.py",
+)
+
+
+def dispatcher() -> Path | None:
+    for candidate in DISPATCHER_CANDIDATES:
+        try:
+            resolved = candidate.resolve(strict=True)
+        except OSError:
+            continue
+        if candidate.is_file() and not candidate.is_symlink() and resolved != LAUNCHER:
+            return resolved
+    return None
+
+
+def main() -> int:
+    script = dispatcher()
+    if script is None:
+        print("[FAIL] Octon Mini source dispatcher is unavailable", file=sys.stderr)
+        return 2
+    sys.path.insert(0, str(script.parent))
+    runpy.run_path(str(script), run_name="__main__")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

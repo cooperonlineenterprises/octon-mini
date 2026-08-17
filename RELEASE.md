@@ -6,6 +6,7 @@
 - Bootstrap capability: Octon Mini Project Bootstrap
 - Bootstrap skill ID: `octon-mini-project-bootstrap`
 - Harness kernel: `4.0.0`
+- Source license: MIT No Attribution (`MIT-0`)
 - Compatibility: clean product, command, protocol, provenance, skill, and
   generated-path break with independent snapshots and reviewed cross-brand
   migration
@@ -20,14 +21,24 @@ dispositions and exact digest acceptance.
 
 Octon Mini 4.0.0 is the breaking successor to Project Blueprint 3.x. `octon`
 is the sole current command; no `pb` compatibility command exists. Upgrade is
-an explicit reviewed Project Blueprint 3.x→Octon Mini 4.0.0 migration. No tag,
-GitHub Release, repository rename, public distribution, or package publication
-has been performed.
+an explicit reviewed Project Blueprint 3.x→Octon Mini 4.0.0 migration.
+
+The GitHub repository rename to `cooperonlineenterprises/octon-mini` and the
+local project-directory rename to `octon-mini` are complete. The repository is
+currently public. Octon Mini 4.0.0 remains unreleased: no `v4.0.0` tag, GitHub
+Release, or package publication has occurred.
 
 Accepted source decision `SRC-DEC-0014` records this owner-directed identity
-and clean-break migration. It creates no external operational authority and
-does not authorize a release, repository rename, publication, or distribution
-action.
+and clean-break migration. It created no external operational authority and did
+not itself authorize the later repository rename, visibility change,
+publication, or release. Recording the present observed state does not create
+continuing authority for another external action.
+
+Accepted source decision `SRC-DEC-0015` records the technical post-rebrand
+audit remediation and the license input that was still unset at that time.
+Accepted source decision `SRC-DEC-0016` separately records the later
+owner-approved MIT-0 source license. Neither decision grants runtime permission,
+release authority, publication authority, or repository-setting authority.
 
 Accepted source decision `SRC-DEC-0013` narrowly permits the shared governed
 small-team work-completion exception to the repository-local transaction
@@ -103,10 +114,11 @@ Before tagging a release:
    `test_migration_3_1_0_to_4_0_0.py`, and confirm valid transformation,
    exact idempotence, reviewed legacy seeding, rollback evidence, and every
    fail-closed fixture;
-4. run `test_velocity_workflows.py`, `test_work_completion.py`,
+4. run `test_benchmark_validation.py`, `test_octon_launchers.py`,
+   `test_velocity_workflows.py`, `test_work_completion.py`,
    `test_guided_setup.py`, `test_acceptance.py`, and
    `benchmark_validation.py --enforce`; retain the host-specific benchmark
-   report and disclose any threshold failure;
+   report, every cold-start and warm sample, and every threshold failure;
 5. install the skill into a fresh temporary destination, run the installed
    package, Octon Mini source, reference, and acceptance validators from that
    destination, and generate and check all three profiles in compact and
@@ -164,11 +176,16 @@ are migrations.
 
 ## Distribution license decision
 
-No public redistribution license is asserted by this repository.
-Private/internal use is technically supported, but public distribution must
-pause until the repository owner chooses and adds an appropriate license after
-legal review. This is an explicit owner decision, not a missing technical
-default; the generator never inserts a license into target projects.
+The repository owner approved `KEEP_PUBLIC_WITH_LICENSE — MIT-0` and confirmed
+the exact copyright line `Copyright 2026 Cooper Online Enterprises`. The public
+Octon Mini source repository and its installed source bundle are distributed
+under the canonical MIT No Attribution license, SPDX identifier `MIT-0`.
+
+Public visibility, licensed source reuse, and an Octon Mini release are separate
+facts. Octon Mini 4.0.0 remains unreleased, with no `v4.0.0` tag, GitHub Release,
+or package publication. The generator does not copy the source `LICENSE` into a
+target snapshot or choose a target project's overall license; that remains a
+separate project-owned decision.
 
 ## Supported and unsupported claims
 

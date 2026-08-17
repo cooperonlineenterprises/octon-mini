@@ -5,6 +5,11 @@ conversation, TTY, or answer file. For the complete contract, read the bundled
 `assets/octon-mini-source/docs/GUIDED_SETUP.md` and the authoritative
 `assets/octon-mini-source/shared/source-contracts/setup-questions.json`.
 
+Command examples use `./octon` on Unix/macOS. On Windows, invoke the same
+extensionless launcher and arguments as `python -B octon` or `py -3 -B octon`.
+This changes only interpreter entry, not command identity, setup semantics, or
+authority.
+
 ## Required sequence
 
 1. Read target instructions and run the mode-specific `setup` command without

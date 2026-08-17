@@ -24,6 +24,15 @@ runtime compatibility mode. A legacy Project Blueprint snapshot may continue
 to use the tools bundled in that independent snapshot, subject to its recorded
 limitations, but Octon Mini does not provide or dispatch those tools.
 
+### Cross-platform command entry
+
+The source checkout, installed source bundle, and generated projects use the
+same extensionless Python launcher named `octon`. On Unix and macOS, invoke it
+as `./octon <arguments>`. On Windows, invoke the same file and arguments as
+`python -B octon <arguments>` or `py -3 -B octon <arguments>`. The launcher
+disables bytecode, resolves the correct source or generated dispatcher without
+recursion, and does not create an alias or second command identity.
+
 The same clean break applies to current product and protocol identity:
 
 - product and package identity is `Octon Mini` / `octon-mini`;
@@ -36,6 +45,15 @@ The same clean break applies to current product and protocol identity:
   roles.
 
 Old identifiers are not repurposed to mean changed Octon Mini formats.
+
+## Source license and generated projects
+
+The public Octon Mini source repository and installed source bundle use the
+MIT No Attribution license (`MIT-0`). Generated target snapshots do not contain
+the source `LICENSE` file and do not select a target project's overall license.
+The target project makes that separate project-owned decision. Licensed source
+reuse, structural conformance, harness adoption, readiness, and a completed
+Octon Mini release remain separate claims.
 
 ## Project Blueprint 3.x to Octon Mini 4.0.0
 

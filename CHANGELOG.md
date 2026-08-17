@@ -15,6 +15,9 @@ tags, decisions, and fixtures retain their Project Blueprint identity.
 
 ### Added
 
+- the owner-approved MIT No Attribution (`MIT-0`) source license, included in
+  the repository and installed source bundle but not projected as a generated
+  target-project licensing decision;
 - one authoritative profile, layout, package, inventory, and acceptance
   manifest, including criterion-level coverage for all 17 acceptance criteria;
 - fast, integration, and release validation tiers, bounded mutation baselines,
@@ -84,11 +87,23 @@ tags, decisions, and fixtures retain their Project Blueprint identity.
   trigger transactions;
 - compact dossier representation is the new-project default without becoming
   an assurance or collaboration profile;
+- the small-team Git portfolio version and digest are now rendered together
+  from the authoritative package manifest and validated as an exact pair even
+  while the package remains uninstalled;
+- the source repository contract advances to
+  `octon-mini.source.repository.v2` to bind the MIT-0 license file, package
+  metadata, installed-source projection, and generated-project exclusion;
+- validation benchmarks now use the distinct
+  `octon-mini.project.validation-benchmark.v2` protocol, preserving one
+  operational cold-start proxy plus ten warm samples, explicit host context,
+  nearest-rank combined and warm p90, and the unchanged thresholds;
 - primitive scaffolding uses structural plus bounded fast validation, while
   consequential init/adoption/upgrade/release transactions retain release-tier
   staging;
-- generated `octon` entry points suppress Python bytecode writes so the documented
-  read-only check does not create cache files; and
+- the source and generated `octon` entry points use the same extensionless
+  Python-launcher model, suppress bytecode writes, support `./octon` on
+  Unix/macOS and `python -B octon` or `py -3 -B octon` on Windows, and keep the
+  documented read-only check cache-free; and
 - Octon Mini, the generator, and the harness kernel advance to 4.0.0.
 
 ### Removed

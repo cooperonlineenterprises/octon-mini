@@ -20,6 +20,7 @@ from typing import Any
 sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parents[2]
 KERNEL_VERSION = "4.0.0"
+EXPECTED_GIT_PORTFOLIO_VERSION = "{{GIT_PORTFOLIO_VERSION}}"
 EXPECTED_GIT_PORTFOLIO_SHA256 = "{{GIT_PORTFOLIO_SHA256}}"
 
 
@@ -1394,8 +1395,11 @@ def check_git_workflows(
         ):
             errors.append(".agent/scm.json: assessed SCM selection lacks an accepted project-owned decision")
     portfolio = scm.get("portfolio", {})
-    if isinstance(portfolio, dict) and portfolio.get("sha256") != EXPECTED_GIT_PORTFOLIO_SHA256:
-        errors.append(".agent/scm.json: portfolio digest differs from the versioned package")
+    if isinstance(portfolio, dict):
+        if portfolio.get("version") != EXPECTED_GIT_PORTFOLIO_VERSION:
+            errors.append(".agent/scm.json: portfolio version differs from the versioned package")
+        if portfolio.get("sha256") != EXPECTED_GIT_PORTFOLIO_SHA256:
+            errors.append(".agent/scm.json: portfolio digest differs from the versioned package")
     workflow_root = root / ".agent/workflows"
     if scm.get("selection") != "git":
         if isinstance(portfolio, dict) and portfolio.get("status") != "not_installed":
@@ -1773,8 +1777,10 @@ def repository_files(
     return files
 
 
-def source_fingerprint(root: Path = ROOT) -> str:
+def source_inventory(root: Path = ROOT) -> tuple[dict[str, str], str]:
+    """Hash the source inventory once for both manifest and fingerprint checks."""
     digest = hashlib.sha256()
+    files: dict[str, str] = {}
     for path in repository_files(root, source_only=True):
         rel = relative(path, root)
         if path.name == ".DS_Store":
@@ -1782,12 +1788,19 @@ def source_fingerprint(root: Path = ROOT) -> str:
         digest.update(rel.encode("utf-8", errors="surrogateescape"))
         digest.update(b"\0")
         try:
-            identity = bytes.fromhex(hash_path_identity(path))
+            identity_hex = hash_path_identity(path)
+            identity = bytes.fromhex(identity_hex)
         except OSError:
-            identity = hashlib.sha256(b"unreadable").digest()
+            identity_hex = hashlib.sha256(b"unreadable").hexdigest()
+            identity = bytes.fromhex(identity_hex)
+        files[rel] = identity_hex
         digest.update(identity)
         digest.update(b"\0")
-    return digest.hexdigest()
+    return files, digest.hexdigest()
+
+
+def source_fingerprint(root: Path = ROOT) -> str:
+    return source_inventory(root)[1]
 
 
 def project_check_source_fingerprint(root: Path = ROOT) -> str:
@@ -7349,11 +7362,7 @@ def check_transactions(root: Path) -> list[str]:
 
 
 def expected_manifest_files(root: Path) -> dict[str, str]:
-    return {
-        relative(path, root): hash_path_identity(path)
-        for path in repository_files(root, source_only=True)
-        if path.name != ".DS_Store"
-    }
+    return source_inventory(root)[0]
 
 
 def parse_checksums(path: Path) -> tuple[dict[str, str], list[str]]:
@@ -7437,7 +7446,7 @@ def check_integrity(root: Path, include_generated: bool = True) -> list[str]:
         profile = origin.get("profile")
     except (OSError, UnicodeDecodeError, ValueError, json.JSONDecodeError):
         profile = None
-    expected_fingerprint = source_fingerprint(root)
+    expected_files, expected_fingerprint = source_inventory(root)
     if manifest.get("source_fingerprint") != expected_fingerprint:
         errors.append("project-dossier/MANIFEST.json: stale source fingerprint")
     try:
@@ -7500,7 +7509,7 @@ def check_integrity(root: Path, include_generated: bool = True) -> list[str]:
             )
         if isinstance(path_value, str):
             listed[path_value] = digest
-    expected = expected_manifest_files(root)
+    expected = expected_files
     if listed != expected:
         errors.append("project-dossier/MANIFEST.json: file inventory or hashes are stale")
 

@@ -9,6 +9,7 @@ import json
 from pathlib import Path
 
 
+sys.dont_write_bytecode = True
 SCRIPT_ROOT = Path(__file__).resolve().parent
 SKILL_ROOT = SCRIPT_ROOT.parent
 
@@ -187,6 +188,10 @@ def workflow_help(manifest: dict[str, object]) -> str:
   ./octon maintain package ...          {commands['maintain.package']}
 {capabilities['maintenance.collaboration']}:
   ./octon maintain collaboration ...    {commands['maintain.collaboration']}
+
+Launcher forms:
+  Unix/macOS: ./octon ...
+  Windows:    python -B octon ...  or  py -3 -B octon ...
 
 Generated-project capabilities are delegated directly to a verified
 `.agent/scripts/octon.py` in the current project. Run `./octon --help` there for

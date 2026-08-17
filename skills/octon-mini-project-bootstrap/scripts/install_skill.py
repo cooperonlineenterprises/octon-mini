@@ -99,6 +99,7 @@ def main() -> int:
                 ignore=shutil.ignore_patterns(".DS_Store", "__pycache__", "*.pyc"),
             )
         for filename in (
+            "LICENSE",
             "VERSION",
             "VELOCITY_ROADMAP.md",
             "VELOCITY_VALIDATION.md",

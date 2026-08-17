@@ -1129,6 +1129,7 @@ def validate_repository(root: Path = ROOT) -> list[str]:
         root / "shared/source-contracts/hook-detector-protocol.schema.json",
         root / "shared/source-contracts/setup-questions.schema.json",
         root / "shared/source-contracts/legacy-reference-allowlist.schema.json",
+        root / "shared/source-contracts/validation-benchmark-report.schema.json",
         root / "shared/optional-schemas/context-pack-manifest.schema.json",
         root / "shared/schemas/octon-mini-bootstrap-setup-answers.schema.json",
         root / "shared/schemas/octon-mini-bootstrap-setup-session.schema.json",

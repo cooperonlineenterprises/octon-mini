@@ -1,0 +1,218 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://octon-mini.local/source-contracts/validation-benchmark-report.schema.json",
+  "title": "Octon Mini Validation Benchmark Report",
+  "description": "Content-free, non-authorizing cold-start and warm steady-state benchmark evidence.",
+  "$defs": {
+    "load_average": {
+      "type": ["array", "null"],
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {"type": "number", "minimum": 0}
+    },
+    "sample": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sequence", "classification", "seconds", "exit_code", "load_average_before", "load_average_after"],
+      "properties": {
+        "sequence": {"type": "integer", "minimum": 1},
+        "classification": {"enum": ["operational_cold_start_proxy", "warm_steady_state", "preparation"]},
+        "seconds": {"type": "number", "minimum": 0},
+        "exit_code": {"type": "integer"},
+        "load_average_before": {"$ref": "#/$defs/load_average"},
+        "load_average_after": {"$ref": "#/$defs/load_average"}
+      }
+    },
+    "series": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["samples", "combined_p90_seconds", "warm_p90_seconds"],
+      "properties": {
+        "samples": {"type": "array", "items": {"$ref": "#/$defs/sample"}},
+        "combined_p90_seconds": {"type": ["number", "null"], "minimum": 0},
+        "warm_p90_seconds": {"type": ["number", "null"], "minimum": 0}
+      }
+    }
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "document_role",
+    "permission_grant",
+    "benchmark_configuration",
+    "host_context",
+    "scaffold_profiles",
+    "measurements",
+    "thresholds",
+    "sample_accounting",
+    "execution_failures",
+    "enforcement",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {"const": "octon-mini.project.validation-benchmark.v2"},
+    "document_role": {"const": "local_content_free_non_authorizing_measurement"},
+    "permission_grant": {"const": false},
+    "benchmark_configuration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["synthetic_payload_file_counts", "profiles", "layout", "cold_start_proxy_samples_per_series", "warm_samples_per_series", "independent_target_per_payload_size", "child_python_bytecode_disabled", "percentile", "cache_policy"],
+      "properties": {
+        "synthetic_payload_file_counts": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "integer", "minimum": 0}},
+        "profiles": {"const": ["minimal", "standard", "high-assurance"]},
+        "layout": {"const": "compact"},
+        "cold_start_proxy_samples_per_series": {"const": 1},
+        "warm_samples_per_series": {"type": "integer", "minimum": 1},
+        "independent_target_per_payload_size": {"const": true},
+        "child_python_bytecode_disabled": {"const": true},
+        "percentile": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "percentile", "rank_formula"],
+          "properties": {
+            "name": {"const": "nearest_rank"},
+            "percentile": {"const": 90},
+            "rank_formula": {"const": "ceil(0.90 * sample_count)"}
+          }
+        },
+        "cache_policy": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["operational_cold_start_proxy", "warm_steady_state", "kernel_cache_eviction"],
+          "properties": {
+            "operational_cold_start_proxy": {"type": "string", "minLength": 1},
+            "warm_steady_state": {"type": "string", "minLength": 1},
+            "kernel_cache_eviction": {"const": "not_attempted"}
+          }
+        }
+      }
+    },
+    "host_context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["operating_system", "operating_system_release", "architecture", "python_implementation", "python_version", "logical_cpu_count", "perf_counter", "load_average_at_start", "load_average_at_end", "filesystem"],
+      "properties": {
+        "operating_system": {"type": "string", "minLength": 1},
+        "operating_system_release": {"type": "string", "minLength": 1},
+        "architecture": {"type": "string", "minLength": 1},
+        "python_implementation": {"type": "string", "minLength": 1},
+        "python_version": {"type": "string", "minLength": 1},
+        "logical_cpu_count": {"type": ["integer", "null"], "minimum": 1},
+        "perf_counter": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["implementation", "resolution_seconds", "monotonic"],
+          "properties": {
+            "implementation": {"type": "string", "minLength": 1},
+            "resolution_seconds": {"type": "number", "minimum": 0},
+            "monotonic": {"const": true}
+          }
+        },
+        "load_average_at_start": {"$ref": "#/$defs/load_average"},
+        "load_average_at_end": {"$ref": "#/$defs/load_average"},
+        "filesystem": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["temporary_root_policy", "fresh_temporary_root", "cache_eviction_attempted", "case_sensitive", "block_size_bytes", "fragment_size_bytes", "filesystem_encoding"],
+          "properties": {
+            "temporary_root_policy": {"const": "fresh_system_temporary_directory"},
+            "fresh_temporary_root": {"const": true},
+            "cache_eviction_attempted": {"const": false},
+            "case_sensitive": {"type": ["boolean", "null"]},
+            "block_size_bytes": {"type": ["integer", "null"], "minimum": 1},
+            "fragment_size_bytes": {"type": ["integer", "null"], "minimum": 1},
+            "filesystem_encoding": {"type": "string", "minLength": 1}
+          }
+        }
+      }
+    },
+    "scaffold_profiles": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["profile", "layout", "samples", "combined_p90_seconds", "warm_p90_seconds"],
+        "properties": {
+          "profile": {"enum": ["minimal", "standard", "high-assurance"]},
+          "layout": {"const": "compact"},
+          "samples": {"type": "array", "items": {"$ref": "#/$defs/sample"}},
+          "combined_p90_seconds": {"type": ["number", "null"], "minimum": 0},
+          "warm_p90_seconds": {"type": ["number", "null"], "minimum": 0}
+        }
+      }
+    },
+    "measurements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["synthetic_payload_files", "preparation_samples", "check", "fast_mutation"],
+        "properties": {
+          "synthetic_payload_files": {"type": "integer", "minimum": 0},
+          "preparation_samples": {"type": "array", "items": {"$ref": "#/$defs/sample"}},
+          "check": {"$ref": "#/$defs/series"},
+          "fast_mutation": {"$ref": "#/$defs/series"}
+        }
+      }
+    },
+    "thresholds": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scaffold_combined_p90_seconds", "check_combined_p90_seconds_at_10000_files", "check_warm_p90_seconds_at_10000_files", "fast_mutation_combined_p90_seconds", "fast_mutation_warm_p90_seconds"],
+      "properties": {
+        "scaffold_combined_p90_seconds": {"const": 10.0},
+        "check_combined_p90_seconds_at_10000_files": {"const": 2.0},
+        "check_warm_p90_seconds_at_10000_files": {"const": 2.0},
+        "fast_mutation_combined_p90_seconds": {"const": 10.0},
+        "fast_mutation_warm_p90_seconds": {"const": 10.0}
+      }
+    },
+    "sample_accounting": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["expected_samples", "observed_samples", "successful_samples", "failed_samples", "by_classification", "complete"],
+      "properties": {
+        "expected_samples": {"type": "integer", "minimum": 1},
+        "observed_samples": {"type": "integer", "minimum": 0},
+        "successful_samples": {"type": "integer", "minimum": 0},
+        "failed_samples": {"type": "integer", "minimum": 0},
+        "by_classification": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["operational_cold_start_proxy", "warm_steady_state", "preparation"],
+          "properties": {
+            "operational_cold_start_proxy": {"type": "integer", "minimum": 0},
+            "warm_steady_state": {"type": "integer", "minimum": 0},
+            "preparation": {"type": "integer", "minimum": 0}
+          }
+        },
+        "complete": {"type": "boolean"}
+      }
+    },
+    "execution_failures": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["stage", "sequence", "exit_code"],
+        "properties": {
+          "stage": {"type": "string", "minLength": 1},
+          "sequence": {"type": ["integer", "null"], "minimum": 1},
+          "exit_code": {"type": ["integer", "null"]}
+        }
+      }
+    },
+    "enforcement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "status", "failures"],
+      "properties": {
+        "enabled": {"type": "boolean"},
+        "status": {"enum": ["not_evaluated", "measurement_failed", "not_enforced", "failed", "passed"]},
+        "failures": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+      }
+    },
+    "limitations": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+  }
+}

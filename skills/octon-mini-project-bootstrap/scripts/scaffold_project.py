@@ -33,6 +33,7 @@ KNOWN_VARIABLES = {
     "PROFILE_OPERATIONAL_FILES_JSON",
     "DERIVED_OPERATIONAL_FILES_JSON",
     "KERNEL_FILES_JSON",
+    "GIT_PORTFOLIO_VERSION",
     "GIT_PORTFOLIO_SHA256",
 }
 PLACEHOLDER_RE = re.compile(r"\{\{([A-Z_]+)\}\}")
@@ -1954,6 +1955,9 @@ def main() -> int:
         return 0
 
     refresh_writes = selected_derived_outputs
+    git_portfolio_contract = package_contract(
+        generation_policy, "small-team-git-portfolio"
+    )
     variables = {
         "PROJECT_NAME": markdown_escape(name),
         "PROJECT_NAME_JSON": json.dumps(name, ensure_ascii=False),
@@ -1985,9 +1989,8 @@ def main() -> int:
             canonical_posix_paths(kernel_paths(generation_policy)),
             separators=(",", ":"),
         ),
-        "GIT_PORTFOLIO_SHA256": str(
-            package_contract(generation_policy, "small-team-git-portfolio")["sha256"]
-        ),
+        "GIT_PORTFOLIO_VERSION": str(git_portfolio_contract["version"]),
+        "GIT_PORTFOLIO_SHA256": str(git_portfolio_contract["sha256"]),
     }
 
     with tempfile.TemporaryDirectory(

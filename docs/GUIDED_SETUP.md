@@ -67,6 +67,12 @@ Each mode exposes the same setup engine:
 ./octon upgrade setup --target <path>
 ```
 
+These examples use the Unix/macOS form. On Windows, invoke the same extensionless
+Python launcher and arguments as `python -B octon init setup --target <path>` or
+`py -3 -B octon init setup --target <path>`, substituting `adopt` or `upgrade`
+as needed. The platform form changes only launcher invocation, not setup
+semantics, authority, artifacts, or command identity.
+
 With no `--output`, the command prints a question batch and writes nothing.
 An explicit `--output` creates one new session outside the target. It refuses
 overwrite:

@@ -42,6 +42,11 @@ PROFILE_MANIFEST = json.loads(
     )
 )
 PROFILES = tuple(item["id"] for item in PROFILE_MANIFEST["profiles"])
+GIT_PORTFOLIO_CONTRACT = next(
+    item
+    for item in PROFILE_MANIFEST["packages"]
+    if item["id"] == "small-team-git-portfolio"
+)
 SUPPORTED_WORKFLOWS = ("solo_direct", "solo_hybrid", "pair_pr", "tiny_pr")
 GIT_OPERATION_IDS = (
     "status",
@@ -550,6 +555,12 @@ def main() -> int:
             if result.returncode:
                 continue
             projects[profile] = target
+            require(
+                not (target / "LICENSE").exists()
+                and not (target / "LICENSE").is_symlink(),
+                f"{profile} copied the source license into the generated project",
+                failures,
+            )
             project_json = json.loads(
                 (target / ".agent/project.json").read_text(encoding="utf-8")
             )
@@ -661,8 +672,10 @@ def main() -> int:
                 scm_json["selection"] == "not_assessed"
                 and scm_json["selection_decision_ref"] is None
                 and scm_json["portfolio"]["status"] == "not_installed"
-                and isinstance(scm_json["portfolio"]["sha256"], str)
-                and len(scm_json["portfolio"]["sha256"]) == 64,
+                and scm_json["portfolio"]["version"]
+                == GIT_PORTFOLIO_CONTRACT["version"]
+                and scm_json["portfolio"]["sha256"]
+                == GIT_PORTFOLIO_CONTRACT["sha256"],
                 f"{profile} SCM trigger fabricated selection or installed state",
                 failures,
             )
@@ -1173,6 +1186,14 @@ def main() -> int:
             "installed skill lacks bundled dossier taxonomy",
             failures,
         )
+        installed_license = installed_skill / "assets/octon-mini-source/LICENSE"
+        require(
+            installed_license.is_file()
+            and not installed_license.is_symlink()
+            and installed_license.read_bytes() == (ROOT / "LICENSE").read_bytes(),
+            "installed skill lacks the exact source MIT-0 license",
+            failures,
+        )
         if installed_skill.is_dir():
             before = snapshot(installed_skill)
             result = run(
@@ -1602,6 +1623,11 @@ def main() -> int:
                 ("small-team-git-portfolio", projects["minimal"], False, "9301"),
             )
             for package_id, base, assess_applicable, numeric_id in package_cases:
+                package_contract = next(
+                    item
+                    for item in PROFILE_MANIFEST["packages"]
+                    if item["id"] == package_id
+                )
                 package_target = temp_root / f"installed-{package_id}"
                 shutil.copytree(base, package_target)
                 decision_id = f"DEC-{numeric_id}"
@@ -1672,7 +1698,9 @@ def main() -> int:
                 require(
                     installed is not None
                     and installed["validation_receipt_ref"] in installed["evidence_refs"]
-                    and len(installed["installed_paths_sha256"]) == 64,
+                    and len(installed["installed_paths_sha256"]) == 64
+                    and installed["version"] == package_contract["version"]
+                    and installed["sha256"] == package_contract["sha256"],
                     f"{package_id} omitted content or validation receipt binding",
                     failures,
                 )
@@ -1684,6 +1712,10 @@ def main() -> int:
                         scm["selection"] == "git"
                         and scm["selection_decision_ref"] == decision_id
                         and scm["portfolio"]["status"] == "installed"
+                        and scm["portfolio"]["version"]
+                        == package_contract["version"]
+                        and scm["portfolio"]["sha256"]
+                        == package_contract["sha256"]
                         and (package_target / ".agent/workflows/small-team-git.json").is_file(),
                         "Git selection did not transactionally vendor its independent portfolio",
                         failures,
@@ -1754,9 +1786,6 @@ def main() -> int:
                     registry = json.loads((package_target / ".agent/packages.json").read_text(encoding="utf-8"))
                     installed = next(item for item in registry["packages"] if item["id"] == package_id)
                     scm = json.loads((package_target / ".agent/scm.json").read_text(encoding="utf-8"))
-                    package_contract = next(
-                        item for item in PROFILE_MANIFEST["packages"] if item["id"] == package_id
-                    )
                     require(
                         installed["version"] == package_contract["version"]
                         and installed["sha256"] == package_contract["sha256"]

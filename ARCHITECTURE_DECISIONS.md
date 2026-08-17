@@ -237,6 +237,47 @@ Project Blueprint source decision. The `PBV-##` prefix similarly records the
 historical Project Blueprint Velocity workstream; it is not a current product
 namespace and is not reassigned.
 
+## SRC-DEC-0015 — Post-rebrand audit remediation controls
+
+| Field | Accepted decision |
+|---|---|
+| Status | `accepted` for the technical remediation scope; licensing disposition remains blocked pending explicit owner input |
+| Authority | Explicit repository-owner remediation direction on 2026-08-17, excluding the unset `LICENSE_DECISION` |
+| Scope | Generated package-contract consistency, observed repository-state documentation, benchmark methodology and evidence, and cross-platform `octon` command entry |
+| Package contract | The authoritative profile manifest is the sole source for both a capability package version and content digest; generated and installed projections must validate the exact pair even before installation |
+| Benchmark contract | Replace the three-sample benchmark report with a new capability-qualified v2 protocol that preserves cold-start and warm samples, records content-free host context, uses a documented nearest-rank percentile, and retains the existing thresholds |
+| Command-entry contract | Keep `octon` as the sole command and use one extensionless Python launcher model: direct execution on Unix/macOS and explicit Python interpreter invocation on Windows |
+| Observed-state boundary | Current documentation may record the completed repository and local-directory rename and current public visibility without describing those external effects as authorized by this decision or by `SRC-DEC-0014` |
+| Licensing boundary | No SPDX identifier, exact license, or return-private direction was supplied; no license is selected or added, public visibility is not a license grant, and no visibility operation is authorized |
+| External-effect boundary | None; this decision does not authorize a commit, push, pull request, merge, tag, release, package publication, workflow dispatch, repository setting change, or visibility change |
+| `permission_grant` | `false` |
+
+The missing license choice is an explicit unresolved owner input, not a default
+policy selection. A later license or visibility policy receives a new stable
+source-decision ID rather than rewriting this accepted technical-remediation
+record. Repository content and successful validation still do not authorize an
+external effect or establish target-project adoption or readiness.
+
+## SRC-DEC-0016 — Public MIT-0 source licensing
+
+| Field | Accepted decision |
+|---|---|
+| Status | `accepted` |
+| Authority | Explicit repository-owner direction on 2026-08-17: `LICENSE_DECISION: KEEP_PUBLIC_WITH_LICENSE — MIT-0`, followed by confirmation of the exact copyright holder |
+| Scope | Current Octon Mini source repository, package metadata, installed source bundle, license documentation, and generated-project license boundary |
+| License | SPDX `MIT-0`, using the canonical MIT No Attribution text and `Copyright 2026 Cooper Online Enterprises` |
+| Public boundary | Keep `cooperonlineenterprises/octon-mini` public; public visibility, licensed reuse, and an Octon Mini release remain separate facts |
+| Installed-bundle boundary | A distributed Octon Mini Project Bootstrap source bundle includes the exact repository `LICENSE` file and matching package metadata |
+| Generated-project boundary | Automatic project generation does not copy the source `LICENSE` or select a target project's overall license; that remains a separate project-owned decision |
+| Runtime authority | The license grants copyright permissions only under its terms; it grants no agent, repository-operation, credential, deployment, publication, release, or external-effect authority |
+| External-effect boundary | This repository-content decision does not authorize a commit, push, pull request, merge, tag, GitHub Release, package publication, workflow dispatch, or repository-setting change |
+| `permission_grant` | `false` |
+
+This decision resolves the licensing input left open by `SRC-DEC-0015` without
+rewriting that earlier record. The repository may be distributed under MIT-0,
+but Octon Mini 4.0.0 remains unreleased until its separate release process is
+authorized and completed.
+
 ## Explicitly deferred by these decisions
 
 The following remain outside the accepted implementation:
