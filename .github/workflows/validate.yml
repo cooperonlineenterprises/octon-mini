@@ -26,13 +26,13 @@ jobs:
         with:
           python-version: "3.11"
       - name: Validate skill package metadata
-        run: python -B skills/project-bootstrap/scripts/validate_skill_package.py
+        run: python -B skills/octon-mini-project-bootstrap/scripts/validate_skill_package.py
       - name: Validate reference-evidence registry and citations
-        run: python -B skills/project-bootstrap/scripts/verify_reference_evidence.py
-      - name: Validate blueprint source and profile builds
-        run: python -B skills/project-bootstrap/scripts/validate_blueprint.py
+        run: python -B skills/octon-mini-project-bootstrap/scripts/verify_reference_evidence.py
+      - name: Validate Octon Mini source and profile builds
+        run: python -B skills/octon-mini-project-bootstrap/scripts/validate_octon_mini.py
       - name: Run end-to-end and adversarial acceptance
-        run: python -B skills/project-bootstrap/scripts/test_acceptance.py
+        run: python -B skills/octon-mini-project-bootstrap/scripts/test_acceptance.py
 
   main-smoke:
     name: main-smoke
@@ -45,11 +45,11 @@ jobs:
         with:
           python-version: "3.14"
       - name: Validate skill package metadata
-        run: python -B skills/project-bootstrap/scripts/validate_skill_package.py
+        run: python -B skills/octon-mini-project-bootstrap/scripts/validate_skill_package.py
       - name: Validate reference-evidence registry and citations
-        run: python -B skills/project-bootstrap/scripts/verify_reference_evidence.py
-      - name: Validate blueprint source and profile builds
-        run: python -B skills/project-bootstrap/scripts/validate_blueprint.py
+        run: python -B skills/octon-mini-project-bootstrap/scripts/verify_reference_evidence.py
+      - name: Validate Octon Mini source and profile builds
+        run: python -B skills/octon-mini-project-bootstrap/scripts/validate_octon_mini.py
 
   full-matrix:
     name: full / ${{ matrix.os }} / Python ${{ matrix.python }}
@@ -67,10 +67,10 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
       - name: Validate skill package metadata
-        run: python -B skills/project-bootstrap/scripts/validate_skill_package.py
+        run: python -B skills/octon-mini-project-bootstrap/scripts/validate_skill_package.py
       - name: Validate reference-evidence registry and citations
-        run: python -B skills/project-bootstrap/scripts/verify_reference_evidence.py
-      - name: Validate blueprint source and profile builds
-        run: python -B skills/project-bootstrap/scripts/validate_blueprint.py
+        run: python -B skills/octon-mini-project-bootstrap/scripts/verify_reference_evidence.py
+      - name: Validate Octon Mini source and profile builds
+        run: python -B skills/octon-mini-project-bootstrap/scripts/validate_octon_mini.py
       - name: Run end-to-end and adversarial acceptance
-        run: python -B skills/project-bootstrap/scripts/test_acceptance.py
+        run: python -B skills/octon-mini-project-bootstrap/scripts/test_acceptance.py

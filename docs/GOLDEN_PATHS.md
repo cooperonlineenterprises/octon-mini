@@ -1,4 +1,4 @@
-# Project Blueprint 4.0 Golden Paths
+# Octon Mini 4.0 Golden Paths
 
 These paths minimize ceremony while preserving project facts, authority,
 evidence, stable IDs, no-overwrite, and explicit external-effect gates. All
@@ -11,18 +11,18 @@ When facts are not already supplied through flags, create a read-only setup
 session outside the target:
 
 ```text
-python3 skills/project-bootstrap/scripts/pb.py init setup \
+./octon init setup \
   --target /absolute/project \
   --output /absolute/review/setup-session.json
 
 # Resume through the same command after recording a reviewed answer batch.
-python3 skills/project-bootstrap/scripts/pb.py init setup \
+./octon init setup \
   --target /absolute/project \
   --session /absolute/review/setup-session.json \
   --answers /absolute/review/setup-answers.json \
   --output /absolute/review/setup-session-next.json
 
-python3 skills/project-bootstrap/scripts/pb.py init plan \
+./octon init plan \
   --target /absolute/project \
   --setup-session /absolute/review/setup-session-next.json \
   --output /absolute/review/init-plan.json
@@ -41,7 +41,7 @@ artifact. Plan and apply remain the existing mode-specific transaction flow.
 One plan and one apply reach a valid scaffold and first meaningful task:
 
 ```text
-python3 skills/project-bootstrap/scripts/pb.py init plan \
+./octon init plan \
   --target /absolute/project \
   --project-name "Project" \
   --profile minimal \
@@ -61,13 +61,13 @@ python3 skills/project-bootstrap/scripts/pb.py init plan \
   --first-task-next-action <action> \
   --output /absolute/project/.agent/transactions/plans/init.json
 
-python3 skills/project-bootstrap/scripts/pb.py init apply \
+./octon init apply \
   --target /absolute/project \
   --plan /absolute/project/.agent/transactions/plans/init.json \
   --accept-digest <reviewed-digest>
 
 cd /absolute/project
-./pb work resume
+./octon work resume
 ```
 
 The plan separates detector observations, proposals, explicit decisions, and
@@ -79,7 +79,7 @@ unassessed.
 ## Established solo project
 
 ```text
-python3 skills/project-bootstrap/scripts/pb.py adopt plan \
+./octon adopt plan \
   --target /absolute/project \
   --project-name "Project" \
   --profile minimal \
@@ -91,7 +91,7 @@ python3 skills/project-bootstrap/scripts/pb.py adopt plan \
 If ambiguity exists, disposition every item in a proposal-digest-bound review
 file, then create the transaction plan with `--proposal` and `--review`. Apply
 the exact transaction digest. Confirm that pre-existing bytes are unchanged,
-run `./pb check`, assess hooks and mandatory triggers, execute complete project
+run `./octon check`, assess hooks and mandatory triggers, execute complete project
 checks explicitly, and only then consider a separate adoption decision.
 
 Low-conflict apply installs only absent paths, passes the release tier in
@@ -102,7 +102,7 @@ staging, and records adoption `in_progress`; it never marks the project ready.
 Keep profile selection risk-based. Record only aggregate current facts:
 
 ```text
-python3 skills/project-bootstrap/scripts/pb.py maintain collaboration plan \
+./octon maintain collaboration plan \
   --target /absolute/project \
   --writer-count 2 \
   --source authority:<collaboration-source> \
@@ -125,23 +125,23 @@ assurance. Use project-owned write-scope coordination when overlapping work is
 possible. Resume and hand off through focus rather than editing derived state:
 
 ```text
-./pb work handoff --task-id TASK-0001 \
+./octon work handoff --task-id TASK-0001 \
   --next-action <action> \
   --summary <bounded-summary> \
   --operator <role> \
   --output .agent/transactions/plans/handoff.json
-./pb work resume
+./octon work resume
 ```
 
 ## Routine task closure
 
 ```text
-./pb work start --help
-./pb transaction apply --plan <plan> --accept-digest <digest>
+./octon work start --help
+./octon transaction apply --plan <plan> --accept-digest <digest>
 
 # Perform authorized work and create real evidence.
 
-./pb work close TASK-0001 \
+./octon work close TASK-0001 \
   --criteria-met \
   --implementation-result <result> \
   --review-evidence EVD-0001 \
@@ -150,7 +150,7 @@ possible. Resume and hand off through focus rather than editing derived state:
   --next-action <action> \
   --operator <role> \
   --output .agent/transactions/plans/close.json
-./pb transaction apply --plan <plan> --accept-digest <digest>
+./octon transaction apply --plan <plan> --accept-digest <digest>
 ```
 
 The close command records supplied claims and evidence references; it does not
@@ -171,7 +171,7 @@ local and remote cleanup for branch workflows. Set `git_hooks` to
 `require_none`; v1 blocks active Git hooks and active `core.fsmonitor` rather
 than treating hidden processes as reviewed actions. Configure
 `commands.work_completion_plan` with the exact shell-free argv
-`["python", "-B", ".agent/scripts/pb.py", "work", "finish", "plan"]` and
+`["python", "-B", ".agent/scripts/octon.py", "work", "finish", "plan"]` and
 `read_only` side effects. Keep the completion event `disabled`, or set only
 `plan_only_on_completion_event`; it references that command hook and may never
 invoke apply.
@@ -184,7 +184,7 @@ integration, or cleanup begins from the event.
 Close the bounded task with its exact completion inputs:
 
 ```text
-./pb work close TASK-0001 \
+./octon work close TASK-0001 \
   --criteria-met \
   --implementation-result <result> \
   --review-evidence EVD-0001 \
@@ -196,9 +196,9 @@ Close the bounded task with its exact completion inputs:
   --finish-path .agent/transactions/plans/close.json \
   --finish-commit-message <message> \
   --output .agent/transactions/plans/close.json
-./pb transaction apply --plan <close-plan> --accept-digest <close-digest>
+./octon transaction apply --plan <close-plan> --accept-digest <close-digest>
 
-./pb work finish plan
+./octon work finish plan
 ```
 
 If the close plan is written inside the repository, list that known plan path
@@ -218,12 +218,12 @@ to the exact digest, repository, branches, operation list, principal or role,
 source, validity interval, constraints, and a canonical fingerprint. Then:
 
 ```text
-./pb work finish apply \
+./octon work finish apply \
   --accept-digest <reviewed-digest> \
   --authorization-file <current-attestation.json>
 
 # If a later step blocks or the process is interrupted:
-./pb work finish resume --receipt-id <WCR-id>
+./octon work finish resume --receipt-id <WCR-id>
 ```
 
 Planning changes no file or external system. Apply stops on any stale,
@@ -235,7 +235,8 @@ readiness.
 ## Hooks and evidence
 
 Run the detector read-only, review candidate argv and side effects, then
-install configuration through `./pb maintain hooks plan|apply`. `./pb check`
+install configuration through `./octon maintain hooks plan|apply`.
+`./octon check`
 never executes hooks. Run only selected authorized hooks:
 
 ```text
@@ -250,9 +251,9 @@ boundary. Writing or external hooks require their explicit acknowledgment.
 ## Recovery
 
 ```text
-./pb doctor
-./pb transaction recover --pending <pending-journal>
-./pb transaction rollback --receipt <applied-receipt>
+./octon doctor
+./octon transaction recover --pending <pending-journal>
+./octon transaction rollback --receipt <applied-receipt>
 ```
 
 Derived-only diagnosis may propose an exact repair digest. Invalid
@@ -264,10 +265,12 @@ is `rollback_in_progress`.
 
 ## Upgrade
 
-For a native inventory-v2 project, run `pb upgrade plan` directly. For 3.1.0,
-follow `migrations/3.1.0-to-4.0.0.md`: inspect, supply an exact reviewed old
-baseline, create a non-applied seed, classify the three-way proposal,
-disposition every review path, then accept the exact transaction digest.
+For a native Octon Mini inventory-v2 project, run `octon upgrade plan`
+directly. Project Blueprint 3.x→Octon Mini 4.0 is an explicit cross-brand
+migration with no `pb` compatibility. For 3.1.0, follow
+`migrations/3.1.0-to-4.0.0.md`: inspect, supply an exact reviewed old baseline,
+create a non-applied seed, classify the three-way proposal, disposition every
+review path, then accept the exact transaction digest.
 
 After apply, distinguish the outcomes:
 

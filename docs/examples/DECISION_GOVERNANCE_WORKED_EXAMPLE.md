@@ -1,7 +1,7 @@
 # Worked Example: Shared Record Identifier Contract
 
 This fictional, domain-neutral example demonstrates the governance method. It
-is not an accepted Project Blueprint decision, target-project authority,
+is not an accepted Octon Mini decision, target-project authority,
 implementation evidence, or readiness claim.
 
 ## Executive summary

@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://project-blueprint.local/source-schemas/pattern-record.schema.json",
-  "title": "Project Blueprint Architectural Pattern Record",
+  "$id": "https://octon-mini.local/source-schemas/pattern-record.schema.json",
+  "title": "Octon Mini Architectural Pattern Record",
   "description": "Strict non-authorizing source record for an optional domain-neutral architecture pattern.",
   "$defs": {
     "strings": {
@@ -152,7 +152,7 @@
   ],
   "properties": {
     "schema_version": {
-      "const": "project-blueprint.pattern-record.v1"
+      "const": "octon-mini.source.pattern-record.v1"
     },
     "id": {
       "type": "string",
@@ -246,7 +246,7 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "minimum_blueprint_version",
+        "minimum_octon_mini_version",
         "kernel_effect",
         "generated_project_effect",
         "breaking_change",
@@ -254,7 +254,7 @@
         "stable_support_commitment"
       ],
       "properties": {
-        "minimum_blueprint_version": {
+        "minimum_octon_mini_version": {
           "type": "string",
           "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
         },

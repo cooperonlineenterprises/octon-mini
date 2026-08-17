@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://project-blueprint.local/schemas/harness-scm.schema.json",
+  "$id": "https://octon-mini.local/schemas/harness-scm.schema.json",
   "title": "Project-owned SCM Selection",
   "type": "object",
   "additionalProperties": false,

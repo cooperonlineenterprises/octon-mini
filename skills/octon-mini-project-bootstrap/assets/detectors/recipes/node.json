@@ -1,0 +1,1 @@
+{"schema_version":"octon-mini.bootstrap.detector-recipe.v1","id":"node","markers":["package.json"],"archetypes":["software","product"],"hooks":[],"dynamic_strategy":"package_json_scripts","limitations":["Only literal package.json script names are proposed; script bodies are never executed or treated as safe by detection."]}

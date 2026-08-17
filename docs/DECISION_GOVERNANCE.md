@@ -1,7 +1,7 @@
 # Architecture Decision Governance
 
-This document is the authoritative domain-neutral definition of Project
-Blueprint decision-governance vocabulary and review practice. The strict
+This document is the authoritative domain-neutral definition of Octon Mini
+decision-governance vocabulary and review practice. The strict
 machine representation is
 `shared/schemas/harness-decision-governance.schema.json`; generated Markdown
 workbooks and reports are review projections, not competing authority.
@@ -306,7 +306,7 @@ status. Before reliance, reviewers must compare:
 5. implementation/readiness claims with current executable, operational, and
    specialist evidence.
 
-When a copied status is unavoidable, a `pb-handoff-claim` marker permits exact
+When a copied status is unavoidable, an `octon-handoff-claim` marker permits exact
 mechanical comparison for gates, durable decisions, register lifecycle, and
 overall gate readiness. Semantic version/ownership language, whether a
 recommendation is portrayed as adopted, and evidence adequacy remain mandatory

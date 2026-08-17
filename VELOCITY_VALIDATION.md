@@ -1,4 +1,4 @@
-# Project Blueprint 4.0 Velocity Validation
+# Octon Mini 4.0 Velocity Validation
 
 This report records local, content-free implementation evidence for the 4.0
 velocity program. It is not target-project evidence, an adoption decision,
@@ -6,8 +6,8 @@ permission, or a readiness claim. Wall-clock results are host-specific.
 
 ## Measurement boundary
 
-- Date: 2026-08-12
-- Host: local macOS workspace, APFS, Python 3.13.9
+- Date: 2026-08-16
+- Host: local macOS workspace, APFS, Python 3.14.0
 - External effects: none
 - Repository payload: disposable generated snapshots and synthetic small text
   files only
@@ -38,39 +38,36 @@ release tier even though primitive scaffolding uses the bounded fast tier.
 
 ## Current benchmark evidence
 
-The final three-sample v2 benchmark passed every enforced threshold:
+The final three-sample Octon Mini 4.0.0 benchmark passed every enforced
+threshold:
 
 | Synthetic files | Refresh | Check p90 | Fast mutations p90 |
 |---:|---:|---:|---:|
-| 0 | 0.247 s | 0.152 s | 4.730 s |
-| 2,000 | 0.945 s | 0.476 s | 4.744 s |
-| 10,000 | 3.982 s | **1.795 s** | 4.662 s |
-| 20,000 | 8.040 s | 3.542 s | 4.562 s |
+| 0 | 0.347 s | 0.200 s | 6.332 s |
+| 2,000 | 1.057 s | 0.529 s | 6.512 s |
+| 10,000 | 4.015 s | **1.876 s** | 6.982 s |
+| 20,000 | 7.856 s | 3.615 s | 7.597 s |
 
 Final compact scaffold p90:
 
 | Profile | p90 | Target |
 |---|---:|---:|
-| Minimal | 5.400 s | pass |
-| Standard | 5.875 s | pass |
-| High Assurance | 7.696 s | pass |
+| Minimal | 6.907 s | pass (`<10 s`) |
+| Standard | 7.813 s | pass (`<10 s`) |
+| High Assurance | 9.624 s | pass (`<10 s`) |
 
 The immediately preceding three-sample run identified one threshold miss
-rather than being reclassified as success:
+rather than being reclassified as success: High Assurance scaffold p90 was
+10.442 s; Minimal was 7.526 s, Standard was 7.980 s, the 10k read-only check
+was 1.952 s, and every bounded mutation sample remained below 10 s.
 
-| Synthetic files | Refresh | Check p90 before scan fix | Fast mutations p90 |
-|---:|---:|---:|---:|
-| 0 | 0.285 s | 0.191 s | 5.254 s |
-| 2,000 | 1.050 s | 0.587 s | 5.271 s |
-| 10,000 | 4.385 s | **2.281 s (failed)** | 5.273 s |
-| 20,000 | 8.771 s | 4.526 s | 5.372 s |
-
-Profiling showed `check()` enumerated and read repository payload once through
-`check_sources()` and again through the complete file check. The implementation
-now retains every source-contract check while the complete scan subsumes the
-source-only scan. A fresh 10k-file post-fix smoke completed in **1.53 s**
-(`1.00 s` user, `0.52 s` system); the final p90 above confirms the result with
-three new samples.
+Profiling traced the High Assurance miss to copying the same isolated 139-file
+governed baseline 75 times. The mutation suite now uses portable independent
+copies that retain file contents, symlink identity, and modes without copying
+timestamps or extended metadata that no harness contract consumes. It does
+not use hardlinks or shared writable inodes, and all 93 fast-tier tests remain
+in the scaffold gate. The fresh three-sample run above confirms the result
+without changing a threshold or removing a safety check.
 
 The bounded fast tier remained nearly flat from 0 to 20k synthetic payload
 files. This replaces the prior full-tree mutation behavior observed during the
@@ -88,7 +85,7 @@ hardlinks that could mutate the live tree through staged commands.
 
 | Boundary | Cases | Executable evidence |
 |---|---|---|
-| profile/layout generation | 3 profiles × compact/separated | `validate_blueprint.py` profile builds |
+| profile/layout generation | 3 profiles × compact/separated | `validate_octon_mini.py` profile builds |
 | guided setup | init/adopt/upgrade, conversational/TTY/flag equivalence, immutable resume, staleness, work-completion prerequisites, target no-write | `test_guided_setup.py` |
 | guided creation | explicit Minimal, compact, solo facts, first task, plan/apply/resume | `test_velocity_workflows.py` |
 | established adoption | dirty Git repository, low conflict apply, existing-byte preservation, exact collision refusal | `test_velocity_workflows.py`; `test_acceptance.py` |
@@ -203,12 +200,12 @@ recorded architecture decision and must not conceal a regression.
 ## Reproduction
 
 ```text
-python3 -B skills/project-bootstrap/scripts/test_velocity_workflows.py
-python3 -B skills/project-bootstrap/scripts/test_guided_setup.py
-python3 -B skills/project-bootstrap/scripts/test_migration_3_1_0_to_4_0_0.py
-python3 -B skills/project-bootstrap/scripts/validate_blueprint.py
-python3 -B skills/project-bootstrap/scripts/test_acceptance.py
-python3 -B skills/project-bootstrap/scripts/benchmark_validation.py \
+python3 -B skills/octon-mini-project-bootstrap/scripts/test_velocity_workflows.py
+python3 -B skills/octon-mini-project-bootstrap/scripts/test_guided_setup.py
+python3 -B skills/octon-mini-project-bootstrap/scripts/test_migration_3_1_0_to_4_0_0.py
+python3 -B skills/octon-mini-project-bootstrap/scripts/validate_octon_mini.py
+python3 -B skills/octon-mini-project-bootstrap/scripts/test_acceptance.py
+python3 -B skills/octon-mini-project-bootstrap/scripts/benchmark_validation.py \
   --sizes 0 2000 10000 20000 --samples 3 --enforce
 ```
 

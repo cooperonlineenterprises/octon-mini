@@ -1,5 +1,5 @@
 {
-  "schema_version": "project-blueprint.profile-manifest.v1",
+  "schema_version": "octon-mini.source.profile-manifest.v1",
   "document_role": "authoritative_profile_inventory_acceptance_and_generation_manifest",
   "permission_grant": false,
   "profiles": [
@@ -68,7 +68,7 @@
     {
       "id": "separated",
       "default": false,
-      "description": "Keep every Blueprint representation physically separate; use when ownership or lifecycle boundaries require it.",
+      "description": "Keep every Octon Mini representation physically separate; use when ownership or lifecycle boundaries require it.",
       "omit_paths": [],
       "template_overrides": [],
       "registry_combinations": []
@@ -85,7 +85,7 @@
       ".agent/project.json"
     ],
     "origin": {
-      "path": ".project-blueprint-origin.json",
+      "path": ".octon-mini-origin.json",
       "ownership": "generated_snapshot_provenance"
     },
     "project_local_sources": [
@@ -152,7 +152,7 @@
     "operational_projection": {
       "include_exact": [
         "AGENTS.md",
-        ".project-blueprint-origin.json"
+        ".octon-mini-origin.json"
       ],
       "include_subtrees": [
         ".agent",
@@ -164,8 +164,8 @@
     {
       "id": "small-team-git-portfolio",
       "kind": "scm_portfolio",
-      "version": "1.1.0",
-    "sha256": "9957da027a3bd940c020d3d38898e06a431e43bc2be7e086d2999506bdfafea5",
+      "version": "2.0.0",
+      "sha256": "51ae48ae3d338a3d13b04186d06a3297c995e4b91eff2d355bbfd92017847e11",
       "source": "skill:assets/packages/small-team-git-portfolio/templates",
       "inventory_paths": [
         ".agent/workflows/README.md.tmpl",
@@ -185,7 +185,7 @@
       "id": "operations-observability",
       "kind": "domain_extension",
       "version": "1.0.0",
-      "sha256": "0be04f304ccd976296f03d36996343919d7494d9acfd1dd630a0d0d28d33d9c2",
+      "sha256": "93e56a2efe78819d334dd89458df4ceb3a51e6d8f1371fdf1272a9ad6f306307",
       "source": "skill:assets/packages/operations-observability/templates",
       "inventory_paths": [
         ".agent/extensions/operations-observability/README.md.tmpl",
@@ -214,7 +214,7 @@
       "id": "security-supply-chain",
       "kind": "domain_extension",
       "version": "1.0.0",
-      "sha256": "879a36d0c73932fa27f49573180b3287c2dacda426a2f319dcd13204c53c7022",
+      "sha256": "26185fc40f37cdd0122bef3c1cbdfad79aaf2646107e258dfabdd815fc1ba47a",
       "source": "skill:assets/packages/security-supply-chain/templates",
       "inventory_paths": [
         ".agent/extensions/security-supply-chain/README.md.tmpl",
@@ -260,9 +260,9 @@
     {
       "id": "context-pack-schema",
       "kind": "optional_schema",
-      "version": "1.0.0",
-      "sha256": "ba3120024546950b3a15741326fa9ab2fd1ec8241927b823a055193f0e74f039",
-      "source": "blueprint:shared/optional-schemas",
+      "version": "2.0.0",
+      "sha256": "db99dd9be245a4ecdbbcfb7ee16b3d4f10f26fbbcde1c815c18f82d026e67a5a",
+      "source": "octon-mini:shared/optional-schemas",
       "inventory_paths": ["context-pack-manifest.schema.json"],
       "profiles": [
         "high-assurance"
@@ -297,16 +297,16 @@
       "source": "profiles",
       "targets": [
       "README.md#independent-selection-axes",
-        "harness/BLUEPRINT.md#11-profiles",
-        "skills/project-bootstrap/references/profile-selection.md"
+        "harness/SPECIFICATION.md#11-profiles",
+        "skills/octon-mini-project-bootstrap/references/profile-selection.md"
       ]
     },
     {
       "id": "acceptance-coverage",
       "source": "acceptance_criteria",
       "targets": [
-        "harness/BLUEPRINT.md#14-acceptance-criteria",
-        "skills/project-bootstrap/scripts/test_acceptance.py"
+        "harness/SPECIFICATION.md#14-acceptance-criteria",
+        "skills/octon-mini-project-bootstrap/scripts/test_acceptance.py"
       ]
     }
   ],
@@ -339,10 +339,10 @@
         ".agent/schema.json.tmpl",
         ".agent/scm.json.tmpl",
         ".agent/scripts/refresh.py.tmpl",
-        ".agent/scripts/pb.py.tmpl",
-        ".agent/scripts/pb_doctor.py.tmpl",
-        ".agent/scripts/pb_finish.py.tmpl",
-        ".agent/scripts/pb_transaction.py.tmpl",
+        ".agent/scripts/octon.py.tmpl",
+        ".agent/scripts/octon_doctor.py.tmpl",
+        ".agent/scripts/octon_work_completion.py.tmpl",
+        ".agent/scripts/octon_transaction.py.tmpl",
         ".agent/scripts/run_project_checks.py.tmpl",
         ".agent/scripts/validate.py.tmpl",
         ".agent/state/RESUME.md.tmpl",
@@ -365,7 +365,7 @@
         ".agent/tools.json.tmpl",
         ".agent/validators.json.tmpl",
         "AGENTS.md.tmpl",
-        "pb.tmpl",
+        "octon.tmpl",
         "project-dossier/AUTHORITY.md.tmpl",
         "project-dossier/CANONICAL_SOURCE_MAP.md.tmpl",
         "project-dossier/README.md.tmpl",
@@ -386,7 +386,7 @@
         "project-dossier/validation/README.md.tmpl"
       ],
       "inventory_count": 59,
-      "inventory_paths_sha256": "66c9102909d678da883ecf1340c7ae058a6793645b9e6376e9f76df00dbce681",
+      "inventory_paths_sha256": "97e1bcd67de9948122de1cce747ef75724bda47a79c12ded95ef2b47ee5abeff",
       "output": {
         "root": ".",
         "strip_suffix": ".tmpl"
@@ -476,7 +476,7 @@
     },
     {
       "id": "shared-kernel-schemas",
-      "source": "blueprint:shared/schemas",
+      "source": "octon-mini:shared/schemas",
       "match": "recursive_suffix",
       "suffix": ".schema.json",
       "disposition": "generated",
@@ -508,15 +508,15 @@
         "harness-scm.schema.json",
     "harness-transaction.schema.json",
     "harness-work-completion.schema.json",
-    "project-blueprint-migration-seed.schema.json",
-    "project-blueprint-origin.schema.json",
-    "project-blueprint-setup-answers.schema.json",
-    "project-blueprint-setup-session.schema.json",
-    "project-blueprint-upgrade.schema.json",
+    "octon-mini-bootstrap-migration-seed.schema.json",
+    "octon-mini-project-origin.schema.json",
+    "octon-mini-bootstrap-setup-answers.schema.json",
+    "octon-mini-bootstrap-setup-session.schema.json",
+    "octon-mini-bootstrap-upgrade.schema.json",
     "reference-evidence.schema.json"
       ],
       "inventory_count": 28,
-      "inventory_paths_sha256": "eb44c7a02f686ece85a818f9a51e01cee87c3d0693eea0b4ba54b8cafc83bcb9",
+      "inventory_paths_sha256": "d5c5d1983f1783180c409a7afbc2286e82cb89eb68ef08d658293423b98c3008",
       "output": {
         "root": ".agent/schemas",
         "strip_suffix": null
@@ -525,7 +525,7 @@
     },
     {
       "id": "context-pack-schema",
-      "source": "blueprint:shared/optional-schemas/context-pack-manifest.schema.json",
+      "source": "octon-mini:shared/optional-schemas/context-pack-manifest.schema.json",
       "match": "exact",
       "suffix": null,
       "disposition": "source_only",
@@ -538,7 +538,7 @@
     },
     {
       "id": "architectural-pattern-catalog",
-      "source": "blueprint:patterns",
+      "source": "octon-mini:patterns",
       "match": "recursive",
       "suffix": null,
       "disposition": "source_only",
@@ -547,11 +547,11 @@
       "inventory_count": null,
       "inventory_paths_sha256": null,
       "output": null,
-      "reason": "Pattern records, proof assets, and fixtures govern Blueprint source and are never project defaults."
+      "reason": "Pattern records, proof assets, and fixtures govern Octon Mini source and are never project defaults."
     },
     {
       "id": "source-architecture-decisions",
-      "source": "blueprint:ARCHITECTURE_DECISIONS.md",
+      "source": "octon-mini:ARCHITECTURE_DECISIONS.md",
       "match": "exact",
       "suffix": null,
       "disposition": "source_only",
@@ -560,11 +560,11 @@
       "inventory_count": null,
       "inventory_paths_sha256": null,
       "output": null,
-      "reason": "Blueprint source decisions do not become target-project decisions."
+      "reason": "Octon Mini source decisions do not become target-project decisions."
     },
     {
       "id": "architectural-integration-review",
-      "source": "blueprint:ARCHITECTURAL_PATTERN_INTEGRATION_REVIEW.md",
+      "source": "octon-mini:ARCHITECTURAL_PATTERN_INTEGRATION_REVIEW.md",
       "match": "exact",
       "suffix": null,
       "disposition": "source_only",
@@ -573,11 +573,11 @@
       "inventory_count": null,
       "inventory_paths_sha256": null,
       "output": null,
-      "reason": "The review and deferred-trigger watchlist remain Blueprint source governance."
+      "reason": "The review and deferred-trigger watchlist remain Octon Mini source governance."
     },
     {
       "id": "velocity-implementation-roadmap",
-      "source": "blueprint:VELOCITY_ROADMAP.md",
+      "source": "octon-mini:VELOCITY_ROADMAP.md",
       "match": "exact",
       "suffix": null,
       "disposition": "source_only",
@@ -586,11 +586,11 @@
       "inventory_count": null,
       "inventory_paths_sha256": null,
       "output": null,
-      "reason": "The implementation program is Blueprint source planning and never target-project authority."
+      "reason": "The implementation program is Octon Mini source planning and never target-project authority."
     },
     {
       "id": "command-manifest",
-      "source": "blueprint:shared/source-contracts/commands.json",
+      "source": "octon-mini:shared/source-contracts/commands.json",
       "match": "exact",
       "suffix": null,
       "disposition": "generated",
@@ -612,7 +612,7 @@
     },
     {
       "id": "diagnostic-catalog",
-      "source": "blueprint:shared/source-contracts/diagnostic-catalog.json",
+      "source": "octon-mini:shared/source-contracts/diagnostic-catalog.json",
       "match": "exact",
       "suffix": null,
       "disposition": "generated",
@@ -634,7 +634,7 @@
     },
     {
       "id": "source-contracts",
-      "source": "blueprint:shared/source-contracts",
+      "source": "octon-mini:shared/source-contracts",
       "match": "recursive",
       "suffix": null,
       "disposition": "source_only",
@@ -643,11 +643,11 @@
       "inventory_count": null,
       "inventory_paths_sha256": null,
       "output": null,
-      "reason": "Source governance contracts validate the Blueprint and are not runtime project schemas."
+      "reason": "Source governance contracts validate the Octon Mini and are not runtime project schemas."
     },
     {
       "id": "migration-guidance",
-      "source": "blueprint:migrations",
+      "source": "octon-mini:migrations",
       "match": "recursive",
       "suffix": null,
       "disposition": "source_only",
@@ -683,7 +683,7 @@
     {
       "path": "shared/source-contracts",
       "match": "subtree",
-      "reason": "Blueprint source-governance contracts are not project runtime files."
+      "reason": "Octon Mini source-governance contracts are not project runtime files."
     },
     {
       "path": ".agent/schemas/architecture-proof.schema.json",

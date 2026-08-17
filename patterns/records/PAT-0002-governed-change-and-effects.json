@@ -1,5 +1,5 @@
 {
-  "schema_version": "project-blueprint.pattern-record.v1",
+  "schema_version": "octon-mini.source.pattern-record.v1",
   "id": "PAT-0002",
   "slug": "governed-change-and-effects",
   "title": "Governed change, mutation, effects, and recovery",
@@ -52,7 +52,7 @@
     "Demonstrate that unrelated work remains safe and incident reconstruction is complete."
   ],
   "known_implementations": [
-    "Project Blueprint transactional generation, refresh, migrations, typed Git operations, concurrency modifier, and operations recovery are partial specialized realizations."
+    "Octon Mini transactional generation, refresh, migrations, typed Git operations, concurrency modifier, and operations recovery are partial specialized realizations."
   ],
   "evidence": [
     {
@@ -69,7 +69,7 @@
   ],
   "contrary_evidence": [],
   "compatibility": {
-    "minimum_blueprint_version": "3.1.0",
+    "minimum_octon_mini_version": "4.0.0",
     "kernel_effect": "none",
     "generated_project_effect": "none_until_separately_adopted",
     "breaking_change": false,

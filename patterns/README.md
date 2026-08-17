@@ -1,7 +1,7 @@
 # Domain-Neutral Architectural Pattern Catalog
 
 This directory is a governed source-repository catalog. It is outside the
-Project Blueprint runtime kernel and every generated profile inventory.
+Octon Mini runtime kernel and every generated profile inventory.
 Catalog records are design knowledge, not instructions, permission, project
 facts, accepted project decisions, implementations, or readiness evidence.
 

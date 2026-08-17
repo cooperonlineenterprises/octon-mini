@@ -1,9 +1,9 @@
 [project]
-name = "project-blueprint"
+name = "octon-mini"
 version = "4.0.0"
-description = "Domain-neutral project dossier and agent harness blueprint"
+description = "Lightweight, project-local Octon harness and dossier for governed agent work"
 requires-python = ">=3.11"
 
-[tool.project-blueprint]
+[tool.octon-mini]
 runtime-dependencies = []
 canonical-structured-format = "strict-json"

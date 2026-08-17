@@ -1,4 +1,4 @@
-# Project Blueprint Velocity Implementation Program
+# Octon Mini Velocity Implementation Program
 
 This source-only plan tracks the bounded implementation work authorized for the
 4.0.0 velocity program. It is not generated into projects, grants no permission,
@@ -22,7 +22,7 @@ and is not evidence that a target project is adopted or ready.
 
 | Order | Workstream | Owner role | Depends on | Executable completion evidence |
 |---:|---|---|---|---|
-| 1 | PBV-10 profile and inventory manifest | Blueprint source-contract maintainer | none | manifest/schema validation, derived generator and acceptance projections, criterion 15 reported |
+| 1 | PBV-10 profile and inventory manifest | Octon Mini source-contract maintainer | none | manifest/schema validation, derived generator and acceptance projections, criterion 15 reported |
 | 2 | PBV-05 validation tiers and scale isolation | Harness validation maintainer | PBV-10 | bounded mutation fixtures, retained full-tree integration cases, 2k/20k benchmarks |
 | 3 | PBV-09 diagnostics and profile correction | Harness diagnostics maintainer | PBV-10 | versioned JSON diagnostics, unchanged-tree doctor tests, explicit-profile negative tests |
 | 4 | Shared proposal and transaction framework | Harness transaction maintainer | PBV-09 | plan/apply/receipt/rollback schemas plus stale, interruption, collision, and rollback mutations |

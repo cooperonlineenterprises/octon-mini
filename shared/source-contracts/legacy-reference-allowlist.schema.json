@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://octon-mini.local/source-contracts/legacy-reference-allowlist.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "document_role",
+    "permission_grant",
+    "token_class",
+    "legacy_pattern",
+    "classification_policies",
+    "entries",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {"const": "octon-mini.source.legacy-reference-allowlist.v1"},
+    "document_role": {"const": "exact_legacy_reference_exception_inventory"},
+    "permission_grant": {"const": false},
+    "token_class": {"const": "mixed_legacy_identity"},
+    "legacy_pattern": {"type": "string", "minLength": 1},
+    "classification_policies": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "truthful_historical_record",
+        "closed_historical_fixture",
+        "explicit_legacy_migration_input",
+        "breaking_transition_explanation"
+      ],
+      "properties": {
+        "truthful_historical_record": {"$ref": "#/$defs/policy"},
+        "closed_historical_fixture": {"$ref": "#/$defs/policy"},
+        "explicit_legacy_migration_input": {"$ref": "#/$defs/policy"},
+        "breaking_transition_explanation": {"$ref": "#/$defs/policy"}
+      }
+    },
+    "entries": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/entry"}
+    },
+    "limitations": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 10}
+    }
+  },
+  "$defs": {
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reason", "retirement_condition"],
+      "properties": {
+        "reason": {"type": "string", "minLength": 20},
+        "retirement_condition": {"type": "string", "minLength": 10}
+      }
+    },
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "path", "file_sha256", "classification", "occurrence_count"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^LEGACY-[0-9]{4}$"},
+        "path": {
+          "type": "string",
+          "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[A-Za-z0-9._/-]+$"
+        },
+        "file_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "classification": {
+          "enum": [
+            "truthful_historical_record",
+            "closed_historical_fixture",
+            "explicit_legacy_migration_input",
+            "breaking_transition_explanation"
+          ]
+        },
+        "occurrence_count": {"type": "integer", "minimum": 1}
+      }
+    }
+  }
+}

@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://project-blueprint.local/schemas/harness-transaction.schema.json",
-  "title": "Project Blueprint Transaction Artifacts",
+  "$id": "https://octon-mini.local/schemas/harness-transaction.schema.json",
+  "title": "Octon Mini Transaction Artifacts",
   "description": "Non-authorizing, content-addressed plans, write-ahead recovery journals, and exact rollback receipts.",
   "$defs": {
     "strings": {

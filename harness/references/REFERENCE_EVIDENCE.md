@@ -1,6 +1,6 @@
 # Harness Reference Evidence
 
-This record supports `harness/BLUEPRINT.md`. Paths are relative to the named
+This record supports `harness/SPECIFICATION.md`. Paths are relative to the named
 reference repository. Reference repositories are evidence only: their facts,
 permissions, identities, decisions, and implementation state do not transfer
 to generated projects. `CF:` identifies Commerce Foundry and `COE:` identifies
@@ -92,5 +92,5 @@ they solve related provenance and resumability problems at different layers.
 The extension compatibility contract, disable-without-kernel-change rule,
 transactional generation/refresh protocol, strict JSON kernel,
 alternate-runtime conformance contract, and cross-profile acceptance matrix
-are recommendations introduced to make the blueprint portable and auditable.
+are recommendations introduced to make the specification portable and auditable.
 They are not claimed as observed conventions in both sources.

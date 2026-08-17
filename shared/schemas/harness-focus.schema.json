@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://project-blueprint.local/schemas/harness-focus.schema.json",
+  "$id": "https://octon-mini.local/schemas/harness-focus.schema.json",
   "title": "Project-owned Operator Focus",
   "description": "The small authoritative source for non-derivable current focus and next-action intent; never permission.",
   "type": "object",

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://project-blueprint.local/schemas/harness-collaboration-profile.schema.json",
+  "$id": "https://octon-mini.local/schemas/harness-collaboration-profile.schema.json",
   "title": "Progressive Collaboration Evidence",
   "description": "Evidence requirements depend only on facts used by the collaboration result; risk profile is independent.",
   "type": "object",

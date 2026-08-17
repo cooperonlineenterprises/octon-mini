@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://project-blueprint.local/schemas/harness-kernel.schema.json",
+  "$id": "https://octon-mini.local/schemas/harness-kernel.schema.json",
   "title": "Project Harness Seven-file Governance Kernel",
   "description": "Per-file strict shapes for the versioned domain-neutral kernel. Semantic invariants are additionally checked by the generated validator.",
   "$defs": {
@@ -979,7 +979,7 @@
       ],
       "properties": {
         "schema_version": {
-          "const": "harness.project.v4"
+          "const": "harness.project.v5"
         },
         "project": {
           "type": "object",
@@ -989,7 +989,7 @@
             "name",
             "repository_root",
             "profile",
-            "blueprint_version",
+            "octon_mini_version",
             "adoption_status",
             "adoption_decision_ref"
           ],
@@ -1012,7 +1012,7 @@
                 "high-assurance"
               ]
             },
-            "blueprint_version": {
+            "octon_mini_version": {
               "type": "string",
               "pattern": "^(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)$"
             },

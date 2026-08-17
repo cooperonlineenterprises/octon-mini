@@ -1,5 +1,5 @@
 {
-  "schema_version": "project-blueprint.reference-evidence.v1",
+  "schema_version": "octon-mini.source.reference-evidence.v1",
   "document_role": "reference_provenance_registry",
   "permission_grant": false,
   "inspected_on": "2026-07-27",

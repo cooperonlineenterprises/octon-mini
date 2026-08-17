@@ -1,1 +1,0 @@
-{"schema_version":"project-blueprint.detector-recipe.v1","id":"operations","markers":["Dockerfile","docker-compose.yml","compose.yaml","terraform","infra","operations"],"archetypes":["operations","software","hybrid"],"hooks":[],"limitations":["Operations markers trigger assessment only; deployment, credentials, networking, and production effects remain explicit gates."]}

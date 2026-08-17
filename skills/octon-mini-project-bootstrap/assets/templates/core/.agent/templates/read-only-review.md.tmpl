@@ -1,0 +1,115 @@
+# Read-Only Assurance Review Protocol and Report
+
+> Use only for a review explicitly authorized as read-only. This protocol does
+> not authorize network access, project hooks, refresh, generation, package
+> installation, or any external-system query. If a required check is not
+> demonstrably read-only, mark it unavailable or skipped.
+
+## Review boundary
+
+- Subject and scope:
+- Reviewer role:
+- Start time and environment:
+- Authorized read-only commands:
+- Explicit exclusions:
+- External systems in scope: none unless separately authorized read-only access
+  is recorded here.
+
+## Before-review baseline
+
+Record, without refreshing generated artifacts:
+
+- Exact repository path:
+- `GIT_OPTIONAL_LOCKS=0 git status --short --branch` output and exit status:
+- `GIT_OPTIONAL_LOCKS=0 git rev-parse --verify HEAD` output and exit status:
+- Existing tracked, untracked, and ignored drift:
+- Fingerprints of consequential authority, register, gate, handoff, and
+  generated-projection files where useful:
+- Known stale generated projections:
+- Unavailable fingerprint or repository probes:
+
+The baseline distinguishes pre-existing drift from changes caused by the
+review. A clean status is not required, but it must be disclosed.
+
+## Command log
+
+Run only commands whose current project contract explicitly declares them
+read-only. `./octon check` and source inspection do not run project hooks or
+refresh projections. Do not run `refresh`, `maintain ... --apply`, the
+project-check evidence writer, build/test commands with unknown side effects,
+or generators.
+
+| Sequence | Exact argv/command | Declared read-only basis | Started/ended | Exit status | Result | Unavailable/skipped reason | Observed side effects |
+|---:|---|---|---|---:|---|---|---|
+|  |  |  |  |  |  |  |  |
+
+For a validation failure caused by stale projections, report:
+
+- authoritative input that changed;
+- stale output affected;
+- validator finding;
+- safe explicit refresh route; and
+- why no rewrite occurred during this review.
+
+Do not remove a legitimate source from fingerprint or integrity scope merely
+to make the check pass.
+
+## Evidence interpretation
+
+State separately:
+
+- structural validation performed and result;
+- executable implementation evidence inspected;
+- operational evidence inspected;
+- specialist evidence inspected;
+- checks unavailable or skipped;
+- evidence freshness and subject fingerprint; and
+- what the evidence does not prove.
+
+A structural pass does not establish executable implementation, specialist
+approval, release readiness, production readiness, product efficacy, or
+commercial viability.
+
+## Separate conclusions
+
+Use `supported`, `partially supported`, `not supported`, `not assessed`, or
+`not applicable`. Each row has its own evidence and limitations; do not infer
+one row from another.
+
+| Conclusion | Status | Basis and evidence | Limitations |
+|---|---|---|---|
+| Architecture quality |  |  |  |
+| Documentation completeness |  |  |  |
+| Implementation evidence |  |  |  |
+| Specialist approval |  |  |  |
+| Release readiness |  |  |  |
+| Production readiness |  |  |  |
+| Product efficacy or commercial viability |  |  |  |
+
+## After-review baseline
+
+Repeat the same probes and fingerprints used before review:
+
+- Final repository status and revision:
+- Final fingerprints:
+- Before/after differences:
+- Files created, modified, deleted, or metadata-changed:
+- External systems changed:
+- Caches, bytecode, lockfiles, reports, indexes, or timestamps created:
+
+If any change occurred, do not claim the review was read-only. Identify
+whether the change was pre-existing, caused by an executed command, or remains
+unknown, and preserve evidence for remediation.
+
+## Assurance statement
+
+- Review remained read-only: _yes / no / unknown_
+- Files changed:
+- External systems changed:
+- Generated artifacts refreshed: _must be no_
+- Exact checks passed:
+- Exact checks failed:
+- Exact checks unavailable or skipped:
+- Structural conclusion:
+- Implementation-evidence conclusion:
+- Readiness limitations:

@@ -1,20 +1,20 @@
 {
-  "schema_version": "project-blueprint.diagnostic-catalog.v1",
+  "schema_version": "octon-mini.project.diagnostics.catalog.v1",
   "document_role": "authoritative_non_authorizing_diagnostic_mapping",
   "permission_grant": false,
-  "fallback_code": "PB-DIAG-0001",
+  "fallback_code": "OCTON-DIAG-0001",
   "diagnostics": [
     {
-      "code": "PB-DIAG-0001",
+      "code": "OCTON-DIAG-0001",
       "match_any": [],
       "root_cause": "A structural invariant failed without a more specific catalog match.",
       "authority_source": "reported_path_or_project_governance_source",
       "dependent_symptoms": ["structural_conformance_unknown"],
-      "safe_next_action": "Inspect the exact finding and its governing source; use pb doctor after correction.",
+      "safe_next_action": "Inspect the exact finding and its governing source; use octon doctor after correction.",
       "repair_class": "project_decision_or_manual_correction"
     },
     {
-      "code": "PB-DIAG-0101",
+      "code": "OCTON-DIAG-0101",
       "match_any": ["stale source fingerprint", "manifest content mismatch", "checksum mismatch", "catalog differs", "path-authority differs"],
       "root_cause": "Derived integrity output no longer matches its authoritative sources.",
       "authority_source": "project_sources_and_artifact_registry",
@@ -23,7 +23,7 @@
       "repair_class": "derived_only"
     },
     {
-      "code": "PB-DIAG-0102",
+      "code": "OCTON-DIAG-0102",
       "match_any": ["mismatched generation IDs", "generation ID", "interrupted refresh"],
       "root_cause": "A refresh did not leave one mutually consistent generation.",
       "authority_source": "generated_integrity_outputs",
@@ -32,7 +32,7 @@
       "repair_class": "derived_only"
     },
     {
-      "code": "PB-DIAG-0201",
+      "code": "OCTON-DIAG-0201",
       "match_any": ["project.json", "policy.json", "artifact registry", "authority", "unsafe fingerprint exclusion"],
       "root_cause": "An authoritative project configuration or registry is invalid or ambiguous.",
       "authority_source": "project_owned_authoritative_configuration",
@@ -41,7 +41,7 @@
       "repair_class": "project_decision_required"
     },
     {
-      "code": "PB-DIAG-0202",
+      "code": "OCTON-DIAG-0202",
       "match_any": ["stale evidence", "expired evidence", "fresh evidence", "fresh_until"],
       "root_cause": "Evidence used by a gate or hook is absent, stale, or expired.",
       "authority_source": "project_evidence_sources",
@@ -50,7 +50,7 @@
       "repair_class": "project_action_required"
     },
     {
-      "code": "PB-DIAG-0203",
+      "code": "OCTON-DIAG-0203",
       "match_any": ["decision-governance", "decision-sheet inventories", "owner selection", "evidence-first decision", "weighted total", "decision review"],
       "root_cause": "The project-owned decision-governance source is malformed, unreconciled, or confuses recommendation, selection, evidence, and accepted authority.",
       "authority_source": ".agent/decisions/governance-register.json_and_resolving_DEC_records",
@@ -59,7 +59,7 @@
       "repair_class": "project_decision_required"
     },
     {
-      "code": "PB-DIAG-0204",
+      "code": "OCTON-DIAG-0204",
       "match_any": ["subordinate handoff claim", "mandatory authority reconciliation checklist", "handoff claim"],
       "root_cause": "A subordinate handoff is missing required reconciliation or contradicts canonical gate, decision, register, or readiness state.",
       "authority_source": "canonical_gate_decision_register_version_and_ownership_sources",
@@ -68,16 +68,16 @@
       "repair_class": "project_action_required"
     },
     {
-      "code": "PB-DIAG-0301",
+      "code": "OCTON-DIAG-0301",
       "match_any": ["lack artifact-registry representations", "unregistered", "unrecognized record filename"],
       "root_cause": "A physical artifact is not reconciled with its authoritative registry.",
       "authority_source": "project-dossier/machine-readable/artifact-registry.json",
       "dependent_symptoms": ["refresh_withheld", "traceability_incomplete"],
-      "safe_next_action": "Run pb maintain registry plan and review the proposed identity and ownership choices.",
+      "safe_next_action": "Run octon maintain registry plan and review the proposed identity and ownership choices.",
       "repair_class": "project_decision_required"
     },
     {
-      "code": "PB-DIAG-0302",
+      "code": "OCTON-DIAG-0302",
       "match_any": ["representations point to absent", "registered physical representation is absent"],
       "root_cause": "A registered representation is absent or may have been renamed.",
       "authority_source": "project-dossier/machine-readable/artifact-registry.json",
@@ -86,7 +86,7 @@
       "repair_class": "project_decision_required"
     },
     {
-      "code": "PB-DIAG-0401",
+      "code": "OCTON-DIAG-0401",
       "match_any": ["collaboration", "team band", "workflow selection"],
       "root_cause": "Collaboration evidence is missing, stale, conflicting, or insufficient for the selected workflow.",
       "authority_source": ".agent/project.json#collaboration_profile",
@@ -95,7 +95,7 @@
       "repair_class": "project_decision_required"
     },
     {
-      "code": "PB-DIAG-0501",
+      "code": "OCTON-DIAG-0501",
       "match_any": ["extension", "package", "trigger assessment"],
       "root_cause": "A triggered package is unassessed, incomplete, untrusted, or invalid.",
       "authority_source": ".agent/packages.json",
@@ -104,7 +104,7 @@
       "repair_class": "specialist_or_owner_gate"
     },
     {
-      "code": "PB-DIAG-0601",
+      "code": "OCTON-DIAG-0601",
       "match_any": ["plan digest", "changed after planning", "stale plan", "transaction target changed"],
       "root_cause": "A reviewed plan no longer matches its instructions or target preimages.",
       "authority_source": "transaction_plan_and_current_repository_state",
@@ -113,16 +113,16 @@
       "repair_class": "replan_required"
     },
     {
-      "code": "PB-DIAG-0602",
+      "code": "OCTON-DIAG-0602",
       "match_any": ["pending transaction", "interrupted apply", "interrupted rollback", "write-ahead journal"],
       "root_cause": "A transaction journal or rollback marker remains after an interrupted or uncertain mutation.",
       "authority_source": ".agent/transactions",
       "dependent_symptoms": ["transaction_outcome_uncertain", "further_mutation_withheld"],
-      "safe_next_action": "For a pending journal, run pb transaction recover with its exact path. For rollback_in_progress, retry pb transaction rollback with the exact receipt. Both refuse independently changed targets.",
+      "safe_next_action": "For a pending journal, run octon transaction recover with its exact path. For rollback_in_progress, retry octon transaction rollback with the exact receipt. Both refuse independently changed targets.",
       "repair_class": "explicit_recovery_required"
     },
     {
-      "code": "PB-DIAG-0701",
+      "code": "OCTON-DIAG-0701",
       "match_any": ["configured executable is unavailable", "version probe", "project check"],
       "root_cause": "A configured project hook or its safe version probe is unavailable.",
       "authority_source": ".agent/project.json#commands",
@@ -131,7 +131,7 @@
       "repair_class": "project_action_required"
     },
     {
-      "code": "PB-DIAG-0801",
+      "code": "OCTON-DIAG-0801",
       "match_any": ["read-only", "mutation detected", "repository changed during validation"],
       "root_cause": "A command declared or reviewed as read-only changed repository or external state, or mutation prevention could not be established.",
       "authority_source": "before_after_repository_and_external_state_evidence",

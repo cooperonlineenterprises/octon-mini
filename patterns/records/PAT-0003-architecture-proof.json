@@ -1,5 +1,5 @@
 {
-  "schema_version": "project-blueprint.pattern-record.v1",
+  "schema_version": "octon-mini.source.pattern-record.v1",
   "id": "PAT-0003",
   "slug": "architecture-proof",
   "title": "Bounded Architecture Proof",
@@ -15,7 +15,7 @@
   "applicability_triggers": [
     "A consequential architecture claim has material feasibility uncertainty.",
     "A risky dependency, provider, external-effect boundary, or large rationale package requires bounded proof.",
-    "A pattern may be promoted into shared Blueprint guidance."
+    "A pattern may be promoted into shared Octon Mini guidance."
   ],
   "non_applicability_triggers": [
     "A routine reversible decision is already covered by ordinary validation and evidence.",
@@ -49,7 +49,7 @@
     "Reject missing stop criteria, inexact subjects, incomplete cleanup, absent limitations, and missing non-proof claims."
   ],
   "known_implementations": [
-    "Project Blueprint migration fixtures, reference evidence, and adversarial acceptance tests demonstrate the method internally without constituting generated project proof."
+    "Octon Mini migration fixtures, reference evidence, and adversarial acceptance tests demonstrate the method internally without constituting generated project proof."
   ],
   "evidence": [
     {
@@ -66,7 +66,7 @@
   ],
   "contrary_evidence": [],
   "compatibility": {
-    "minimum_blueprint_version": "3.1.0",
+    "minimum_octon_mini_version": "4.0.0",
     "kernel_effect": "none",
     "generated_project_effect": "none_until_separately_adopted",
     "breaking_change": false,

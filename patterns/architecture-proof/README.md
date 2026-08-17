@@ -6,7 +6,7 @@ readiness.
 
 Use an Architecture Proof only when a consequential decision has material
 uncertainty, a risky dependency or provider, an external-effect boundary, a
-large rationale package, or potential promotion into shared Blueprint
+large rationale package, or potential promotion into shared Octon Mini
 guidance. Routine reversible work should use ordinary tasks and evidence.
 
 The five proof kinds share one schema:

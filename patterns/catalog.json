@@ -1,5 +1,5 @@
 {
-  "schema_version": "project-blueprint.pattern-catalog.v1",
+  "schema_version": "octon-mini.source.pattern-catalog.v1",
   "document_role": "authoritative_source_only_pattern_catalog",
   "permission_grant": false,
   "generated_by_default": false,

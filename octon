@@ -1,0 +1,9 @@
+#!/bin/sh
+set -eu
+
+SOURCE_ROOT=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+DISPATCHER="$SOURCE_ROOT/skills/octon-mini-project-bootstrap/scripts/octon.py"
+if [ ! -f "$DISPATCHER" ]; then
+  DISPATCHER="$SOURCE_ROOT/../../scripts/octon.py"
+fi
+exec python3 -B "$DISPATCHER" "$@"

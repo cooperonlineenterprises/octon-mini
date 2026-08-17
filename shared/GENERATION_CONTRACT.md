@@ -2,15 +2,15 @@
 
 ## Source and output roles
 
-`project-blueprint` is the versioned reference and generator source. A target
+`octon-mini` is the versioned reference and generator source. A target
 project receives an independent snapshot containing:
 
 - `AGENTS.md`;
 - `.agent/`;
 - `.agents/` for profiles that include capability packages;
 - `project-dossier/`;
-- the project-local `pb` launcher; and
-- `.project-blueprint-origin.json`.
+- the project-local `octon` launcher; and
+- `.octon-mini-origin.json`.
 
 Generated files do not remain linked to this repository.
 
@@ -20,7 +20,7 @@ Generated files do not remain linked to this repository.
 machine-readable source for profile order and layers, reviewed generation
 inventories, project-local and derived paths, optional or triggered packages,
 acceptance coverage, and documentation projections. Its generation rules are
-the boundary between Blueprint source and automatic target-project output, and
+the boundary between Octon Mini source and automatic target-project output, and
 its schema is versioned separately. Every source path defaults to `source_only`;
 only a reviewed rule with disposition `generated` or an explicitly installed,
 content-addressed package may enter the selected profile.
@@ -68,7 +68,7 @@ output or contains a symlink or special file.
 Run the read-only recovery diagnostic with:
 
 ```text
-python3 skills/project-bootstrap/scripts/scaffold_project.py \
+python3 skills/octon-mini-project-bootstrap/scripts/scaffold_project.py \
   --diagnose-generation-policy \
   --profile minimal
 ```
@@ -76,7 +76,7 @@ python3 skills/project-bootstrap/scripts/scaffold_project.py \
 Omit `--profile` to inspect all profiles. Diagnostics return nonzero when any
 inspected capability is degraded or blocked. Repository validation always
 inspects all profiles strictly, so an ignored unreviewed path still fails
-Blueprint CI until it is removed, retained outside a generated source root, or
+Octon Mini CI until it is removed, retained outside a generated source root, or
 explicitly reviewed into the versioned inventory. When an addition is the only
 drift, the diagnostic calculates a candidate path list, count, and digest to
 reduce maintenance work; that candidate is labeled
@@ -124,7 +124,7 @@ do not claim target-project readiness.
 
 Three states remain distinct throughout generation and validation:
 
-1. structural blueprint conformance means the generated contracts are
+1. structural Octon Mini conformance means the generated contracts are
    internally valid;
 2. project-harness adoption means project owners have assessed the hooks,
    triggers, authority basis, and evidence required by the selected profile;
@@ -150,11 +150,11 @@ digest and current fingerprints.
 
 Generator inputs are classified by when and where they may be bound:
 
-1. **Source-stable inputs** are versioned Blueprint contracts, schemas,
+1. **Source-stable inputs** are versioned Octon Mini contracts, schemas,
    vocabularies, and profile inventories. They are selected from the exact
    source revision and recorded in origin provenance.
 2. **Generation-time identity inputs** are the explicitly supplied project
-   name, derived slug, selected profile, creation date, Blueprint version,
+   name, derived slug, selected profile, creation date, Octon Mini version,
    generator version, and harness-kernel version. They identify the snapshot;
    they do not describe project reality.
 3. **Project-owned unresolved inputs** include owners, authority sources,
@@ -194,7 +194,7 @@ stages the release tier, and leaves adoption `in_progress`.
 
 The origin record contains:
 
-- blueprint name and version;
+- Octon Mini product name and version;
 - selected profile;
 - generation date;
 - target project name and slug;
@@ -204,11 +204,11 @@ The origin record contains:
 - a transaction generation ID;
 - an immutable initial-generation snapshot;
 - an append-only migration history; and
-- an installed inventory containing role, upgrade policy, baseline Blueprint
+- an installed inventory containing role, upgrade policy, baseline Octon Mini
   version, mode, and exact pristine hash for every static path.
 
 The snapshot also records the harness kernel version and generator version
-where available. This provenance is not a live dependency: later blueprint
+where available. This provenance is not a live dependency: later Octon Mini
 changes cannot silently change a generated project's rules.
 
 An upgrade is a three-way migration task using the recorded old inventory,
@@ -231,11 +231,24 @@ feature disabled indefinitely and remain structurally valid.
 
 Adding guided setup support to an existing snapshot follows the same explicit
 upgrade boundary. New catalog questions appear unresolved and receive no
-silent answer. An upgrade may add absent Blueprint-owned implementation or
+silent answer. An upgrade may add absent Octon Mini-owned implementation or
 schema paths when policy permits, but it cannot overwrite instructions,
 accepted decisions, setup selections, workflow adoption, hooks, provider or
-branch settings, package choices, or any other project-owned file. Existing
-legacy CLI flags continue to map deterministically to stable question IDs.
+branch settings, package choices, or any other project-owned file. Current
+Octon Mini CLI flags map deterministically to stable question IDs. Project
+Blueprint command and field identities may be recognized only as inputs to the
+explicit reviewed cross-brand migration; Octon Mini provides no `pb` runtime
+compatibility.
+
+Project Blueprint 3.x→Octon Mini 4.0.0 is the current cross-brand migration.
+It may read legacy `pb`, `.project-blueprint-origin.json`, and
+`project-blueprint.*` identities only as legacy inputs to transform; it must
+not execute or dispatch `pb`. A successful result contains `octon`,
+`.agent/scripts/octon.py`, `.octon-mini-origin.json`, and current
+capability-qualified Octon Mini identities, and contains no current legacy
+launcher, runtime module, alias, or origin record. Removing an established
+legacy path is a reviewed migration operation, never a silent overwrite
+exception.
 
 A breaking migration must also ship executable valid and invalid fixtures. A
 legacy snapshot without exact installed baselines requires reviewed seed data;
@@ -254,7 +267,7 @@ The initial generator supports:
 - `PROJECT_NAME_JSON` (derived with a standards-compliant JSON encoder);
 - `PROJECT_SLUG`;
 - `CREATED_DATE`;
-- `BLUEPRINT_VERSION`;
+- `OCTON_MINI_VERSION`;
 - `HARNESS_KERNEL_VERSION` (the independently versioned harness-kernel
   compatibility axis);
 - `PROFILE`;
@@ -394,7 +407,7 @@ the accepted workflow authority link. Team size and assurance profile never
 select another completion engine.
 
 An enabled completion event hook references the existing project command-hook
-model and is restricted to the exact shell-free argv for `pb work finish
+model and is restricted to the exact shell-free argv for `octon work finish
 plan`.
 Planning performs no write, refresh, fetch, provider query, receipt update, or
 external action. Apply is bound to the deterministic plan digest and current
@@ -497,8 +510,8 @@ Initial generation selects the profile-applicable artifact types and physical
 representations from `dossier/artifact-types.json` and writes them to
 `project-dossier/machine-readable/artifact-registry.json`. That project-local
 registry becomes the authoritative source for artifact metadata in the
-independent snapshot. It is not regenerated from the blueprint during ordinary
-maintenance or upgrade.
+independent snapshot. It is not regenerated from Octon Mini source during
+ordinary maintenance or upgrade.
 
 `project-dossier/ARTIFACT_CATALOG.json` is a generated mirror of the
 project-local registry.

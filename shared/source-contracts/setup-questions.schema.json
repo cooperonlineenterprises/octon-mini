@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://project-blueprint.local/source-contracts/setup-questions.schema.json",
+  "$id": "https://octon-mini.local/source-contracts/setup-questions.schema.json",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -14,7 +14,7 @@
     "limitations"
   ],
   "properties": {
-    "schema_version": {"const": "project-blueprint.setup-question-catalog.v1"},
+    "schema_version": {"const": "octon-mini.bootstrap.setup-question-catalog.v1"},
     "document_role": {"const": "authoritative_guided_setup_question_catalog"},
     "permission_grant": {"const": false},
     "catalog_version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},

@@ -1,0 +1,1 @@
+{"schema_version":"octon-mini.bootstrap.detector-recipe.v1","id":"research","markers":["references.bib","CITATION.cff","notebooks","paper"],"archetypes":["research","non_software"],"hooks":[],"limitations":["Research markers do not establish a reproducibility command or evidence quality."]}

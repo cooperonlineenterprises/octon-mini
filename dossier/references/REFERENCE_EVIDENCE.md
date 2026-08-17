@@ -3,7 +3,7 @@
 This file classifies the evidence behind the reusable dossier model. It does
 not make either reference repository a dependency or authority for generated
 projects. Evidence labels and repository aliases are defined in
-[`../BLUEPRINT.md`](../BLUEPRINT.md). Reproducible checkout identity, observed
+[`../SPECIFICATION.md`](../SPECIFICATION.md). Reproducible checkout identity, observed
 role, authority classification, and dirty-state metadata live in the shared
 [`reference-evidence.json`](../../shared/reference-evidence.json).
 

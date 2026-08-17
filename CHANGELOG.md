@@ -1,6 +1,6 @@
 # Changelog
 
-All notable blueprint contract changes are recorded here. Project-specific
+All notable Octon Mini contract changes are recorded here. Project-specific
 snapshots do not upgrade automatically.
 
 ## 4.0.0 — Unreleased
@@ -9,12 +9,16 @@ Velocity-focused major kernel release for solo developers, pairs, and tiny
 teams, with concurrent human/agent/automation work modeled separately from
 assurance profile.
 
+This is the first Octon Mini release and the breaking successor to Project
+Blueprint 3.x. Product version continuity is preserved; historical releases,
+tags, decisions, and fixtures retain their Project Blueprint identity.
+
 ### Added
 
 - one authoritative profile, layout, package, inventory, and acceptance
   manifest, including criterion-level coverage for all 17 acceptance criteria;
 - fast, integration, and release validation tiers, bounded mutation baselines,
-  scale benchmarks, structured diagnostic codes, and read-only `pb doctor`;
+  scale benchmarks, structured diagnostic codes, and read-only `octon doctor`;
 - a shared staged plan/apply framework with target and instruction
   fingerprints, write-ahead recovery journals, exact receipts, safe rollback,
   and no force bypass;
@@ -63,6 +67,14 @@ assurance profile.
 
 ### Changed
 
+- the current product identity changes from Project Blueprint to Octon Mini,
+  the lightweight, project-local version of Octon, while OctonOS remains the
+  full-scale agent operating system and governed control plane;
+- the bootstrap capability is named Octon Mini Project Bootstrap, with skill
+  ID `octon-mini-project-bootstrap`;
+- the sole current command is `octon`, and current schema, provenance,
+  package, skill, and generated-path identities move to capability-qualified
+  Octon Mini names;
 - non-interactive generation requires an explicit profile; interactive init
   proposes Minimal and requires confirmation;
 - `state/current.json` is fully derived while non-derivable operator intent is
@@ -75,24 +87,32 @@ assurance profile.
 - primitive scaffolding uses structural plus bounded fast validation, while
   consequential init/adoption/upgrade/release transactions retain release-tier
   staging;
-- generated `pb` entry points suppress Python bytecode writes so the documented
+- generated `octon` entry points suppress Python bytecode writes so the documented
   read-only check does not create cache files; and
-- the Blueprint, generator, and harness kernel advance to 4.0.0.
+- Octon Mini, the generator, and the harness kernel advance to 4.0.0.
+
+### Removed
+
+- the `pb` command, launcher, dispatcher, runtime-module names, aliases, and
+  compatibility behavior. Project Blueprint identifiers remain only as
+  truthful history or explicit legacy migration inputs.
 
 ### Compatibility and migration note
 
-Generated snapshots remain independent. Existing 3.1.0 projects are never
-rewritten automatically; use the reviewed migration seed and `pb upgrade
-plan|apply`. Only exact-pristine non-authoritative implementation assets, safe
-additions, and derived regeneration are automatic. Instructions, policy,
-configuration, workflows, dossier sources, registries, records, stable IDs,
+Generated snapshots remain independent. Existing Project Blueprint 3.x
+projects are never rewritten automatically; use the reviewed migration seed
+and `octon upgrade plan|apply` for the explicit Project Blueprint 3.x→Octon
+Mini 4.0 migration. Only exact-pristine non-authoritative implementation
+assets, safe additions, and derived regeneration are automatic. Instructions,
+policy, configuration, workflows, dossier sources, registries, records, stable IDs,
 deletions, moves, permissions, and symlinks require explicit review. Structural
 conformance, harness adoption, and target-project readiness remain distinct.
 Governed completion and its event hook remain disabled after migration until a
 project explicitly adopts their repository, provider, checks, read-only hooks,
 and cleanup inputs. External progress is resumable, not atomically reversible.
-Guided setup is added only by a new snapshot, explicit Blueprint upgrade, or
-skill-package update. Existing flags remain supported; setup answers never
+Guided setup is added only by a new snapshot, explicit Octon Mini upgrade, or
+skill-package update. Current `octon` setup flags remain supported; legacy
+Project Blueprint identities are migration inputs only. Setup answers never
 silently overwrite project-owned authority or create runtime authorization.
 
 ## 3.1.0 — Unreleased

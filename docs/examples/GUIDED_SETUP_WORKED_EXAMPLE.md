@@ -1,12 +1,12 @@
 # Guided Setup Worked Example
 
 This example is domain-neutral and illustrative. Its values are not Project
-Blueprint authority and must not be copied as project facts.
+Octon Mini authority and must not be copied as project facts.
 
 ## Observed mode
 
 An agent receives `/workspace/example` as the target. Read-only inspection
-finds established source files, no `.project-blueprint-origin.json`, one root
+finds established source files, no `.octon-mini-origin.json`, one root
 `AGENTS.md`, and a local Git directory. The agent records:
 
 - observation: target is an established project;
@@ -79,7 +79,7 @@ existing proposal and supplies one exact proposal-digest-bound adoption review.
 The agent then runs the existing adopter with `--setup-session`. The resulting
 transaction plan:
 
-- creates only absent Blueprint paths;
+- creates only absent Octon Mini paths;
 - preserves all project-owned files;
 - binds the setup-session bytes and canonical digest;
 - binds the adoption proposal, review, authority reference, and current target

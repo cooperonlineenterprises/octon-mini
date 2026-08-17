@@ -1,79 +1,102 @@
-# Project Blueprint 4.0 Compatibility and Deprecation
+# Octon Mini 4.0 Compatibility and Clean Break
 
-## Supported snapshots
+## Product boundary
 
-Generated projects are independent snapshots. Version 4.0 does not create a
-runtime link to Blueprint source and does not rewrite 3.x projects
-automatically. Existing 3.0/3.1 snapshots may continue using their own bundled
-validators, subject to their recorded limitations.
+Octon Mini 4.0.0 is the first Octon Mini release and the breaking successor to
+Project Blueprint 3.x. Octon Mini is the lightweight, project-local version of
+Octon. OctonOS is the full-scale agent operating system and governed control
+plane. Octon Mini is standalone: it is not a seed, trial, required precursor,
+or OctonOS runtime.
 
-Existing 4.0 snapshots and existing `pb init|adopt|upgrade plan` invocations
-remain valid without guided setup. Legacy flags map to stable setup-question
-IDs; they are not removed or silently defaulted.
+Generated projects are independent snapshots. Octon Mini does not create a
+runtime link to this source repository and does not rewrite an existing Project
+Blueprint snapshot automatically. Structural conformance, harness adoption,
+and project readiness remain separate claims.
 
-## Migration
+## Clean command and identity break
 
-- 1.0.1→2.0.0 and 2.0.0→3.0.0 remain closed reference transformations with
-  executable fixtures.
-- 3.0.0→3.1.0 remains the recorded additive source migration.
-- 3.1.0→4.0.0 requires reviewed inventory seeding followed by the live
-  three-way upgrader. An unknown pristine hash, assessed collaboration v1,
-  authority conflict, deletion/move, symlink, permission change, or modified
-  project-owned/governance path cannot be auto-migrated.
+`octon` is the sole current command. New source workflows use
+`scripts/octon.py`, new generated projects use `./octon`, and their internal
+dispatcher is `.agent/scripts/octon.py`.
 
-## Changed defaults
+There is no `pb` alias, wrapper, symlink, parser branch, warning shim, or
+runtime compatibility mode. A legacy Project Blueprint snapshot may continue
+to use the tools bundled in that independent snapshot, subject to its recorded
+limitations, but Octon Mini does not provide or dispatch those tools.
 
-- scripted generation without `--profile` now fails;
-- interactive init proposes Minimal and requires confirmation;
+The same clean break applies to current product and protocol identity:
+
+- product and package identity is `Octon Mini` / `octon-mini`;
+- the bootstrap capability is **Octon Mini Project Bootstrap** and its skill ID
+  is `octon-mini-project-bootstrap`;
+- current schemas and artifacts use capability-qualified `octon-mini.*`
+  identities;
+- new provenance is stored in `.octon-mini-origin.json`; and
+- new generated and installed inventories record Octon Mini versions and
+  roles.
+
+Old identifiers are not repurposed to mean changed Octon Mini formats.
+
+## Project Blueprint 3.x to Octon Mini 4.0.0
+
+Upgrade is an explicit, reviewed, recoverable cross-brand migration. It may
+recognize legacy `pb`, `.project-blueprint-origin.json`, and
+`project-blueprint.*` records only as inputs to transform. It never executes or
+dispatches `pb`.
+
+The 3.1.0→4.0.0 path requires reviewed inventory seeding followed by the live
+three-way upgrader. It compares the recorded old baseline, the current project,
+and the Octon Mini candidate. Unknown pristine hashes, assessed collaboration
+v1, authority conflicts, deletion or move requests, symlinks, permission
+changes, and modified project-owned or governance paths cannot be migrated
+automatically.
+
+A successful migration:
+
+- installs `octon` and `.agent/scripts/octon.py`;
+- writes `.octon-mini-origin.json` and current Octon Mini identities;
+- removes the old launcher, runtime modules, and current legacy provenance only
+  through the reviewed migration operation;
+- preserves project-owned facts, authority, decisions, evidence, and stable
+  record IDs;
+- records the exact cross-brand transition and rollback evidence; and
+- makes a second application an exact no-op or deterministic refusal under the
+  migration contract.
+
+No migration silently adopts a workflow, provider, check, command hook,
+cleanup policy, or authorization. It does not infer readiness.
+
+Earlier 1.0.1→2.0.0 and 2.0.0→3.0.0 transformations remain closed historical
+references, and 3.0.0→3.1.0 remains the recorded additive source migration.
+Historical tags, releases, decisions, fixtures, and changelog entries retain
+their Project Blueprint identity.
+
+## Other 4.0 behavior changes
+
+- scripted generation without `--profile` fails;
+- interactive initialization proposes Minimal and requires confirmation;
 - compact is the new-project physical layout default;
-- current state is derived and operator intent moves to focus;
+- current state is derived and operator intent resides in focus;
 - Git and domain extensions are trigger-installed packages;
-- Context Pack schema is trigger-installed rather than a High-Assurance
-  universal file;
 - routine generated tests expose `fast`, `integration`, and `release` tiers;
-- primitive scaffolding runs structural plus fast bounded validation, while
-  guided init, adoption, upgrade, and release gates retain release staging;
-- evidence-complete work may close directly from an active state without
-  status-only validating/review hops; and
-- the source config advances to `project-blueprint.v3`, origin to inventory v2,
-  collaboration to v2, and transaction receipts to v2.
-- new snapshots include an empty decision-governance register and reusable
-  workbook/review templates; accepted `DEC-####` semantics are unchanged, and
-  a register acceptance uses an explicit reciprocal link rather than inferred
-  historical correspondence;
-- requirement and gate maturity assessment is optional and never inferred from
-  existing structural evidence; and
-- existing handoffs require reviewed checklist reconciliation rather than
-  automatic replacement.
-- new snapshots include one shared governed `work.finish` engine but retain a
-  disabled, non-authorizing configuration and completion hook. Existing
-  snapshots receive applicable pieces only through an explicit upgrade or
-  pinned Git-package update; no update may silently adopt a workflow,
-  provider, check, cleanup, eligible reviewer, command hook, or authorization
-  policy. A package update updates only an already installed exact-pristine
-  portfolio; the core engine and schema arrive through the reviewed Blueprint
-  upgrade.
-- guided setup is opt-in orchestration over the existing planners. Existing
-  projects receive its CLI support and schemas only through an explicit
-  Blueprint upgrade or skill-package update. The source question catalog is
-  not projected into target authority, and new questions remain unanswered or
-  deferred rather than receiving defaults.
+- evidence-complete work may close directly from an active state;
+- new snapshots include decision-governance records and review templates; and
+- governed work completion and its event hook remain disabled and
+  non-authorizing until explicitly adopted.
 
-## Deprecated entry points
+Guided setup remains orchestration over the existing initialization, adoption,
+and upgrade planners. Its question catalog is not projected into target
+authority, and new questions remain unanswered or deferred rather than
+receiving defaults.
 
-Primitive scripts remain supported advanced interfaces during 4.x, but the
-workflow-oriented `scripts/pb.py` and generated `./pb` are the documented
-paths. Direct hand-editing of `.agent/state/current.json` is unsupported.
-Direct copying of package directories or Git workflow files is unsupported
-because it lacks content/decision/receipt binding.
-Directly copying `pb_finish.py`, enabling its hook without a reviewed project
-configuration, or treating a prior authorization as standing permission is
-also unsupported.
-Directly copying a setup session between targets, hand-editing its digest, or
-treating an interview selection as accepted authority is unsupported.
-The legacy read-only `validate.py --assess-collaboration` report remains a
-compatibility diagnostic; new facts and workflow proposals use collaboration
-plan/apply so evidence and changes are reviewable and receipted.
+## Unsupported shortcuts
 
-No deprecation authorizes deletion of a project-owned file or record. Moves,
-representation changes, and stable-ID changes require explicit migration.
+Directly copying launchers, runtime modules, setup sessions, packages, Git
+workflow files, or origin records is unsupported because it bypasses content,
+decision, provenance, and receipt binding. Directly editing derived current
+state or a setup digest is also unsupported. A prior authorization never
+becomes standing permission.
+
+No compatibility or migration rule authorizes deletion of a project-owned file
+or record. Moves, representation changes, and stable-ID changes require an
+explicit reviewed migration.

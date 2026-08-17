@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://project-blueprint.local/source-schemas/architecture-proof.schema.json",
-  "title": "Project Blueprint Optional Architecture Proof",
+  "$id": "https://octon-mini.local/source-schemas/architecture-proof.schema.json",
+  "title": "Octon Mini Optional Architecture Proof",
   "description": "Source-only optional proof contract. Completion does not grant permission or establish production readiness.",
   "$defs": {
     "strings": {
@@ -80,7 +80,7 @@
   ],
   "properties": {
     "schema_version": {
-      "const": "project-blueprint.architecture-proof.v1"
+      "const": "octon-mini.source.architecture-proof.v1"
     },
     "id": {
       "type": "string",

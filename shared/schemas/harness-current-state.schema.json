@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://project-blueprint.local/schemas/harness-current-state.schema.json",
+  "$id": "https://octon-mini.local/schemas/harness-current-state.schema.json",
   "title": "Derived Compact Operational Index",
   "type": "object",
   "additionalProperties": false,

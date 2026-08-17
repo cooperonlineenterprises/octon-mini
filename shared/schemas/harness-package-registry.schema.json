@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://project-blueprint.local/schemas/harness-package-registry.schema.json",
+  "$id": "https://octon-mini.local/schemas/harness-package-registry.schema.json",
   "title": "Triggered Package Registry",
   "type": "object",
   "additionalProperties": false,

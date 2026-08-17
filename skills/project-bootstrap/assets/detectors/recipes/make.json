@@ -1,1 +1,0 @@
-{"schema_version":"project-blueprint.detector-recipe.v1","id":"make","markers":["Makefile","makefile"],"archetypes":["software","operations","hybrid"],"hooks":[],"dynamic_strategy":"make_targets","limitations":["Only literal test, lint, build, check, and closure target names are proposed; recipe bodies are not interpreted."]}
