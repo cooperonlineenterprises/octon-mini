@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -75,8 +76,11 @@ V1_COLLABORATION = {
 
 
 def run(argv: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
+    command = list(argv)
+    if command and os.name == "nt" and Path(command[0]).name.casefold() == "octon":
+        command = [sys.executable, "-B", command[0], *command[1:]]
     return subprocess.run(
-        argv, cwd=cwd, capture_output=True, text=True, check=False, shell=False
+        command, cwd=cwd, capture_output=True, text=True, check=False, shell=False
     )
 
 

@@ -76,7 +76,7 @@
     {"id": "LEGACY-0051", "path": "skills/octon-mini-project-bootstrap/scripts/plan_adoption.py", "file_sha256": "0ed2962872823815f25c78d3a724b4e2724063f90d533579df1098ab340752c7", "classification": "explicit_legacy_migration_input", "occurrence_count": 1},
     {"id": "LEGACY-0052", "path": "skills/octon-mini-project-bootstrap/scripts/test_migration_1_0_1_to_2_0_0.py", "file_sha256": "d13f3b84f891f1a077ba3229b839ff8785e353c7d4590b99c1af1423cf7548e5", "classification": "closed_historical_fixture", "occurrence_count": 3},
     {"id": "LEGACY-0053", "path": "skills/octon-mini-project-bootstrap/scripts/test_migration_2_0_0_to_3_0_0.py", "file_sha256": "361a450556739205f5fc8eccc8bc46a670c656855c84eabe6b44775c15df6d0a", "classification": "closed_historical_fixture", "occurrence_count": 3},
-    {"id": "LEGACY-0054", "path": "skills/octon-mini-project-bootstrap/scripts/test_migration_3_1_0_to_4_0_0.py", "file_sha256": "b61c1f17b10b0ca558a08c767303b570d0baebc9514086c88a8e11e230dcc96f", "classification": "explicit_legacy_migration_input", "occurrence_count": 28},
+    {"id": "LEGACY-0054", "path": "skills/octon-mini-project-bootstrap/scripts/test_migration_3_1_0_to_4_0_0.py", "file_sha256": "b1d429d183500b6004b886206c5b1662f63d71cfad8104aa790b087e6c7c742d", "classification": "explicit_legacy_migration_input", "occurrence_count": 28},
     {"id": "LEGACY-0055", "path": "skills/octon-mini-project-bootstrap/scripts/upgrade_project.py", "file_sha256": "363c7ce997eabe1178184fb3195c08fcbcdddd546938b7dd9a434d4326768311", "classification": "explicit_legacy_migration_input", "occurrence_count": 24}
   ],
   "limitations": [

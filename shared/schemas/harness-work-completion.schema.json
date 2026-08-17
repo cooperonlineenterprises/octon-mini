@@ -102,11 +102,13 @@
     "path_precondition": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["path", "worktree_state", "worktree_sha256", "index_state", "index_sha256"],
+      "required": ["path", "worktree_state", "worktree_sha256", "git_blob_state", "git_blob_oid", "index_state", "index_sha256"],
       "properties": {
         "path": {"type": "string", "pattern": "^[^/]+(?:/[^/]+)*$"},
         "worktree_state": {"enum": ["file", "absent"]},
         "worktree_sha256": {"type": ["string", "null"], "pattern": "^[a-f0-9]{64}$"},
+        "git_blob_state": {"enum": ["file", "absent"]},
+        "git_blob_oid": {"type": ["string", "null"], "pattern": "^[a-f0-9]{40,64}$"},
         "index_state": {"enum": ["file", "absent"]},
         "index_sha256": {"type": ["string", "null"], "pattern": "^[a-f0-9]{64}$"}
       }

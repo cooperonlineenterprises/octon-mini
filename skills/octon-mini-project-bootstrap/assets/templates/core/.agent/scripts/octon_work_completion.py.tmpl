@@ -383,13 +383,34 @@ def blob_state(root: Path, path: str, *, worktree: bool) -> tuple[str, str | Non
     return "file", hashlib.sha256(result.stdout).hexdigest()
 
 
+def filtered_worktree_blob_state(
+    root: Path, path: str
+) -> tuple[str, str | None]:
+    target = root / path
+    if not target.exists():
+        return "absent", None
+    result = run(
+        root,
+        ["git", "hash-object", f"--path={path}", "--", path],
+    )
+    object_id = text(result)
+    if REVISION.fullmatch(object_id) is None:
+        raise FinishBlocked(f"Git returned a malformed filtered blob identity: {path}")
+    return "file", object_id
+
+
 def path_precondition(root: Path, path: str) -> dict[str, Any]:
     worktree_state, worktree_hash = blob_state(root, path, worktree=True)
     index_state, index_hash = blob_state(root, path, worktree=False)
+    git_blob_state, git_blob_oid = filtered_worktree_blob_state(root, path)
+    if git_blob_state != worktree_state:
+        raise FinishBlocked(f"Git-filtered state differs from the worktree: {path}")
     return {
         "path": path,
         "worktree_state": worktree_state,
         "worktree_sha256": worktree_hash,
+        "git_blob_state": git_blob_state,
+        "git_blob_oid": git_blob_oid,
         "index_state": index_state,
         "index_sha256": index_hash,
     }
@@ -1268,10 +1289,13 @@ def ensure_plan_sources(root: Path, plan: dict[str, Any]) -> None:
 
 
 def revision_blob_state(root: Path, revision_value: str, path: str) -> tuple[str, str | None]:
-    result = run(root, ["git", "show", f"{revision_value}:{path}"], check=False)
+    result = run(root, ["git", "rev-parse", f"{revision_value}:{path}"], check=False)
     if result.returncode:
         return "absent", None
-    return "file", hashlib.sha256(result.stdout).hexdigest()
+    object_id = text(result)
+    if REVISION.fullmatch(object_id) is None:
+        raise FinishBlocked(f"commit contains a malformed blob identity: {path}")
+    return "file", object_id
 
 
 def commit_matches_plan(root: Path, commit: str, plan: dict[str, Any]) -> bool:
@@ -1292,7 +1316,7 @@ def commit_matches_plan(root: Path, commit: str, plan: dict[str, Any]) -> bool:
     ):
         return False
     expected_paths = {
-        item["path"]: (item["worktree_state"], item["worktree_sha256"])
+        item["path"]: (item["git_blob_state"], item["git_blob_oid"])
         for item in plan["path_preconditions"]
     }
     return all(
