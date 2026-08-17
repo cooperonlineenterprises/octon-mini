@@ -594,38 +594,37 @@ def _staged_result(
                 str(plan["canonical_plan_digest"]),
             ),
         )
-        derived: dict[str, tuple[bytes | None, int | None]] = {}
-        for relative in declared:
+        outcomes: dict[str, tuple[bytes | None, int | None]] = {}
+        for relative in (item["path"] for item in plan["targets"]):
             state = path_state(stage, relative)
             if state["type"] == "absent":
-                derived[relative] = (None, None)
+                outcomes[relative] = (None, None)
             elif state["type"] == "file":
-                derived[relative] = (
+                outcomes[relative] = (
                     confined_path(stage, relative).read_bytes(),
                     int(state["mode"]),
                 )
             else:
                 raise TransactionError(
-                    f"declared staged output is not a regular file: {relative} ({state['type']})"
+                    f"staged output is not a regular file: {relative} ({state['type']})"
                 )
-        return derived, results
+        return outcomes, results
 
 
 def _planned_outcomes(
     plan: dict[str, Any],
     decoded: dict[str, bytes | None],
-    derived: dict[str, tuple[bytes | None, int | None]],
+    staged: dict[str, tuple[bytes | None, int | None]],
 ) -> dict[str, tuple[bytes | None, int | None]]:
-    operation_by_path = {item["path"]: item for item in plan["operations"]}
-    outcomes = {
-        relative: (content, operation_by_path[relative]["mode"])
-        for relative, content in decoded.items()
-    }
-    outcomes.update(derived)
     target_paths = {item["path"] for item in plan["targets"]}
-    if set(outcomes) != target_paths:
+    if set(staged) != target_paths:
         raise TransactionError("planned postimages do not match the closed target set")
-    return outcomes
+    for relative, content in decoded.items():
+        if staged[relative][0] != content:
+            raise TransactionError(
+                f"staged static postimage differs from its planned bytes: {relative}"
+            )
+    return staged
 
 
 def _planned_path_state(
@@ -764,8 +763,8 @@ def apply_plan(
         if preview_errors:
             raise TransactionError("operation preview validation failed: " + "; ".join(preview_errors))
 
-    derived, staged_results = _staged_result(root, plan, decoded)
-    outcomes = _planned_outcomes(plan, decoded, derived)
+    staged_outcomes, staged_results = _staged_result(root, plan, decoded)
+    outcomes = _planned_outcomes(plan, decoded, staged_outcomes)
     receipt_paths = _receipt_paths(root, plan, outcomes)
     created_directories = _created_parent_directories(
         root, [item["path"] for item in receipt_paths]
@@ -782,7 +781,8 @@ def apply_plan(
     validation_results = list(staged_results)
     try:
         _apply_static(root, plan, decoded)
-        for relative, (content, mode) in derived.items():
+        for relative in plan["validation"]["declared_write_paths"]:
+            content, mode = outcomes[relative]
             target = confined_path(root, relative)
             if content is None:
                 target.unlink(missing_ok=True)
