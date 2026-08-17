@@ -1658,8 +1658,11 @@ def validate_profile_builds(issues: list[str], scaffolder: Any) -> None:
                         )
                 if not launcher.is_file():
                     continue
+                launcher_command = [str(launcher)]
+                if os.name == "nt":
+                    launcher_command = [sys.executable, "-B", *launcher_command]
                 help_result = subprocess.run(
-                    [str(launcher), "--help"],
+                    [*launcher_command, "--help"],
                     cwd=target,
                     capture_output=True,
                     text=True,
@@ -1671,7 +1674,7 @@ def validate_profile_builds(issues: list[str], scaffolder: Any) -> None:
                     issues.append(f"{profile}/{layout} octon help failed")
                 before = snapshot_files(target)
                 check_result = subprocess.run(
-                    [str(launcher), "check"],
+                    [*launcher_command, "check"],
                     cwd=target,
                     capture_output=True,
                     text=True,
