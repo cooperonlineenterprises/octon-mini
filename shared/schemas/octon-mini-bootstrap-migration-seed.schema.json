@@ -1,0 +1,204 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://octon-mini.local/schemas/octon-mini-bootstrap-migration-seed.schema.json",
+  "title": "Project Blueprint 3.1.0 to Octon Mini 4.0.0 Reviewed Cross-brand Migration Seed",
+  "$defs": {
+    "path_state": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "type", "mode", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "type": {"enum": ["absent", "file", "directory", "symlink", "other"]},
+        "mode": {"type": ["integer", "null"]},
+        "sha256": {"type": ["string", "null"], "pattern": "^[a-f0-9]{64}$"}
+      }
+    },
+    "inspection_path": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "expected_role", "expected_upgrade_policy", "baseline_product", "baseline_version", "current", "required_baseline_confirmation", "review_instruction"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "expected_role": {"enum": ["octon_mini_implementation_asset", "project_owned_authoritative", "review_required_governance", "derived", "provenance"]},
+        "expected_upgrade_policy": {"enum": ["exact_pristine_or_additive", "always_review", "regenerate", "provenance_transaction_only"]},
+        "baseline_product": {"const": "project-blueprint"},
+        "baseline_version": {"const": "3.1.0"},
+        "current": {"$ref": "#/$defs/path_state"},
+        "required_baseline_confirmation": {"enum": ["review_required", "derived", "provenance"]},
+        "review_instruction": {"type": "string", "minLength": 1}
+      }
+    },
+    "inspection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "artifact_kind", "permission_grant", "source_product", "source_version", "target_product", "target_version", "target", "observed_at", "origin_sha256", "project_sha256", "layout_proposal", "paths", "limitations"],
+      "properties": {
+        "schema_version": {"const": "octon-mini.bootstrap.cross-brand-migration-inspection.v1"},
+        "artifact_kind": {"const": "read_only_legacy_inventory_inspection"},
+        "permission_grant": {"const": false},
+        "source_product": {"const": "project-blueprint"},
+        "source_version": {"const": "3.1.0"},
+        "target_product": {"const": "octon-mini"},
+        "target_version": {"const": "4.0.0"},
+        "target": {"type": "string", "minLength": 1},
+        "observed_at": {"type": "string", "format": "date-time"},
+        "origin_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "project_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "layout_proposal": {"const": "separated"},
+        "paths": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/inspection_path"}},
+        "limitations": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+      }
+    },
+    "inventory_path": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "role", "upgrade_policy", "baseline_product", "baseline_version", "baseline_confirmation", "mode", "sha256", "rationale"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "role": {"enum": ["octon_mini_implementation_asset", "project_owned_authoritative", "review_required_governance", "derived", "provenance"]},
+        "upgrade_policy": {"enum": ["exact_pristine_or_additive", "always_review", "regenerate", "provenance_transaction_only"]},
+        "baseline_product": {"const": "project-blueprint"},
+        "baseline_version": {"const": "3.1.0"},
+        "baseline_confirmation": {"enum": ["exact_pristine", "project_modified", "derived", "provenance"]},
+        "mode": {"type": ["integer", "null"]},
+        "sha256": {"type": ["string", "null"], "pattern": "^[a-f0-9]{64}$"},
+        "rationale": {"type": "string", "minLength": 1}
+      }
+    },
+    "review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "permission_grant", "source_product", "source_version", "target_product", "target_version", "reviewed_at", "origin_sha256", "project_sha256", "layout", "authority_source", "evidence_refs", "paths", "limitations"],
+      "properties": {
+        "schema_version": {"const": "octon-mini.bootstrap.cross-brand-migration-review.v1"},
+        "permission_grant": {"const": false},
+        "source_product": {"const": "project-blueprint"},
+        "source_version": {"const": "3.1.0"},
+        "target_product": {"const": "octon-mini"},
+        "target_version": {"const": "4.0.0"},
+        "reviewed_at": {"type": "string", "format": "date-time"},
+        "origin_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "project_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "layout": {"const": "separated"},
+        "authority_source": {"type": "string", "pattern": "^(?:authority|external):.+$"},
+        "evidence_refs": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^EVD-[0-9]{4}$"}},
+        "paths": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/inventory_path"}},
+        "limitations": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+      }
+    },
+    "legacy_generation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["product", "version", "generator_version", "generation_id", "generated_on", "profile", "layout"],
+      "properties": {
+        "product": {"const": "project-blueprint"},
+        "version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+        "generator_version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+        "generation_id": {"type": "string", "pattern": "^[a-f0-9]{32}$"},
+        "generated_on": {"type": "string", "format": "date"},
+        "profile": {"enum": ["minimal", "standard", "high-assurance"]},
+        "layout": {"const": "separated"}
+      }
+    },
+    "converted_legacy_migration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "id", "from_product", "from_version", "to_product", "to_version", "generator_version", "migrated_on", "from_profile", "to_profile", "from_layout", "to_layout", "migration_guide", "authority_source", "evidence_refs", "limitations"],
+      "properties": {
+        "schema_version": {"const": "octon-mini.project.migration.v1"},
+        "id": {"type": "string", "pattern": "^MIG-[0-9]{4}$"},
+        "from_product": {"const": "project-blueprint"},
+        "from_version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+        "to_product": {"const": "project-blueprint"},
+        "to_version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+        "generator_version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+        "migrated_on": {"type": "string", "format": "date"},
+        "from_profile": {"enum": ["minimal", "standard", "high-assurance"]},
+        "to_profile": {"enum": ["minimal", "standard", "high-assurance"]},
+        "from_layout": {"const": "separated"},
+        "to_layout": {"const": "separated"},
+        "migration_guide": {"type": "string", "pattern": "^migrations/[0-9]+\\.[0-9]+\\.[0-9]+-to-[0-9]+\\.[0-9]+\\.[0-9]+\\.md$"},
+        "authority_source": {"type": "string", "pattern": "^(?:authority|external):.+$"},
+        "evidence_refs": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^EVD-[0-9]{4}$"}},
+        "limitations": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+      }
+    },
+    "legacy_inventory_path": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "role", "upgrade_policy", "baseline_product", "baseline_version", "mode", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "role": {"enum": ["octon_mini_implementation_asset", "project_owned_authoritative", "review_required_governance", "derived", "provenance"]},
+        "upgrade_policy": {"enum": ["exact_pristine_or_additive", "always_review", "regenerate", "provenance_transaction_only"]},
+        "baseline_product": {"const": "project-blueprint"},
+        "baseline_version": {"const": "3.1.0"},
+        "mode": {"type": ["integer", "null"]},
+        "sha256": {"type": ["string", "null"], "pattern": "^[a-f0-9]{64}$"}
+      }
+    },
+    "legacy_inventory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "product", "version", "profile", "layout", "captured_on", "profile_manifest_status", "profile_manifest_sha256", "paths"],
+      "properties": {
+        "schema_version": {"const": "octon-mini.bootstrap.legacy-installed-inventory.v1"},
+        "product": {"const": "project-blueprint"},
+        "version": {"const": "3.1.0"},
+        "profile": {"enum": ["minimal", "standard", "high-assurance"]},
+        "layout": {"const": "separated"},
+        "captured_on": {"type": "string", "format": "date"},
+        "profile_manifest_status": {"const": "legacy_unavailable_reviewed"},
+        "profile_manifest_sha256": {"type": "null"},
+        "paths": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/legacy_inventory_path"}}
+      }
+    },
+    "legacy_baseline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "product", "version", "generator_version", "generation_id", "profile", "layout", "generated_on", "project_name", "project_slug", "harness_kernel_version", "authority", "initial_generation", "migration_history", "generated_paths", "installed_inventory"],
+      "properties": {
+        "schema_version": {"const": "octon-mini.bootstrap.legacy-baseline.v1"},
+        "product": {"const": "project-blueprint"},
+        "version": {"const": "3.1.0"},
+        "generator_version": {"const": "3.1.0"},
+        "generation_id": {"type": "string", "pattern": "^[a-f0-9]{32}$"},
+        "profile": {"enum": ["minimal", "standard", "high-assurance"]},
+        "layout": {"const": "separated"},
+        "generated_on": {"type": "string", "format": "date"},
+        "project_name": {"type": "string", "minLength": 1},
+        "project_slug": {"type": "string", "minLength": 1},
+        "harness_kernel_version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+        "authority": {"type": "string", "minLength": 1},
+        "initial_generation": {"$ref": "#/$defs/legacy_generation"},
+        "migration_history": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/converted_legacy_migration"}},
+        "generated_paths": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "installed_inventory": {"$ref": "#/$defs/legacy_inventory"}
+      }
+    },
+    "seed": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "artifact_kind", "permission_grant", "source_product", "source_version", "target_product", "target_version", "target", "created_at", "source_origin_state", "source_project_state", "authority_source", "evidence_refs", "legacy_baseline", "limitations", "canonical_seed_digest"],
+      "properties": {
+        "schema_version": {"const": "octon-mini.bootstrap.cross-brand-migration-seed.v1"},
+        "artifact_kind": {"const": "reviewed_legacy_inventory_seed"},
+        "permission_grant": {"const": false},
+        "source_product": {"const": "project-blueprint"},
+        "source_version": {"const": "3.1.0"},
+        "target_product": {"const": "octon-mini"},
+        "target_version": {"const": "4.0.0"},
+        "target": {"type": "string", "minLength": 1},
+        "created_at": {"type": "string", "format": "date-time"},
+        "source_origin_state": {"$ref": "#/$defs/path_state"},
+        "source_project_state": {"$ref": "#/$defs/path_state"},
+        "authority_source": {"type": "string", "pattern": "^(?:authority|external):.+$"},
+        "evidence_refs": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^EVD-[0-9]{4}$"}},
+        "legacy_baseline": {"$ref": "#/$defs/legacy_baseline"},
+        "limitations": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "canonical_seed_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+      }
+    }
+  }
+}

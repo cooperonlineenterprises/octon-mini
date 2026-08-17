@@ -1,0 +1,62 @@
+{
+  "schema_version": "octon-mini.source.decision-governance-mutation-fixtures.v1",
+  "document_role": "negative_fixture_catalog",
+  "permission_grant": false,
+  "mutations": [
+    {
+      "id": "dashboard-mismatch",
+      "operation": "change the dashboard title without changing its decision sheet",
+      "expected_diagnostic": "dashboard DREG-9001 field title"
+    },
+    {
+      "id": "selected-as-accepted",
+      "operation": "set authority_ref while lifecycle is owner selected — ADR or approval pending",
+      "expected_diagnostic": "non-accepted entry cannot be represented as accepted authority"
+    },
+    {
+      "id": "accepted-without-authority",
+      "operation": "set lifecycle to accepted — authority linked without a resolving accepted DEC-####",
+      "expected_diagnostic": "accepted entry requires a resolving accepted DEC-####"
+    },
+    {
+      "id": "evidence-first-without-stop",
+      "operation": "set evidence-first timing with a null stop condition",
+      "expected_diagnostic": "evidence-first decision requires stop_condition"
+    },
+    {
+      "id": "decision-cycle",
+      "operation": "make a DREG entry depend on itself",
+      "expected_diagnostic": "dependency cycle"
+    },
+    {
+      "id": "unknown-decision-dependency",
+      "operation": "make a DREG entry depend on an absent decision record",
+      "expected_diagnostic": "references unknown dependency DREG-9999"
+    },
+    {
+      "id": "material-unknown-not-evidence-first",
+      "operation": "leave every option behind a material unknown gate while retaining required-now timing",
+      "expected_diagnostic": "the unresolved decision must remain evidence-first"
+    },
+    {
+      "id": "gate-failure-hidden-by-score",
+      "operation": "change a non-negotiable gate to fail while retaining eligible scoring and a total",
+      "expected_diagnostic": "eligibility hides a gate failure"
+    },
+    {
+      "id": "attribute-double-counted",
+      "operation": "replace one controlled attribute name with a duplicate",
+      "expected_diagnostic": "balanced attribute counted twice"
+    },
+    {
+      "id": "missing-review",
+      "operation": "remove the trade-off review for a registered decision",
+      "expected_diagnostic": "every registered decision must be reviewed exactly once"
+    },
+    {
+      "id": "complete-closure-without-evidence",
+      "operation": "mark an evidence-first closure item complete without a resolving evidence reference",
+      "expected_diagnostic": "complete item requires resolvable completion evidence references"
+    }
+  ]
+}

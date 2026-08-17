@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://project-blueprint.local/source-schemas/information-state-semantics.schema.json",
-  "title": "Project Blueprint Information-state Semantic Crosswalk",
+  "$id": "https://octon-mini.local/source-contracts/information-state-semantics.schema.json",
+  "title": "Octon Mini Information-state Semantic Crosswalk",
   "description": "A source semantic crosswalk, not a universal record status vocabulary.",
   "$defs": {
     "role": {
@@ -75,7 +75,7 @@
   ],
   "properties": {
     "schema_version": {
-      "const": "project-blueprint.information-state-semantics.v1"
+      "const": "octon-mini.source.information-state-semantics.v1"
     },
     "document_role": {
       "const": "semantic_crosswalk_not_record_status_vocabulary"

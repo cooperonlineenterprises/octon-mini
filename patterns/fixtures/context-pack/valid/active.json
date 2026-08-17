@@ -1,5 +1,5 @@
 {
-  "schema_version": "project-blueprint.context-pack-manifest.v1",
+  "schema_version": "octon-mini.project.context-pack-manifest.v1",
   "id": "CTXPACK-9001",
   "manifest_version": "1.0.0",
   "status": "active",

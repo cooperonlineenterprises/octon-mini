@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://project-blueprint.local/schemas/dossier-artifact-registry.schema.json",
+  "$id": "https://octon-mini.local/schemas/dossier-artifact-registry.schema.json",
   "title": "Authoritative Project-local Dossier Artifact Registry",
   "description": "Project-owned artifact types and their physical representations. The registry describes information authority and never grants operating permission.",
   "type": "object",

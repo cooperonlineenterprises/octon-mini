@@ -1,8 +1,8 @@
 {
-  "schema_version": "project-blueprint.dossier-artifact-types.v2",
-  "document_role": "blueprint_source_for_project_artifact_registries",
+  "schema_version": "octon-mini.source.dossier-artifact-types.v1",
+  "document_role": "octon_mini_source_for_project_artifact_registries",
   "permission_grant": false,
-  "authority": "Blueprint source for project-local artifact registries; transfers structure only.",
+  "authority": "Octon Mini source for project-local artifact registries; transfers structure only.",
   "artifact_types": [
     {
       "id": "DOS-0001",
@@ -334,7 +334,7 @@
       "owner_role": "dossier_governance_owner",
       "required_inputs": [
         "accepted_dossier_changes",
-        "blueprint_origin",
+        "octon_mini_origin",
         "migration_records"
       ],
       "downstream_consumers": [
@@ -1812,7 +1812,7 @@
       "creation_timing": "Create before changing an established project, dossier, harness, architecture, or major version.",
       "update_triggers": [
         "existing_project_adoption",
-        "blueprint_upgrade",
+        "octon_mini_upgrade",
         "replacement",
         "split_or_merge"
       ],
@@ -2180,7 +2180,7 @@
       ],
       "recommended_formats": [
         "Markdown",
-        "project-blueprint.context-pack-manifest.v1 JSON when applicable"
+        "octon-mini.project.context-pack-manifest.v1 JSON when applicable"
       ],
       "source_of_truth_expectations": "Derived or curated navigation only; packs may narrow context but never replace sources or expand authority.",
       "dependencies": [
@@ -3325,7 +3325,7 @@
       "review_cadence": "during_transition",
       "update_triggers": [
         "existing_project_adoption",
-        "blueprint_upgrade",
+        "octon_mini_upgrade",
         "system_replacement"
       ],
       "sensitivity": "internal",

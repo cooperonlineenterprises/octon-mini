@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://project-blueprint.local/schemas/dossier-records.schema.json",
+  "$id": "https://octon-mini.local/schemas/dossier-records.schema.json",
   "title": "Project Dossier Structured Stores",
   "description": "Strict source contracts for traceability, gates, and supersession. Empty stores remain valid unadopted baselines.",
   "$defs": {
@@ -13,7 +13,7 @@
       "uniqueItems": true,
       "items": {
         "type": "string",
-        "pattern": "^(?:[A-Z][A-Z0-9]*-[0-9]{4}|(?:authority|external|project-blueprint|repo|url):.+)$"
+        "pattern": "^(?:[A-Z][A-Z0-9]*-[0-9]{4}|(?:authority|external|octon-mini|repo|url):.+)$"
       }
     },
     "task_refs": {

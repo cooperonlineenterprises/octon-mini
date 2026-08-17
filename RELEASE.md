@@ -2,10 +2,13 @@
 
 ## Current development version
 
-- Blueprint source and generator: `4.0.0` (unreleased)
+- Product and generator: Octon Mini `4.0.0` (unreleased)
+- Bootstrap capability: Octon Mini Project Bootstrap
+- Bootstrap skill ID: `octon-mini-project-bootstrap`
 - Harness kernel: `4.0.0`
-- Compatibility: major migration with independent snapshots, reviewed
-  three-way upgrades, and no automatic target-project rewrite
+- Compatibility: clean product, command, protocol, provenance, skill, and
+  generated-path break with independent snapshots and reviewed cross-brand
+  migration
 
 Version `4.0.0` implements the source-only velocity program recorded in
 `VELOCITY_ROADMAP.md`. It is not yet a completed release, tag, GitHub Release,
@@ -15,6 +18,17 @@ non-authoritative implementation assets, safe additions, and explicit derived
 regeneration; all authority-bearing or ambiguous paths require reviewed
 dispositions and exact digest acceptance.
 
+Octon Mini 4.0.0 is the breaking successor to Project Blueprint 3.x. `octon`
+is the sole current command; no `pb` compatibility command exists. Upgrade is
+an explicit reviewed Project Blueprint 3.x→Octon Mini 4.0.0 migration. No tag,
+GitHub Release, repository rename, public distribution, or package publication
+has been performed.
+
+Accepted source decision `SRC-DEC-0014` records this owner-directed identity
+and clean-break migration. It creates no external operational authority and
+does not authorize a release, repository rename, publication, or distribution
+action.
+
 Accepted source decision `SRC-DEC-0013` narrowly permits the shared governed
 small-team work-completion exception to the repository-local transaction
 boundary. It creates no delivery authority for this repository or any target
@@ -22,15 +36,16 @@ project. The capability and automatic event hook are generated disabled;
 external apply requires separate exact current task-scoped authorization and
 uses resumable progress evidence rather than an atomic rollback claim.
 
-## Current release
+## Current completed historical release
 
-- Blueprint version: `3.0.0`
+- Product: Project Blueprint `3.0.0`
 - Harness kernel: `3.0.0`
 - Extension API: `harness.extension.v1`
 - Minimum runtime: Python `3.11`
 - Canonical structured format: strict JSON
 
-Version `3.0.0` is the current completed release. Pull request #2 was
+Project Blueprint version `3.0.0` is the current completed historical release.
+Pull request #2 was
 integrated with `merge_commit` at
 `1af3c1f85cd17e2c840857ad720e1a27e874585a` on 2026-08-11. GitHub Actions run
 `31539907441` then passed the complete 12-job matrix on that exact `main`
@@ -67,7 +82,7 @@ later creation date and the 2026-08-10 source milestone; it was not backdated.
 The earlier `c7bbbb6525d1135cd3acb3b64743240f5c00ec50` revision remains excluded
 because its hosted validation failed and two corrective commits followed it.
 
-Version `3.0.0` is released. Its annotated tag targets the exact merge commit
+Project Blueprint version `3.0.0` is released. Its annotated tag targets the exact merge commit
 `1af3c1f85cd17e2c840857ad720e1a27e874585a`, whose post-integration `main`
 validation passed in GitHub Actions run `31539907441`. The tag was created on
 2026-08-11 after that run completed. No GitHub Release was created. Neither
@@ -82,7 +97,7 @@ Before tagging a release:
    when the reference checkouts are available, rerun reference verification
    with an explicit `--reference-root ID=/absolute/path` for each registered
    repository and disclose any unavailable checkout;
-2. run `validate_blueprint.py`;
+2. run `validate_octon_mini.py`;
 3. run `test_migration_1_0_1_to_2_0_0.py`,
    `test_migration_2_0_0_to_3_0_0.py`, and
    `test_migration_3_1_0_to_4_0_0.py`, and confirm valid transformation,
@@ -93,7 +108,7 @@ Before tagging a release:
    `benchmark_validation.py --enforce`; retain the host-specific benchmark
    report and disclose any threshold failure;
 5. install the skill into a fresh temporary destination, run the installed
-   package, blueprint, reference, and acceptance validators from that
+   package, Octon Mini source, reference, and acceptance validators from that
    destination, and generate and check all three profiles in compact and
    separated layouts from the bundled source;
 6. when available, run the skill-creator `quick_validate.py` as a compatibility
@@ -110,7 +125,7 @@ Before tagging a release:
     pass in source and self-contained installed-skill validation; verify
     reciprocal `DREG-####`/accepted `DEC-####` links, evidence-first unknowns,
     closure evidence, stale-register integrity detection, and no-write
-    `./pb check` behavior without refreshing generated outputs;
+    `./octon check` behavior without refreshing generated outputs;
 11. confirm no generated profile contains project facts, collaborator
     identities, hosted settings, secrets, permissions, accepted decisions,
     configured hooks, passing evidence, providers, or readiness claims;
@@ -120,7 +135,7 @@ Before tagging a release:
     ownership mismatches block; every external-action interruption resumes
     without duplication; and integration/synchronization precede cleanup;
 13. confirm setup question generation leaves the target unchanged; catalog,
-    target, instruction, evidence, Blueprint, and session staleness fail
+    target, instruction, evidence, Octon Mini, and session staleness fail
     closed; AI, TTY, and legacy-flag inputs reconcile through stable question
     IDs; init/adopt/upgrade use their existing planners; and work-completion
     setup neither enables missing prerequisites nor creates authorization;
@@ -139,16 +154,17 @@ version.
 
 ## Installation and provenance
 
-`skills/project-bootstrap/scripts/install_skill.py` installs a collision-safe,
+`skills/octon-mini-project-bootstrap/scripts/install_skill.py` installs a
+collision-safe,
 self-contained personal skill snapshot with the required dossier taxonomy,
 schemas, migrations, and release metadata. It smoke-tests that staged copy
 before placement. Installed and generated snapshots record their source version
-but do not track or execute later blueprint changes automatically. Upgrades are
-migrations.
+but do not track or execute later Octon Mini changes automatically. Upgrades
+are migrations.
 
 ## Distribution license decision
 
-No public redistribution license is asserted by this repository blueprint.
+No public redistribution license is asserted by this repository.
 Private/internal use is technically supported, but public distribution must
 pause until the repository owner chooses and adds an appropriate license after
 legal review. This is an explicit owner decision, not a missing technical

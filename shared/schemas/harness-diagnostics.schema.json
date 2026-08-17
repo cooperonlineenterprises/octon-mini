@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://project-blueprint.local/schemas/harness-diagnostics.schema.json",
-  "title": "Read-only Project Blueprint Diagnostic Report",
+  "$id": "https://octon-mini.local/schemas/harness-diagnostics.schema.json",
+  "title": "Read-only Octon Mini Diagnostic Report",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_version", "permission_grant", "read_only", "structural_conformance", "findings", "derived_repair", "limitations"],
@@ -17,7 +17,7 @@
         "additionalProperties": false,
         "required": ["code", "message", "root_cause", "authority_source", "dependent_symptoms", "safe_next_action", "repair_class"],
         "properties": {
-          "code": {"type": "string", "pattern": "^PB-DIAG-[0-9]{4}$"},
+          "code": {"type": "string", "pattern": "^OCTON-DIAG-[0-9]{4}$"},
           "message": {"type": "string", "minLength": 1},
           "root_cause": {"type": "string", "minLength": 1},
           "authority_source": {"type": "string", "minLength": 1},

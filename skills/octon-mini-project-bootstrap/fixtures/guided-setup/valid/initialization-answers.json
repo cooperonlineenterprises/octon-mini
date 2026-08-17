@@ -1,0 +1,60 @@
+{
+  "schema_version": "octon-mini.bootstrap.setup-answers.v1",
+  "permission_grant": false,
+  "session_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+  "answers": [
+    {
+      "question_id": "setup.project-name",
+      "state": "answered",
+      "value": "Domain Neutral Example",
+      "supplied_by": "agent",
+      "evidence": {
+        "source": "user:reviewed-conversation",
+        "observed_at": "2026-08-14T12:00:00Z",
+        "expires_at": null,
+        "confidence": "high",
+        "limitations": ["Initialization input; not accepted project authority."]
+      }
+    },
+    {
+      "question_id": "setup.assurance-profile",
+      "state": "answered",
+      "value": "minimal",
+      "supplied_by": "agent",
+      "evidence": {
+        "source": "user:risk-based-selection",
+        "observed_at": "2026-08-14T12:00:00Z",
+        "expires_at": null,
+        "confidence": "high",
+        "limitations": ["Selected from project risk, independently of team size."]
+      }
+    },
+    {
+      "question_id": "setup.layout",
+      "state": "answered",
+      "value": "compact",
+      "supplied_by": "agent",
+      "evidence": {
+        "source": "user:reviewed-conversation",
+        "observed_at": "2026-08-14T12:00:00Z",
+        "expires_at": null,
+        "confidence": "high",
+        "limitations": ["Representation selection only."]
+      }
+    },
+    {
+      "question_id": "setup.work-finish-mode",
+      "state": "answered",
+      "value": "disabled",
+      "supplied_by": "agent",
+      "evidence": {
+        "source": "user:reviewed-conversation",
+        "observed_at": "2026-08-14T12:00:00Z",
+        "expires_at": null,
+        "confidence": "high",
+        "limitations": ["Creates no runtime authorization."]
+      }
+    }
+  ],
+  "limitations": ["Fixture answers prove only setup contract behavior."]
+}

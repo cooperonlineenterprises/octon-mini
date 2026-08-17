@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://project-blueprint.local/schemas/harness-project-check-evidence.schema.json",
+  "$id": "https://octon-mini.local/schemas/harness-project-check-evidence.schema.json",
   "title": "Project Check Execution Evidence",
   "description": "Append-only evidence created only by the explicit project-check writer. Conformance does not imply permission, approval, certification, or production readiness.",
   "type": "object",

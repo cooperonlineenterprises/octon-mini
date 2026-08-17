@@ -1,8 +1,10 @@
-# Project Blueprint Source Architecture Decisions
+# Octon Mini Source Architecture Decisions
 
-This file records accepted decisions for the `project-blueprint` source
-repository. It is not copied into generated projects, does not grant
-permission, and does not accept a pattern on behalf of any adopting project.
+This file records accepted source decisions for the current `octon-mini`
+repository content. Historical decisions retain the Project Blueprint terms
+under which they were accepted. This file is not copied into generated
+projects, does not grant permission, and does not accept a pattern on behalf
+of any adopting project.
 
 ## SRC-DEC-0003 — Source-only architectural Pattern Catalog
 
@@ -211,6 +213,29 @@ the closed Git and hosted-change operation catalogs. It does not authorize a
 universal action system, deployment or release orchestration, communications,
 production operations, financial or legal effects, provider configuration, or
 enterprise workflow families.
+
+## SRC-DEC-0014 — Octon Mini clean-break product identity
+
+| Field | Accepted decision |
+|---|---|
+| Status | `accepted` |
+| Authority | Explicit repository-owner direction on 2026-08-16 |
+| Scope | Current product, repository content, bootstrap skill, command surface, protocol family, provenance, migrations, and newly generated snapshots |
+| Decision | Rebrand the breaking 4.0.0 successor as Octon Mini, keep the bootstrap capability explicit as Octon Mini Project Bootstrap, and make `octon` the sole current executable |
+| Product boundary | Octon Mini is the lightweight, project-local version of Octon; OctonOS is the full-scale agent operating system and governed control plane |
+| Compatibility boundary | Project Blueprint 3.x upgrades only through an explicit reviewed cross-brand migration; no `pb` alias, wrapper, parser branch, warning shim, symlink, or runtime compatibility mode is retained |
+| Namespace boundary | New product protocols, provenance, schemas, skill metadata, packages, and generated paths use capability-qualified `octon-mini` identities; stable generic harness, dossier, task, decision, evidence, and receipt IDs are preserved |
+| Historical boundary | Historical releases, tags, decisions, closed migrations, and stable `PBV-##` workstream IDs remain truthful and are not rewritten or reallocated |
+| Version continuity | Octon Mini 4.0.0 is unreleased and is the breaking successor to Project Blueprint 3.x; the version does not reset to 1.0.0 |
+| External effect | None; this decision does not authorize a commit, push, pull request, tag, release, package publication, remote rename, or repository rename |
+| `permission_grant` | `false` |
+
+The source-decision IDs remain stable through the product rename. Current
+Octon Mini artifacts may therefore cite `octon-mini:SRC-DEC-0013` while the
+accepted text of `SRC-DEC-0013` remains a truthful historical record of the
+Project Blueprint source decision. The `PBV-##` prefix similarly records the
+historical Project Blueprint Velocity workstream; it is not a current product
+namespace and is not reassigned.
 
 ## Explicitly deferred by these decisions
 

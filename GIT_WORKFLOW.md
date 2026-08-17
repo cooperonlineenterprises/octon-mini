@@ -1,6 +1,6 @@
 # Source Repository Git Workflow Assessment
 
-This document applies only to the `project-blueprint` source repository. It is
+This document applies only to the `octon-mini` source repository. It is
 not copied into generated projects and grants no permission. It records
 accepted source-repository decision `SRC-DEC-0001`; release-history decision
 `SRC-DEC-0002` is recorded in `RELEASE.md`. Neither decision transfers into
@@ -13,7 +13,7 @@ release operation.
 |---|---|
 | Status | `accepted` |
 | Authority | Explicit repository-owner approval on 2026-08-11 |
-| Scope | This `project-blueprint` source repository only |
+| Scope | This source repository only; recorded at acceptance as `project-blueprint` and continued under the `octon-mini` identity by `SRC-DEC-0014` |
 | Declared write-capable human maintainers | 1 |
 | Independent review capacity | 0 (`not_established`) |
 | Base workflow | `solo_hybrid` |
@@ -169,8 +169,8 @@ moving either tag or creating a GitHub Release.
 
 ## Unsupported workflow families
 
-This repository's blueprint does not support GitFlow, merge queues, release
-trains, stacked-PR dependency trains, fork-first internal contribution,
+This repository's source workflow does not support GitFlow, merge queues,
+release trains, stacked-PR dependency trains, fork-first internal contribution,
 multi-level CODEOWNERS approval, multiple mandatory approval stages,
 dedicated release-manager handoffs, organization-wide ruleset orchestration,
 multi-environment promotion pipelines, or enterprise issue/portfolio

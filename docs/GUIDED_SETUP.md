@@ -1,8 +1,8 @@
 # Guided, Resumable Setup
 
-This is the canonical human-readable procedure for installing, adopting, or
-upgrading Project Blueprint through a guided interview. The sole authoritative
-question inventory is
+This is the canonical human-readable procedure for installing, adopting,
+using, or upgrading Octon Mini through a guided interview. The sole
+authoritative question inventory is
 `shared/source-contracts/setup-questions.json`; this document does not duplicate
 or override question definitions.
 
@@ -27,8 +27,8 @@ authorization. `permission_grant` is always `false`.
 An AI agent conducting setup must:
 
 1. Determine the mode from evidence. An empty or new target is initialization;
-   established content without Blueprint provenance is adoption; valid installed
-   provenance is upgrade. Invalid, contradictory, or Blueprint-like state
+   established content without Octon Mini provenance is adoption; valid installed
+   provenance is upgrade. Invalid, contradictory, or Octon Mini-like state
    without valid provenance is ambiguous and stops.
 2. Read all applicable target instructions.
 3. Inspect the target read-only. Do not execute detected hooks, refresh
@@ -62,9 +62,9 @@ approval, and leave acceptance pending until that process completes.
 Each mode exposes the same setup engine:
 
 ```text
-python3 skills/project-bootstrap/scripts/pb.py init setup --target <path>
-python3 skills/project-bootstrap/scripts/pb.py adopt setup --target <path>
-python3 skills/project-bootstrap/scripts/pb.py upgrade setup --target <path>
+./octon init setup --target <path>
+./octon adopt setup --target <path>
+./octon upgrade setup --target <path>
 ```
 
 With no `--output`, the command prints a question batch and writes nothing.
@@ -72,14 +72,14 @@ An explicit `--output` creates one new session outside the target. It refuses
 overwrite:
 
 ```text
-pb init setup --target <path> --output <external-session-01.json>
+./octon init setup --target <path> --output <external-session-01.json>
 ```
 
 A conversational agent writes a strict answer batch bound to the displayed
 session digest, then creates an immutable successor:
 
 ```text
-pb init setup \
+./octon init setup \
   --target <path> \
   --session <external-session-01.json> \
   --answers <answers-01.json> \
@@ -87,13 +87,14 @@ pb init setup \
 ```
 
 `--tty` uses the same catalog and validation rules. `--batch-size` is 1, 2, or
-3. Existing flags remain supported; their mapping to stable question IDs is
-defined once in the shared session engine. A setup-session plan uses:
+3. Current `octon` setup flags remain supported; their mapping to stable
+question IDs is defined once in the shared session engine. A setup-session
+plan uses:
 
 ```text
-pb init plan --target <path> --setup-session <session.json> --output <plan.json>
-pb adopt plan --target <path> --setup-session <session.json> --output <proposal-or-plan.json>
-pb upgrade plan --target <path> --setup-session <session.json> --output <proposal-or-plan.json>
+./octon init plan --target <path> --setup-session <session.json> --output <plan.json>
+./octon adopt plan --target <path> --setup-session <session.json> --output <proposal-or-plan.json>
+./octon upgrade plan --target <path> --setup-session <session.json> --output <proposal-or-plan.json>
 ```
 
 Adoption and upgrade proposal/review artifacts remain separate because they
@@ -103,7 +104,7 @@ After an exact transaction plan exists, record its digest and path in a new
 immutable session successor without changing the target:
 
 ```text
-pb init setup --target <path> \
+./octon init setup --target <path> \
   --session <session.json> \
   --record-plan <plan.json> \
   --output <session-with-plan-reference.json>
@@ -115,7 +116,7 @@ artifacts; recording the reference does not accept or apply the plan.
 ## Answer batch
 
 An answer batch uses
-`project-blueprint.setup-answers.v1`, has `permission_grant: false`, names the
+`octon-mini.bootstrap.setup-answers.v1`, has `permission_grant: false`, names the
 exact `session_digest`, and contains unique question IDs. Each answer records:
 
 - `answered`, `unknown`, `deferred`, or `not_applicable`;
@@ -133,13 +134,13 @@ are rejected.
 
 ## Session model and resume
 
-`project-blueprint.setup-session.v1` records:
+`octon-mini.bootstrap.setup-session.v1` records:
 
 - session identity, sequence, timestamps, status, and predecessor;
 - mode and exact target identity;
 - target revision, dirty-state observation, and content fingerprint;
 - governing-instruction fingerprint;
-- Blueprint source, candidate, and installed versions and provenance;
+- Octon Mini source, candidate, and installed versions and provenance;
 - question-catalog version and digest;
 - explicit selected profile and layout when supplied;
 - question states plus reconciled answered, unknown, deferred, and
@@ -155,7 +156,7 @@ are rejected.
 - limitations and canonical session digest.
 
 Sessions are immutable successors. Resume never overwrites a predecessor.
-Target content/revision, instruction, catalog, Blueprint version/provenance, or
+Target content/revision, instruction, catalog, Octon Mini version/provenance, or
 material evidence changes fail closed. `--reinspect` creates a successor from
 current observations. It preserves explicit unknown, deferred, and
 inapplicable states only when the stable question ID and version are unchanged
@@ -230,7 +231,7 @@ creates standing authorization for later external operations.
 ## Read-only and write boundaries
 
 Question generation and inspection may read target bytes, Git revision/status
-with optional locks disabled, locally configured values, and valid Blueprint
+with optional locks disabled, locally configured values, and valid Octon Mini
 provenance. They do not run candidate commands or contact a hosted provider.
 Fingerprint tests compare the target before and after.
 
@@ -249,15 +250,18 @@ blocks apply.
 
 ## Installation and migration
 
-New Blueprint snapshots include the strict session and answer schemas, but no
+New Octon Mini snapshots include the strict session and answer schemas, but no
 project answers, accepted decisions, workflow adoption, hooks, provider
 settings, branch policy, or authorization. The catalog and engine live in the
-Project Bootstrap skill source.
+Octon Mini Project Bootstrap skill source.
 
-Existing generated projects remain valid without guided setup. They receive
-the new schemas and planner integration only through an explicit Blueprint
-upgrade; an installed skill receives the source engine/catalog only through an
-explicit skill update. Existing CLI flags continue to work. Upgrade preserves
+Existing independent Project Blueprint snapshots may remain as they are
+without guided setup. They receive the new schemas and planner integration only
+through an explicit Octon Mini upgrade; an installed skill receives the source
+engine/catalog only through an explicit skill update. Project Blueprint
+3.x→Octon Mini 4.0 uses the reviewed
+cross-brand migration; legacy flags and identities may be recognized only as
+migration inputs. There is no `pb` compatibility command. Upgrade preserves
 project-owned files and accepted authority. New question definitions appear
 unanswered, and existing answer artifacts are never overwritten or silently
 migrated into authority.

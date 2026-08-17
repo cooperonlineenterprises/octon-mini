@@ -1,5 +1,5 @@
 {
-  "schema_version": "project-blueprint.information-state-semantics.v1",
+  "schema_version": "octon-mini.source.information-state-semantics.v1",
   "document_role": "semantic_crosswalk_not_record_status_vocabulary",
   "permission_grant": false,
   "universal_status_enum": false,

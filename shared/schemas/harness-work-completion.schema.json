@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://project-blueprint.local/schemas/harness-work-completion.schema.json",
+  "$id": "https://octon-mini.local/schemas/harness-work-completion.schema.json",
   "title": "Governed Small-team Work Completion",
   "description": "Disabled-by-default configuration, read-only digest-bound plans, current task-scoped authorization attestations, and resumable non-atomic completion receipts.",
   "$defs": {

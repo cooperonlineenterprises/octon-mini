@@ -1,5 +1,5 @@
 {
-  "schema_version": "project-blueprint.architecture-proof.v1",
+  "schema_version": "octon-mini.source.architecture-proof.v1",
   "id": "PROOF-9001",
   "proof_kind": "spike",
   "status": "completed",

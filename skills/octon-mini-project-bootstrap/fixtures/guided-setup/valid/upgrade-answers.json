@@ -1,0 +1,29 @@
+{
+  "schema_version": "octon-mini.bootstrap.setup-answers.v1",
+  "permission_grant": false,
+  "session_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+  "answers": [
+    {
+      "question_id": "setup.upgrade-authority",
+      "state": "answered",
+      "value": "authority:fixture-upgrade-scope",
+      "supplied_by": "review_artifact",
+      "evidence": {"source": "project-authority:fixture", "observed_at": "2026-08-14T12:00:00Z", "expires_at": null, "confidence": "high", "limitations": ["Fixture reference only."]}
+    },
+    {
+      "question_id": "setup.upgrade-evidence",
+      "state": "answered",
+      "value": ["external:fixture-migration-evidence"],
+      "supplied_by": "review_artifact",
+      "evidence": {"source": "project-evidence:fixture", "observed_at": "2026-08-14T12:00:00Z", "expires_at": null, "confidence": "high", "limitations": ["Fixture reference only."]}
+    },
+    {
+      "question_id": "setup.work-finish-mode",
+      "state": "answered",
+      "value": "disabled",
+      "supplied_by": "agent",
+      "evidence": {"source": "user:reviewed-conversation", "observed_at": "2026-08-14T12:00:00Z", "expires_at": null, "confidence": "high", "limitations": ["Creates no runtime authorization."]}
+    }
+  ],
+  "limitations": ["Fixture answers prove only setup contract behavior."]
+}

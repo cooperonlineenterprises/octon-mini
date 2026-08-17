@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://project-blueprint.local/schemas/harness-assurance-records.schema.json",
+  "$id": "https://octon-mini.local/schemas/harness-assurance-records.schema.json",
   "title": "Conditional High-assurance Harness Stores",
   "description": "Non-authorizing approval evidence, coordination leases, evaluations, and outcome metrics.",
   "$defs": {
@@ -9,7 +9,7 @@
       "uniqueItems": true,
       "items": {
         "type": "string",
-        "pattern": "^(?:[A-Z][A-Z0-9]*-[0-9]{4}|(?:authority|external|project-blueprint|repo|url):.+)$"
+        "pattern": "^(?:[A-Z][A-Z0-9]*-[0-9]{4}|(?:authority|external|octon-mini|repo|url):.+)$"
       }
     },
     "strings": {

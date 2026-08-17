@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://project-blueprint.local/source-schemas/profile-manifest.schema.json",
-  "title": "Project Blueprint Profile and Inventory Manifest",
+  "$id": "https://octon-mini.local/source-schemas/profile-manifest.schema.json",
+  "title": "Octon Mini Profile and Inventory Manifest",
   "description": "Authoritative profile, generated inventory, project-path, package, and acceptance-coverage source. It grants no project authority.",
   "$defs": {
     "profile_id": {
@@ -131,7 +131,7 @@
             "required": ["output_path", "source"],
             "properties": {
               "output_path": {"$ref": "#/$defs/project_path"},
-              "source": {"type": "string", "pattern": "^(?:skill|blueprint):[A-Za-z0-9._/-]+$"}
+              "source": {"type": "string", "pattern": "^(?:skill|octon-mini):[A-Za-z0-9._/-]+$"}
             }
           }
         },
@@ -426,7 +426,7 @@
         },
         "source": {
           "type": "string",
-          "pattern": "^(?:skill|blueprint):[A-Za-z0-9._/-]+$"
+          "pattern": "^(?:skill|octon-mini):[A-Za-z0-9._/-]+$"
         },
         "match": {
           "enum": [
@@ -534,7 +534,7 @@
   ],
   "properties": {
     "schema_version": {
-      "const": "project-blueprint.profile-manifest.v1"
+      "const": "octon-mini.source.profile-manifest.v1"
     },
     "document_role": {
       "const": "authoritative_profile_inventory_acceptance_and_generation_manifest"

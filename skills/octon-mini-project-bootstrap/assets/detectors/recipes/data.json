@@ -1,0 +1,1 @@
+{"schema_version":"octon-mini.bootstrap.detector-recipe.v1","id":"data","markers":["data","datasets","dbt_project.yml","dvc.yaml"],"archetypes":["data","research","hybrid"],"hooks":[],"limitations":["Data-path markers never authorize reading sensitive datasets or running pipelines."]}

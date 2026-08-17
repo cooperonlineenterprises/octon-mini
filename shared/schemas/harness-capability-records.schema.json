@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://project-blueprint.local/schemas/harness-capability-records.schema.json",
+  "$id": "https://octon-mini.local/schemas/harness-capability-records.schema.json",
   "title": "Project Harness Capability Records",
   "description": "Closed contracts for non-authorizing agent modes, workflow state machines, and skill provenance. Schema conformance does not adopt, trust, authorize, or approve a capability.",
   "$defs": {

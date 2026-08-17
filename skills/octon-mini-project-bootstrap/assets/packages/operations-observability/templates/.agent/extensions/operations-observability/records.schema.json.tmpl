@@ -1,0 +1,293 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://octon-mini.local/extensions/operations-observability/records.schema.json",
+  "title": "Operations and Observability Project Records",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "extension_id",
+    "document_role",
+    "permission_grant",
+    "authority_effect",
+    "control_assessments",
+    "records",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {"const": "harness.operations-observability-records.v1"},
+    "extension_id": {"const": "operations-observability"},
+    "document_role": {
+      "enum": [
+        "unadopted_authoritative_store_candidate",
+        "project_maintained_authoritative_store"
+      ]
+    },
+    "permission_grant": {"const": false},
+    "authority_effect": {"const": "restrictions_only"},
+    "control_assessments": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "environment_and_promotion",
+        "deployment_release_and_rollback",
+        "reliability_and_slo",
+        "telemetry_and_logging",
+        "alerting_and_escalation",
+        "incident_response",
+        "backup_restore_and_recovery",
+        "provider_outage",
+        "operational_exercises",
+        "retirement_and_deactivation"
+      ],
+      "properties": {
+        "environment_and_promotion": {"$ref": "#/$defs/assessment"},
+        "deployment_release_and_rollback": {"$ref": "#/$defs/assessment"},
+        "reliability_and_slo": {"$ref": "#/$defs/assessment"},
+        "telemetry_and_logging": {"$ref": "#/$defs/assessment"},
+        "alerting_and_escalation": {"$ref": "#/$defs/assessment"},
+        "incident_response": {"$ref": "#/$defs/assessment"},
+        "backup_restore_and_recovery": {"$ref": "#/$defs/assessment"},
+        "provider_outage": {"$ref": "#/$defs/assessment"},
+        "operational_exercises": {"$ref": "#/$defs/assessment"},
+        "retirement_and_deactivation": {"$ref": "#/$defs/assessment"}
+      }
+    },
+    "records": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/record"}
+    },
+    "limitations": {"$ref": "#/$defs/strings"}
+  },
+  "$defs": {
+    "strings": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "evidence_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^EVD-[0-9]{4}$"}
+    },
+    "internal_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^O(?:ENV|PROM|REL|SLI|SLO|TEL|ALT|IRP|RCV|OUT|EXR|RET|EXC)-[0-9]{4}$"
+      }
+    },
+    "assessment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "owner", "assessed_on", "rationale", "evidence_refs"],
+      "properties": {
+        "status": {"enum": ["not_assessed", "applicable", "not_applicable"]},
+        "owner": {"type": ["string", "null"], "minLength": 1},
+        "assessed_on": {"type": ["string", "null"], "format": "date"},
+        "rationale": {"type": "string", "minLength": 1},
+        "evidence_refs": {"$ref": "#/$defs/evidence_refs"}
+      }
+    },
+    "review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "cadence_days",
+        "last_reviewed_on",
+        "next_review_on"
+      ],
+      "properties": {
+        "status": {"enum": ["not_reviewed", "current", "stale", "not_applicable"]},
+        "cadence_days": {"type": "integer", "minimum": 1, "maximum": 3650},
+        "last_reviewed_on": {"type": ["string", "null"], "format": "date"},
+        "next_review_on": {"type": ["string", "null"], "format": "date"}
+      }
+    },
+    "details": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "classification": {
+          "enum": [
+            "development",
+            "test",
+            "staging",
+            "production",
+            "disaster_recovery",
+            "sandbox",
+            "other"
+          ]
+        },
+        "promotion_role": {"enum": ["source", "intermediate", "destination", "isolated"]},
+        "provider_ref": {"type": ["string", "null"], "pattern": "^(?:provider|external|repo):.+$"},
+        "data_classes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": ["public", "internal", "confidential", "restricted", "regulated", "production"]
+          }
+        },
+        "deployment_interface": {"type": "string", "minLength": 1},
+        "retirement_status": {"enum": ["not_planned", "planned", "in_progress", "retired"]},
+        "from_environment_ref": {"type": "string", "pattern": "^OENV-[0-9]{4}$"},
+        "to_environment_ref": {"type": "string", "pattern": "^OENV-[0-9]{4}$"},
+        "required_gate_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^GATE-[0-9]{4}$"}
+        },
+        "release_owner": {"type": "string", "minLength": 1},
+        "rollback_required": {"type": "boolean"},
+        "stop_conditions": {"$ref": "#/$defs/strings"},
+        "environment_ref": {"type": "string", "pattern": "^OENV-[0-9]{4}$"},
+        "source_revision_or_fingerprint": {"type": "string", "minLength": 1},
+        "promotion_path_ref": {"type": ["string", "null"], "pattern": "^OPROM-[0-9]{4}$"},
+        "rollback_release_ref": {"type": ["string", "null"], "pattern": "^OREL-[0-9]{4}$"},
+        "released_at": {"type": ["string", "null"], "format": "date-time"},
+        "external_effects": {"enum": ["none", "external_reversible", "external_irreversible"]},
+        "service_scope": {"type": "string", "minLength": 1},
+        "measure": {"type": "string", "minLength": 1},
+        "unit": {"type": "string", "minLength": 1},
+        "good_event_definition": {"type": "string", "minLength": 1},
+        "valid_event_definition": {"type": "string", "minLength": 1},
+        "telemetry_ref": {"type": "string", "pattern": "^OTEL-[0-9]{4}$"},
+        "calculation_window": {"type": "string", "minLength": 1},
+        "sli_ref": {"type": "string", "pattern": "^OSLI-[0-9]{4}$"},
+        "target_ratio": {"type": "number", "minimum": 0, "maximum": 1},
+        "measurement_window": {"type": "string", "minLength": 1},
+        "error_budget_policy": {"type": "string", "minLength": 1},
+        "breach_response": {"type": "string", "minLength": 1},
+        "signals": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"enum": ["logs", "metrics", "traces", "audit_events"]}
+        },
+        "coverage_scope": {"type": "string", "minLength": 1},
+        "collection_status": {"enum": ["planned", "implemented", "verified", "not_applicable"]},
+        "retention_policy": {"type": "string", "minLength": 1},
+        "redaction_policy": {"type": "string", "minLength": 1},
+        "condition": {"type": "string", "minLength": 1},
+        "telemetry_refs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^OTEL-[0-9]{4}$"}
+        },
+        "escalation_roles": {"$ref": "#/$defs/strings"},
+        "response_target": {"type": "string", "minLength": 1},
+        "notification_channel_ref": {"type": ["string", "null"], "pattern": "^(?:external|repo):.+$"},
+        "severity_model": {"type": "string", "minLength": 1},
+        "activation_conditions": {"$ref": "#/$defs/strings"},
+        "commander_role": {"type": "string", "minLength": 1},
+        "communication_constraints": {"$ref": "#/$defs/strings"},
+        "evidence_capture": {"type": "string", "minLength": 1},
+        "postincident_review_required": {"type": "boolean"},
+        "recovery_type": {"enum": ["backup", "restore", "failover", "rebuild"]},
+        "protected_scope": {"type": "string", "minLength": 1},
+        "rto_minutes": {"type": ["integer", "null"], "minimum": 0},
+        "rpo_minutes": {"type": ["integer", "null"], "minimum": 0},
+        "backup_method": {"type": ["string", "null"], "minLength": 1},
+        "restore_method": {"type": ["string", "null"], "minLength": 1},
+        "last_exercise_ref": {"type": ["string", "null"], "pattern": "^OEXR-[0-9]{4}$"},
+        "dependency_scope": {"type": "string", "minLength": 1},
+        "detection": {"type": "string", "minLength": 1},
+        "fallback": {"type": "string", "minLength": 1},
+        "decision_owner": {"type": "string", "minLength": 1},
+        "recovery_conditions": {"$ref": "#/$defs/strings"},
+        "exercise_type": {
+          "enum": ["deployment", "rollback", "incident", "backup", "restore", "failover", "provider_outage", "retirement"]
+        },
+        "procedure_refs": {"$ref": "#/$defs/internal_refs"},
+        "performed_at": {"type": "string", "format": "date-time"},
+        "result": {"enum": ["pass", "fail", "mixed"]},
+        "fresh_until": {"type": "string", "format": "date-time"},
+        "target_refs": {"$ref": "#/$defs/internal_refs"},
+        "deactivation_method": {"type": "string", "minLength": 1},
+        "data_disposition": {"type": "string", "minLength": 1},
+        "access_revocation": {"type": "string", "minLength": 1},
+        "evidence_retention": {"type": "string", "minLength": 1},
+        "completed_at": {"type": ["string", "null"], "format": "date-time"},
+        "applies_to_refs": {"$ref": "#/$defs/internal_refs"},
+        "reason": {"type": "string", "minLength": 1},
+        "risk": {"type": "string", "minLength": 1},
+        "accepted_by_role": {"type": "string", "minLength": 1},
+        "authority_ref": {"type": "string", "pattern": "^(?:DEC-[0-9]{4}|authority:.+)$"},
+        "expires_on": {"type": "string", "format": "date"},
+        "exception_status": {"enum": ["proposed", "accepted", "expired", "revoked"]},
+        "compensating_controls": {"$ref": "#/$defs/strings"}
+      }
+    },
+    "record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "status",
+        "owner",
+        "scope",
+        "review",
+        "evidence_refs",
+        "exception_refs",
+        "limitations",
+        "details"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^O(?:ENV|PROM|REL|SLI|SLO|TEL|ALT|IRP|RCV|OUT|EXR|RET|EXC)-[0-9]{4}$"
+        },
+        "kind": {
+          "enum": [
+            "environment",
+            "promotion_path",
+            "release",
+            "sli",
+            "slo",
+            "telemetry",
+            "alert",
+            "incident_response",
+            "recovery",
+            "provider_outage",
+            "exercise",
+            "retirement",
+            "exception"
+          ]
+        },
+        "status": {
+          "enum": [
+            "proposed",
+            "active",
+            "implemented",
+            "verified",
+            "exercised",
+            "deployed",
+            "completed",
+            "failed",
+            "rolled_back",
+            "retiring",
+            "retired",
+            "not_applicable"
+          ]
+        },
+        "owner": {"type": "string", "minLength": 1},
+        "scope": {"type": "string", "minLength": 1},
+        "review": {"$ref": "#/$defs/review"},
+        "evidence_refs": {"$ref": "#/$defs/evidence_refs"},
+        "exception_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^OEXC-[0-9]{4}$"}
+        },
+        "limitations": {"$ref": "#/$defs/strings"},
+        "details": {"$ref": "#/$defs/details"}
+      }
+    }
+  }
+}

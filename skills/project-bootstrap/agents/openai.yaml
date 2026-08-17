@@ -1,4 +1,0 @@
-interface:
-  display_name: "Project Bootstrap"
-  short_description: "Guide governed Blueprint setup and upgrades"
-  default_prompt: "Use $project-bootstrap to inspect this repository read-only, conduct the guided setup interview, and produce a reviewed initialization, adoption, or upgrade plan."

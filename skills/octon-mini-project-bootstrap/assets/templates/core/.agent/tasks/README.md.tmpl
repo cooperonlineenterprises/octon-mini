@@ -1,0 +1,32 @@
+# Task Records
+
+Create a task record for significant, risky, or multi-session work. A task
+records scope and execution status; it does not authorize the work.
+
+Each task identifies authority basis, owner, dependencies, in/out scope,
+acceptance criteria, affected artifacts, side effects, validation, evidence,
+review, rollback, blockers, and next action.
+
+`dependencies` contains only hard `TASK-####` prerequisites. A task may become
+`ready`, resume after `blocked`, or resume after `reopened` only when every
+dependency is `completed`, every referenced gate is `passed` or `waived`, all
+structured blockers are resolved, and reciprocal plan links are consistent.
+Dates record provenance, freshness, expiry, or an external constraint; they do
+not make work ready or choose its sequence.
+
+Run `./octon work resume` and inspect its derived ready frontier before selecting
+planned work. The frontier identifies eligible work but grants no permission.
+When several tasks are eligible, use current operator direction or an accepted
+priority/value/risk decision rather than a date-based inference.
+
+When an adopted project enables governed work completion, `./octon work close`
+may also record an optional `work_completion` contract: exact staging paths,
+commit message, optional PR text and self-review references, plus the shared
+base, declared write scope, worktree owner, handback, partial-result, and
+coordination evidence required by `concurrent_work`. This contract makes a
+later read-only completion plan deterministic. It is not authorization to
+stage, commit, publish, review, integrate, synchronize, or delete anything.
+Older task records without this optional field remain valid; they simply
+cannot be used by `./octon work finish` until explicitly migrated or superseded.
+Reopening a completed task removes its prior completion contract so any later
+closure must record a fresh exact change inventory and commit/review inputs.

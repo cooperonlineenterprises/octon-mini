@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://project-blueprint.local/schemas/harness-git-workflows.schema.json",
+  "$id": "https://octon-mini.local/schemas/harness-git-workflows.schema.json",
   "title": "Provider-neutral Small-team Git Workflows",
   "description": "Closed workflow portfolio for one to five write-capable humans. It is non-authorizing and has no enterprise fallback.",
   "$defs": {
@@ -170,13 +170,13 @@
         "assurance_profiles_share_engine"
       ],
       "properties": {
-        "authority_ref": {"const": "project-blueprint:SRC-DEC-0013"},
-        "engine": {"const": ".agent/scripts/pb_finish.py"},
+        "authority_ref": {"const": "octon-mini:SRC-DEC-0013"},
+        "engine": {"const": ".agent/scripts/octon_work_completion.py"},
         "commands": {
           "const": [
-            "pb work finish plan",
-            "pb work finish apply --accept-digest <digest>",
-            "pb work finish resume"
+            "octon work finish plan",
+            "octon work finish apply --accept-digest <digest>",
+            "octon work finish resume"
           ]
         },
         "automatic_trigger": {"const": "optional_plan_only_project_hook"},

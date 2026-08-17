@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://project-blueprint.local/schemas/harness-record.schema.json",
+  "$id": "https://octon-mini.local/schemas/harness-record.schema.json",
   "title": "Project Harness Records",
   "description": "Strict contracts for operational records. Conformance does not imply authority, approval, or readiness.",
   "$defs": {
@@ -13,7 +13,7 @@
       "uniqueItems": true,
       "items": {
         "type": "string",
-        "pattern": "^(?:[A-Z][A-Z0-9]*-[0-9]{4}|(?:authority|external|project-blueprint|repo|url):.+)$"
+        "pattern": "^(?:[A-Z][A-Z0-9]*-[0-9]{4}|(?:authority|external|octon-mini|repo|url):.+)$"
       }
     },
     "task_refs": {

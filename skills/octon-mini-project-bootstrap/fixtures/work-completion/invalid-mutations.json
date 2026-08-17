@@ -1,0 +1,26 @@
+{
+  "schema_version": "octon-mini.work.completion.mutations.v1",
+  "mutations": [
+    {"id": "permission-grant", "target": "config.permission_grant", "value": true, "expected": "reject"},
+    {"id": "apply-hook", "target": "commands.work_completion_plan.argv", "value": ["python", "-B", ".agent/scripts/octon.py", "work", "finish", "apply"], "expected": "reject"},
+    {"id": "unknown-provider", "target": "config.provider.adapter", "value": "not_assessed", "expected": "reject"},
+    {"id": "unassessed-checks", "target": "config.required_hosted_checks.status", "value": "not_assessed", "expected": "reject"},
+    {"id": "unrelated-dirty-path", "target": "repository.dirty_inventory", "value": "outside-task.txt", "expected": "block"},
+    {"id": "pre-staged-path", "target": "repository.index", "value": "task.txt", "expected": "block"},
+    {"id": "active-git-hook", "target": "repository.git_hooks", "value": "pre-commit", "expected": "block"},
+    {"id": "active-fsmonitor", "target": "repository.core_fsmonitor", "value": true, "expected": "block_before_status"},
+    {"id": "stale-digest", "target": "plan.path_precondition", "value": "changed-after-review", "expected": "block"},
+    {"id": "missing-authority", "target": "apply.authorization", "value": null, "expected": "block"},
+    {"id": "changed-remote-default", "target": "remote.default_revision", "value": "different", "expected": "block"},
+    {"id": "unpublished-direct-history", "target": "local.default_revision", "value": "ahead_of_remote_before_planned_commit", "expected": "block"},
+    {"id": "missing-check", "target": "provider.checks", "value": [], "expected": "block"},
+    {"id": "stale-check", "target": "provider.check_head", "value": "different", "expected": "block"},
+    {"id": "draft-pr", "target": "provider.pull_request.isDraft", "value": true, "expected": "block"},
+    {"id": "conflicted-pr", "target": "provider.pull_request.mergeStateStatus", "value": "DIRTY", "expected": "block"},
+    {"id": "self-approval", "target": "provider.reviews", "value": "author-only", "expected": "block"},
+    {"id": "unsupported-integration", "target": "workflow.integration_method", "value": "unknown", "expected": "block"},
+    {"id": "delete-before-integration", "target": "receipt.revisions.integrated", "value": null, "expected": "block"},
+    {"id": "non-fast-forward-sync", "target": "local.default_branch", "value": "diverged", "expected": "block"},
+    {"id": "worktree-owner-conflict", "target": "concurrent_work.worktree_owner", "value": "different", "expected": "block"}
+  ]
+}

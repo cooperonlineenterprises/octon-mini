@@ -1,0 +1,125 @@
+#!/usr/bin/env python3
+"""Explain structural failures with stable codes and explicit recovery boundaries."""
+
+from __future__ import annotations
+
+import hashlib
+import importlib.util
+import json
+import subprocess
+import sys
+from pathlib import Path
+from typing import Any
+
+
+ROOT = Path(__file__).resolve().parents[2]
+CATALOG_PATH = ROOT / ".agent/diagnostics/diagnostic-catalog.json"
+VALIDATOR_PATH = ROOT / ".agent/scripts/validate.py"
+
+
+def load_validator():
+    spec = importlib.util.spec_from_file_location("octon_validator", VALIDATOR_PATH)
+    if spec is None or spec.loader is None:
+        raise RuntimeError("validator is unavailable")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def canonical_digest(value: object) -> str:
+    payload = json.dumps(value, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
+
+
+def load_catalog() -> dict[str, Any]:
+    value = json.loads(CATALOG_PATH.read_text(encoding="utf-8"))
+    if (
+        not isinstance(value, dict)
+        or value.get("schema_version") != "octon-mini.project.diagnostics.catalog.v1"
+        or value.get("permission_grant") is not False
+    ):
+        raise ValueError("diagnostic catalog is invalid")
+    return value
+
+
+def classify(message: str, catalog: dict[str, Any]) -> dict[str, Any]:
+    fallback = None
+    lowered = message.casefold()
+    for item in catalog["diagnostics"]:
+        if item["code"] == catalog["fallback_code"]:
+            fallback = item
+        if item["match_any"] and any(token.casefold() in lowered for token in item["match_any"]):
+            chosen = item
+            break
+    else:
+        chosen = fallback
+    if chosen is None:
+        raise ValueError("diagnostic catalog has no fallback")
+    return {
+        "code": chosen["code"],
+        "message": message,
+        "root_cause": chosen["root_cause"],
+        "authority_source": chosen["authority_source"],
+        "dependent_symptoms": chosen["dependent_symptoms"],
+        "safe_next_action": chosen["safe_next_action"],
+        "repair_class": chosen["repair_class"],
+    }
+
+
+def build_report() -> dict[str, Any]:
+    validator = load_validator()
+    catalog = load_catalog()
+    try:
+        messages = validator.check(ROOT)
+    except Exception as error:
+        messages = [f"validator could not complete: {error}"]
+    findings = [classify(str(message), catalog) for message in messages]
+    pending_root = ROOT / ".agent/transactions/pending"
+    for path in sorted(pending_root.glob("*.json")) if pending_root.is_dir() else []:
+        findings.append(
+            classify(
+                "pending transaction write-ahead journal: "
+                + path.relative_to(ROOT).as_posix(),
+                catalog,
+            )
+        )
+    derived_repair = None
+    if findings and all(item["repair_class"] == "derived_only" for item in findings):
+        proposal = {
+            "operation": "refresh_derived_outputs",
+            "argv": ["python", "-B", ".agent/scripts/refresh.py", "--refresh"],
+            "source_fingerprint": validator.source_fingerprint(ROOT),
+            "requires_explicit_acceptance": True,
+        }
+        proposal["canonical_digest"] = canonical_digest(proposal)
+        derived_repair = proposal
+    return {
+        "schema_version": "harness.diagnostic-report.v1",
+        "permission_grant": False,
+        "read_only": True,
+        "structural_conformance": "pass" if not findings else "fail",
+        "findings": findings,
+        "derived_repair": derived_repair,
+        "limitations": [
+            "Diagnostics explain structural findings; they do not establish harness adoption or project readiness.",
+            "No project facts, decisions, approvals, evidence, or authority are inferred.",
+        ],
+    }
+
+
+def repair_derived(accepted_digest: str) -> int:
+    report = build_report()
+    proposal = report["derived_repair"]
+    if proposal is None:
+        print("[FAIL] current findings are not exclusively derived-only", file=sys.stderr)
+        return 2
+    if accepted_digest != proposal["canonical_digest"]:
+        print("[FAIL] repair requires the exact current proposal digest", file=sys.stderr)
+        return 2
+    result = subprocess.run(
+        [sys.executable, "-B", ".agent/scripts/refresh.py", "--refresh"],
+        cwd=ROOT,
+        check=False,
+        shell=False,
+    )
+    return result.returncode

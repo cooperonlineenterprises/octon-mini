@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://octon-mini.local/extensions/operations-observability/config.schema.json",
+  "title": "Operations and Observability Extension Configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "extension_id",
+    "adoption",
+    "records_path",
+    "records_schema_path",
+    "evidence_sources",
+    "validator_behavior",
+    "permission_grant",
+    "authority_effect"
+  ],
+  "properties": {
+    "schema_version": {"const": "harness.operations-observability-config.v1"},
+    "extension_id": {"const": "operations-observability"},
+    "adoption": {"$ref": "#/$defs/adoption"},
+    "records_path": {"const": ".agent/extensions/operations-observability/records.json"},
+    "records_schema_path": {"const": ".agent/extensions/operations-observability/records.schema.json"},
+    "evidence_sources": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["harness_directory", "dossier_index"],
+      "properties": {
+        "harness_directory": {"const": ".agent/evidence"},
+        "dossier_index": {"const": "project-dossier/machine-readable/evidence-index.json"}
+      }
+    },
+    "validator_behavior": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "unknown_safety_values",
+        "external_actions",
+        "filesystem_writes",
+        "network_access",
+        "time_basis"
+      ],
+      "properties": {
+        "unknown_safety_values": {"const": "fail_closed"},
+        "external_actions": {"const": "never"},
+        "filesystem_writes": {"const": "prohibited"},
+        "network_access": {"const": "denied"},
+        "time_basis": {"const": "system_utc_for_freshness_only"}
+      }
+    },
+    "permission_grant": {"const": false},
+    "authority_effect": {"const": "restrictions_only"}
+  },
+  "$defs": {
+    "adoption": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "owner", "assessed_on", "decision_ref", "rationale"],
+      "properties": {
+        "status": {"enum": ["not_assessed", "adopted", "not_applicable"]},
+        "owner": {"type": ["string", "null"], "minLength": 1},
+        "assessed_on": {"type": ["string", "null"], "format": "date"},
+        "decision_ref": {"type": ["string", "null"], "pattern": "^DEC-[0-9]{4}$"},
+        "rationale": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}

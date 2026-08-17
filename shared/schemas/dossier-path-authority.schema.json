@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://project-blueprint.local/schemas/dossier-path-authority.schema.json",
+  "$id": "https://octon-mini.local/schemas/dossier-path-authority.schema.json",
   "title": "Generated Project Dossier Path Authority",
   "description": "Generated physical-path classification derived from the project-local artifact registry. This file never grants permission.",
   "type": "object",

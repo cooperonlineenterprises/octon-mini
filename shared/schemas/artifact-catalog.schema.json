@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://project-blueprint.local/schemas/artifact-catalog.schema.json",
+  "$id": "https://octon-mini.local/schemas/artifact-catalog.schema.json",
   "title": "Generated Project Dossier Artifact Catalog",
   "description": "Non-authoritative normalized mirror of the project-local artifact registry.",
   "type": "object",

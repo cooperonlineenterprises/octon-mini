@@ -1,5 +1,5 @@
 {
-  "schema_version": "project-blueprint.hook-detector-protocol.v1",
+  "schema_version": "octon-mini.bootstrap.hook-detector-protocol.v1",
   "document_role": "authoritative_non_authorizing_detector_protocol",
   "permission_grant": false,
   "kernel_responsibilities": [

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://project-blueprint.local/schemas/harness-extension-registry.schema.json",
+  "$id": "https://octon-mini.local/schemas/harness-extension-registry.schema.json",
   "title": "Project Harness Extension Registry",
   "description": "Strict registry contract for restrictions-only project extensions.",
   "type": "object",

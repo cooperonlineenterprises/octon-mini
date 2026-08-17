@@ -1,0 +1,1 @@
+{"schema_version":"octon-mini.bootstrap.detector-recipe.v1","id":"document","markers":["docs","documents","manuscript"],"archetypes":["non_software","document"],"hooks":[],"limitations":["Directory names are weak archetype evidence and propose no executable hook."]}

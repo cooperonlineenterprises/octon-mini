@@ -1,0 +1,106 @@
+{
+  "schema_version": "harness.project.v5",
+  "project": {
+    "id": "{{PROJECT_SLUG}}",
+    "name": {{PROJECT_NAME_JSON}},
+    "repository_root": ".",
+    "profile": "{{PROFILE}}",
+    "octon_mini_version": "{{OCTON_MINI_VERSION}}",
+    "adoption_status": "not_assessed",
+    "adoption_decision_ref": null
+  },
+  "collaboration_profile": {
+    "schema_version": "harness.collaboration-profile.v2",
+    "permission_grant": false,
+    "assessment_status": "not_assessed",
+    "facts": {
+      "writer_count": {"value": null, "evidence": null},
+      "solo_integration_preference": {"value": null, "evidence": null},
+      "independent_review_capacity": {"value": null, "evidence": null},
+      "concurrency": {"human_writers": null, "agents_or_automation": null, "evidence": null},
+      "external_contribution_mode": {"value": null, "evidence": null}
+    },
+    "conflicting_signals": [],
+    "team_band": "unknown",
+    "concurrent_work": false,
+    "workflow_selection": {
+      "status": "not_assessed",
+      "base_workflow": null,
+      "modifiers": [],
+      "review_mode": "not_assessed",
+      "integration_method": null,
+      "adoption_decision_ref": null,
+      "used_fact_ids": []
+    },
+    "limitations": ["generated_unassessed_baseline"]
+  },
+  "paths": {
+    "source": [],
+    "tests": [],
+    "generated": [".agent/generated"],
+    "instruction_roots": ["AGENTS.md"],
+    "fingerprint_exclusions": []
+  },
+  "commands": {
+    "project_test": {"status": "not_assessed", "owner": null, "rationale": null, "tool_name": null, "argv": null, "version_argv": null, "timeout_seconds": null, "evidence_freshness_days": null, "side_effects": {"classification": "not_assessed", "repository_write_paths": [], "external_effects": []}},
+    "project_lint": {"status": "not_assessed", "owner": null, "rationale": null, "tool_name": null, "argv": null, "version_argv": null, "timeout_seconds": null, "evidence_freshness_days": null, "side_effects": {"classification": "not_assessed", "repository_write_paths": [], "external_effects": []}},
+    "project_build": {"status": "not_assessed", "owner": null, "rationale": null, "tool_name": null, "argv": null, "version_argv": null, "timeout_seconds": null, "evidence_freshness_days": null, "side_effects": {"classification": "not_assessed", "repository_write_paths": [], "external_effects": []}},
+    "project_closure": {"status": "not_assessed", "owner": null, "rationale": null, "tool_name": null, "argv": null, "version_argv": null, "timeout_seconds": null, "evidence_freshness_days": null, "side_effects": {"classification": "not_assessed", "repository_write_paths": [], "external_effects": []}},
+    "work_completion_plan": {"status": "not_assessed", "owner": null, "rationale": null, "tool_name": null, "argv": null, "version_argv": null, "timeout_seconds": null, "evidence_freshness_days": null, "side_effects": {"classification": "not_assessed", "repository_write_paths": [], "external_effects": []}}
+  },
+  "project_checks": {
+    "evidence_schema": ".agent/schemas/harness-project-check-evidence.schema.json",
+    "evidence_store": ".agent/project-checks/evidence.json",
+    "evidence_archive": ".agent/project-checks/archive",
+    "writer_argv": ["python", "-B", ".agent/scripts/run_project_checks.py", "--write-evidence"],
+    "adoption_verification_argv": ["python", "-B", ".agent/scripts/run_project_checks.py", "--write-evidence", "--verify-adoption"],
+    "execution": "explicit_writer_only_with_selective_hooks_and_full_adoption_verification",
+    "shell_interpretation": false
+  },
+  "work_completion": {
+    "schema_version": "harness.work-completion-config.v1",
+    "status": "disabled",
+    "permission_grant": false,
+    "completion_hook": {
+      "mode": "disabled",
+      "command_hook_ref": "work_completion_plan",
+      "external_or_destructive_actions": false
+    },
+    "repository": {
+      "identity": null,
+      "remote": null,
+      "default_branch": null
+    },
+    "git_hooks": "not_assessed",
+    "provider": {
+      "adapter": "not_assessed",
+      "hosted_repository": null,
+      "configuration_is_authority": false
+    },
+    "eligible_peer_reviewers": [],
+    "solo_hybrid_pull_request": "not_assessed",
+    "required_hosted_checks": {
+      "status": "not_assessed",
+      "names": []
+    },
+    "validation_hooks": [],
+    "cleanup": {
+      "remote_task_branch": "not_assessed",
+      "local_task_branch": "not_assessed"
+    },
+    "assurance_control_refs": [],
+    "authorization_model": "runtime_task_scoped_attestation_bound_to_reviewed_plan",
+    "limitations": [
+      "Generated work completion is disabled and creates no provider setting or operation authority."
+    ]
+  },
+  "packages": {
+    "trigger_assessments": {
+      "operations_observability": "not_assessed",
+      "security_supply_chain": "not_assessed"
+    },
+    "registry": ".agent/packages.json",
+    "absence_means_not_applicable": false
+  },
+  "mutable_work_status": "prohibited_here"
+}

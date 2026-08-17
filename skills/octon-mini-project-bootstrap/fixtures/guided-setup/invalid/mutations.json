@@ -1,0 +1,24 @@
+{
+  "schema_version": "octon-mini.bootstrap.setup-mutations.v1",
+  "permission_grant": false,
+  "mutations": [
+    {"id": "duplicate-question-id", "operation": "duplicate one answer entry", "expected_diagnostic": "duplicate answer question ID"},
+    {"id": "missing-question-id", "operation": "remove question_id from an answer entry", "expected_diagnostic": "closed contract"},
+    {"id": "unknown-question-id", "operation": "replace an answer ID with an unallocated ID", "expected_diagnostic": "unknown setup question ID"},
+    {"id": "stale-session-digest", "operation": "replace the bound session digest", "expected_diagnostic": "stale session digest"},
+    {"id": "invalid-enum", "operation": "replace the assurance profile with an unknown enum", "expected_diagnostic": "value does not match answer type enum"},
+    {"id": "invalid-answer-type", "operation": "replace the assurance profile string with an integer", "expected_diagnostic": "value does not match answer type enum"},
+    {"id": "premature-dependency", "operation": "answer layout before assurance profile", "expected_diagnostic": "dependencies or trigger conditions are not yet satisfied"},
+    {"id": "selection-laundered-as-authority", "operation": "use a plain string as an accepted authority reference", "expected_diagnostic": "accepted authority references must start"},
+    {"id": "runtime-authorization", "operation": "answer the forbidden runtime authorization question", "expected_diagnostic": "runtime authorization is forbidden"},
+    {"id": "secret-material", "operation": "place a token-shaped secret in a setup answer", "expected_diagnostic": "appears to contain secret material"},
+    {"id": "missing-freshness-expiry", "operation": "answer collaboration evidence without expiry", "expected_diagnostic": "requires an explicit expiry"},
+    {"id": "automatic-apply-choice", "operation": "invent an automatic apply work-completion choice", "expected_diagnostic": "value does not match answer type enum"},
+    {"id": "catalog-duplicate-id", "operation": "duplicate a canonical catalog question ID", "expected_diagnostic": "duplicate or malformed setup question ID"},
+    {"id": "catalog-cycle", "operation": "make a question depend on a later question", "expected_diagnostic": "dependency order is circular or forward-referencing"},
+    {"id": "changed-catalog-digest", "operation": "bind a session to changed catalog definitions", "expected_diagnostic": "catalog definitions changed"},
+    {"id": "changed-target", "operation": "change a target file after session creation", "expected_diagnostic": "target content fingerprint"},
+    {"id": "changed-instructions", "operation": "change AGENTS.md after session creation", "expected_diagnostic": "governing instruction fingerprint"}
+  ],
+  "limitations": ["Each mutation must fail for its expected reason; this catalog grants no permission."]
+}

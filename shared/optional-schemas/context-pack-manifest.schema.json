@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://project-blueprint.local/optional-schemas/context-pack-manifest.schema.json",
-  "title": "Project Blueprint Optional Context Pack Manifest",
+  "$id": "https://octon-mini.local/optional-schemas/context-pack-manifest.schema.json",
+  "title": "Octon Mini Optional Context Pack Manifest",
   "description": "High-Assurance optional contract for a bounded context pack. Schema conformance does not grant permission, enforce provider deletion, or establish readiness.",
   "$defs": {
     "strings": {
@@ -108,7 +108,7 @@
   ],
   "properties": {
     "schema_version": {
-      "const": "project-blueprint.context-pack-manifest.v1"
+      "const": "octon-mini.project.context-pack-manifest.v1"
     },
     "id": {
       "type": "string",

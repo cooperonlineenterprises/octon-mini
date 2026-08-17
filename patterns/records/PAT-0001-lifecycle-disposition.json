@@ -1,5 +1,5 @@
 {
-  "schema_version": "project-blueprint.pattern-record.v1",
+  "schema_version": "octon-mini.source.pattern-record.v1",
   "id": "PAT-0001",
   "slug": "lifecycle-disposition",
   "title": "Owned lifecycle, disposition, and no-orphan residue",
@@ -48,7 +48,7 @@
     "Prove cleanup preserves referenced evidence and sensitive-data minimization."
   ],
   "known_implementations": [
-    "Project Blueprint task cancellation, artifact retention, coordination handback, and operations retirement are partial specialized realizations."
+    "Octon Mini task cancellation, artifact retention, coordination handback, and operations retirement are partial specialized realizations."
   ],
   "evidence": [
     {
@@ -65,7 +65,7 @@
   ],
   "contrary_evidence": [],
   "compatibility": {
-    "minimum_blueprint_version": "3.1.0",
+    "minimum_octon_mini_version": "4.0.0",
     "kernel_effect": "none",
     "generated_project_effect": "none_until_separately_adopted",
     "breaking_change": false,
