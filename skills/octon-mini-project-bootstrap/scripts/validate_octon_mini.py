@@ -1322,8 +1322,17 @@ def validate_executable_contracts(issues: list[str]) -> None:
     elif not os.access(source_launcher, os.X_OK):
         issues.append("source root octon launcher must be executable")
     else:
+        source_command = (
+            [str(source_launcher)]
+            if os.name != "nt"
+            else [
+                sys.executable,
+                "-B",
+                str(SKILL_ROOT / "scripts/octon.py"),
+            ]
+        )
         help_result = subprocess.run(
-            [str(source_launcher), "--help"],
+            [*source_command, "--help"],
             cwd=ROOT,
             capture_output=True,
             text=True,
@@ -1336,7 +1345,7 @@ def validate_executable_contracts(issues: list[str]) -> None:
         if re.search(r"(?<![A-Za-z0-9_])p" + r"b(?![A-Za-z0-9_])", help_result.stdout):
             issues.append("source octon help exposes the removed legacy command")
         local_result = subprocess.run(
-            [str(source_launcher), "check"],
+            [*source_command, "check"],
             cwd=ROOT,
             capture_output=True,
             text=True,
