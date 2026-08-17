@@ -60,10 +60,20 @@ def write_json(path: Path, value: object) -> None:
 
 
 def run(argv: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
-    result = subprocess.run(argv, cwd=cwd, capture_output=True, text=True, check=False, shell=False)
+    command = list(argv)
+    if command and os.name == "nt" and Path(command[0]).name.casefold() == "octon":
+        command = [sys.executable, "-B", command[0], *command[1:]]
+    result = subprocess.run(
+        command,
+        cwd=cwd,
+        capture_output=True,
+        text=True,
+        check=False,
+        shell=False,
+    )
     if result.returncode:
         detail = result.stderr.strip() or result.stdout.strip()
-        raise InitError(f"command failed ({' '.join(argv[:3])}): {detail[:1000]}")
+        raise InitError(f"command failed ({' '.join(command[:3])}): {detail[:1000]}")
     return result
 
 
