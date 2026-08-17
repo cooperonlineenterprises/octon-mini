@@ -120,6 +120,30 @@ Strict JSON and Python 3.11+ keep the generated kernel portable and
 duplicate-key rejecting. Extensions may add formats only with a pinned parser
 and validated adapter.
 
+## Command entry across platforms
+
+The source checkout, installed source bundle, and generated project each expose
+one extensionless Python launcher named `octon`. A given source or generated
+command uses the same arguments on every supported platform:
+
+```text
+# Source checkout or installed source bundle: Unix/macOS, then Windows
+./octon detect
+python -B octon detect
+
+# Generated project: Unix/macOS, then Windows
+./octon check
+python -B octon check
+# Or, with the Python launcher for Windows:
+py -3 -B octon check
+```
+
+The examples below use the Unix/macOS form. On Windows, replace only the
+`./octon` prefix with `python -B octon` or `py -3 -B octon`. Source and generated
+command inventories remain context-specific. The launchers keep bytecode
+disabled, resolve the correct dispatcher, and do not introduce a second command
+identity.
+
 ## New project
 
 An AI agent or TTY can first run the shared setup interview. Question
@@ -323,30 +347,45 @@ readiness.
 ## Validate, benchmark, and install
 
 ```text
-python3 skills/octon-mini-project-bootstrap/scripts/validate_skill_package.py
-python3 skills/octon-mini-project-bootstrap/scripts/verify_reference_evidence.py
-python3 skills/octon-mini-project-bootstrap/scripts/validate_source_contracts.py
-python3 skills/octon-mini-project-bootstrap/scripts/test_architectural_patterns.py
+python3 -B skills/octon-mini-project-bootstrap/scripts/validate_skill_package.py
+python3 -B skills/octon-mini-project-bootstrap/scripts/verify_reference_evidence.py
+python3 -B skills/octon-mini-project-bootstrap/scripts/validate_source_contracts.py
+python3 -B skills/octon-mini-project-bootstrap/scripts/test_architectural_patterns.py
+python3 -B skills/octon-mini-project-bootstrap/scripts/test_benchmark_validation.py
+python3 -B skills/octon-mini-project-bootstrap/scripts/test_octon_launchers.py
 python3 -B skills/octon-mini-project-bootstrap/scripts/test_migration_1_0_1_to_2_0_0.py
 python3 -B skills/octon-mini-project-bootstrap/scripts/test_migration_2_0_0_to_3_0_0.py
 python3 -B skills/octon-mini-project-bootstrap/scripts/test_migration_3_1_0_to_4_0_0.py
 python3 -B skills/octon-mini-project-bootstrap/scripts/test_velocity_workflows.py
-python3 skills/octon-mini-project-bootstrap/scripts/validate_octon_mini.py
-python3 skills/octon-mini-project-bootstrap/scripts/test_acceptance.py
-python3 skills/octon-mini-project-bootstrap/scripts/benchmark_validation.py --enforce
+python3 -B skills/octon-mini-project-bootstrap/scripts/validate_octon_mini.py
+python3 -B skills/octon-mini-project-bootstrap/scripts/test_acceptance.py
+python3 -B skills/octon-mini-project-bootstrap/scripts/benchmark_validation.py --enforce
 ```
 
 The skill installer is collision-safe, bundles an independent source snapshot,
 and validates it before placement:
 
 ```text
-python3 skills/octon-mini-project-bootstrap/scripts/install_skill.py --dry-run
+python3 -B skills/octon-mini-project-bootstrap/scripts/install_skill.py --dry-run
 ```
 
 When `SKILL.md` or `agents/openai.yaml` changes, also run the installed
 skill-creator `quick_validate.py`. See `RELEASE.md`, `CHANGELOG.md`,
 `docs/GOLDEN_PATHS.md`, and `VELOCITY_VALIDATION.md` for verified details and
 limitations.
+
+## License
+
+The public `cooperonlineenterprises/octon-mini` source repository is licensed
+under the [MIT No Attribution license](LICENSE), SPDX identifier `MIT-0`, with
+`Copyright 2026 Cooper Online Enterprises`. This permits use, modification, and
+redistribution without an attribution-carrying condition. Public visibility and
+licensed source reuse do not make Octon Mini 4.0.0 a completed release.
+
+An installed Octon Mini Project Bootstrap source bundle includes the repository
+license. Generated target projects do not receive this `LICENSE` file and do not
+silently acquire a project-wide licensing decision. Each target project retains
+authority over its own overall license.
 
 ## Claim boundary
 

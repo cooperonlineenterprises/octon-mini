@@ -768,6 +768,7 @@ def assess_high_assurance_triggers_not_applicable(test_root: Path) -> None:
 
 
 class HarnessValidatorTests(unittest.TestCase):
+    @FULL_TREE_ONLY
     def test_work_lifecycle_plan_apply_close_resume_and_rollback(self) -> None:
         temporary, test_root = clone()
         try:
@@ -1489,6 +1490,29 @@ class HarnessValidatorTests(unittest.TestCase):
                 for item in workflows["workflows"].values()
             )
         )
+
+    @FULL_TREE_ONLY
+    def test_git_portfolio_identity_is_exact_even_when_not_installed(self) -> None:
+        temporary, test_root = clone()
+        try:
+            path = test_root / ".agent/scm.json"
+            baseline = VALIDATOR.load_json(path)
+            for field, replacement, expected in (
+                ("version", "9.9.9", "portfolio version differs"),
+                ("sha256", "0" * 64, "portfolio digest differs"),
+            ):
+                with self.subTest(field=field):
+                    scm = copy.deepcopy(baseline)
+                    self.assertEqual(scm["portfolio"]["status"], "not_installed")
+                    scm["portfolio"][field] = replacement
+                    write_json(path, scm)
+                    findings = VALIDATOR.check_git_workflows(test_root)
+                    self.assertTrue(
+                        any(expected in item for item in findings),
+                        findings,
+                    )
+        finally:
+            temporary.cleanup()
 
     def test_unsafe_git_and_enterprise_workflow_mutations_fail_closed(self) -> None:
         if not (ROOT / ".agent/workflows/small-team-git.json").exists():
@@ -2239,6 +2263,7 @@ class HarnessValidatorTests(unittest.TestCase):
         finally:
             temporary.cleanup()
 
+    @FULL_TREE_ONLY
     def test_explicit_adoption_verification_refreshes_integrity_then_checks(self) -> None:
         temporary, test_root = clone()
         try:

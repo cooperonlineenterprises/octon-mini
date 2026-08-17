@@ -54,6 +54,7 @@ REQUIRED_PATHS = (
     "ARCHITECTURAL_PATTERN_INTEGRATION_REVIEW.md",
     "CHANGELOG.md",
     "GIT_WORKFLOW.md",
+    "LICENSE",
     "README.md",
     "RELEASE.md",
     "VERSION",
@@ -111,6 +112,7 @@ REQUIRED_PATHS = (
     "shared/source-contracts/setup-questions.schema.json",
     "shared/source-contracts/legacy-reference-allowlist.json",
     "shared/source-contracts/legacy-reference-allowlist.schema.json",
+    "shared/source-contracts/validation-benchmark-report.schema.json",
     "shared/source-contracts/profile-manifest.json",
     "shared/source-contracts/profile-manifest.schema.json",
     "shared/schemas/artifact-catalog.schema.json",
@@ -164,12 +166,14 @@ REQUIRED_PATHS = (
     "skills/octon-mini-project-bootstrap/scripts/setup_session.py",
     "skills/octon-mini-project-bootstrap/scripts/test_acceptance.py",
     "skills/octon-mini-project-bootstrap/scripts/test_architectural_patterns.py",
+    "skills/octon-mini-project-bootstrap/scripts/test_benchmark_validation.py",
     "skills/octon-mini-project-bootstrap/scripts/test_migration_1_0_1_to_2_0_0.py",
     "skills/octon-mini-project-bootstrap/scripts/test_migration_2_0_0_to_3_0_0.py",
     "skills/octon-mini-project-bootstrap/scripts/test_migration_3_1_0_to_4_0_0.py",
     "skills/octon-mini-project-bootstrap/scripts/test_velocity_workflows.py",
     "skills/octon-mini-project-bootstrap/scripts/test_work_completion.py",
     "skills/octon-mini-project-bootstrap/scripts/test_guided_setup.py",
+    "skills/octon-mini-project-bootstrap/scripts/test_octon_launchers.py",
     "skills/octon-mini-project-bootstrap/scripts/upgrade_project.py",
     "skills/octon-mini-project-bootstrap/scripts/validate_octon_mini.py",
     "skills/octon-mini-project-bootstrap/scripts/validate_source_contracts.py",
@@ -532,12 +536,21 @@ def validate_config_and_schemas(issues: list[str], scaffolder: Any) -> None:
         issues.append("octon-mini.json must require an empty new-project target")
     if config.get("minimum_python") != "3.11":
         issues.append("octon-mini.json Python minimum must be 3.11")
-    if config.get("schema_version") != "octon-mini.source.repository.v1":
-        issues.append("octon-mini.json schema version must be octon-mini.source.repository.v1")
+    if config.get("schema_version") != "octon-mini.source.repository.v2":
+        issues.append("octon-mini.json schema version must be octon-mini.source.repository.v2")
     if config.get("product") != "octon-mini" or config.get("display_name") != "Octon Mini":
         issues.append("octon-mini.json product identity differs")
     if config.get("octon_mini_version_source") != "VERSION":
         issues.append("octon-mini.json version source differs")
+    if config.get("license") != {
+        "spdx": "MIT-0",
+        "file": "LICENSE",
+        "copyright": "Copyright 2026 Cooper Online Enterprises",
+        "installed_source_bundle_includes_license": True,
+        "generated_project_includes_license": False,
+        "generated_project_license_requires_project_owned_decision": True,
+    }:
+        issues.append("octon-mini.json MIT-0 source-license boundary differs")
     if config.get("bootstrap_capability") != {
         "display_name": "Octon Mini Project Bootstrap",
         "skill_id": "octon-mini-project-bootstrap",
@@ -550,6 +563,32 @@ def validate_config_and_schemas(issues: list[str], scaffolder: Any) -> None:
     except ValueError as error:
         issues.append(f"invalid authoritative profile manifest: {error}")
         return
+    source_license_rules = [
+        item
+        for item in manifest.get("rules", [])
+        if isinstance(item, dict) and item.get("id") == "source-license"
+    ]
+    if len(source_license_rules) != 1 or source_license_rules[0] != {
+        "id": "source-license",
+        "source": "octon-mini:LICENSE",
+        "match": "exact",
+        "suffix": None,
+        "disposition": "source_only",
+        "profiles": [],
+        "inventory_paths": None,
+        "inventory_count": None,
+        "inventory_paths_sha256": None,
+        "output": None,
+        "reason": "The repository MIT-0 license ships in the source and installed source bundle; target-project licensing remains project-owned.",
+    }:
+        issues.append("profile manifest lacks the exact source-only MIT-0 license rule")
+    if not any(
+        isinstance(item, dict)
+        and item.get("path") == "LICENSE"
+        and item.get("match") == "exact"
+        for item in manifest.get("forbidden_outputs", [])
+    ):
+        issues.append("profile manifest must forbid LICENSE in generated projects")
     if config.get("reference_evidence_registry") != "shared/reference-evidence.json":
         issues.append("octon-mini.json reference-evidence registry path mismatch")
     workflow_paths = {
@@ -916,6 +955,9 @@ def validate_templates(issues: list[str], scaffolder: Any) -> None:
         "PROFILE_OPERATIONAL_FILES_JSON": "[]",
         "DERIVED_OPERATIONAL_FILES_JSON": "[]",
         "KERNEL_FILES_JSON": "[]",
+        "GIT_PORTFOLIO_VERSION": str(
+            scaffolder.package_contract(manifest, "small-team-git-portfolio")["version"]
+        ),
         "GIT_PORTFOLIO_SHA256": str(
             scaffolder.package_contract(manifest, "small-team-git-portfolio")["sha256"]
         ),
@@ -1028,9 +1070,70 @@ def validate_skill_and_release(issues: list[str]) -> None:
     version = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
     if version != "4.0.0":
         issues.append(f"development VERSION must be 4.0.0, found {version!r}")
-    for path in ("CHANGELOG.md", "RELEASE.md"):
-        if version not in (ROOT / path).read_text(encoding="utf-8"):
+    changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+    release = (ROOT / "RELEASE.md").read_text(encoding="utf-8")
+    release_compact = re.sub(r"\s+", " ", release)
+    for path, text in (("CHANGELOG.md", changelog), ("RELEASE.md", release)):
+        if version not in text:
             issues.append(f"{path} lacks the {version} release")
+    release_statements = (
+        "The GitHub repository rename to `cooperonlineenterprises/octon-mini`",
+        "local project-directory rename to `octon-mini` are complete",
+        "The repository is currently public.",
+        "Octon Mini 4.0.0 remains unreleased",
+        "no `v4.0.0` tag, GitHub Release, or package publication has occurred",
+        "did not itself authorize the later repository rename, visibility change,",
+        "approved `KEEP_PUBLIC_WITH_LICENSE — MIT-0`",
+        "canonical MIT No Attribution license, SPDX identifier `MIT-0`",
+        "Public visibility, licensed source reuse, and an Octon Mini release are separate facts",
+        "generator does not copy the source `LICENSE` into a target snapshot",
+    )
+    for statement in release_statements:
+        if statement not in release_compact:
+            issues.append(f"RELEASE.md lacks current repository-state assertion: {statement}")
+    if "## 4.0.0 — Unreleased" not in changelog:
+        issues.append("CHANGELOG.md must retain the exact unreleased 4.0.0 heading")
+    for forbidden in (
+        "## 4.0.0 — Released",
+        "Octon Mini 4.0.0 is released",
+        "The `v4.0.0` tag was created",
+    ):
+        if forbidden in changelog or forbidden in release:
+            issues.append(f"current release material makes a false 4.0 release claim: {forbidden}")
+    source_decisions = (ROOT / "ARCHITECTURE_DECISIONS.md").read_text(
+        encoding="utf-8"
+    )
+    for statement in (
+        "## SRC-DEC-0015 — Post-rebrand audit remediation controls",
+        "licensing disposition remains blocked pending explicit owner input",
+        "excluding the unset `LICENSE_DECISION`",
+        "| `permission_grant` | `false` |",
+    ):
+        if statement not in source_decisions:
+            issues.append(f"SRC-DEC-0015 lacks required non-authority boundary: {statement}")
+    for statement in (
+        "## SRC-DEC-0016 — Public MIT-0 source licensing",
+        "`LICENSE_DECISION: KEEP_PUBLIC_WITH_LICENSE — MIT-0`",
+        "`Copyright 2026 Cooper Online Enterprises`",
+        "Automatic project generation does not copy the source `LICENSE`",
+        "| `permission_grant` | `false` |",
+    ):
+        if statement not in source_decisions:
+            issues.append(f"SRC-DEC-0016 lacks required license boundary: {statement}")
+
+    expected_license = (
+        "MIT No Attribution\n\n"
+        "Copyright 2026 Cooper Online Enterprises\n\n"
+        "Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the \"Software\"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so.\n\n"
+        "THE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.\n"
+    )
+    try:
+        license_text = (ROOT / "LICENSE").read_text(encoding="utf-8")
+    except OSError as error:
+        issues.append(f"LICENSE cannot be read: {error}")
+    else:
+        if license_text != expected_license:
+            issues.append("LICENSE differs from the exact owner-approved MIT-0 text")
     try:
         with (ROOT / "pyproject.toml").open("rb") as source:
             pyproject = tomllib.load(source)
@@ -1047,6 +1150,10 @@ def validate_skill_and_release(issues: list[str]) -> None:
         issues.append("pyproject.toml version differs from VERSION")
     if project_metadata.get("name") != "octon-mini":
         issues.append("pyproject.toml project name differs from release identity")
+    if project_metadata.get("license") != "MIT-0":
+        issues.append("pyproject.toml license expression must be MIT-0")
+    if project_metadata.get("license-files") != ["LICENSE"]:
+        issues.append("pyproject.toml license-files must contain only LICENSE")
     octon_mini_metadata = pyproject.get("tool", {}).get("octon-mini", {})
     if not isinstance(octon_mini_metadata, dict) or (
         octon_mini_metadata.get("runtime-dependencies") != []
@@ -1181,6 +1288,14 @@ def validate_ci_contract(issues: list[str]) -> None:
             "python -B skills/octon-mini-project-bootstrap/scripts/"
             "verify_reference_evidence.py"
         ),
+        "benchmark methodology validation": (
+            "python -B skills/octon-mini-project-bootstrap/scripts/"
+            "test_benchmark_validation.py"
+        ),
+        "cross-platform launcher validation": (
+            "python -B skills/octon-mini-project-bootstrap/scripts/"
+            "test_octon_launchers.py"
+        ),
         "Octon Mini source validation": (
             "python -B skills/octon-mini-project-bootstrap/scripts/validate_octon_mini.py"
         ),
@@ -1220,6 +1335,24 @@ def validate_executable_contracts(issues: list[str]) -> None:
             ],
             ROOT,
             "architectural pattern adversarial fixtures",
+        ),
+        (
+            [
+                sys.executable,
+                "-B",
+                str(SKILL_ROOT / "scripts/test_benchmark_validation.py"),
+            ],
+            ROOT,
+            "validation benchmark methodology and enforcement fixtures",
+        ),
+        (
+            [
+                sys.executable,
+                "-B",
+                str(SKILL_ROOT / "scripts/test_octon_launchers.py"),
+            ],
+            ROOT,
+            "cross-platform source, installed, and generated launcher fixtures",
         ),
         (
             [
@@ -1325,11 +1458,7 @@ def validate_executable_contracts(issues: list[str]) -> None:
         source_command = (
             [str(source_launcher)]
             if os.name != "nt"
-            else [
-                sys.executable,
-                "-B",
-                str(SKILL_ROOT / "scripts/octon.py"),
-            ]
+            else [sys.executable, "-B", str(source_launcher)]
         )
         help_result = subprocess.run(
             [*source_command, "--help"],
@@ -1342,6 +1471,11 @@ def validate_executable_contracts(issues: list[str]) -> None:
         )
         if help_result.returncode:
             issues.append(f"source octon help failed: {help_result.stderr.strip()}")
+        for invocation in ("./octon", "python -B octon", "py -3 -B octon"):
+            if invocation not in help_result.stdout:
+                issues.append(
+                    f"source octon help lacks documented platform invocation {invocation!r}"
+                )
         if re.search(r"(?<![A-Za-z0-9_])p" + r"b(?![A-Za-z0-9_])", help_result.stdout):
             issues.append("source octon help exposes the removed legacy command")
         local_result = subprocess.run(
@@ -1533,6 +1667,13 @@ def validate_profile_builds(issues: list[str], scaffolder: Any) -> None:
         issues.append(f"cannot build profiles without profile manifest: {error}")
         return
     try:
+        git_portfolio_contract = scaffolder.package_contract(
+            manifest, "small-team-git-portfolio"
+        )
+    except ValueError as error:
+        issues.append(f"cannot validate generated Git portfolio identity: {error}")
+        return
+    try:
         legacy_allowlist = load_json(
             ROOT / "shared/source-contracts/legacy-reference-allowlist.json"
         )
@@ -1583,6 +1724,30 @@ def validate_profile_builds(issues: list[str], scaffolder: Any) -> None:
                         f"{result.stderr.strip() or result.stdout.strip()}"
                     )
                     continue
+                generated_license = target / "LICENSE"
+                if generated_license.exists() or generated_license.is_symlink():
+                    issues.append(
+                        f"{profile}/{layout} generated the source LICENSE instead "
+                        "of leaving target-project licensing project-owned"
+                    )
+                try:
+                    scm = load_json(target / ".agent/scm.json")
+                except (OSError, ValueError, json.JSONDecodeError) as error:
+                    issues.append(
+                        f"{profile}/{layout} generated SCM record cannot be loaded: {error}"
+                    )
+                else:
+                    portfolio = scm.get("portfolio", {}) if isinstance(scm, dict) else {}
+                    if not isinstance(portfolio, dict) or (
+                        portfolio.get("version"), portfolio.get("sha256")
+                    ) != (
+                        git_portfolio_contract["version"],
+                        git_portfolio_contract["sha256"],
+                    ):
+                        issues.append(
+                            f"{profile}/{layout} generated SCM portfolio identity differs "
+                            "from the authoritative package contract"
+                        )
                 launcher = target / "octon"
                 required_runtime = (
                     launcher,
@@ -1672,6 +1837,15 @@ def validate_profile_builds(issues: list[str], scaffolder: Any) -> None:
                 )
                 if help_result.returncode:
                     issues.append(f"{profile}/{layout} octon help failed")
+                for invocation in (
+                    "Unix/macOS: ./octon",
+                    "Windows: python -B octon",
+                    "py -3 -B octon",
+                ):
+                    if invocation not in help_result.stdout:
+                        issues.append(
+                            f"{profile}/{layout} octon help lacks platform invocation {invocation!r}"
+                        )
                 before = snapshot_files(target)
                 check_result = subprocess.run(
                     [*launcher_command, "check"],

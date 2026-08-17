@@ -94,6 +94,12 @@ operate the skill. That bundle is not a generated project. Deliberate manual
 adoption of a source-only artifact is a separate project-owned change and is
 not authorized by this generation policy.
 
+The installed source bundle also includes the repository's MIT-0 `LICENSE`.
+Automatic target-project generation treats that source license as an explicit
+forbidden output: it neither copies `LICENSE` nor chooses a target project's
+overall license. MIT-0 permits source reuse without an attribution-carrying
+condition, while the target project's licensing decision remains project-owned.
+
 `shared/source-contracts/setup-questions.json` is the one authoritative setup
 question catalog. It and its catalog schema are source-only. The strict setup
 answer and session schemas may be included in a newly generated snapshot or
@@ -115,6 +121,7 @@ It does not transfer:
   findings, or project-specific minimum closure claims;
 - permissions or standing authorization;
 - legal, privacy, security, or compliance conclusions;
+- a target-project-wide license selection or legal ownership conclusion;
 - external accounts, credentials, URLs, vendors, providers, or provider state;
 - source-project history or evidence.
 
@@ -272,7 +279,10 @@ The initial generator supports:
   compatibility axis);
 - `PROFILE`;
 - `HARNESS_REFRESH_COMMAND` and `HARNESS_REFRESH_WRITES` (derived from the
-  selected profile, not supplied as project facts).
+  selected profile, not supplied as project facts);
+- `GIT_PORTFOLIO_VERSION` and `GIT_PORTFOLIO_SHA256` (derived together from
+  the single authoritative `small-team-git-portfolio` package contract in the
+  profile manifest, never maintained as independent template constants).
 
 Unresolved or unknown template variables are validation failures.
 

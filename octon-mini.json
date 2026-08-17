@@ -1,9 +1,17 @@
 {
-  "schema_version": "octon-mini.source.repository.v1",
+  "schema_version": "octon-mini.source.repository.v2",
   "product": "octon-mini",
   "display_name": "Octon Mini",
   "octon_mini_version_source": "VERSION",
   "description": "Octon Mini is a lightweight, project-local version of Octon for governed agent work. It gives any project a durable harness, dossier, setup workflow, validation system, work lifecycle, and recovery model without requiring the full OctonOS control plane.",
+  "license": {
+    "spdx": "MIT-0",
+    "file": "LICENSE",
+    "copyright": "Copyright 2026 Cooper Online Enterprises",
+    "installed_source_bundle_includes_license": true,
+    "generated_project_includes_license": false,
+    "generated_project_license_requires_project_owned_decision": true
+  },
   "minimum_python": "3.11",
   "modules": {
     "dossier": {

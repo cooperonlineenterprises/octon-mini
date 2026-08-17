@@ -537,6 +537,19 @@
       "reason": "The optional schema is vendored only when its trigger is explicitly applicable."
     },
     {
+      "id": "source-license",
+      "source": "octon-mini:LICENSE",
+      "match": "exact",
+      "suffix": null,
+      "disposition": "source_only",
+      "profiles": [],
+      "inventory_paths": null,
+      "inventory_count": null,
+      "inventory_paths_sha256": null,
+      "output": null,
+      "reason": "The repository MIT-0 license ships in the source and installed source bundle; target-project licensing remains project-owned."
+    },
+    {
       "id": "architectural-pattern-catalog",
       "source": "octon-mini:patterns",
       "match": "recursive",
@@ -660,6 +673,11 @@
     }
   ],
   "forbidden_outputs": [
+    {
+      "path": "LICENSE",
+      "match": "exact",
+      "reason": "Automatic generation must not select or copy a target-project-wide license."
+    },
     {
       "path": "patterns",
       "match": "subtree",

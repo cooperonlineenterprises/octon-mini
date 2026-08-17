@@ -32,6 +32,11 @@ Use the source `scripts/octon.py` interface for bootstrap operations. Its
 authoritative command inventory is projected to every generated
 `.agent/commands.json`, where each command labels its bootstrap-source or
 generated-project availability; primitive scripts remain advanced diagnostics.
+The source checkout exposes the dispatcher through root `octon`; an installed
+skill exposes it at `assets/octon-mini-source/octon`. From either launcher root,
+use `./octon` on Unix/macOS, or invoke the same file as `python -B octon` or
+`py -3 -B octon` on Windows. Generated projects use the same platform forms and
+command identity with their generated-project command inventory.
 
 - Guided setup: use `octon init|adopt|upgrade setup`. Determine mode from target
   evidence, stop on ambiguity, inspect read-only, and ask only unresolved
@@ -91,6 +96,8 @@ ambiguous plans fail closed.
 - Existing target paths are never silently overwritten.
 - Stable IDs and authority ownership are never silently reassigned.
 - Generated snapshots remain independent and versioned.
+- The installed source bundle includes the repository MIT-0 license; generated
+  projects do not receive that `LICENSE` file or a project-wide license choice.
 - `check`, detection, diagnosis, planning, and resume views are read-only.
 - Guided question generation is target-read-only; session output is explicit,
   external to the target, non-authorizing, and secret-free.
@@ -115,42 +122,48 @@ ambiguous plans fail closed.
 Run from the skill directory or use absolute paths.
 
 ```text
-python3 scripts/octon.py init setup \
+python3 -B scripts/octon.py init setup \
   --target /absolute/project/path \
   --output /absolute/review-area/setup-01.json
 
-python3 scripts/octon.py init plan \
+python3 -B scripts/octon.py init plan \
   --target /absolute/project/path \
   --project-name "Project Name" \
   --profile minimal \
   --layout compact \
   --output /absolute/project/path/.agent/transactions/plans/init.json
 
-python3 scripts/octon.py init setup \
+python3 -B scripts/octon.py init setup \
   --target /absolute/project/path \
   --session /absolute/review-area/setup-01.json \
   --record-plan /absolute/review-area/init-plan.json \
   --output /absolute/review-area/setup-02.json
 
-python3 scripts/octon.py init apply \
+python3 -B scripts/octon.py init apply \
   --target /absolute/project/path \
   --plan /absolute/project/path/.agent/transactions/plans/init.json \
   --accept-digest <reviewed-digest>
 
-python3 scripts/octon.py adopt plan --help
-python3 scripts/octon.py upgrade plan --help
-python3 scripts/test_guided_setup.py
-python3 scripts/validate_octon_mini.py
-python3 scripts/test_acceptance.py
+python3 -B scripts/octon.py adopt plan --help
+python3 -B scripts/octon.py upgrade plan --help
+python3 -B scripts/test_guided_setup.py
+python3 -B scripts/validate_octon_mini.py
+python3 -B scripts/test_acceptance.py
 ```
 
 Inside a generated project:
 
 ```text
+# Unix and macOS
 ./octon check
 ./octon work resume
 ./octon work finish plan
 ./octon doctor
+
+# Windows equivalents use the same command identity and arguments.
+python -B octon check
+py -3 -B octon work resume
+
 python -B .agent/tests/test_validate.py --tier fast
 ```
 

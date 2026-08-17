@@ -787,7 +787,13 @@ def add_plan_apply_arguments(parser: argparse.ArgumentParser) -> None:
 def parser() -> argparse.ArgumentParser:
     root = argparse.ArgumentParser(
         prog="octon",
-        description="Operate the project-local Octon Mini harness and dossier"
+        description="Operate the project-local Octon Mini harness and dossier",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=(
+            "Platform entry:\n"
+            "  Unix/macOS: ./octon <arguments>\n"
+            "  Windows: python -B octon <arguments> or py -3 -B octon <arguments>"
+        ),
     )
     commands = root.add_subparsers(dest="command", required=True)
     check = commands.add_parser(

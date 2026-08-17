@@ -197,6 +197,23 @@ def validate_package_structure(skill_root: Path) -> list[str]:
         issues.append("skill package contains an obsolete legacy source bundle")
     bundled = skill_root / "assets/octon-mini-source"
     if bundled.exists():
+        license_path = bundled / "LICENSE"
+        if not license_path.is_file() or license_path.is_symlink():
+            issues.append("bundled source lacks a regular MIT-0 LICENSE file")
+        else:
+            license_text = license_path.read_text(encoding="utf-8")
+            if not license_text.startswith(
+                "MIT No Attribution\n\nCopyright 2026 Cooper Online Enterprises\n"
+            ):
+                issues.append("bundled source LICENSE identity differs from MIT-0 policy")
+        pyproject_path = bundled / "pyproject.toml"
+        if pyproject_path.is_file():
+            metadata = pyproject_path.read_text(encoding="utf-8")
+            if (
+                'license = "MIT-0"' not in metadata
+                or 'license-files = ["LICENSE"]' not in metadata
+            ):
+                issues.append("bundled source package metadata lacks MIT-0 and LICENSE")
         legacy_product_config = "blueprint" + ".json"
         legacy_spec_name = "BLUE" + "PRINT.md"
         legacy_skill_path = "skills/project-" + "bootstrap"
@@ -208,6 +225,11 @@ def validate_package_structure(skill_root: Path) -> list[str]:
         ):
             if (bundled / obsolete).exists():
                 issues.append(f"bundled source contains obsolete current path: {obsolete}")
+        if any(
+            path.name in {"LICENSE.tmpl", "LICENSE.md.tmpl", "LICENSE.txt.tmpl"}
+            for path in (skill_root / "assets/templates").rglob("*")
+        ):
+            issues.append("generated templates must not project the source LICENSE")
     return issues
 
 
