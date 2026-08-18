@@ -15,12 +15,22 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[2]
 CATALOG_PATH = ROOT / ".agent/diagnostics/diagnostic-catalog.json"
 VALIDATOR_PATH = ROOT / ".agent/scripts/validate.py"
+CONTINUATION_PATH = ROOT / ".agent/scripts/octon_continuation.py"
 
 
 def load_validator():
     spec = importlib.util.spec_from_file_location("octon_validator", VALIDATOR_PATH)
     if spec is None or spec.loader is None:
         raise RuntimeError("validator is unavailable")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def load_continuation():
+    spec = importlib.util.spec_from_file_location("octon_continuation", CONTINUATION_PATH)
+    if spec is None or spec.loader is None:
+        raise RuntimeError("continuation runtime is unavailable")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -42,45 +52,144 @@ def load_catalog() -> dict[str, Any]:
     return value
 
 
-def classify(message: str, catalog: dict[str, Any]) -> dict[str, Any]:
+def classify(
+    message: str,
+    catalog: dict[str, Any],
+    *,
+    failure_code: str | None = None,
+    next_argv_override: list[str] | None = None,
+) -> dict[str, Any]:
     fallback = None
+    chosen = None
     lowered = message.casefold()
     for item in catalog["diagnostics"]:
         if item["code"] == catalog["fallback_code"]:
             fallback = item
-        if item["match_any"] and any(token.casefold() in lowered for token in item["match_any"]):
+        if failure_code is not None and item["code"] == failure_code:
             chosen = item
             break
-    else:
+    if chosen is None and failure_code is None:
+        for item in catalog["diagnostics"]:
+            if item["match_any"] and any(
+                token.casefold() in lowered for token in item["match_any"]
+            ):
+                chosen = item
+                break
+    if chosen is None:
         chosen = fallback
     if chosen is None:
         raise ValueError("diagnostic catalog has no fallback")
-    return {
-        "code": chosen["code"],
-        "message": message,
-        "root_cause": chosen["root_cause"],
-        "authority_source": chosen["authority_source"],
-        "dependent_symptoms": chosen["dependent_symptoms"],
-        "safe_next_action": chosen["safe_next_action"],
-        "repair_class": chosen["repair_class"],
-    }
+    continuation = load_continuation()
+    next_argv = list(next_argv_override or ["./octon", "check", "--json"])
+    if next_argv_override is not None:
+        pass
+    elif chosen["code"] == "OCTON-DIAG-0301":
+        next_argv = ["./octon", "maintain", "registry", "plan"]
+    elif chosen["code"] == "OCTON-DIAG-0202":
+        next_argv = ["python", "-B", ".agent/scripts/run_project_checks.py", "--write-evidence"]
+    repair_class = chosen["repair_class"]
+    if repair_class == "project_decision_or_manual_correction":
+        repair_class = "manual_reconciliation_required"
+    mutating_next = (
+        next_argv[:2] == ["./octon", "transaction"]
+        or "--write-evidence" in next_argv
+    )
+    return continuation.finding(
+        failure_code=chosen["code"],
+        blocked_operation="project.structural_conformance",
+        phase="validate",
+        root_cause=f"{chosen['root_cause']} Finding: {message}",
+        authority_source=chosen["authority_source"],
+        repair_class=repair_class,
+        next_action=continuation.action(
+            chosen["safe_next_action"],
+            next_argv,
+            read_only=not mutating_next,
+            requires_confirmation=mutating_next,
+        ),
+        invalidated=[
+            continuation.proof_state(
+                "evidence",
+                message,
+                chosen["root_cause"],
+                ["source_fingerprint_bound"],
+            )
+        ],
+        safe_read_only_actions=[
+            continuation.action(
+                "Run the full read-only structural check.",
+                ["./octon", "check", "--json"],
+                read_only=True,
+            )
+        ],
+        successor_plan=repair_class == "replan_required",
+        successor_reason=(
+            "A successor plan can be generated after reinspection."
+            if repair_class == "replan_required"
+            else "Resolve the owning source before creating a successor."
+        ),
+    )
 
 
 def build_report() -> dict[str, Any]:
     validator = load_validator()
     catalog = load_catalog()
     try:
-        messages = validator.check(ROOT)
+        raw_findings = (
+            validator.check_findings(ROOT)
+            if hasattr(validator, "check_findings")
+            else [
+                {"failure_code": None, "message": item}
+                for item in validator.check(ROOT)
+            ]
+        )
     except Exception as error:
-        messages = [f"validator could not complete: {error}"]
-    findings = [classify(str(message), catalog) for message in messages]
+        raw_findings = [
+            {
+                "failure_code": None,
+                "message": f"validator could not complete: {error}",
+            }
+        ]
+    findings = [
+        classify(
+            str(item.get("message", "malformed validator finding")),
+            catalog,
+            failure_code=(
+                item.get("failure_code")
+                if isinstance(item.get("failure_code"), str)
+                else None
+            ),
+            next_argv_override=(
+                item.get("next_argv")
+                if isinstance(item.get("next_argv"), list)
+                and all(isinstance(value, str) for value in item["next_argv"])
+                else None
+            ),
+        )
+        for item in raw_findings
+        if isinstance(item, dict)
+    ]
     pending_root = ROOT / ".agent/transactions/pending"
     for path in sorted(pending_root.glob("*.json")) if pending_root.is_dir() else []:
+        pending_reference = path.relative_to(ROOT).as_posix()
+        if any(
+            pending_reference in item.get("next_action", {}).get("argv", [])
+            for item in findings
+        ):
+            continue
         findings.append(
             classify(
                 "pending transaction write-ahead journal: "
-                + path.relative_to(ROOT).as_posix(),
+                + pending_reference,
                 catalog,
+                failure_code="OCTON-DIAG-0602",
+                next_argv_override=[
+                    "./octon",
+                    "transaction",
+                    "recover",
+                    "--pending",
+                    pending_reference,
+                ],
             )
         )
     derived_repair = None
@@ -93,8 +202,16 @@ def build_report() -> dict[str, Any]:
         }
         proposal["canonical_digest"] = canonical_digest(proposal)
         derived_repair = proposal
+        continuation = load_continuation()
+        for item in findings:
+            item["next_action"] = continuation.action(
+                "Accept the exact current derived-only repair digest.",
+                ["./octon", "doctor", "--repair-derived", "--accept-digest", proposal["canonical_digest"]],
+                read_only=False,
+                requires_confirmation=True,
+            )
     return {
-        "schema_version": "harness.diagnostic-report.v1",
+        "schema_version": "harness.diagnostic-report.v2",
         "permission_grant": False,
         "read_only": True,
         "structural_conformance": "pass" if not findings else "fail",

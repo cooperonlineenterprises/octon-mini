@@ -15,7 +15,7 @@ import sys
 import tempfile
 import types
 import unittest
-from contextlib import redirect_stdout
+from contextlib import redirect_stderr, redirect_stdout
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest import mock
@@ -39,6 +39,8 @@ def octon_mini_source_root() -> Path:
 OCTON_MINI_ROOT = octon_mini_source_root()
 SETUP_SOURCE = SCRIPT_ROOT / "setup_session.py"
 OCTON_SOURCE = SCRIPT_ROOT / "octon.py"
+GUIDED_SOURCE = SCRIPT_ROOT / "guided_workflow.py"
+CONTINUATION_SOURCE = SKILL_ROOT / "assets/templates/core/.agent/scripts/octon_continuation.py.tmpl"
 COMMAND_MANIFEST = OCTON_MINI_ROOT / "shared/source-contracts/commands.json"
 INIT_FIXTURE = SKILL_ROOT / "fixtures/guided-setup/valid/initialization-answers.json"
 ADOPT_FIXTURE = SKILL_ROOT / "fixtures/guided-setup/valid/adoption-answers.json"
@@ -143,7 +145,29 @@ class GuidedSetupTests(unittest.TestCase):
 
     def setUp(self) -> None:
         self.setup = load_module("guided_setup_fixture", SETUP_SOURCE)
+        self.guided = load_module("guided_workflow_fixture", GUIDED_SOURCE)
+        self.continuation = load_module("continuation_fixture", CONTINUATION_SOURCE)
+        self.source_contracts = load_module(
+            "guided_setup_source_contracts",
+            SCRIPT_ROOT / "validate_source_contracts.py",
+        )
+        self.continuation_schema = json.loads(
+            (
+                OCTON_MINI_ROOT
+                / "shared/schemas/harness-continuation.schema.json"
+            ).read_text(encoding="utf-8")
+        )
         self.catalog = self.setup.load_catalog()
+
+    def assert_continuation_schema(self, report: dict[str, object]) -> None:
+        self.assertEqual(
+            self.source_contracts.schema_issues(
+                report,
+                self.continuation_schema,
+                "emitted continuation",
+            ),
+            [],
+        )
 
     def new_target(self, area: Path, mode: str) -> Path:
         target = area / "target"
@@ -310,7 +334,7 @@ class GuidedSetupTests(unittest.TestCase):
                 )
             self.assertEqual(semantic_plans[0], semantic_plans[1])
 
-    def test_resume_preserves_unknown_deferred_and_invalidates_facts_after_reinspection(self) -> None:
+    def test_unrelated_edit_preserves_valid_answers_selections_unknowns_and_deferrals(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             target = self.new_target(Path(temporary), "initialization")
             initial = self.setup.create_session("initialization", target)
@@ -343,8 +367,19 @@ class GuidedSetupTests(unittest.TestCase):
             self.assertEqual(states["setup.write-capable-humans"]["state"], "unknown")
             self.assertEqual(states["setup.work-finish-mode"]["state"], "deferred")
             self.assertEqual(reinspection["work_completion_assessment"]["status"], "deferred")
-            self.assertNotIn("setup.project-name", states)
-            self.assertNotIn("setup.assurance-profile", states)
+            self.assertEqual(states["setup.project-name"]["value"], "Resume Example")
+            self.assertEqual(states["setup.assurance-profile"]["value"], "minimal")
+            self.assertEqual(states["setup.layout"]["value"], "compact")
+            self.assertEqual(
+                {item["question_id"] for item in reinspection["reinspection"]["preserved"]},
+                {
+                    "setup.project-name",
+                    "setup.assurance-profile",
+                    "setup.layout",
+                    "setup.write-capable-humans",
+                    "setup.work-finish-mode",
+                },
+            )
 
     def test_target_instruction_catalog_and_revision_staleness_fail_closed(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -354,20 +389,633 @@ class GuidedSetupTests(unittest.TestCase):
             session = self.setup.create_session("adoption", target)
             path = area / "session.json"
             self.setup.write_new_json(path, session)
-            (target / "README.md").write_text("# Changed\n", encoding="utf-8")
-            with self.assertRaisesRegex(self.setup.SetupError, "target content fingerprint"):
-                self.setup.load_session(path)
-            (target / "README.md").write_text("# Established project\n", encoding="utf-8")
+            (target / "README.md").write_text("# Unrelated content edit\n", encoding="utf-8")
+            self.assertEqual(self.setup.current_state_mismatches(session), [])
+            self.setup.load_session(path)
             (target / "AGENTS.md").write_text("# Changed rules\n", encoding="utf-8")
-            with self.assertRaisesRegex(self.setup.SetupError, "governing instruction fingerprint"):
+            with self.assertRaises(ValueError) as captured:
                 self.setup.load_session(path)
+            self.assertEqual(captured.exception.report["failure_code"], "OCTON-SETUP-1002")
+            self.assertFalse(captured.exception.report["mutation"]["occurred"])
+            self.assertTrue(captured.exception.report["next_action"]["argv"])
             changed_catalog = copy.deepcopy(session)
             changed_catalog["question_catalog"]["sha256"] = "f" * 64
             changed_catalog["canonical_session_digest"] = self.setup.record_digest(changed_catalog, "canonical_session_digest")
             changed_path = area / "catalog-changed.json"
             self.setup.write_new_json(changed_path, changed_catalog)
+            predecessor = self.setup.load_session(
+                changed_path, require_current=False
+            )
+            self.assertEqual(
+                predecessor["canonical_session_digest"],
+                changed_catalog["canonical_session_digest"],
+            )
             with self.assertRaisesRegex(self.setup.SetupError, "catalog definitions changed"):
-                self.setup.load_session(changed_path, require_current=False)
+                self.setup.load_session(changed_path, require_current=True)
+
+    def test_catalog_successor_classifies_changed_and_new_questions(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            target = self.new_target(Path(temporary), "initialization")
+            session = self.ready_initialization(target)
+            successor_catalog = copy.deepcopy(self.catalog)
+            successor_catalog["catalog_version"] = "2.1.0"
+            project_name = next(
+                item
+                for item in successor_catalog["questions"]
+                if item["id"] == "setup.project-name"
+            )
+            project_name["version"] += 1
+            new_question = copy.deepcopy(
+                next(
+                    item
+                    for item in successor_catalog["questions"]
+                    if item["id"] == "setup.optional-package-assessments"
+                )
+            )
+            new_question.update(
+                {
+                    "id": "setup.continuation-policy-review",
+                    "version": 1,
+                    "modes": ["initialization"],
+                    "dependencies": ["setup.detected-mode"],
+                    "trigger_conditions": [],
+                    "prompt": "Should the optional continuation policy be reviewed later?",
+                    "importance": "This synthetic successor question verifies newly introduced classification.",
+                    "blocking": False,
+                    "authoritative_destination": "test_only",
+                    "change_consequences": "No generated policy is selected by this fixture.",
+                }
+            )
+            successor_catalog["questions"].append(new_question)
+            self.setup.validate_catalog(successor_catalog)
+            successor = self.setup.reinspect_session(
+                session,
+                catalog_override=successor_catalog,
+            )
+            states = self.setup.session_question_state(successor)
+            self.assertNotIn("setup.project-name", states)
+            self.assertIn(
+                "setup.project-name",
+                {
+                    item["question_id"]
+                    for item in successor["reinspection"]["invalidated"]
+                },
+            )
+            self.assertIn(
+                "setup.continuation-policy-review",
+                {
+                    item["question_id"]
+                    for item in successor["reinspection"]["newly_introduced"]
+                },
+            )
+            self.assertEqual(
+                successor["successor_of"]["canonical_session_digest"],
+                session["canonical_session_digest"],
+            )
+
+    def test_relevant_evidence_edit_invalidates_only_dependent_answer(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            target = self.new_target(Path(temporary), "adoption")
+            session = self.setup.create_session("adoption", target)
+            first_payload = answer_batch(
+                self.setup,
+                session,
+                [
+                    ("setup.project-name", "answered", "Scoped Example", False),
+                    ("setup.assurance-profile", "answered", "minimal", False),
+                    ("setup.adoption-authority", "answered", "authority:adoption", False),
+                    ("setup.work-finish-mode", "answered", "disabled", False),
+                ],
+            )
+            first_payload["answers"][0]["evidence"]["source"] = "repo:README.md"
+            first = self.setup.apply_answer_batch(session, first_payload, self.catalog)
+            second = self.setup.apply_answer_batch(
+                first,
+                answer_batch(
+                    self.setup,
+                    first,
+                    [("setup.layout", "answered", "compact", False)],
+                ),
+                self.catalog,
+            )
+            (target / "README.md").write_text("# Relevant evidence changed\n", encoding="utf-8")
+            successor = self.setup.reinspect_session(second)
+            states = self.setup.session_question_state(successor)
+            self.assertNotIn("setup.project-name", states)
+            self.assertEqual(states["setup.assurance-profile"]["value"], "minimal")
+            self.assertEqual(
+                [item["question_id"] for item in successor["reinspection"]["needs_confirmation"]],
+                ["setup.project-name"],
+            )
+
+    def test_unsafe_path_evidence_fails_closed_instead_of_degrading_to_metadata(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            area = Path(temporary)
+            target = self.new_target(area, "adoption")
+            outside = area / "outside-evidence.txt"
+            outside.write_text("outside\n", encoding="utf-8")
+
+            def payload_for(source: str) -> dict[str, object]:
+                session = self.setup.create_session("adoption", target)
+                payload = answer_batch(
+                    self.setup,
+                    session,
+                    [("setup.project-name", "answered", "Unsafe Evidence", False)],
+                )
+                payload["answers"][0]["evidence"]["source"] = source
+                return {"session": session, "payload": payload}
+
+            escaped = payload_for("repo:../outside-evidence.txt")
+            with self.assertRaisesRegex(self.setup.SetupError, "escapes the target"):
+                self.setup.apply_answer_batch(
+                    escaped["session"], escaped["payload"], self.catalog
+                )
+
+            link = target / "outward-evidence.txt"
+            link.symlink_to(outside)
+            linked = payload_for("repo:outward-evidence.txt")
+            with self.assertRaisesRegex(self.setup.SetupError, "escapes the target"):
+                self.setup.apply_answer_batch(
+                    linked["session"], linked["payload"], self.catalog
+                )
+
+    def test_accepted_decision_reuse_excludes_expired_superseded_and_runtime_authority(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            target = self.new_target(Path(temporary), "upgrade")
+            (target / "AGENTS.md").write_text("# Stable instructions\n", encoding="utf-8")
+            decisions = target / ".agent/decisions"
+            decisions.mkdir(parents=True)
+            decision_path = decisions / "DEC-0001-profile.md"
+            decision = {
+                "schema_version": "harness.decision.v1",
+                "id": "DEC-0001",
+                "status": "accepted",
+                "previous_status": "proposed",
+                "title": "Keep governed work completion disabled",
+                "created_at": "2026-08-17",
+                "authority_source": "authority:project-owner",
+                "owner": "project_owner",
+                "scope": "setup.work-finish-mode",
+                "supersedes": None,
+                "successor": None,
+                "governance_register_refs": [],
+                "limitations": [],
+            }
+            decision_path.write_text(
+                "---\n" + json.dumps(decision, indent=2, sort_keys=True) + "\n---\n\n# Decision\nKeep work completion disabled.\n",
+                encoding="utf-8",
+            )
+            now = datetime.now(timezone.utc)
+
+            def policy(*, expires_at: str, runtime: bool = False) -> dict[str, object]:
+                return {
+                    "schema_version": "harness.decision-reuse-registry.v1",
+                    "document_role": "project_owned_reuse_applicability_bound_to_accepted_decisions",
+                    "permission_grant": False,
+                    "runtime_authorization": False,
+                    "records": [
+                        {
+                            "id": "DRP-0001",
+                            "status": "active",
+                            "decision_ref": "DEC-0001",
+                            "decision_sha256": hashlib.sha256(decision_path.read_bytes()).hexdigest(),
+                            "authority_source": "authority:project-owner",
+                            "question_ids": ["setup.work-finish-mode"],
+                            "operations": ["setup.answer"],
+                            "value": "disabled",
+                            "applicability": {
+                                "modes": ["upgrade"],
+                                "profiles": [],
+                                "path_prefixes": [],
+                                "dependency_fingerprints": [],
+                            },
+                            "governing_instruction_digest": self.setup.fingerprint(target, instructions_only=True)["digest"],
+                            "evidence_refs": [],
+                            "valid_from": now.isoformat().replace("+00:00", "Z"),
+                            "expires_at": expires_at,
+                            "successor": None,
+                            "runtime_authorization": runtime,
+                            "external_action_authority": False,
+                            "limitations": ["Synthetic accepted decision reuse fixture."],
+                        }
+                    ],
+                    "limitations": ["Synthetic registry; grants no authority."],
+                }
+
+            future = (now + timedelta(days=7)).isoformat().replace("+00:00", "Z")
+            registry_path = decisions / "reuse-policy.json"
+            write_json(registry_path, policy(expires_at=future))
+            current = self.setup.create_session("upgrade", target)
+            state = self.setup.session_question_state(current)["setup.work-finish-mode"]
+            self.assertEqual(state["supplied_by"], "accepted_decision")
+            self.assertEqual(state["value"], "disabled")
+            self.assertEqual(current["user_selections"], [])
+            self.assertEqual(current["reused_decisions"][0]["decision_ref"], "DEC-0001")
+
+            successor_decision = dict(decision)
+            successor_decision["id"] = "DEC-0002"
+            successor_decision["supersedes"] = "DEC-0001"
+            successor_path = decisions / "DEC-0002-profile.md"
+            successor_path.write_text(
+                "---\n"
+                + json.dumps(successor_decision, indent=2, sort_keys=True)
+                + "\n---\n\n# Decision\nKeep work completion disabled.\n",
+                encoding="utf-8",
+            )
+            decision["status"] = "superseded"
+            decision["successor"] = "DEC-0002"
+            decision_path.write_text(
+                "---\n" + json.dumps(decision, indent=2, sort_keys=True) + "\n---\n",
+                encoding="utf-8",
+            )
+            successor_policy = policy(expires_at=future)
+            successor_policy["records"][0].update(
+                {
+                    "id": "DRP-0002",
+                    "decision_ref": "DEC-0002",
+                    "decision_sha256": hashlib.sha256(successor_path.read_bytes()).hexdigest(),
+                }
+            )
+            write_json(registry_path, successor_policy)
+            self.assertIn(
+                "accepted decision setup.work-finish-mode",
+                self.setup.current_state_mismatches(current),
+            )
+            successor_session = self.setup.reinspect_session(current)
+            successor_state = self.setup.session_question_state(successor_session)[
+                "setup.work-finish-mode"
+            ]
+            self.assertEqual(
+                successor_state["evidence"]["source"], "authority:DEC-0002"
+            )
+            self.assertEqual(successor_state["value"], "disabled")
+
+            write_json(registry_path, policy(expires_at=future))
+            superseded = self.setup.create_session("upgrade", target)
+            self.assertNotIn("setup.work-finish-mode", self.setup.session_question_state(superseded))
+
+            decision["status"] = "accepted"
+            decision["successor"] = None
+            decision_path.write_text(
+                "---\n" + json.dumps(decision, indent=2, sort_keys=True) + "\n---\n",
+                encoding="utf-8",
+            )
+            past = (now - timedelta(days=1)).isoformat().replace("+00:00", "Z")
+            write_json(registry_path, policy(expires_at=past))
+            expired = self.setup.create_session("upgrade", target)
+            self.assertNotIn("setup.work-finish-mode", self.setup.session_question_state(expired))
+
+            dependency_policy = policy(expires_at=future)
+            dependency_policy["records"][0]["applicability"][
+                "dependency_fingerprints"
+            ] = [
+                {
+                    "path": "policy-input.txt",
+                    "type": "absent",
+                    "sha256": hashlib.sha256(b"absent").hexdigest(),
+                }
+            ]
+            write_json(registry_path, dependency_policy)
+            absent_bound = self.setup.create_session("upgrade", target)
+            self.assertEqual(
+                self.setup.session_question_state(absent_bound)[
+                    "setup.work-finish-mode"
+                ]["supplied_by"],
+                "accepted_decision",
+            )
+            outside_dependency = Path(temporary) / "outside-policy-input.txt"
+            outside_dependency.write_text("unsafe successor\n", encoding="utf-8")
+            (target / "policy-input.txt").symlink_to(outside_dependency)
+            symlink_invalid = self.setup.create_session("upgrade", target)
+            self.assertNotIn(
+                "setup.work-finish-mode",
+                self.setup.session_question_state(symlink_invalid),
+            )
+            self.assertEqual(symlink_invalid["reused_decisions"], [])
+            (target / "policy-input.txt").unlink()
+
+            write_json(registry_path, policy(expires_at=future, runtime=True))
+            forbidden = self.setup.create_session("upgrade", target)
+            self.assertNotIn("setup.work-finish-mode", self.setup.session_question_state(forbidden))
+            self.assertFalse(forbidden["permission_grant"])
+
+    def test_one_command_initialization_confirms_exact_digest_and_applies(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            area = Path(temporary)
+            target = area / "target"
+            target.mkdir()
+            review = area / "review"
+            args = argparse.Namespace(
+                mode="initialization",
+                target=target,
+                review_dir=review,
+                session=None,
+                proposal=None,
+                review=None,
+                prior_plan=None,
+                project_blueprint_seed=None,
+                json=False,
+            )
+            confirmations: list[str] = []
+
+            def confirm(prompt: str) -> str:
+                confirmations.append(prompt)
+                return "apply"
+
+            guided_stdout = io.StringIO()
+            guided_stderr = io.StringIO()
+            with redirect_stdout(guided_stdout), redirect_stderr(guided_stderr), mock.patch(
+                "builtins.input",
+                side_effect=["Guided Project", "minimal", "compact", "disabled"],
+            ):
+                result = self.guided.run_guided(
+                    args,
+                    require_tty=False,
+                    input_fn=confirm,
+                )
+            self.assertEqual(
+                result,
+                0,
+                guided_stderr.getvalue() or guided_stdout.getvalue(),
+            )
+            self.assertEqual(len(confirmations), 1)
+            self.assertIn("exact displayed digest", confirmations[0])
+            self.assertTrue((target / "octon").is_file())
+            receipts = list((target / ".agent/transactions/receipts").glob("*.json"))
+            self.assertEqual(len(receipts), 1)
+            receipt = json.loads(receipts[0].read_text(encoding="utf-8"))
+            self.assertEqual(receipt["schema_version"], "harness.transaction-receipt.v3")
+            self.assertIn("staging_seconds", receipt["timings"])
+
+    def test_guided_question_eof_preserves_and_resumes_the_latest_session(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            area = Path(temporary)
+            target = area / "target"
+            target.mkdir()
+            review = area / "review"
+            args = argparse.Namespace(
+                mode="initialization",
+                target=target,
+                review_dir=review,
+                session=None,
+                proposal=None,
+                review=None,
+                prior_plan=None,
+                project_blueprint_seed=None,
+                json=True,
+            )
+            target_before = snapshot(target)
+            error_output = io.StringIO()
+            with redirect_stdout(io.StringIO()), redirect_stderr(error_output), mock.patch(
+                "builtins.input",
+                side_effect=["Interrupted Project", EOFError("synthetic EOF")],
+            ):
+                paused = self.guided.run_guided(
+                    args,
+                    require_tty=False,
+                    input_fn=lambda _: self.fail(
+                        "an interrupted question sequence must not reach confirmation"
+                    ),
+                )
+            self.assertEqual(paused, 2)
+            self.assertEqual(snapshot(target), target_before)
+            report = json.loads(error_output.getvalue())
+            self.assert_continuation_schema(report)
+            self.assertEqual(report["failure_code"], "OCTON-GUIDE-1004")
+            self.assertTrue(report["mutation"]["occurred"])
+            self.assertIn("target project was unchanged", report["mutation"]["statement"])
+            self.assertTrue(report["successor"]["session_supported"])
+            session_path = Path(report["preserved"][0]["reference"])
+            self.assertTrue(session_path.is_file())
+            self.assertIn("--session", report["next_action"]["argv"])
+            preserved = self.setup.load_session(session_path)
+            self.assertEqual(
+                self.setup.session_question_state(preserved)["setup.project-name"]["value"],
+                "Interrupted Project",
+            )
+
+            resumed_args = argparse.Namespace(
+                **{**vars(args), "session": session_path}
+            )
+            with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()), mock.patch(
+                "builtins.input",
+                side_effect=["minimal", "compact", "disabled"],
+            ):
+                resumed = self.guided.run_guided(
+                    resumed_args,
+                    require_tty=False,
+                    input_fn=lambda _: "apply",
+                )
+            self.assertEqual(resumed, 0)
+            self.assertTrue((target / "octon").is_file())
+
+    def test_guided_decline_reports_external_review_artifacts_truthfully(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            area = Path(temporary)
+            target = area / "target"
+            target.mkdir()
+            review = area / "review"
+            args = argparse.Namespace(
+                mode="initialization",
+                target=target,
+                review_dir=review,
+                session=None,
+                proposal=None,
+                review=None,
+                prior_plan=None,
+                project_blueprint_seed=None,
+                json=True,
+            )
+            before = snapshot(target)
+            stderr = io.StringIO()
+            with redirect_stdout(io.StringIO()), redirect_stderr(stderr), mock.patch(
+                "builtins.input",
+                side_effect=["Declined Project", "minimal", "compact", "disabled"],
+            ):
+                result = self.guided.run_guided(
+                    args,
+                    require_tty=False,
+                    input_fn=lambda _: "stop",
+                )
+            self.assertEqual(result, 2)
+            self.assertEqual(snapshot(target), before)
+            report = json.loads(stderr.getvalue())
+            self.assert_continuation_schema(report)
+            self.assertEqual(report["failure_code"], "OCTON-GUIDE-1002")
+            self.assertTrue(report["mutation"]["occurred"])
+            self.assertEqual(report["mutation"]["repository_paths"], [])
+            self.assertIn("target project was unchanged", report["mutation"]["statement"])
+            self.assertEqual(
+                {item["kind"] for item in report["preserved"]},
+                {"session", "plan"},
+            )
+            self.assertTrue(report["successor"]["session_supported"])
+            self.assertTrue(report["successor"]["plan_supported"])
+
+    def test_one_command_adoption_pauses_on_collision_and_resumes_after_reinspection(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            area = Path(temporary)
+            target = self.new_target(area, "adoption")
+            authority_file = target / "AGENTS.md"
+            authority_file.write_text("# Existing project authority\n", encoding="utf-8")
+            review_dir = area / "review"
+            args = argparse.Namespace(
+                mode="adoption",
+                target=target,
+                review_dir=review_dir,
+                session=None,
+                proposal=None,
+                review=None,
+                prior_plan=None,
+                project_blueprint_seed=None,
+                json=True,
+            )
+            before = snapshot(target)
+            with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()) as blocked_output, mock.patch(
+                "builtins.input",
+                side_effect=[
+                    "Adoption Project",
+                    "minimal",
+                    "compact",
+                    "authority:adoption-owner",
+                    "disabled",
+                ],
+            ):
+                blocked = self.guided.run_guided(
+                    args,
+                    require_tty=False,
+                    input_fn=lambda _: self.fail("collision planning must not ask for apply confirmation"),
+                )
+            self.assertEqual(blocked, 3)
+            self.assertEqual(snapshot(target), before)
+            blocked_report = json.loads(blocked_output.getvalue())
+            self.assert_continuation_schema(blocked_report)
+            self.assertEqual(blocked_report["failure_code"], "OCTON-ADOPT-1101")
+            self.assertTrue(blocked_report["mutation"]["occurred"])
+            self.assertEqual(blocked_report["mutation"]["repository_paths"], [])
+            self.assertIn(
+                "target project was unchanged",
+                blocked_report["mutation"]["statement"],
+            )
+            self.assertTrue(blocked_report["next_action"]["argv"])
+            self.assertTrue(list(review_dir.glob("adoption-plan-*.json")))
+
+            preserved = target / "PROJECT_RULES.txt"
+            authority_file.rename(preserved)
+            preserved_bytes = preserved.read_bytes()
+            session_path = sorted(review_dir.glob("setup-session-*.json"))[-1]
+            resumed_args = argparse.Namespace(**{**vars(args), "session": session_path})
+            with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()), mock.patch(
+                "builtins.input",
+                side_effect=[
+                    "Adoption Project",
+                    "minimal",
+                    "compact",
+                    "authority:adoption-owner",
+                    "disabled",
+                ],
+            ):
+                review_paused = self.guided.run_guided(
+                    resumed_args,
+                    require_tty=False,
+                    input_fn=lambda _: self.fail("proposal review must precede apply confirmation"),
+                )
+            self.assertEqual(review_paused, 3)
+            proposal_path = sorted(review_dir.glob("adoption-plan-*.json"))[-1]
+            proposal = json.loads(proposal_path.read_text(encoding="utf-8"))
+            self.assertEqual(proposal["confirmed_collisions"], [])
+            review_path = review_dir / "adoption-review.json"
+            write_json(
+                review_path,
+                {
+                    "schema_version": "octon-mini.bootstrap.adoption-review.v1",
+                    "permission_grant": False,
+                    "proposal_digest": proposal["canonical_proposal_digest"],
+                    "dispositions": [
+                        {
+                            "ambiguity_id": item["id"],
+                            "disposition": "add_parallel_after_review",
+                            "rationale": "Explicit disposable-fixture review preserves established project bytes.",
+                        }
+                        for item in proposal["unresolved_ambiguity"]
+                    ],
+                    "limitations": ["Synthetic adoption continuation fixture."],
+                },
+            )
+            latest_session = sorted(review_dir.glob("setup-session-*.json"))[-1]
+            final_args = argparse.Namespace(
+                **{
+                    **vars(args),
+                    "session": latest_session,
+                    "proposal": proposal_path,
+                    "review": review_path,
+                }
+            )
+            confirmations: list[str] = []
+            with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
+                resumed = self.guided.run_guided(
+                    final_args,
+                    require_tty=False,
+                    input_fn=lambda prompt: confirmations.append(prompt) or "apply",
+                )
+            self.assertEqual(resumed, 0)
+            self.assertEqual(len(confirmations), 1)
+            self.assertEqual(preserved.read_bytes(), preserved_bytes)
+            self.assertEqual(
+                json.loads((target / ".agent/project.json").read_text(encoding="utf-8"))["project"]["adoption_status"],
+                "in_progress",
+            )
+
+    def test_plan_summary_human_and_json_are_equivalent_to_detailed_plan(self) -> None:
+        transaction = load_module(
+            "summary_transaction_fixture",
+            SKILL_ROOT / "assets/templates/core/.agent/scripts/octon_transaction.py.tmpl",
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            plan = transaction.build_plan(
+                root,
+                operation_name="test.summary",
+                scope="Synthetic plan summary",
+                operations=[
+                    transaction.operation("create", "created.txt", b"created\n", "Synthetic create."),
+                ],
+                evidence=[],
+                assumptions=[],
+                confidence="deterministic",
+                limitations=["Synthetic plan."],
+            )
+            summary = self.continuation.plan_summary(plan)
+            rendered_json = self.continuation.render_plan_summary(summary, json_output=True)
+            self.assertEqual(json.loads(rendered_json), summary)
+            rendered_human = self.continuation.render_plan_summary(summary)
+            self.assertIn(plan["canonical_plan_digest"], rendered_human)
+            self.assertEqual(summary["changes"]["create"], ["created.txt"])
+            self.assertEqual(summary["effects"]["external"], [])
+            predecessor_path = root / "predecessor.json"
+            transaction.write_new_json(predecessor_path, plan)
+            successor = transaction.build_plan(
+                root,
+                operation_name="test.summary",
+                scope="Synthetic successor summary",
+                operations=[
+                    transaction.operation("create", "successor.txt", b"successor\n", "Synthetic successor create."),
+                ],
+                evidence=[],
+                assumptions=[],
+                confidence="deterministic",
+                limitations=["Synthetic successor plan."],
+                predecessor_plan=(plan, predecessor_path),
+            )
+            self.assertEqual(
+                successor["predecessor_plan"]["canonical_plan_digest"],
+                plan["canonical_plan_digest"],
+            )
+            self.assertIn("operations", successor["semantic_delta"]["changed"])
+            self.assertIn("operations", successor["semantic_delta"]["review_again"])
+            self.assertNotEqual(
+                successor["canonical_plan_digest"], plan["canonical_plan_digest"]
+            )
 
     def test_recommendations_selections_authority_and_runtime_permission_remain_separate(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -718,8 +1366,9 @@ class GuidedSetupTests(unittest.TestCase):
             )
             self.assertEqual(snapshot(target), before)
             (target / "unexpected.txt").write_text("change\n", encoding="utf-8")
-            with self.assertRaisesRegex(self.setup.SetupError, "stale"):
+            with self.assertRaises(ValueError) as captured:
                 self.setup.verify_plan_binding(target, plans[0])
+            self.assertEqual(captured.exception.report["failure_code"], "OCTON-SETUP-1002")
 
     def test_nonexistent_initialization_target_is_created_only_by_apply(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

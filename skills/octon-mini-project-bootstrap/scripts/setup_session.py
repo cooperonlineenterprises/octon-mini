@@ -6,12 +6,14 @@ from __future__ import annotations
 import argparse
 import copy
 import hashlib
+import importlib.util
 import json
 import os
 import re
 import secrets
 import subprocess
 import sys
+import types
 from datetime import datetime, timedelta, timezone
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -19,9 +21,10 @@ from typing import Any
 
 SCRIPT_ROOT = Path(__file__).resolve().parent
 SKILL_ROOT = SCRIPT_ROOT.parent
-SESSION_SCHEMA = "octon-mini.bootstrap.setup-session.v1"
+SESSION_SCHEMA = "octon-mini.bootstrap.setup-session.v2"
+LEGACY_SESSION_SCHEMA = "octon-mini.bootstrap.setup-session.v1"
 ANSWER_SCHEMA = "octon-mini.bootstrap.setup-answers.v1"
-SESSION_VERSION = "1.0.0"
+SESSION_VERSION = "2.0.0"
 MODES = ("initialization", "adoption", "upgrade")
 STATES = ("answered", "unknown", "deferred", "not_applicable")
 AUTHORITY_PREFIXES = ("authority:", "external:")
@@ -33,6 +36,7 @@ CATALOG_TOP_KEYS = {
     "catalog_version",
     "modes",
     "information_roles",
+    "validity_policy",
     "questions",
     "limitations",
 }
@@ -69,6 +73,14 @@ RECOMMENDATION_KEYS = {"rule", "rationale"}
 CONDITION_KEYS = {"question_id", "operator", "values"}
 ANSWER_INPUT_KEYS = {"question_id", "state", "value", "supplied_by", "evidence"}
 ANSWER_EVIDENCE_KEYS = {"source", "observed_at", "expires_at", "confidence", "limitations"}
+VALIDITY_CLASSES = {
+    "re_observe_every_run",
+    "source_fingerprint_bound",
+    "dependency_bound",
+    "expiry_bound",
+    "decision_successor_or_revocation_bound",
+    "runtime_only_never_reusable",
+}
 INFORMATION_ROLES = {
     "observation",
     "inference",
@@ -102,6 +114,24 @@ FINGERPRINT_EXCLUSIONS = (
 
 class SetupError(ValueError):
     """The setup session is malformed, stale, ambiguous, or incomplete."""
+
+
+def load_module(name: str, path: Path):
+    spec = importlib.util.spec_from_file_location(name, path)
+    if spec is None or spec.loader is None:
+        module = types.ModuleType(name)
+        module.__file__ = str(path)
+        exec(compile(path.read_text(encoding="utf-8"), str(path), "exec"), module.__dict__)
+        return module
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+CONTINUATION = load_module(
+    "octon_setup_continuation",
+    SKILL_ROOT / "assets/templates/core/.agent/scripts/octon_continuation.py.tmpl",
+)
 
 
 def utc_timestamp() -> str:
@@ -199,7 +229,7 @@ def validate_catalog(value: Any) -> dict[str, Any]:
     if not isinstance(value, dict) or set(value) != CATALOG_TOP_KEYS:
         raise SetupError("setup question catalog uses an invalid closed top-level contract")
     if (
-        value.get("schema_version") != "octon-mini.bootstrap.setup-question-catalog.v1"
+        value.get("schema_version") != "octon-mini.bootstrap.setup-question-catalog.v2"
         or value.get("document_role") != "authoritative_guided_setup_question_catalog"
         or value.get("permission_grant") is not False
         or value.get("modes") != list(MODES)
@@ -210,6 +240,25 @@ def validate_catalog(value: Any) -> dict[str, Any]:
         or not isinstance(value.get("limitations"), list)
     ):
         raise SetupError("setup question catalog metadata is malformed or authorizing")
+    validity = value.get("validity_policy")
+    if (
+        not isinstance(validity, dict)
+        or validity.get("schema_version") != "octon-mini.setup-validity.v1"
+        or set(validity.get("classes", [])) != VALIDITY_CLASSES
+        or set(validity.get("reinspection_classifications", []))
+        != {"preserved", "reobserved", "needs_confirmation", "invalidated", "newly_introduced"}
+        or not isinstance(validity.get("role_defaults"), dict)
+        or set(validity["role_defaults"]) != INFORMATION_ROLES
+        or any(
+            not isinstance(classes, list)
+            or not classes
+            or not set(classes) <= VALIDITY_CLASSES
+            for classes in validity["role_defaults"].values()
+        )
+        or not isinstance(validity.get("rules"), list)
+        or any(not isinstance(item, str) or not item for item in validity["rules"])
+    ):
+        raise SetupError("setup validity policy is malformed or incomplete")
     seen: set[str] = set()
     positions: dict[str, int] = {}
     for index, question in enumerate(value["questions"]):
@@ -368,6 +417,26 @@ def relevant_top_level(target: Path) -> list[str]:
 def origin_observation(target: Path) -> tuple[str, str | None, list[str], list[str]]:
     origin_path = target / ".octon-mini-origin.json"
     if not origin_path.exists():
+        legacy_path = target / ".project-blueprint-origin.json"
+        if legacy_path.exists():
+            if legacy_path.is_symlink() or not legacy_path.is_file():
+                return "invalid", None, [], ["legacy origin provenance is not a regular file"]
+            try:
+                legacy = load_json(legacy_path)
+            except SetupError:
+                return "invalid", None, [], ["legacy origin provenance is malformed strict JSON"]
+            legacy_version = legacy.get("blueprint_version") if isinstance(legacy, dict) else None
+            if (
+                not isinstance(legacy, dict)
+                or legacy.get("schema_version") != "project-blueprint.origin.v1"
+                or legacy.get("blueprint") != "project-blueprint"
+                or not isinstance(legacy_version, str)
+                or re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", legacy_version) is None
+            ):
+                return "invalid", None, [], ["legacy origin lacks the reviewed Project Blueprint product, schema, or version"]
+            return "valid", legacy_version, [], [
+                f"valid legacy migration input records Project Blueprint {legacy_version}; no compatibility runtime is enabled"
+            ]
         return "absent", None, [], ["no .octon-mini-origin.json was observed"]
     if origin_path.is_symlink() or not origin_path.is_file():
         return "invalid", None, [], ["origin provenance is not a regular file"]
@@ -439,7 +508,135 @@ def observed_evidence(source: str, *, limitations: list[str] | None = None) -> d
     }
 
 
-def state_record(question: dict[str, Any], state: str, value: Any, supplied_by: str, evidence: dict[str, Any]) -> dict[str, Any]:
+def question_validity_classes(
+    catalog: dict[str, Any],
+    question: dict[str, Any],
+    evidence: dict[str, Any],
+) -> list[str]:
+    classes = set(catalog["validity_policy"]["role_defaults"][question["information_role"]])
+    if evidence.get("expires_at") is not None:
+        classes.add("expiry_bound")
+    return sorted(classes)
+
+
+def binding(
+    kind: str,
+    reference: str,
+    *,
+    digest_value: str | None,
+    expires_at: str | None = None,
+    subject_type: str = "metadata",
+) -> dict[str, Any]:
+    return {
+        "kind": kind,
+        "reference": reference,
+        "subject_type": subject_type,
+        "digest": digest_value,
+        "expires_at": expires_at,
+    }
+
+
+def dependency_digest(
+    question: dict[str, Any],
+    states: dict[str, dict[str, Any]],
+) -> str:
+    values = []
+    for identifier in question["dependencies"]:
+        item = states.get(identifier)
+        values.append(
+            {
+                "question_id": identifier,
+                "question_version": item.get("question_version") if item else None,
+                "state": item.get("state") if item else None,
+                "value": item.get("value") if item else None,
+            }
+        )
+    return sha256(canonical_bytes(values))
+
+
+def evidence_binding_state(target: Path, evidence: dict[str, Any]) -> tuple[str, str]:
+    source = str(evidence.get("source", ""))
+    for prefix in ("filesystem:", "repo:"):
+        if not source.startswith(prefix):
+            continue
+        raw = source[len(prefix):]
+        candidate = Path(raw)
+        if candidate.is_absolute():
+            path = candidate
+        else:
+            path = target / candidate
+        try:
+            path.resolve(strict=False).relative_to(target.resolve())
+        except (OSError, ValueError) as error:
+            raise SetupError(f"evidence source path escapes the target: {source}") from error
+        if path.is_symlink():
+            raise SetupError(f"evidence source path is a symlink and cannot be reused: {source}")
+        if path.is_file():
+            return "file", sha256(path.read_bytes())
+        if not path.exists():
+            return "absent", sha256(b"absent")
+        raise SetupError(f"evidence source path is not a regular file or explicit absence: {source}")
+    return "metadata", sha256(canonical_bytes(evidence))
+
+
+def state_validity(
+    catalog: dict[str, Any],
+    question: dict[str, Any],
+    states: dict[str, dict[str, Any]],
+    target: Path,
+    evidence: dict[str, Any],
+    *,
+    reuse_status: str = "current",
+    reason: str = "Collected against the current declared dependencies.",
+) -> dict[str, Any]:
+    classes = question_validity_classes(catalog, question, evidence)
+    records = [
+        binding(
+            "catalog_question",
+            question["id"],
+            digest_value=sha256(canonical_bytes(question)),
+        ),
+        binding(
+            "question_dependencies",
+            question["id"],
+            digest_value=dependency_digest(question, states),
+        ),
+    ]
+    if question["information_role"] != "runtime_authorization_forbidden":
+        records.append(
+            binding(
+                "governing_instructions",
+                "AGENTS.md",
+                digest_value=fingerprint(target, instructions_only=True)["digest"],
+            )
+        )
+    evidence_subject_type, evidence_digest = evidence_binding_state(target, evidence)
+    records.append(
+        binding(
+            "evidence_source",
+            evidence["source"],
+            digest_value=evidence_digest,
+            expires_at=evidence.get("expires_at"),
+            subject_type=evidence_subject_type,
+        )
+    )
+    return {
+        "classes": classes,
+        "bindings": records,
+        "reuse_status": reuse_status,
+        "reason": reason,
+    }
+
+
+def state_record(
+    question: dict[str, Any],
+    state: str,
+    value: Any,
+    supplied_by: str,
+    evidence: dict[str, Any],
+    *,
+    validity: dict[str, Any],
+) -> dict[str, Any]:
     return {
         "question_id": question["id"],
         "question_version": question["version"],
@@ -448,6 +645,7 @@ def state_record(question: dict[str, Any], state: str, value: Any, supplied_by: 
         "value": value,
         "supplied_by": supplied_by,
         "evidence": evidence,
+        "validity": validity,
     }
 
 
@@ -462,12 +660,44 @@ def initial_observations(
     instruction = fingerprint(target, instructions_only=True)
     provenance_value = dict(octon_mini)
     provenance_value.pop("installed_packages", None)
-    return [
-        state_record(questions["setup.target-identity"], "answered", str(target), "inspection", observed_evidence("filesystem:canonical-target")),
-        state_record(questions["setup.detected-mode"], "answered", mode, "inspection", observed_evidence("filesystem:mode-detection", limitations=mode_evidence)),
-        state_record(questions["setup.governing-instructions"], "answered", instruction["paths"], "inspection", observed_evidence("filesystem:AGENTS.md-fingerprint")),
-        state_record(questions["setup.octon-mini-provenance"], "answered", provenance_value, "inspection", observed_evidence("filesystem:.octon-mini-origin.json")),
+    rows = [
+        (questions["setup.target-identity"], str(target), observed_evidence("inspection:canonical-target")),
+        (questions["setup.detected-mode"], mode, observed_evidence("inspection:mode-detection", limitations=mode_evidence)),
+        (questions["setup.governing-instructions"], instruction["paths"], observed_evidence("inspection:governing-instructions")),
+        (
+            questions["setup.octon-mini-provenance"],
+            provenance_value,
+            observed_evidence(
+                "filesystem:.octon-mini-origin.json"
+                if (target / ".octon-mini-origin.json").exists()
+                else "filesystem:.project-blueprint-origin.json"
+                if (target / ".project-blueprint-origin.json").exists()
+                else "inspection:origin-absent"
+            ),
+        ),
     ]
+    states: dict[str, dict[str, Any]] = {}
+    result = []
+    for question, value, evidence_record in rows:
+        record = state_record(
+            question,
+            "answered",
+            value,
+            "inspection",
+            evidence_record,
+            validity=state_validity(
+                catalog,
+                question,
+                states,
+                target,
+                evidence_record,
+                reuse_status="reobserved",
+                reason="Direct observation was recomputed for this session.",
+            ),
+        )
+        result.append(record)
+        states[question["id"]] = record
+    return result
 
 
 def recommendation_records(target: Path, mode: str) -> list[dict[str, Any]]:
@@ -501,8 +731,292 @@ def recommendation_records(target: Path, mode: str) -> list[dict[str, Any]]:
     return records
 
 
+def decision_frontmatter(path: Path) -> dict[str, Any] | None:
+    if path.is_symlink() or not path.is_file():
+        return None
+    lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
+    if not lines or lines[0].strip() != "---":
+        return None
+    try:
+        end = next(index for index, line in enumerate(lines[1:], 1) if line.strip() == "---")
+        value = json.loads("".join(lines[1:end]), object_pairs_hook=strict_object)
+    except (StopIteration, json.JSONDecodeError, SetupError):
+        return None
+    return value if isinstance(value, dict) else None
+
+
+def decision_path(target: Path, decision_ref: str) -> Path | None:
+    root = target / ".agent/decisions"
+    if not root.is_dir() or root.is_symlink():
+        return None
+    matches = [
+        path
+        for path in sorted(root.glob(f"{decision_ref}*.md"))
+        if path.is_file() and not path.is_symlink()
+    ]
+    return matches[0] if len(matches) == 1 else None
+
+
+def reusable_decision_states(
+    target: Path,
+    mode: str,
+    catalog: dict[str, Any],
+    states: dict[str, dict[str, Any]],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, str]]]:
+    registry_path = target / ".agent/decisions/reuse-policy.json"
+    if not registry_path.is_file() or registry_path.is_symlink():
+        return [], [], []
+    registry = load_json(registry_path)
+    if (
+        not isinstance(registry, dict)
+        or set(registry) != {
+            "schema_version",
+            "document_role",
+            "permission_grant",
+            "runtime_authorization",
+            "records",
+            "limitations",
+        }
+        or registry.get("schema_version") != "harness.decision-reuse-registry.v1"
+        or registry.get("permission_grant") is not False
+        or registry.get("runtime_authorization") is not False
+        or not isinstance(registry.get("records"), list)
+    ):
+        raise SetupError("project decision-reuse registry is malformed or authorizing")
+    questions = question_map(catalog)
+    now = datetime.now(timezone.utc)
+    instruction_digest = fingerprint(target, instructions_only=True)["digest"]
+    reused_states: list[dict[str, Any]] = []
+    reused_records: list[dict[str, Any]] = []
+    invalid: list[dict[str, str]] = []
+    for policy in registry["records"]:
+        policy_id = str(policy.get("id", "unknown")) if isinstance(policy, dict) else "unknown"
+        if not isinstance(policy, dict):
+            invalid.append({"question_id": "setup.decision-reuse", "reason": "Decision-reuse record is not an object."})
+            continue
+        classification_id = next(
+            (
+                identifier
+                for identifier in policy.get("question_ids", [])
+                if isinstance(identifier, str)
+                and re.fullmatch(r"setup\.[a-z0-9]+(?:[.-][a-z0-9]+)*", identifier)
+            ),
+            "setup.decision-reuse",
+        )
+        expected_policy_fields = {
+            "id",
+            "status",
+            "decision_ref",
+            "decision_sha256",
+            "authority_source",
+            "question_ids",
+            "operations",
+            "value",
+            "applicability",
+            "governing_instruction_digest",
+            "evidence_refs",
+            "valid_from",
+            "expires_at",
+            "successor",
+            "runtime_authorization",
+            "external_action_authority",
+            "limitations",
+        }
+        if (
+            set(policy) != expected_policy_fields
+            or re.fullmatch(r"DRP-[0-9]{4}", policy_id) is None
+            or not isinstance(policy.get("question_ids"), list)
+            or not isinstance(policy.get("operations"), list)
+            or not isinstance(policy.get("limitations"), list)
+        ):
+            invalid.append({"question_id": classification_id, "reason": "Decision-reuse record does not use the closed v1 contract."})
+            continue
+        if policy.get("runtime_authorization") is not False or policy.get("external_action_authority") is not False:
+            invalid.append({"question_id": classification_id, "reason": "Runtime or external-action authority can never be remembered."})
+            continue
+        if policy.get("status") != "active" or policy.get("successor") is not None:
+            invalid.append({"question_id": classification_id, "reason": "Decision-reuse record is revoked or superseded."})
+            continue
+        expiry = policy.get("expires_at")
+        valid_from = policy.get("valid_from")
+        if (
+            not isinstance(valid_from, str)
+            or parse_time(valid_from, f"{policy_id} valid_from") > now
+        ):
+            invalid.append({"question_id": classification_id, "reason": "Decision-reuse record is not yet valid."})
+            continue
+        if expiry is not None and parse_time(expiry, f"{policy_id} expires_at") <= now:
+            invalid.append({"question_id": classification_id, "reason": "Decision-reuse record is expired."})
+            continue
+        applicability = policy.get("applicability", {})
+        modes = applicability.get("modes", []) if isinstance(applicability, dict) else []
+        if modes and mode not in modes:
+            continue
+        if "setup.answer" not in policy.get("operations", []):
+            continue
+        configured_profiles = applicability.get("profiles", []) if isinstance(applicability, dict) else []
+        project_profile = None
+        project_path = target / ".agent/project.json"
+        if project_path.is_file() and not project_path.is_symlink():
+            try:
+                project_profile = load_json(project_path).get("project", {}).get("profile")
+            except SetupError:
+                project_profile = None
+        if configured_profiles and project_profile not in configured_profiles:
+            continue
+        path_prefixes = applicability.get("path_prefixes", []) if isinstance(applicability, dict) else []
+        if path_prefixes and "." not in path_prefixes:
+            continue
+        dependency_fingerprints = applicability.get("dependency_fingerprints", []) if isinstance(applicability, dict) else []
+        dependency_changed = False
+        dependency_items = (
+            dependency_fingerprints
+            if isinstance(dependency_fingerprints, list)
+            else []
+        )
+        for dependency in dependency_items:
+            if not isinstance(dependency, dict):
+                dependency_changed = True
+                break
+            relative = dependency.get("path")
+            expected_type = dependency.get("type")
+            expected_digest = dependency.get("sha256")
+            if (
+                not isinstance(relative, str)
+                or expected_type not in {"absent", "file"}
+                or not isinstance(expected_digest, str)
+            ):
+                dependency_changed = True
+                break
+            normalized = PurePosixPath(relative)
+            if normalized.is_absolute() or any(part in {"", ".", ".."} for part in normalized.parts):
+                dependency_changed = True
+                break
+            dependency_path = target.joinpath(*normalized.parts)
+            if dependency_path.is_symlink():
+                dependency_changed = True
+                break
+            if dependency_path.is_file():
+                current_type = "file"
+                current_digest = sha256(dependency_path.read_bytes())
+            elif not dependency_path.exists():
+                current_type = "absent"
+                current_digest = sha256(b"absent")
+            else:
+                dependency_changed = True
+                break
+            if current_type != expected_type or current_digest != expected_digest:
+                dependency_changed = True
+                break
+        if dependency_changed:
+            invalid.append({"question_id": classification_id, "reason": "Decision-reuse applicability dependency fingerprint changed."})
+            continue
+        if policy.get("governing_instruction_digest") != instruction_digest:
+            invalid.append({"question_id": classification_id, "reason": "Governing instructions differ from the accepted reuse boundary."})
+            continue
+        decision_ref = policy.get("decision_ref")
+        if not isinstance(decision_ref, str):
+            invalid.append({"question_id": classification_id, "reason": "Decision reference is malformed."})
+            continue
+        path = decision_path(target, decision_ref)
+        record = decision_frontmatter(path) if path is not None else None
+        if (
+            path is None
+            or record is None
+            or record.get("schema_version") != "harness.decision.v1"
+            or record.get("id") != decision_ref
+            or record.get("status") != "accepted"
+            or record.get("successor") is not None
+            or record.get("authority_source") != policy.get("authority_source")
+            or not isinstance(record.get("scope"), str)
+            or not record["scope"].strip()
+            or sha256(path.read_bytes()) != policy.get("decision_sha256")
+        ):
+            invalid.append({"question_id": classification_id, "reason": "Accepted decision no longer resolves exactly or was superseded."})
+            continue
+        applied_questions: list[str] = []
+        for identifier in policy.get("question_ids", []):
+            question = questions.get(identifier)
+            if question is None or identifier in states or not question_eligible(question, mode, states):
+                continue
+            evidence_record = {
+                "source": f"authority:{decision_ref}",
+                "observed_at": policy["valid_from"],
+                "expires_at": expiry,
+                "confidence": "deterministic",
+                "limitations": list(policy.get("limitations", []))
+                + ["The accepted decision is reused as a policy input, not runtime authorization."],
+            }
+            validate_answer_type(question, "answered", policy.get("value"))
+            validate_answer_evidence(question, evidence_record, "answered")
+            validity = state_validity(
+                catalog,
+                question,
+                states,
+                target,
+                evidence_record,
+                reuse_status="preserved",
+                reason="Current accepted project-owned decision and reuse applicability remain exact.",
+            )
+            validity["classes"] = sorted(
+                set(validity["classes"])
+                | {"decision_successor_or_revocation_bound", "dependency_bound"}
+            )
+            validity["bindings"].append(
+                binding(
+                    "decision_record",
+                    decision_ref,
+                    digest_value=policy["decision_sha256"],
+                    expires_at=expiry,
+                    subject_type="file",
+                )
+            )
+            state = state_record(
+                question,
+                "answered",
+                policy.get("value"),
+                "accepted_decision",
+                evidence_record,
+                validity=validity,
+            )
+            reused_states.append(state)
+            states[identifier] = state
+            applied_questions.append(identifier)
+        if applied_questions:
+            reused_records.append(
+                {
+                    "reuse_policy_id": policy_id,
+                    "decision_ref": decision_ref,
+                    "question_ids": applied_questions,
+                    "valid_until": expiry,
+                    "limitations": list(policy.get("limitations", [])),
+                }
+            )
+    return reused_states, reused_records, invalid
+
+
 def session_question_state(session: dict[str, Any]) -> dict[str, dict[str, Any]]:
     return {item["question_id"]: item for item in session["question_states"]}
+
+
+def accepted_decision_identity(item: dict[str, Any]) -> tuple[Any, ...]:
+    bindings = tuple(
+        sorted(
+            (
+                binding_item.get("kind"),
+                binding_item.get("reference"),
+                binding_item.get("digest"),
+                binding_item.get("expires_at"),
+            )
+            for binding_item in item.get("validity", {}).get("bindings", [])
+            if binding_item.get("kind") == "decision_record"
+        )
+    )
+    return (
+        item.get("value"),
+        item.get("evidence", {}).get("source"),
+        bindings,
+    )
 
 
 def condition_matches(condition: dict[str, Any], states: dict[str, dict[str, Any]]) -> bool:
@@ -923,9 +1437,28 @@ def apply_answer_batch(session: dict[str, Any], payload: Any, catalog: dict[str,
         evidence = validate_answer_evidence(question, raw.get("evidence"), state)
         if raw.get("supplied_by") not in {"user", "agent", "tty", "cli", "review_artifact"}:
             raise SetupError(f"{identifier}: invalid answer source")
-        record = state_record(question, state, raw.get("value"), raw["supplied_by"], evidence)
+        record = state_record(
+            question,
+            state,
+            raw.get("value"),
+            raw["supplied_by"],
+            evidence,
+            validity=state_validity(
+                catalog,
+                question,
+                states,
+                Path(session["target_identity"]["canonical_path"]),
+                evidence,
+            ),
+        )
         successor["question_states"].append(record)
         states[identifier] = record
+        for bucket in ("needs_confirmation", "invalidated", "newly_introduced"):
+            successor["reinspection"][bucket] = [
+                item
+                for item in successor["reinspection"][bucket]
+                if item.get("question_id") != identifier
+            ]
     successor["sequence"] += 1
     successor["updated_at"] = utc_timestamp()
     successor["successor_of"] = {
@@ -1099,13 +1632,21 @@ def finalize_session(session: dict[str, Any], catalog: dict[str, Any]) -> dict[s
     if len(states) != len(session["question_states"]):
         raise SetupError("setup session contains duplicate question IDs")
     inventories = {state: sorted(item["question_id"] for item in session["question_states"] if item["state"] == state) for state in STATES}
+    inventories["needs_confirmation"] = sorted(
+        item["question_id"] for item in session["reinspection"]["needs_confirmation"]
+    )
+    inventories["invalidated"] = sorted(
+        item["question_id"] for item in session["reinspection"]["invalidated"]
+    )
     session["inventories"] = inventories
     session["selected_profile"] = states.get("setup.assurance-profile", {}).get("value") if states.get("setup.assurance-profile", {}).get("state") == "answered" else None
     session["selected_layout"] = states.get("setup.layout", {}).get("value") if states.get("setup.layout", {}).get("state") == "answered" else None
     session["user_selections"] = [
         {"question_id": item["question_id"], "value": item["value"], "accepted_authority": False}
         for item in session["question_states"]
-        if item["state"] == "answered" and item["supplied_by"] != "inspection" and item["information_role"] in {"owner_selection", "initialization_input"}
+        if item["state"] == "answered"
+        and item["supplied_by"] in {"user", "agent", "tty", "cli", "review_artifact"}
+        and item["information_role"] in {"owner_selection", "initialization_input"}
     ]
     session["accepted_authority_references"] = [
         {
@@ -1143,7 +1684,12 @@ def finalize_session(session: dict[str, Any], catalog: dict[str, Any]) -> dict[s
     return session
 
 
-def create_session(mode: str, target: Path) -> dict[str, Any]:
+def create_session(
+    mode: str,
+    target: Path,
+    *,
+    catalog_override: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     if mode not in MODES:
         raise SetupError(f"unsupported setup mode: {mode}")
     target = target.expanduser().resolve()
@@ -1160,9 +1706,24 @@ def create_session(mode: str, target: Path) -> dict[str, Any]:
         raise SetupError("target mode is ambiguous: " + "; ".join(evidence))
     if detected != mode:
         raise SetupError(f"target evidence supports {detected}, not requested {mode}")
-    catalog = load_catalog()
+    catalog = (
+        validate_catalog(copy.deepcopy(catalog_override))
+        if catalog_override is not None
+        else load_catalog()
+    )
     now = utc_timestamp()
     instruction = fingerprint(observed_target, instructions_only=True)
+    observations = initial_observations(
+        catalog, observed_target, detected, evidence, octon_mini
+    )
+    observed_states = {item["question_id"]: item for item in observations}
+    reused_states, reused_decisions, invalid_reuse = reusable_decision_states(
+        observed_target,
+        mode,
+        catalog,
+        observed_states,
+    )
+    observations.extend(reused_states)
     session: dict[str, Any] = {
         "schema_version": SESSION_SCHEMA,
         "artifact_kind": "setup_session",
@@ -1188,13 +1749,35 @@ def create_session(mode: str, target: Path) -> dict[str, Any]:
             "catalog_version": catalog["catalog_version"],
             "sha256": catalog_digest(catalog),
         },
+        "validity_policy_version": catalog["validity_policy"]["schema_version"],
         "selected_profile": None,
         "selected_layout": None,
-        "question_states": initial_observations(catalog, observed_target, detected, evidence, octon_mini),
-        "inventories": {state: [] for state in STATES},
+        "question_states": observations,
+        "reinspection": {
+            "preserved": [
+                {
+                    "question_id": item["question_id"],
+                    "reason": "Current accepted project-owned decision was reused within its exact validity boundary.",
+                }
+                for item in reused_states
+            ],
+            "reobserved": [
+                {
+                    "question_id": item["question_id"],
+                    "reason": "Direct observation was computed for this new session.",
+                }
+                for item in observations
+                if item["supplied_by"] == "inspection"
+            ],
+            "needs_confirmation": [],
+            "invalidated": invalid_reuse,
+            "newly_introduced": [],
+        },
+        "inventories": {**{state: [] for state in STATES}, "needs_confirmation": [], "invalidated": []},
         "recommendations": recommendation_records(observed_target, mode),
         "user_selections": [],
         "accepted_authority_references": [],
+        "reused_decisions": reused_decisions,
         "unresolved_blockers": [],
         "next_eligible_questions": [],
         "generated_plan_references": [],
@@ -1217,7 +1800,7 @@ def validate_session_shape(value: Any, catalog: dict[str, Any]) -> dict[str, Any
     required = {
         "schema_version", "artifact_kind", "artifact_version", "permission_grant", "session_id", "sequence", "created_at", "updated_at", "mode",
         "target_identity", "target_revision", "target_fingerprint", "governing_instruction_fingerprint", "octon_mini", "question_catalog", "selected_profile",
-        "selected_layout", "question_states", "inventories", "recommendations", "user_selections", "accepted_authority_references", "unresolved_blockers",
+        "selected_layout", "validity_policy_version", "question_states", "reinspection", "inventories", "recommendations", "user_selections", "accepted_authority_references", "reused_decisions", "unresolved_blockers",
         "next_eligible_questions", "generated_plan_references", "work_completion_assessment", "minimum_closure_sequence", "session_status", "successor_of", "limitations", "canonical_session_digest",
     }
     if not isinstance(value, dict) or set(value) != required:
@@ -1226,6 +1809,8 @@ def validate_session_shape(value: Any, catalog: dict[str, Any]) -> dict[str, Any
         value.get("schema_version") != SESSION_SCHEMA
         or value.get("artifact_kind") != "setup_session"
         or value.get("artifact_version") != SESSION_VERSION
+        or value.get("validity_policy_version")
+        != catalog["validity_policy"]["schema_version"]
         or value.get("permission_grant") is not False
         or value.get("mode") not in MODES
         or re.fullmatch(r"SETUP-[a-f0-9]{24}", str(value.get("session_id", ""))) is None
@@ -1233,6 +1818,15 @@ def validate_session_shape(value: Any, catalog: dict[str, Any]) -> dict[str, Any
         or record_digest(value, "canonical_session_digest") != value.get("canonical_session_digest")
     ):
         raise SetupError("setup session metadata or canonical digest is invalid")
+    reinspection = value.get("reinspection")
+    if (
+        not isinstance(reinspection, dict)
+        or set(reinspection)
+        != {"preserved", "reobserved", "needs_confirmation", "invalidated", "newly_introduced"}
+        or any(not isinstance(reinspection[key], list) for key in reinspection)
+        or not isinstance(value.get("reused_decisions"), list)
+    ):
+        raise SetupError("setup session reinspection or reused-decision contract is malformed")
     catalog_ref = value.get("question_catalog")
     if not isinstance(catalog_ref, dict) or catalog_ref != {
         "schema_version": catalog["schema_version"],
@@ -1244,7 +1838,7 @@ def validate_session_shape(value: Any, catalog: dict[str, Any]) -> dict[str, Any
     seen: set[str] = set()
     validated_states: dict[str, dict[str, Any]] = {}
     for item in value["question_states"]:
-        if not isinstance(item, dict) or set(item) != {"question_id", "question_version", "state", "information_role", "value", "supplied_by", "evidence"}:
+        if not isinstance(item, dict) or set(item) != {"question_id", "question_version", "state", "information_role", "value", "supplied_by", "evidence", "validity"}:
             raise SetupError("setup question state uses an invalid closed contract")
         identifier = item.get("question_id")
         question = questions.get(identifier)
@@ -1264,10 +1858,23 @@ def validate_session_shape(value: Any, catalog: dict[str, Any]) -> dict[str, Any
             "tty",
             "cli",
             "review_artifact",
+            "accepted_decision",
         }:
             raise SetupError(f"{identifier}: invalid stored answer source")
         validate_answer_type(question, item["state"], item.get("value"))
         validate_answer_evidence(question, item.get("evidence"), item["state"])
+        validity = item.get("validity")
+        if (
+            not isinstance(validity, dict)
+            or set(validity) != {"classes", "bindings", "reuse_status", "reason"}
+            or not isinstance(validity.get("classes"), list)
+            or not validity["classes"]
+            or not set(validity["classes"]) <= VALIDITY_CLASSES
+            or validity.get("reuse_status") not in {"current", "preserved", "reobserved"}
+            or not isinstance(validity.get("bindings"), list)
+            or not isinstance(validity.get("reason"), str)
+        ):
+            raise SetupError(f"{identifier}: validity binding is malformed")
         if item["state"] == "answered":
             validate_special_answer(identifier, item["value"], {row["question_id"]: row for row in value["question_states"]})
             if contains_secret(item["value"]):
@@ -1290,64 +1897,377 @@ def validate_session_shape(value: Any, catalog: dict[str, Any]) -> dict[str, Any
     return value
 
 
+def validate_predecessor_session_shape(value: Any) -> dict[str, Any]:
+    required = {
+        "schema_version", "artifact_kind", "artifact_version", "permission_grant", "session_id", "sequence", "created_at", "updated_at", "mode",
+        "target_identity", "target_revision", "target_fingerprint", "governing_instruction_fingerprint", "octon_mini", "question_catalog", "selected_profile",
+        "selected_layout", "validity_policy_version", "question_states", "reinspection", "inventories", "recommendations", "user_selections", "accepted_authority_references", "reused_decisions", "unresolved_blockers",
+        "next_eligible_questions", "generated_plan_references", "work_completion_assessment", "minimum_closure_sequence", "session_status", "successor_of", "limitations", "canonical_session_digest",
+    }
+    if (
+        not isinstance(value, dict)
+        or set(value) != required
+        or value.get("schema_version") != SESSION_SCHEMA
+        or value.get("artifact_kind") != "setup_session"
+        or value.get("artifact_version") != SESSION_VERSION
+        or value.get("permission_grant") is not False
+        or value.get("mode") not in MODES
+        or re.fullmatch(r"SETUP-[a-f0-9]{24}", str(value.get("session_id", ""))) is None
+        or record_digest(value, "canonical_session_digest")
+        != value.get("canonical_session_digest")
+        or not isinstance(value.get("question_states"), list)
+    ):
+        raise SetupError("predecessor setup session metadata or canonical digest is invalid")
+    seen: set[str] = set()
+    required_state_keys = {
+        "question_id", "question_version", "state", "information_role",
+        "value", "supplied_by", "evidence", "validity",
+    }
+    for item in value["question_states"]:
+        identifier = item.get("question_id") if isinstance(item, dict) else None
+        if (
+            not isinstance(item, dict)
+            or set(item) != required_state_keys
+            or not isinstance(identifier, str)
+            or re.fullmatch(r"setup\.[a-z0-9]+(?:[.-][a-z0-9]+)*", identifier) is None
+            or identifier in seen
+            or item.get("state") not in STATES
+            or contains_secret(item.get("value"))
+        ):
+            raise SetupError("predecessor setup session contains malformed or unsafe question state")
+        seen.add(identifier)
+    return value
+
+
 def current_state_mismatches(session: dict[str, Any]) -> list[str]:
     target = Path(session["target_identity"]["canonical_path"])
     mismatches: list[str] = []
-    detected, _, octon_mini = detect_mode(target)
+    catalog = load_catalog()
+    detected, mode_evidence, octon_mini = detect_mode(target)
     if detected != session["mode"]:
         mismatches.append("target mode")
-    if fingerprint(target) != session["target_fingerprint"]:
-        mismatches.append("target content fingerprint")
     if fingerprint(target, instructions_only=True) != session["governing_instruction_fingerprint"]:
         mismatches.append("governing instruction fingerprint")
-    if target_revision(target) != session["target_revision"]:
-        mismatches.append("target revision or dirty state")
     for key in ("source_version", "candidate_version", "installed_version", "provenance_status", "installed_packages"):
         if octon_mini.get(key) != session["octon_mini"].get(key):
             mismatches.append(f"Octon Mini {key}")
+    current_observations = {
+        item["question_id"]: item
+        for item in initial_observations(catalog, target, detected, mode_evidence, octon_mini)
+    }
+    stored_states = session_question_state(session)
+    for identifier, current in current_observations.items():
+        stored = stored_states.get(identifier)
+        if stored is None or stored.get("value") != current.get("value"):
+            mismatches.append(f"observation {identifier}")
+    current_states = dict(current_observations)
+    current_reused, _, _ = reusable_decision_states(
+        target, session["mode"], catalog, current_states
+    )
+    current_reused_by_id = {item["question_id"]: item for item in current_reused}
+    questions = question_map(catalog)
+    now = datetime.now(timezone.utc)
+    for identifier, item in stored_states.items():
+        if item.get("supplied_by") == "inspection":
+            continue
+        if item.get("supplied_by") == "accepted_decision":
+            current = current_reused_by_id.get(identifier)
+            if current is None or accepted_decision_identity(current) != accepted_decision_identity(item):
+                mismatches.append(f"accepted decision {identifier}")
+            continue
+        question = questions[identifier]
+        for stored_binding in item.get("validity", {}).get("bindings", []):
+            kind = stored_binding.get("kind")
+            expected = stored_binding.get("digest")
+            if kind == "catalog_question":
+                current = sha256(canonical_bytes(question))
+                current_type = "metadata"
+            elif kind == "question_dependencies":
+                current = dependency_digest(question, stored_states)
+                current_type = "metadata"
+            elif kind == "governing_instructions":
+                current = fingerprint(target, instructions_only=True)["digest"]
+                current_type = "metadata"
+            elif kind == "evidence_source":
+                current_type, current = evidence_binding_state(
+                    target, item["evidence"]
+                )
+            else:
+                continue
+            if expected != current or stored_binding.get("subject_type") != current_type:
+                mismatches.append(f"{identifier} {kind}")
+            expiry = stored_binding.get("expires_at")
+            if expiry is not None and parse_time(expiry, f"{identifier} expires_at") <= now:
+                mismatches.append(f"{identifier} expiry")
     return sorted(set(mismatches))
+
+
+def convert_legacy_session(value: dict[str, Any], catalog: dict[str, Any]) -> dict[str, Any]:
+    if (
+        value.get("schema_version") != LEGACY_SESSION_SCHEMA
+        or value.get("artifact_version") != "1.0.0"
+        or value.get("permission_grant") is not False
+        or record_digest(value, "canonical_session_digest") != value.get("canonical_session_digest")
+    ):
+        raise SetupError("legacy setup session is malformed or has an invalid digest")
+    target = Path(value["target_identity"]["canonical_path"])
+    questions = question_map(catalog)
+    states: dict[str, dict[str, Any]] = {}
+    converted_states: list[dict[str, Any]] = []
+    for item in value.get("question_states", []):
+        question = questions.get(item.get("question_id"))
+        if question is None or question["version"] != item.get("question_version"):
+            continue
+        copied = dict(item)
+        copied["validity"] = state_validity(
+            catalog,
+            question,
+            states,
+            target,
+            copied["evidence"],
+            reason="Legacy v1 state awaits explicit dependency-scoped reinspection.",
+        )
+        converted_states.append(copied)
+        states[question["id"]] = copied
+    converted = copy.deepcopy(value)
+    legacy_digest = value["canonical_session_digest"]
+    converted.update(
+        {
+            "schema_version": SESSION_SCHEMA,
+            "artifact_version": SESSION_VERSION,
+            "question_catalog": {
+                "schema_version": catalog["schema_version"],
+                "catalog_version": catalog["catalog_version"],
+                "sha256": catalog_digest(catalog),
+            },
+            "validity_policy_version": catalog["validity_policy"]["schema_version"],
+            "question_states": converted_states,
+            "reinspection": {
+                "preserved": [],
+                "reobserved": [],
+                "needs_confirmation": [],
+                "invalidated": [],
+                "newly_introduced": [],
+            },
+            "reused_decisions": [],
+            "inventories": {**{state: [] for state in STATES}, "needs_confirmation": [], "invalidated": []},
+        }
+    )
+    converted["limitations"] = sorted(
+        set(converted.get("limitations", []))
+        | {f"Converted legacy session {legacy_digest} in memory; write only an immutable v2 successor."}
+    )
+    converted["canonical_session_digest"] = ""
+    return finalize_session(converted, catalog)
 
 
 def load_session(path: Path, *, require_current: bool = True) -> dict[str, Any]:
     catalog = load_catalog()
-    value = validate_session_shape(load_json(path), catalog)
+    raw = load_json(path)
+    if isinstance(raw, dict) and raw.get("schema_version") == LEGACY_SESSION_SCHEMA:
+        value = convert_legacy_session(raw, catalog)
+        if require_current:
+            raise CONTINUATION.ContinuationError(
+                CONTINUATION.finding(
+                    failure_code="OCTON-SETUP-1004",
+                    blocked_operation="setup.session",
+                    phase="revalidate",
+                    root_cause="A setup-session v1 artifact requires an explicit immutable v2 reinspection successor.",
+                    authority_source="setup_session_and_current_question_catalog",
+                    repair_class="replan_required",
+                    next_action=CONTINUATION.action(
+                        "Reinspect the legacy session and write a new external successor.",
+                        ["./octon", {"initialization": "init", "adoption": "adopt", "upgrade": "upgrade"}[value["mode"]], "setup", "--target", value["target_identity"]["canonical_path"], "--session", str(path), "--reinspect", "--output", str(path.with_name(path.stem + "-v2-successor.json"))],
+                        read_only=False,
+                        requires_confirmation=True,
+                    ),
+                    invalidated=[CONTINUATION.proof_state("answer", "setup-session-v1", "The predecessor lacks dependency-scoped validity bindings.", ["dependency_bound"])],
+                    preserved=[CONTINUATION.proof_state("plan", raw["canonical_session_digest"], "The immutable v1 artifact remains predecessor evidence.", ["source_fingerprint_bound"])],
+                    successor_session=True,
+                    successor_reason="A v2 successor can classify every prior state without rewriting the v1 artifact.",
+                )
+            )
+    else:
+        if (
+            not require_current
+            and isinstance(raw, dict)
+            and raw.get("question_catalog")
+            != {
+                "schema_version": catalog["schema_version"],
+                "catalog_version": catalog["catalog_version"],
+                "sha256": catalog_digest(catalog),
+            }
+        ):
+            value = validate_predecessor_session_shape(raw)
+        else:
+            value = validate_session_shape(raw, catalog)
     if require_current:
         mismatches = current_state_mismatches(value)
         if mismatches:
-            raise SetupError("setup session is stale; reinspection required for: " + ", ".join(mismatches))
+            raise CONTINUATION.ContinuationError(
+                CONTINUATION.finding(
+                    failure_code="OCTON-SETUP-1002",
+                    blocked_operation="setup.session",
+                    phase="revalidate",
+                    root_cause="Setup-session dependencies are stale: " + ", ".join(mismatches),
+                    authority_source="setup_session_current_dependencies_and_project_authority",
+                    repair_class="replan_required",
+                    next_action=CONTINUATION.action(
+                        "Create an immutable reinspection successor and review only its invalidated inputs.",
+                        ["./octon", {"initialization": "init", "adoption": "adopt", "upgrade": "upgrade"}[value["mode"]], "setup", "--target", value["target_identity"]["canonical_path"], "--session", str(path), "--reinspect", "--output", str(path.with_name(path.stem + "-successor.json"))],
+                        read_only=False,
+                        requires_confirmation=True,
+                    ),
+                    invalidated=[CONTINUATION.proof_state("answer", item, "The declared current binding no longer matches.", ["dependency_bound"]) for item in mismatches],
+                    preserved=[CONTINUATION.proof_state("plan", value["canonical_session_digest"], "The immutable predecessor remains comparison evidence.", ["source_fingerprint_bound"])],
+                    successor_session=True,
+                    successor_reason="Reinspection can preserve every state whose exact declared bindings still match.",
+                )
+            )
     return value
 
 
-def reinspect_session(session: dict[str, Any]) -> dict[str, Any]:
-    catalog = load_catalog()
-    fresh = create_session(session["mode"], Path(session["target_identity"]["canonical_path"]))
+def reinspect_session(
+    session: dict[str, Any],
+    *,
+    catalog_override: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    catalog = (
+        validate_catalog(copy.deepcopy(catalog_override))
+        if catalog_override is not None
+        else load_catalog()
+    )
+    fresh = create_session(
+        session["mode"],
+        Path(session["target_identity"]["canonical_path"]),
+        catalog_override=catalog,
+    )
     questions = question_map(catalog)
-    preserved: list[dict[str, Any]] = []
     current_states = session_question_state(fresh)
-    skipped: list[str] = []
+    prior_states = session_question_state(session)
+    classifications = {
+        "preserved": list(fresh["reinspection"]["preserved"]),
+        "reobserved": list(fresh["reinspection"]["reobserved"]),
+        "needs_confirmation": [],
+        "invalidated": list(fresh["reinspection"]["invalidated"]),
+        "newly_introduced": [],
+    }
+    appended: list[dict[str, Any]] = []
+    current_instruction = fingerprint(
+        Path(fresh["target_identity"]["canonical_path"]), instructions_only=True
+    )["digest"]
+    target = Path(fresh["target_identity"]["canonical_path"])
     for item in session["question_states"]:
         question = questions.get(item["question_id"])
-        if question is None or question["version"] != item["question_version"] or item["supplied_by"] == "inspection":
+        identifier = item["question_id"]
+        if item["supplied_by"] == "inspection":
             continue
-        if item["state"] in {"unknown", "deferred", "not_applicable"}:
-            if question_eligible(question, fresh["mode"], current_states):
-                preserved.append(item)
-                current_states[item["question_id"]] = item
+        if item["supplied_by"] == "accepted_decision":
+            if (
+                identifier in current_states
+                and current_states[identifier].get("supplied_by") == "accepted_decision"
+                and accepted_decision_identity(current_states[identifier])
+                == accepted_decision_identity(item)
+            ):
+                continue
+            classifications["invalidated"].append(
+                {"question_id": identifier, "reason": "Accepted decision is expired, revoked, superseded, inapplicable, or no longer exact."}
+            )
+            continue
+        if question is None or question["version"] != item["question_version"]:
+            classifications["invalidated"].append(
+                {"question_id": identifier, "reason": "Question definition changed or was removed."}
+            )
+            continue
+        if "runtime_only_never_reusable" in item.get("validity", {}).get("classes", []):
+            classifications["invalidated"].append(
+                {"question_id": identifier, "reason": "Runtime-only values are never reusable."}
+            )
+            continue
+        if not question_eligible(question, fresh["mode"], current_states):
+            classifications["invalidated"].append(
+                {"question_id": identifier, "reason": "Current dependencies or trigger conditions are not eligible."}
+            )
+            continue
+        changed_bindings: list[str] = []
+        expired = False
+        for stored_binding in item.get("validity", {}).get("bindings", []):
+            kind = stored_binding.get("kind")
+            if kind == "catalog_question":
+                current = sha256(canonical_bytes(question))
+                current_type = "metadata"
+            elif kind == "question_dependencies":
+                current = dependency_digest(question, current_states)
+                current_type = "metadata"
+            elif kind == "governing_instructions":
+                current = current_instruction
+                current_type = "metadata"
+            elif kind == "evidence_source":
+                current_type, current = evidence_binding_state(
+                    target, item["evidence"]
+                )
             else:
-                skipped.append(item["question_id"])
-    fresh["question_states"].extend(preserved)
+                current = stored_binding.get("digest")
+                current_type = stored_binding.get("subject_type")
+            if (
+                current != stored_binding.get("digest")
+                or current_type != stored_binding.get("subject_type")
+            ):
+                changed_bindings.append(str(kind))
+            expiry = stored_binding.get("expires_at")
+            if expiry is not None and parse_time(expiry, f"{identifier} expires_at") <= datetime.now(timezone.utc):
+                expired = True
+        if expired:
+            classifications["invalidated"].append(
+                {"question_id": identifier, "reason": "Evidence or policy freshness expired."}
+            )
+            continue
+        if changed_bindings:
+            bucket = (
+                "needs_confirmation"
+                if item["information_role"] in {"initialization_input", "owner_selection", "accepted_authority_reference"}
+                else "invalidated"
+            )
+            classifications[bucket].append(
+                {"question_id": identifier, "reason": "Relevant bindings changed: " + ", ".join(sorted(set(changed_bindings)))}
+            )
+            continue
+        copied = copy.deepcopy(item)
+        copied["validity"] = state_validity(
+            catalog,
+            question,
+            current_states,
+            target,
+            copied["evidence"],
+            reuse_status="preserved",
+            reason="All exact declared dependencies remain current.",
+        )
+        appended.append(copied)
+        current_states[identifier] = copied
+        classifications["preserved"].append(
+            {"question_id": identifier, "reason": "All exact declared dependencies remain current."}
+        )
+    prior_ids = set(prior_states)
+    current_ids = set(current_states)
+    for question in catalog["questions"]:
+        identifier = question["id"]
+        if identifier not in prior_ids and identifier not in current_ids and question_applicable(question, fresh["mode"], current_states):
+            classifications["newly_introduced"].append(
+                {"question_id": identifier, "reason": "The current catalog introduced an unresolved applicable question."}
+            )
+    fresh["question_states"].extend(appended)
+    fresh["reinspection"] = classifications
     fresh["sequence"] = session["sequence"] + 1
+    fresh["session_id"] = "SETUP-" + secrets.token_hex(12)
+    fresh["updated_at"] = utc_timestamp()
     fresh["successor_of"] = {
         "session_id": session["session_id"],
         "canonical_session_digest": session["canonical_session_digest"],
-        "reason": "material state reinspection; factual answers and selections require re-answering",
+        "reason": "dependency-scoped reinspection preserving only exact current validity bindings",
     }
-    fresh["limitations"].append("Reinspection preserved dependency-eligible unknown, deferred, and inapplicable states only; prior factual answers and selections were invalidated.")
-    if skipped:
-        fresh["limitations"].append(
-            "Reinspection returned dependency-ineligible unresolved states to unanswered: "
-            + ", ".join(skipped)
-        )
+    fresh["limitations"].append(
+        "Reinspection preserved exact current bindings, reobserved volatile facts, and returned changed selections for confirmation without rewriting the predecessor."
+    )
     return finalize_session(fresh, catalog)
 
 
@@ -1386,18 +2306,52 @@ def question_batch(session: dict[str, Any], catalog: dict[str, Any], limit: int)
     questions = question_map(catalog)
     selected = session["next_eligible_questions"][:limit]
     return {
-        "schema_version": "octon-mini.bootstrap.setup-question-batch.v1",
+        "schema_version": "octon-mini.bootstrap.setup-question-batch.v2",
         "permission_grant": False,
         "session_id": session["session_id"],
         "session_digest": session["canonical_session_digest"],
         "mode": session["mode"],
         "status": session["session_status"],
         "questions": [questions[identifier] for identifier in selected],
+        "reinspection": session["reinspection"],
+        "reused_decisions": session["reused_decisions"],
         "unresolved_blockers": session["unresolved_blockers"],
         "work_completion_assessment": session["work_completion_assessment"],
         "minimum_closure_sequence": session["minimum_closure_sequence"],
         "limitations": ["Ask normally one to three questions; no answer is preselected."],
     }
+
+
+def render_question_batch(value: dict[str, Any]) -> str:
+    lines = [
+        f"Setup: {value['mode']} — {value['status']}",
+        f"Session digest: {value['session_digest']}",
+    ]
+    reinspection = value.get("reinspection", {})
+    if any(reinspection.get(key) for key in reinspection):
+        lines.append(
+            "Reinspection: "
+            + ", ".join(
+                f"{key.replace('_', ' ')}={len(reinspection.get(key, []))}"
+                for key in ("preserved", "reobserved", "needs_confirmation", "invalidated", "newly_introduced")
+            )
+        )
+    if value.get("reused_decisions"):
+        lines.append(
+            "Reused accepted decisions: "
+            + ", ".join(item["decision_ref"] for item in value["reused_decisions"])
+        )
+    questions = value.get("questions", [])
+    if questions:
+        lines.append("Next unresolved questions:")
+        for question in questions:
+            lines.append(f"  - {question['id']}: {question['prompt']}")
+    else:
+        lines.append("No currently eligible unanswered question remains.")
+    blockers = value.get("unresolved_blockers", [])
+    if blockers:
+        lines.append("Blocking inputs: " + ", ".join(item["question_id"] for item in blockers))
+    return "\n".join(lines)
 
 
 def tty_value(question: dict[str, Any]) -> tuple[str, Any]:
@@ -1442,8 +2396,14 @@ def tty_value(question: dict[str, Any]) -> tuple[str, Any]:
     return "answered", raw
 
 
-def tty_answer_batch(session: dict[str, Any], catalog: dict[str, Any], limit: int) -> dict[str, Any]:
-    if not sys.stdin.isatty():
+def tty_answer_batch(
+    session: dict[str, Any],
+    catalog: dict[str, Any],
+    limit: int,
+    *,
+    require_tty: bool = True,
+) -> dict[str, Any]:
+    if require_tty and not sys.stdin.isatty():
         raise SetupError("TTY setup requires a terminal; conversational agents should use an answer batch")
     questions = question_map(catalog)
     answers = []
@@ -1596,7 +2556,7 @@ def transaction_evidence(binding: tuple[dict[str, Any], Path] | None, transactio
     if binding is None:
         return []
     session, path = binding
-    return [
+    result = [
         transaction.source_evidence(
             SETUP_EVIDENCE_KIND,
             f"setup-session:{session['canonical_session_digest']}:{path}",
@@ -1607,6 +2567,19 @@ def transaction_evidence(binding: tuple[dict[str, Any], Path] | None, transactio
             ],
         )
     ]
+    for item in session.get("reused_decisions", []):
+        result.append(
+            transaction.source_evidence(
+                "accepted_decision_reuse",
+                f"{item['decision_ref']}:{item['reuse_policy_id']}",
+                limitations=list(item.get("limitations", []))
+                + [
+                    "Reused only within the setup session's exact decision, applicability, instruction, dependency, and freshness bindings.",
+                    "The decision does not supply operation confirmation or runtime authorization.",
+                ],
+            )
+        )
+    return result
 
 
 def verify_plan_binding(target: Path, plan: dict[str, Any]) -> None:
@@ -1702,6 +2675,7 @@ def add_setup_parser(commands: argparse._SubParsersAction[argparse.ArgumentParse
     setup.add_argument("--reinspect", action="store_true")
     setup.add_argument("--tty", action="store_true")
     setup.add_argument("--batch-size", type=int, choices=(1, 2, 3), default=3)
+    setup.add_argument("--json", action="store_true")
     setup.set_defaults(setup_mode=mode)
 
 
@@ -1738,9 +2712,14 @@ def run_setup(args: argparse.Namespace) -> int:
         if args.session and args.output.expanduser().resolve() == args.session.expanduser().resolve():
             raise SetupError("resumed sessions are immutable; write a successor path")
         write_new_json(args.output, session)
-        print(f"[SESSION] {args.output.expanduser().resolve()}")
-        print(f"[DIGEST] {session['canonical_session_digest']}")
-    print(json.dumps(question_batch(session, catalog, args.batch_size), indent=2, sort_keys=True))
+        if not args.json:
+            print(f"[SESSION] {args.output.expanduser().resolve()}")
+    batch = question_batch(session, catalog, args.batch_size)
+    print(
+        json.dumps(batch, indent=2, sort_keys=True, allow_nan=False)
+        if args.json
+        else render_question_batch(batch)
+    )
     return 0
 
 
@@ -1755,12 +2734,21 @@ def main() -> int:
     parser.add_argument("--reinspect", action="store_true")
     parser.add_argument("--tty", action="store_true")
     parser.add_argument("--batch-size", type=int, choices=(1, 2, 3), default=3)
+    parser.add_argument("--json", action="store_true")
     args = parser.parse_args()
     args.setup_mode = args.mode
     try:
         return run_setup(args)
     except (OSError, RuntimeError, SetupError, ValueError) as error:
-        print(f"[FAIL] {error}", file=sys.stderr)
+        report = getattr(error, "report", None)
+        if not isinstance(report, dict):
+            report = CONTINUATION.fallback(
+                error,
+                blocked_operation="setup.session",
+                phase="questions",
+                next_argv=["./octon", {"initialization": "init", "adoption": "adopt", "upgrade": "upgrade"}[args.mode], "setup", "--help"],
+            )
+        print(CONTINUATION.render_finding(report, json_output=args.json), file=sys.stderr)
         return 2
 
 

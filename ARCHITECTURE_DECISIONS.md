@@ -278,12 +278,36 @@ rewriting that earlier record. The repository may be distributed under MIT-0,
 but Octon Mini 4.0.0 remains unreleased until its separate release process is
 authorized and completed.
 
+## SRC-DEC-0017 — Fail-closed continuation and proof reuse
+
+| Field | Accepted decision |
+|---|---|
+| Status | `accepted` |
+| Authority | Explicit repository-owner implementation direction on 2026-08-17 for branch `chore/fail-closed-continuation` |
+| Scope | Bootstrap setup, repository-local transactions, diagnostics, plan review, project-check evidence, and routine local operation bundling |
+| Decision | Keep every mutation fail-closed while making recovery continuation-oriented through typed refusals, dependency-scoped validity, immutable successor artifacts, guided one-command orchestration, bounded durable-decision reuse, human plan summaries, conservative content-addressed proof reuse, and compatible repository-local bundles |
+| Continuation boundary | A refusal preserves still-valid inputs, reports exact invalidation and mutation state, and supplies one shell-free next action; it grants no permission and retains a safe unclassified fallback |
+| Invalidation boundary | Reobserve volatile facts and invalidate only declared dependencies; governing instructions, relevant evidence, accepted authority, question definitions, exact path preimages, and freshness remain hard fail-closed bindings |
+| Decision-reuse boundary | Reuse requires a project-owned applicability record bound to an exact accepted, unsuperseded decision and current instructions/fingerprints; it never supplies operation confirmation, runtime authorization, external-action permission, or readiness evidence |
+| Proof-reuse boundary | Only the explicit project-check evidence writer may persist or reuse exact input/tool/configuration/instruction/environment/freshness-bound passing proofs; `check` remains read-only and consequential adoption/release gates run completely |
+| Bundle boundary | Only compatible, reversible, repository-local members sharing one project, instruction set, freshness boundary, authority class, stage, receipt, and rollback may be combined; external, overlapping, contradictory, differently authorized, or monotonic effects are rejected |
+| Compatibility | Additive successor contracts for new snapshots; setup-session v1, transaction v2, diagnostic v1, and project-check evidence v2 remain historical inputs and require explicit successor generation or reviewed upgrade |
+| Permission effect | None; plans, summaries, continuation findings, confirmations, reused decisions, cached proofs, bundles, and receipts cannot create authority |
+| External-effect boundary | None; this decision authorizes no push, PR, merge, release, publication, provider call, deployment, communication, or other external effect |
+| `permission_grant` | `false` |
+
+This decision closes the previously deferred bounded-invalidation trigger
+without accepting a universal action, authority, readiness, trust, or state
+machine. Validity classes describe reuse conditions for setup inputs and
+proofs only. Aggregate-specific lifecycles and every existing deny remain in
+force. Existing independent snapshots receive the implementation only through
+new generation or an explicit reviewed upgrade.
+
 ## Explicitly deferred by these decisions
 
 The following remain outside the accepted implementation:
 
 - resource accounting and quantitative reservations;
-- bounded invalidation;
 - generic policy or rights locks;
 - corpus-use machinery;
 - universal action, lifecycle, readiness, trust, or state enums; and
@@ -292,3 +316,6 @@ The following remain outside the accepted implementation:
 
 Their exact future triggers remain recorded in
 `ARCHITECTURAL_PATTERN_INTEGRATION_REVIEW.md`.
+
+Bounded invalidation was deferred by `SRC-DEC-0003` through `SRC-DEC-0016` and
+is accepted only within the narrow continuation scope of `SRC-DEC-0017`.

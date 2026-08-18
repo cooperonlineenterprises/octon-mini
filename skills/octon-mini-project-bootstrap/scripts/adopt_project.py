@@ -39,6 +39,10 @@ TRANSACTION = load_module(
     "octon_adoption_transaction",
     SKILL_ROOT / "assets/templates/core/.agent/scripts/octon_transaction.py.tmpl",
 )
+CONTINUATION = load_module(
+    "octon_adoption_continuation",
+    SKILL_ROOT / "assets/templates/core/.agent/scripts/octon_continuation.py.tmpl",
+)
 
 
 class AdoptionError(ValueError):
@@ -61,12 +65,20 @@ def load_json(path: Path) -> Any:
         raise AdoptionError(f"cannot load {path}: {error}") from error
 
 
-def write_output(path: Path, value: object) -> None:
+def write_output(path: Path, value: object, *, json_output: bool = False) -> None:
     TRANSACTION.write_new_json(path, value)
     digest = value.get("canonical_plan_digest") or value.get("canonical_proposal_digest")
-    print(f"[PLAN] {path}")
-    if digest:
-        print(f"[DIGEST] {digest}")
+    if isinstance(value, dict) and value.get("artifact_kind") == "transaction_plan":
+        summary = CONTINUATION.plan_summary(value)
+        print(
+            json.dumps(summary, indent=2, sort_keys=True, allow_nan=False)
+            if json_output
+            else f"[PLAN] {path}\n{CONTINUATION.render_plan_summary(summary)}"
+        )
+    elif not json_output:
+        print(f"[PROPOSAL] {path}")
+        if digest:
+            print(f"[DIGEST] {digest}")
 
 
 def proposal_digest(value: dict[str, Any]) -> str:
@@ -248,6 +260,7 @@ def transaction_plan(
     authority_source: str,
     review_path: Path | None,
     setup_binding: tuple[dict[str, Any], Path] | None = None,
+    predecessor_plan: tuple[dict[str, Any], Path] | None = None,
 ) -> dict[str, Any]:
     proposal_hash = validate_stored_proposal(proposal, target, profile, layout)
     dispositions = review_dispositions(proposal, review_path)
@@ -320,7 +333,7 @@ def transaction_plan(
                     "adoption.guided-setup-session",
                     "A current non-authorizing guided setup session supplied reviewed inputs without converting selections into accepted authority.",
                     [setup_binding[0]["canonical_session_digest"]],
-                    rule="octon-mini.bootstrap.setup-session.v1",
+                    rule="octon-mini.bootstrap.setup-session.v2",
                     confidence="deterministic",
                     limitations=["Optional unresolved matters remain explicit and work completion is not enabled."],
                 )
@@ -406,6 +419,7 @@ def transaction_plan(
                 "explicit_decisions": decisions,
                 "authorization_gates": gates,
             },
+            predecessor_plan=predecessor_plan,
         )
     finally:
         temporary.cleanup()
@@ -413,7 +427,7 @@ def transaction_plan(
 
 def initial_or_exact_plan(args: argparse.Namespace) -> int:
     target = args.target.expanduser().resolve()
-    output = args.output.expanduser()
+    output = args.output.expanduser().resolve()
     setup_binding = SETUP.prepare_plan_session("adoption", args)
     args._setup_binding = setup_binding
     if args.project_name is None:
@@ -433,13 +447,61 @@ def initial_or_exact_plan(args: argparse.Namespace) -> int:
             sensitive_opt_in=set(args.include_sensitive_path),
         )
         if proposal["confirmed_collisions"] or proposal["unresolved_ambiguity"] or args.authority_source is None:
-            write_output(output, proposal)
-            print("[REVIEW REQUIRED] Reconcile collisions; disposition functional-equivalence candidates and supply explicit authority before exact planning.")
+            write_output(output, proposal, json_output=args.json)
+            successor_output = output.with_name(output.stem + "-successor.json")
+            review_output = output.with_name(output.stem + "-review.json")
+            if args.authority_source is None:
+                next_description = "Collect the missing project authority reference in an immutable setup successor."
+                next_argv = [
+                    "./octon", "adopt", "setup", "--target", str(target),
+                    "--tty", "--output", str(output.with_name(output.stem + "-authority-session.json")),
+                ]
+            elif proposal["confirmed_collisions"]:
+                next_description = "After project-owned collision reconciliation, re-run bounded adoption planning into the named successor."
+                next_argv = [
+                    "./octon", "adopt", "plan", "--target", str(target),
+                    "--project-name", args.project_name, "--profile", args.profile,
+                    "--layout", args.layout, "--authority-source", args.authority_source,
+                    "--output", str(successor_output),
+                ]
+            else:
+                next_description = "Create the exact proposal-bound review file, then run this successor-plan command."
+                next_argv = [
+                    "./octon", "adopt", "plan", "--target", str(target),
+                    "--project-name", args.project_name, "--profile", args.profile,
+                    "--layout", args.layout, "--authority-source", args.authority_source,
+                    "--proposal", str(output), "--review", str(review_output),
+                    "--output", str(successor_output),
+                ]
+            report = CONTINUATION.finding(
+                failure_code="OCTON-ADOPT-1101",
+                blocked_operation="adopt.install",
+                phase="review",
+                root_cause="Adoption found collisions, functional-equivalence ambiguity, or missing current authority.",
+                authority_source="proposal_bound_adoption_review_and_project_authority",
+                repair_class="review_required",
+                next_action=CONTINUATION.action(
+                    next_description,
+                    next_argv,
+                    read_only=True,
+                ),
+                invalidated=[],
+                preserved=[CONTINUATION.proof_state("plan", str(output), "The immutable adoption proposal remains current review input.", ["source_fingerprint_bound"])],
+                safe_read_only_actions=[CONTINUATION.action("Inspect coded recovery guidance.", ["./octon", "doctor", "--json"], read_only=True)],
+                successor_plan=True,
+                successor_reason="A transaction-plan successor can be generated after every proposal-bound ambiguity is dispositioned.",
+            )
+            CONTINUATION.record_local_artifact_writes(report, target, [output])
+            print(CONTINUATION.render_finding(report, json_output=args.json), file=sys.stderr)
             return 3
     else:
         proposal = load_json(args.proposal.expanduser())
     if args.authority_source is None:
         raise AdoptionError("exact adoption planning requires --authority-source")
+    predecessor = None
+    if args.prior_plan is not None:
+        prior_path = args.prior_plan.expanduser().resolve()
+        predecessor = (CONTINUATION.load_exact_plan(prior_path), prior_path)
     plan = transaction_plan(
         target,
         proposal,
@@ -450,8 +512,9 @@ def initial_or_exact_plan(args: argparse.Namespace) -> int:
         authority_source=args.authority_source,
         review_path=args.review.expanduser() if args.review else None,
         setup_binding=setup_binding,
+        predecessor_plan=predecessor,
     )
-    write_output(output, plan)
+    write_output(output, plan, json_output=args.json)
     return 0
 
 
@@ -462,9 +525,13 @@ def apply(args: argparse.Namespace) -> int:
         raise AdoptionError("plan is not an established-project adoption transaction")
     SETUP.verify_plan_binding(target, plan)
     receipt, receipt_path = TRANSACTION.apply_plan(target, plan, args.accept_digest)
-    print(f"[APPLIED] {receipt['receipt_id']}")
-    print(f"[RECEIPT] {receipt_path}")
-    print("[STATUS] harness structure installed; project adoption remains in_progress")
+    if args.json:
+        print(json.dumps(receipt, indent=2, sort_keys=True, allow_nan=False))
+    else:
+        print(f"[APPLIED] {receipt['receipt_id']}")
+        print(f"[RECEIPT] {receipt_path}")
+        print("[TIMING] " + json.dumps(TRANSACTION.LAST_PHASE_TIMINGS, sort_keys=True))
+        print("[STATUS] harness structure installed; project adoption remains in_progress")
     return 0
 
 
@@ -489,10 +556,13 @@ def parser() -> argparse.ArgumentParser:
     plan.add_argument("--max-total-bytes", type=int, default=PLANNER.DEFAULT_MAX_TOTAL_BYTES)
     plan.add_argument("--include-sensitive-path", action="append", default=[])
     plan.add_argument("--setup-session", type=Path)
+    plan.add_argument("--prior-plan", type=Path)
+    plan.add_argument("--json", action="store_true")
     apply_parser = commands.add_parser("apply", help="apply the exact accepted adoption plan")
     apply_parser.add_argument("--target", type=Path, required=True)
     apply_parser.add_argument("--plan", type=Path, required=True)
     apply_parser.add_argument("--accept-digest", required=True)
+    apply_parser.add_argument("--json", action="store_true")
     SETUP.add_setup_parser(commands, "adoption")
     return root
 
@@ -504,7 +574,15 @@ def main() -> int:
             return SETUP.run_setup(args)
         return initial_or_exact_plan(args) if args.command == "plan" else apply(args)
     except (AdoptionError, OSError, RuntimeError, ValueError, SETUP.SetupError, TRANSACTION.TransactionError) as error:
-        print(f"[FAIL] {error}", file=sys.stderr)
+        report = getattr(error, "report", None)
+        if not isinstance(report, dict):
+            report = CONTINUATION.fallback(
+                error,
+                blocked_operation="adopt.install",
+                phase="apply" if getattr(args, "command", None) == "apply" else "plan",
+                next_argv=["./octon", "adopt", "--help"],
+            )
+        print(CONTINUATION.render_finding(report, json_output=getattr(args, "json", False)), file=sys.stderr)
         return 2
 
 

@@ -17,7 +17,7 @@
     {"id": "catalog-duplicate-id", "operation": "duplicate a canonical catalog question ID", "expected_diagnostic": "duplicate or malformed setup question ID"},
     {"id": "catalog-cycle", "operation": "make a question depend on a later question", "expected_diagnostic": "dependency order is circular or forward-referencing"},
     {"id": "changed-catalog-digest", "operation": "bind a session to changed catalog definitions", "expected_diagnostic": "catalog definitions changed"},
-    {"id": "changed-target", "operation": "change a target file after session creation", "expected_diagnostic": "target content fingerprint"},
+    {"id": "changed-target", "operation": "add established-project content that changes the detected mode", "expected_diagnostic": "target mode"},
     {"id": "changed-instructions", "operation": "change AGENTS.md after session creation", "expected_diagnostic": "governing instruction fingerprint"}
   ],
   "limitations": ["Each mutation must fail for its expected reason; this catalog grants no permission."]

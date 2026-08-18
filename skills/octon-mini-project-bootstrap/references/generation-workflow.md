@@ -2,6 +2,12 @@
 
 ## Guided setup
 
+Interactive `scripts/octon.py init|adopt|upgrade` provides the one-command
+inspect/question/plan/summary/confirmation/apply path. Require an explicit
+external review directory. Preserve its immutable artifacts on collision or
+review block and return the typed Continuation Contract. Scripted workflows
+continue to use explicit setup, plan, and apply plus `--accept-digest`.
+
 Use `scripts/octon.py init|adopt|upgrade setup` when project facts or policy
 selections are not already supplied through legacy flags. The command reads the
 target without running detected hooks, refreshing projections, querying a
@@ -27,8 +33,9 @@ does not preserve the old `pb` command.
 ## New project
 
 1. Use `scripts/octon.py init plan` with an explicit profile and layout, or finish
-   a guided setup session and pass it with `--setup-session`. A TTY-only
-   `octon init` may propose Minimal but must receive confirmation.
+   a guided setup session and pass it with `--setup-session`. Interactive
+   `octon init` may propose Minimal without preselecting it and must receive the
+   one exact-plan confirmation.
 2. Review the plan sections separately: observations, inferences, explicit
    decisions, and authorization gates. Hook detection runs no candidate or
    version command and adopts nothing.
@@ -117,6 +124,17 @@ derived-only repair digest.
 - Stale plan, evidence, or instruction fingerprint: re-plan; never force.
 - Interrupted refresh: diagnose, run explicit derived refresh, then read-only
   check. Project-check evidence is not repaired by integrity refresh.
+
+Every covered refusal reports stable code, mutation outcome, invalidated and
+preserved proofs, authority source, repair class, one shell-free next argv,
+safe read-only alternatives, and successor support. Human rendering is concise;
+use `--json` for the strict contract.
+
+For routine configured `read_only` hooks, the explicit project-check writer may
+use `--reuse-proofs`. Exact input/tool/configuration/instruction/environment/
+effect/freshness bindings must hit; otherwise rerun. Adoption and release
+verification always run completely. Bundle only compatible reversible local
+plans with one stage/receipt/rollback through `octon transaction bundle plan`.
 
 ## Upgrade
 

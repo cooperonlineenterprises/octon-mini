@@ -12,6 +12,11 @@ authority.
 
 ## Required sequence
 
+For a TTY, interactive `octon init`, `octon adopt`, and `octon upgrade` may
+orchestrate this whole sequence with an explicit external review directory.
+They still use the same catalog, session, planner, summary, digest, and apply
+engine. Non-interactive callers retain explicit setup/plan/apply.
+
 1. Read target instructions and run the mode-specific `setup` command without
    output first when only question generation is requested.
 2. Stop if mode is ambiguous. Do not choose init, adopt, or upgrade from user
@@ -26,9 +31,11 @@ authority.
    credential, unnecessary identity, endpoint, or runtime authorization.
 7. Write sessions only to explicit paths outside the target. Create an
    immutable successor; never overwrite the prior session.
-8. Reinspect on changed target/revision, instructions, catalog, Octon Mini
-   version/provenance, or material evidence. Re-answer factual values and
-   selections; do not silently carry them forward.
+8. Reinspect with setup-session v2 validity bindings. Classify each prior state
+   as preserved, reobserved, needs confirmation, invalidated, or new. Preserve
+   an answer after an unrelated edit only when its exact question,
+   dependencies, instructions, evidence, authority, and freshness still match;
+   otherwise confirm or invalidate it. Never rewrite the predecessor.
 9. Summarize recommendations, selections, accepted-authority references,
    unknowns, deferrals, blockers, and the minimum dependency-ordered closure
    sequence, including parallel-safe steps.
@@ -37,14 +44,25 @@ authority.
     immutable session successor. Require explicit acceptance of the resulting
     plan digest before apply.
 
+When re-planning, pass `--prior-plan` so the immutable successor exposes the
+semantic delta and retained review conclusions. Use the shared concise summary
+by default and `--json` for automation.
+
 ## Authority checks
 
 - A recommendation is not a user selection.
 - A user selection is not accepted authority.
+- A current accepted decision may answer a matching future policy question only
+  through a project-owned reuse record bound to exact decision bytes,
+  applicability, instructions, dependencies, and freshness.
+- A reused decision is not the operation confirmation and is never runtime
+  authorization or standing external-action permission.
 - An `authority:` or `external:` reference is stored separately and must still
   resolve under the project process.
 - Adoption and upgrade proposal/review artifacts remain authoritative for their
   dispositions.
+- A pause reports immutable review-artifact writes separately from target
+  mutation and provides the exact latest session or plan resume argv.
 - Setup never authorizes commit, push, PR, review, merge, synchronization,
   cleanup, package install, hook execution, or provider access.
 

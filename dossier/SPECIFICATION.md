@@ -880,6 +880,11 @@ conceptual type in the v2 machine source. A `CF:` or `COE:` locator is
 - **Recommended format:** Markdown, JSON evidence metadata, generated reports
 - **Source-of-truth expectations:** Validation procedure is maintained; executed evidence is
   immutable and scoped. Standard and High-Assurance index evidence metadata in JSON.
+- **Routine proof reuse boundary:** A harness validation proof may avoid rerunning an exact
+  unchanged routine check only while its declared inputs, tool/version, configuration,
+  instructions, environment characteristics, side effects, result, and freshness remain
+  identical. It remains bounded evidence, never dossier authority, approval, runtime
+  authorization, or a substitute for complete adoption/release validation.
 - **Dependencies and related artifacts:** REQ-0001, GOV-0001, PRV-0001
 - **Creation timing:** Define methods with requirements; create evidence only after observation
   or execution.

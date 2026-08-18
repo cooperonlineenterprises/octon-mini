@@ -42,6 +42,10 @@ TRANSACTION = load_module(
     "octon_init_transaction",
     SKILL_ROOT / "assets/templates/core/.agent/scripts/octon_transaction.py.tmpl",
 )
+CONTINUATION = load_module(
+    "octon_init_continuation",
+    SKILL_ROOT / "assets/templates/core/.agent/scripts/octon_continuation.py.tmpl",
+)
 
 
 class InitError(ValueError):
@@ -311,7 +315,7 @@ def analysis_for(args: argparse.Namespace, detection: dict[str, Any]) -> dict[st
                 "id": "init.guided_setup_session",
                 "summary": "A current non-authorizing guided setup session supplied reviewed inputs and preserved unresolved optional matters.",
                 "source_refs": [session["canonical_session_digest"]],
-                "rule": "octon-mini.bootstrap.setup-session.v1",
+                "rule": "octon-mini.bootstrap.setup-session.v2",
                 "confidence": "deterministic",
                 "limitations": ["The session does not create accepted authority or runtime authorization."],
             }
@@ -362,6 +366,10 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
             SCAFFOLDER.octon_mini_source_root()
             / SCAFFOLDER.PROFILE_MANIFEST_RELATIVE
         )
+        predecessor = None
+        if getattr(args, "prior_plan", None) is not None:
+            prior_path = args.prior_plan.expanduser().resolve()
+            predecessor = (CONTINUATION.load_exact_plan(prior_path), prior_path)
         return TRANSACTION.build_plan(
             target,
             operation_name="init.project",
@@ -397,6 +405,7 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
                 "Hook candidates remain proposals and are not configured or executed.",
             ],
             analysis=analysis_for(args, detection),
+            predecessor_plan=predecessor,
         )
 
 
@@ -455,10 +464,13 @@ def main() -> int:
     add_common(plan)
     plan.add_argument("--output", type=Path, required=True)
     plan.add_argument("--setup-session", type=Path)
+    plan.add_argument("--prior-plan", type=Path)
+    plan.add_argument("--json", action="store_true")
     apply = commands.add_parser("apply", help="apply the exact accepted initialization plan")
     apply.add_argument("--target", type=Path, required=True)
     apply.add_argument("--plan", type=Path, required=True)
     apply.add_argument("--accept-digest", required=True)
+    apply.add_argument("--json", action="store_true")
     SETUP.add_setup_parser(commands, "initialization")
     args = parser.parse_args()
     try:
@@ -488,9 +500,13 @@ def main() -> int:
                     except OSError:
                         pass
                 raise
-            print(f"[APPLIED] {receipt['receipt_id']}")
-            print(f"[RECEIPT] {receipt_path}")
-            print("[STATUS] structurally conforming; adoption and readiness remain unassessed")
+            if args.json:
+                print(json.dumps(receipt, indent=2, sort_keys=True, allow_nan=False))
+            else:
+                print(f"[APPLIED] {receipt['receipt_id']}")
+                print(f"[RECEIPT] {receipt_path}")
+                print("[TIMING] " + json.dumps(TRANSACTION.LAST_PHASE_TIMINGS, sort_keys=True))
+                print("[STATUS] structurally conforming; adoption and readiness remain unassessed")
             return 0
         output = args.output
         args._setup_binding = SETUP.prepare_plan_session("initialization", args)
@@ -503,12 +519,25 @@ def main() -> int:
         validate_collaboration_inputs(args)
         value = build_plan(args)
         TRANSACTION.write_new_json(output, value)
-        print(f"[PLAN] {output}")
-        print(f"[DIGEST] {value['canonical_plan_digest']}")
-        print(json.dumps(value["analysis"], indent=2, sort_keys=True))
+        summary = CONTINUATION.plan_summary(value)
+        if args.json:
+            print(json.dumps(summary, indent=2, sort_keys=True, allow_nan=False))
+        else:
+            print(f"[PLAN] {output}")
+            print(CONTINUATION.render_plan_summary(summary))
         return 0
     except (OSError, RuntimeError, ValueError, InitError, SETUP.SetupError, TRANSACTION.TransactionError) as error:
-        print(f"[FAIL] {error}", file=sys.stderr)
+        report = getattr(error, "report", None)
+        if isinstance(report, dict):
+            print(CONTINUATION.render_finding(report, json_output=getattr(args, "json", False)), file=sys.stderr)
+        else:
+            fallback = CONTINUATION.fallback(
+                error,
+                blocked_operation="init.project",
+                phase="plan" if getattr(args, "command", None) != "apply" else "apply",
+                next_argv=["./octon", "init", "--help"],
+            )
+            print(CONTINUATION.render_finding(fallback, json_output=getattr(args, "json", False)), file=sys.stderr)
         return 2
 
 

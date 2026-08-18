@@ -19,6 +19,7 @@ from typing import Any
 sys.dont_write_bytecode = True
 
 import octon_doctor
+import octon_continuation as continuation
 import octon_work_completion
 import octon_transaction as transaction
 
@@ -31,6 +32,56 @@ ACTIVE_TASK_STATUSES = {"ready", "in_progress", "validating", "review", "blocked
 
 class WorkflowError(ValueError):
     """A safe workflow could not proceed from the current explicit inputs."""
+
+    def __init__(self, value: str | dict[str, Any]):
+        report = value if isinstance(value, dict) else continuation.finding(
+            failure_code="OCTON-WORKFLOW-1001",
+            blocked_operation="generated_project.workflow",
+            phase="plan",
+            root_cause=str(value),
+            authority_source="project_owned_workflow_configuration_and_current_state",
+            repair_class="manual_reconciliation_required",
+            next_action=continuation.action(
+                "Inspect current coded diagnostics and the exact workflow command inventory.",
+                ["./octon", "doctor", "--json"],
+                read_only=True,
+            ),
+            safe_read_only_actions=[
+                continuation.action(
+                    "Inspect supported generated-project commands.",
+                    ["./octon", "--help"],
+                    read_only=True,
+                )
+            ],
+        )
+        self.report = report
+        super().__init__(str(report.get("root_cause", "workflow blocked")))
+
+
+class ContinuationParser(argparse.ArgumentParser):
+    """Render parser refusals through the same non-authorizing continuation contract."""
+
+    def error(self, message: str) -> None:
+        report = continuation.finding(
+            failure_code="OCTON-CMD-1001",
+            blocked_operation="generated_project.dispatch",
+            phase="inspect",
+            root_cause=message,
+            authority_source=".agent/commands.json",
+            repair_class="input_required",
+            next_action=continuation.action(
+                "Inspect the supported generated-project command inventory.",
+                ["./octon", "--help"],
+                read_only=True,
+            ),
+        )
+        self.exit(
+            2,
+            continuation.render_finding(
+                report, json_output="--json" in sys.argv
+            )
+            + "\n",
+        )
 
 
 def load_json(path: Path) -> Any:
@@ -49,16 +100,25 @@ def project_path(value: str | Path) -> Path:
     return path if path.is_absolute() else ROOT / path
 
 
-def write_plan(plan: dict[str, Any], output: str | None) -> None:
+def write_plan(plan: dict[str, Any], output: str | None, *, json_output: bool = False) -> None:
     if output is None:
-        print(json.dumps(plan, indent=2, sort_keys=True))
+        summary = continuation.plan_summary(plan)
+        print(
+            json.dumps(summary, indent=2, sort_keys=True, allow_nan=False)
+            if json_output
+            else continuation.render_plan_summary(summary)
+        )
         return
     path = Path(output)
     if not path.is_absolute():
         path = ROOT / path
     transaction.write_new_json(path, plan)
-    print(f"[PLAN] {path}")
-    print(f"[DIGEST] {plan['canonical_plan_digest']}")
+    summary = continuation.plan_summary(plan)
+    print(
+        json.dumps(summary, indent=2, sort_keys=True, allow_nan=False)
+        if json_output
+        else f"[PLAN] {path}\n{continuation.render_plan_summary(summary)}"
+    )
 
 
 def transaction_validation() -> dict[str, Any]:
@@ -496,8 +556,12 @@ def apply_workflow_plan(args: argparse.Namespace, expected_prefix: str) -> int:
     if not str(plan.get("operation", "")).startswith(expected_prefix):
         raise WorkflowError(f"plan operation is not {expected_prefix}")
     receipt, receipt_path = transaction.apply_plan(ROOT, plan, args.accept_digest)
-    print(f"[APPLIED] {receipt['receipt_id']}")
-    print(f"[RECEIPT] {receipt_path.relative_to(ROOT)}")
+    if getattr(args, "json", False):
+        print(json.dumps(receipt, indent=2, sort_keys=True, allow_nan=False))
+    else:
+        print(f"[APPLIED] {receipt['receipt_id']}")
+        print(f"[RECEIPT] {receipt_path.relative_to(ROOT)}")
+        print("[TIMING] " + json.dumps(transaction.LAST_PHASE_TIMINGS, sort_keys=True))
     if plan.get("operation") == "work.close":
         completion_plan = octon_work_completion.run_completion_plan_event(ROOT)
         if completion_plan is not None:
@@ -782,10 +846,11 @@ def add_plan_apply_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--output")
     parser.add_argument("--apply-plan")
     parser.add_argument("--accept-digest")
+    parser.add_argument("--json", action="store_true")
 
 
 def parser() -> argparse.ArgumentParser:
-    root = argparse.ArgumentParser(
+    root = ContinuationParser(
         prog="octon",
         description="Operate the project-local Octon Mini harness and dossier",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -809,6 +874,7 @@ def parser() -> argparse.ArgumentParser:
     )
     doctor.add_argument("--repair-derived", action="store_true")
     doctor.add_argument("--accept-digest")
+    doctor.add_argument("--json", action="store_true")
 
     work = commands.add_parser(
         "work",
@@ -876,6 +942,9 @@ def parser() -> argparse.ArgumentParser:
     finish_commands = finish.add_subparsers(dest="finish_action", required=True)
     finish_plan = finish_commands.add_parser("plan")
     finish_plan.add_argument("--task-id")
+    finish_output = finish_plan.add_mutually_exclusive_group()
+    finish_output.add_argument("--json", action="store_true", help="emit the strict plan-summary JSON")
+    finish_output.add_argument("--details-json", action="store_true", help="emit the complete deterministic work-completion plan")
     finish_apply = finish_commands.add_parser("apply")
     finish_apply.add_argument("--accept-digest", required=True)
     finish_apply.add_argument("--authorization-file", required=True)
@@ -896,6 +965,7 @@ def parser() -> argparse.ArgumentParser:
     registry_plan = registry_commands.add_parser("plan")
     registry_plan.add_argument("--review-file")
     registry_plan.add_argument("--output")
+    registry_plan.add_argument("--json", action="store_true")
     registry_apply = registry_commands.add_parser("apply")
     registry_apply.add_argument("--plan", required=True)
     registry_apply.add_argument("--accept-digest", required=True)
@@ -904,6 +974,7 @@ def parser() -> argparse.ArgumentParser:
     hooks_plan_parser = hooks_commands.add_parser("plan")
     hooks_plan_parser.add_argument("--config", required=True)
     hooks_plan_parser.add_argument("--output")
+    hooks_plan_parser.add_argument("--json", action="store_true")
     hooks_apply = hooks_commands.add_parser("apply")
     hooks_apply.add_argument("--plan", required=True)
     hooks_apply.add_argument("--accept-digest", required=True)
@@ -915,6 +986,7 @@ def parser() -> argparse.ArgumentParser:
     collaboration_plan_parser = collaboration_commands.add_parser("plan")
     collaboration_plan_parser.add_argument("--config", required=True)
     collaboration_plan_parser.add_argument("--output", required=True)
+    collaboration_plan_parser.add_argument("--json", action="store_true")
     collaboration_apply = collaboration_commands.add_parser("apply")
     collaboration_apply.add_argument("--plan", required=True)
     collaboration_apply.add_argument("--accept-digest", required=True)
@@ -927,6 +999,14 @@ def parser() -> argparse.ArgumentParser:
     apply_parser = transaction_commands.add_parser("apply")
     apply_parser.add_argument("--plan", required=True)
     apply_parser.add_argument("--accept-digest", required=True)
+    apply_parser.add_argument("--json", action="store_true")
+    bundle_parser = transaction_commands.add_parser("bundle", help="combine compatible reversible local plans")
+    bundle_commands = bundle_parser.add_subparsers(dest="bundle_action", required=True)
+    bundle_plan = bundle_commands.add_parser("plan")
+    bundle_plan.add_argument("--member", action="append", required=True, help="stable-id=plan-path")
+    bundle_plan.add_argument("--authority-source", action="append", required=True)
+    bundle_plan.add_argument("--output", required=True)
+    bundle_plan.add_argument("--json", action="store_true")
     rollback_parser = transaction_commands.add_parser("rollback")
     rollback_parser.add_argument("--receipt", required=True)
     recover_parser = transaction_commands.add_parser("recover")
@@ -953,12 +1033,27 @@ def main() -> int:
             if not args.accept_digest:
                 raise WorkflowError("derived repair requires --accept-digest")
             return octon_doctor.repair_derived(args.accept_digest)
-        print(json.dumps(octon_doctor.build_report(), indent=2, sort_keys=True))
+        report = octon_doctor.build_report()
+        if args.json:
+            print(json.dumps(report, indent=2, sort_keys=True, allow_nan=False))
+        elif not report["findings"]:
+            print("[PASS] no structural continuation finding")
+        else:
+            print("\n\n".join(continuation.render_finding(item) for item in report["findings"]))
         return 0
     if args.command == "work":
         if args.work_action == "finish":
             if args.finish_action == "plan":
-                print(json.dumps(octon_work_completion.build_plan(ROOT, args.task_id), indent=2, sort_keys=True))
+                plan = octon_work_completion.build_plan(ROOT, args.task_id)
+                if args.details_json:
+                    print(json.dumps(plan, indent=2, sort_keys=True, allow_nan=False))
+                else:
+                    summary = continuation.plan_summary(plan)
+                    print(
+                        json.dumps(summary, indent=2, sort_keys=True, allow_nan=False)
+                        if args.json
+                        else continuation.render_plan_summary(summary)
+                    )
                 return 0
             if args.finish_action == "apply":
                 receipt = octon_work_completion.apply(
@@ -989,7 +1084,7 @@ def main() -> int:
             plan = handoff_plan(args)
         else:
             raise WorkflowError("unsupported work action")
-        write_plan(plan, args.output)
+        write_plan(plan, args.output, json_output=getattr(args, "json", False))
         return 0
     if args.command == "maintain":
         if args.maintain_action == "refresh":
@@ -998,7 +1093,7 @@ def main() -> int:
             if args.registry_action == "plan":
                 value = registry_exact_plan(project_path(args.review_file)) if args.review_file else registry_discovery()
                 if args.review_file:
-                    write_plan(value, args.output)
+                    write_plan(value, args.output, json_output=args.json)
                 else:
                     print(json.dumps(value, indent=2, sort_keys=True))
                 return 0
@@ -1006,17 +1101,31 @@ def main() -> int:
             return apply_workflow_plan(namespace, "maintain.registry")
         if args.maintain_action == "hooks":
             if args.hooks_action == "plan":
-                write_plan(hooks_plan(project_path(args.config)), args.output)
+                write_plan(hooks_plan(project_path(args.config)), args.output, json_output=args.json)
                 return 0
             namespace = argparse.Namespace(apply_plan=args.plan, accept_digest=args.accept_digest)
             return apply_workflow_plan(namespace, "maintain.hooks")
         if args.maintain_action == "collaboration":
             if args.collaboration_action == "plan":
-                write_plan(collaboration_plan(project_path(args.config)), args.output)
+                write_plan(collaboration_plan(project_path(args.config)), args.output, json_output=args.json)
                 return 0
             namespace = argparse.Namespace(apply_plan=args.plan, accept_digest=args.accept_digest)
             return apply_workflow_plan(namespace, "maintain.collaboration")
     if args.command == "transaction":
+        if args.transaction_action == "bundle":
+            members = []
+            for raw in args.member:
+                if "=" not in raw:
+                    raise WorkflowError("bundle --member must use stable-id=plan-path")
+                identifier, raw_path = raw.split("=", 1)
+                members.append((identifier, transaction.load_plan(project_path(raw_path))))
+            plan = transaction.build_bundle_plan(
+                ROOT,
+                members,
+                authority_sources=args.authority_source,
+            )
+            write_plan(plan, args.output, json_output=args.json)
+            return 0
         if args.transaction_action == "apply":
             namespace = argparse.Namespace(apply_plan=args.plan, accept_digest=args.accept_digest)
             return apply_workflow_plan(namespace, "")
@@ -1036,5 +1145,16 @@ if __name__ == "__main__":
     try:
         raise SystemExit(main())
     except (WorkflowError, octon_work_completion.FinishError, transaction.TransactionError) as error:
-        print(f"[FAIL] {error}", file=sys.stderr)
+        report = getattr(error, "report", None)
+        if not isinstance(report, dict):
+            report = continuation.fallback(
+                error,
+                blocked_operation="generated_project.workflow",
+                phase="apply" if "apply" in sys.argv else "plan",
+                next_argv=["./octon", "doctor", "--json"],
+            )
+        print(
+            continuation.render_finding(report, json_output="--json" in sys.argv),
+            file=sys.stderr,
+        )
         raise SystemExit(2)

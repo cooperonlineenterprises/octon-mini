@@ -30,6 +30,7 @@ SOURCE_LAUNCHER = REPOSITORY_ROOT / "octon"
 SOURCE_DISPATCHER = SCRIPT_ROOT / "octon.py"
 COMMAND_MANIFEST = REPOSITORY_ROOT / "shared/source-contracts/commands.json"
 GENERATED_LAUNCHER_TEMPLATE = SKILL_ROOT / "assets/templates/core/octon.tmpl"
+CONTINUATION_TEMPLATE = SKILL_ROOT / "assets/templates/core/.agent/scripts/octon_continuation.py.tmpl"
 
 
 def command(argv: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
@@ -66,6 +67,9 @@ def make_checkout(root: Path) -> Path:
     copy_executable(SOURCE_LAUNCHER, launcher)
     dispatcher.parent.mkdir(parents=True)
     shutil.copy2(SOURCE_DISPATCHER, dispatcher)
+    continuation = root / "skills/octon-mini-project-bootstrap/assets/templates/core/.agent/scripts/octon_continuation.py.tmpl"
+    continuation.parent.mkdir(parents=True)
+    shutil.copy2(CONTINUATION_TEMPLATE, continuation)
     manifest.parent.mkdir(parents=True)
     shutil.copy2(COMMAND_MANIFEST, manifest)
     return launcher
@@ -104,6 +108,9 @@ class OctonLauncherTests(unittest.TestCase):
             dispatcher = skill / "scripts/octon.py"
             dispatcher.parent.mkdir(parents=True)
             shutil.copy2(SOURCE_DISPATCHER, dispatcher)
+            continuation = skill / "assets/templates/core/.agent/scripts/octon_continuation.py.tmpl"
+            continuation.parent.mkdir(parents=True)
+            shutil.copy2(CONTINUATION_TEMPLATE, continuation)
             manifest = bundle / "shared/source-contracts/commands.json"
             manifest.parent.mkdir(parents=True)
             shutil.copy2(COMMAND_MANIFEST, manifest)
@@ -112,6 +119,19 @@ class OctonLauncherTests(unittest.TestCase):
             self.assertIn("Octon Mini workflow interface", result.stdout)
             self.assertFalse((bundle / "skills").exists())
             self.assertEqual(cache_residue(skill), [])
+
+    def test_unknown_workflow_has_typed_no_change_continuation_and_no_force_surface(self) -> None:
+        help_result = command([sys.executable, "-B", str(SOURCE_LAUNCHER), "--help"], REPOSITORY_ROOT)
+        self.assertEqual(help_result.returncode, 0, help_result.stderr or help_result.stdout)
+        self.assertNotIn("--force", help_result.stdout)
+        blocked = command(
+            [sys.executable, "-B", str(SOURCE_LAUNCHER), "unsupported-workflow"],
+            REPOSITORY_ROOT,
+        )
+        self.assertEqual(blocked.returncode, 2)
+        self.assertIn("OCTON-CMD-1001", blocked.stderr)
+        self.assertIn("Nothing changed", blocked.stderr)
+        self.assertIn('Argv: ["./octon", "--help"]', blocked.stderr)
 
     def test_generated_launcher_resolves_dispatcher_in_path_with_spaces(self) -> None:
         with tempfile.TemporaryDirectory(prefix="octon generated launcher ") as temporary:

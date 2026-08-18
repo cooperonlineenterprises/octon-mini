@@ -173,13 +173,13 @@
     },
     {
       "id": "transaction.apply",
-      "display_name": "Octon Mini Reviewed Transaction Apply",
-      "purpose": "Apply a reviewed staged repository-local transaction against exact current preimages.",
+      "display_name": "Octon Mini Reviewed Local Transactions",
+      "purpose": "Plan compatible reversible local bundles and apply reviewed staged repository-local transactions against exact current preimages.",
       "availability": ["generated_project"],
-      "command_entry_points": ["octon transaction apply"],
+      "command_entry_points": ["octon transaction bundle plan", "octon transaction apply"],
       "implementation_entry_points": [".agent/scripts/octon.py", ".agent/scripts/octon_transaction.py"],
-      "default_behavior": "mutating",
-      "mutation_behavior": "Staged digest-bound apply with pending journal and exact receipt.",
+      "default_behavior": "mixed",
+      "mutation_behavior": "Compatible bundle planning plus staged digest-bound apply with pending journal and exact receipt.",
       "authorization_boundary": "Requires the exact reviewed digest, unchanged instructions and preimages, and authority for the declared local mutation.",
       "limitations": ["There is no force mode and no transaction may manufacture project or external authority."]
     },
@@ -209,11 +209,11 @@
     }
   ],
   "commands": [
-    {"name": "init", "capability_id": "bootstrap.initialization", "description": "Initialize a new project with Octon Mini.", "availability": ["bootstrap_source"], "default_behavior": "mixed", "mutation_model": "bootstrap_source_plan_apply_receipt", "authorization_boundary": "explicit_profile_and_reviewed_digest"},
+    {"name": "init", "capability_id": "bootstrap.initialization", "description": "Interactively inspect, ask, summarize, confirm, and initialize, or use explicit plan/apply.", "availability": ["bootstrap_source"], "default_behavior": "mixed", "mutation_model": "guided_or_explicit_bootstrap_source_plan_apply_receipt", "authorization_boundary": "explicit_profile_and_exact_reviewed_digest"},
     {"name": "init.setup", "capability_id": "bootstrap.guided_setup", "description": "Run guided setup for a new-project initialization.", "availability": ["bootstrap_source"], "default_behavior": "read_only", "mutation_model": "target_read_only_optional_explicit_external_setup_session_artifact", "authorization_boundary": "none_for_inspection_explicit_path_for_session_write"},
-    {"name": "adopt", "capability_id": "bootstrap.adoption", "description": "Add Octon Mini to an established project.", "availability": ["bootstrap_source"], "default_behavior": "mixed", "mutation_model": "bootstrap_source_proposal_review_plan_apply_receipt", "authorization_boundary": "authority_preservation_and_reviewed_digest"},
+    {"name": "adopt", "capability_id": "bootstrap.adoption", "description": "Interactively inspect and adopt with safe proposal pauses, or use explicit proposal/plan/apply.", "availability": ["bootstrap_source"], "default_behavior": "mixed", "mutation_model": "guided_or_explicit_bootstrap_source_proposal_review_plan_apply_receipt", "authorization_boundary": "authority_preservation_and_exact_reviewed_digest"},
     {"name": "adopt.setup", "capability_id": "bootstrap.guided_setup", "description": "Run guided setup for an established-project adoption.", "availability": ["bootstrap_source"], "default_behavior": "read_only", "mutation_model": "target_read_only_optional_explicit_external_setup_session_artifact", "authorization_boundary": "none_for_inspection_explicit_path_for_session_write"},
-    {"name": "upgrade", "capability_id": "bootstrap.upgrade", "description": "Plan or apply an Octon Mini version migration.", "availability": ["bootstrap_source"], "default_behavior": "mixed", "mutation_model": "bootstrap_source_three_way_plan_apply_receipt", "authorization_boundary": "project_owned_authority_evidence_review_and_digest"},
+    {"name": "upgrade", "capability_id": "bootstrap.upgrade", "description": "Interactively inspect and upgrade with safe three-way review pauses, or use explicit plan/apply.", "availability": ["bootstrap_source"], "default_behavior": "mixed", "mutation_model": "guided_or_explicit_bootstrap_source_three_way_plan_apply_receipt", "authorization_boundary": "project_owned_authority_evidence_review_and_exact_digest"},
     {"name": "upgrade.setup", "capability_id": "bootstrap.guided_setup", "description": "Run guided setup for an Octon Mini upgrade.", "availability": ["bootstrap_source"], "default_behavior": "read_only", "mutation_model": "target_read_only_optional_explicit_external_setup_session_artifact", "authorization_boundary": "none_for_inspection_explicit_path_for_session_write"},
     {"name": "detect", "capability_id": "bootstrap.detection", "description": "Inspect a project and propose bootstrap inputs.", "availability": ["bootstrap_source"], "default_behavior": "read_only", "mutation_model": "none", "authorization_boundary": "none"},
     {"name": "check", "capability_id": "project.validation", "description": "Run read-only structural validation.", "availability": ["generated_project"], "default_behavior": "read_only", "mutation_model": "none", "authorization_boundary": "none"},
@@ -230,6 +230,7 @@
     {"name": "maintain.collaboration", "capability_id": "maintenance.collaboration", "description": "Assess or maintain project collaboration configuration.", "availability": ["bootstrap_source", "generated_project"], "default_behavior": "mixed", "mutation_model": "read_only_assessment_or_plan_apply_receipt", "authorization_boundary": "current_evidence_and_accepted_decision_only_if_adopted"},
     {"name": "maintain.package", "capability_id": "maintenance.packages", "description": "Plan or install a reviewed Octon Mini capability package.", "availability": ["bootstrap_source"], "default_behavior": "mixed", "mutation_model": "bootstrap_source_content_addressed_plan_apply_receipt", "authorization_boundary": "applicability_owner_accepted_trust_decision_and_digest"},
     {"name": "maintain.refresh", "capability_id": "maintenance.refresh", "description": "Regenerate declared project-local derived state.", "availability": ["generated_project"], "default_behavior": "mutating", "mutation_model": "derived_only_explicit_writer", "authorization_boundary": "explicit_invocation"},
+    {"name": "transaction.bundle", "capability_id": "transaction.apply", "description": "Plan one atomic bundle from compatible reversible repository-local transaction plans.", "availability": ["generated_project"], "default_behavior": "read_only", "mutation_model": "explicit_plan_artifact_with_single_stage_receipt_and_rollback", "authorization_boundary": "compatible_authority_confirmation_freshness_reversibility_and_no_external_effects"},
     {"name": "transaction.apply", "capability_id": "transaction.apply", "description": "Apply a reviewed staged local transaction.", "availability": ["generated_project"], "default_behavior": "mutating", "mutation_model": "staged_digest_bound_apply_receipt", "authorization_boundary": "exact_reviewed_digest_and_current_preimages"},
     {"name": "transaction.rollback", "capability_id": "transaction.rollback", "description": "Roll back an unchanged applied local transaction.", "availability": ["generated_project"], "default_behavior": "mutating", "mutation_model": "receipt_bound_exact_restore", "authorization_boundary": "unchanged_post_apply_paths"},
     {"name": "transaction.recover", "capability_id": "transaction.recovery", "description": "Recover or finalize an interrupted local transaction.", "availability": ["generated_project"], "default_behavior": "mutating", "mutation_model": "pending_journal_exact_preimage_restore", "authorization_boundary": "paths_match_recorded_preimage_or_planned_postimage"}

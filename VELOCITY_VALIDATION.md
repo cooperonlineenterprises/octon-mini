@@ -32,6 +32,9 @@ effects.
 | stale plan or evidence | deterministic refusal | no target mutation |
 | interrupted transaction | write-ahead planned postimages, resumable rollback, and idempotent finalization permit exact recovery or fail closed | no force bypass |
 | detector, plan, doctor, resume, check | unchanged target tree | read-only contract |
+| covered refusal | stable Continuation Contract with concrete shell-free next argv | mutation outcome and preserved/invalidated proofs explicit |
+| routine validation proof | hit only on exact current input/tool/config/instruction/environment/effect/freshness bindings | adoption/release gates prohibit reuse |
+| local bundle | one atomic stage/receipt/rollback for compatible reversible members | overlap, authority/freshness mismatch, or external effect rejected |
 
 Consequential guided init, adoption, upgrade, and release workflows stage the
 release tier even though primitive scaffolding uses the bounded fast tier.
@@ -177,6 +180,7 @@ readiness.
 |---|---|---|
 | profile/layout generation | 3 profiles × compact/separated | `validate_octon_mini.py` profile builds |
 | guided setup | init/adopt/upgrade, conversational/TTY/flag equivalence, immutable resume, staleness, work-completion prerequisites, target no-write | `test_guided_setup.py` |
+| fail-closed continuation | typed source failures, human/JSON equivalence, no-change statements, dependency-scoped successors, decision reuse, interactive init/adopt/upgrade | `test_guided_setup.py`; cross-brand migration suite; generated mutation suite |
 | guided creation | explicit Minimal, compact, solo facts, first task, plan/apply/resume | `test_velocity_workflows.py` |
 | established adoption | dirty Git repository, low conflict apply, existing-byte preservation, exact collision refusal | `test_velocity_workflows.py`; `test_acceptance.py` |
 | archetype detection | software/product, research, brand/non-software, operations/hybrid | `test_velocity_workflows.py` |
@@ -185,6 +189,8 @@ readiness.
 | concurrency safety | target-preimage conflict, instruction fingerprint, dirty tree, stable task allocation | transaction and velocity tests |
 | hook configuration | shell-free argv, version probe, owner, side effects, selective routing, full adoption boundary | generated mutations; acceptance |
 | evidence lifecycle | selected hook writes, immutable archive, current bounded index, stale evidence | generated mutations; acceptance |
+| validation proof reuse | exact hits plus input/tool/configuration/environment/freshness misses; complete adoption gate | generated mutation suite; acceptance |
+| local bundles | compatible apply/rollback; overlap, authority, freshness, external-effect refusals | `test_velocity_workflows.py`; generated transaction validation |
 | registry maintenance | discovery, add, rename, combine, supersede, omission, stable-ID refusal | generated mutations; acceptance |
 | packages | Git, operations/observability, security/supply-chain, sample restriction, Context Pack schema; digest/decision/receipt binding | acceptance package matrix |
 | live upgrade | reviewed 3.1 seed, three-way plan/review/apply, idempotence, rollback, changed-path refusal | `test_migration_3_1_0_to_4_0_0.py` |
@@ -227,11 +233,11 @@ authority, applicability, trust, review, evidence, and external-effect gates.
 | explicit profile absent | refuse scripted generation | select a risk profile; interactive may propose Minimal |
 | existing target content | route new-project init to adoption | run semantic adoption plan |
 | functional equivalent or authority collision | emit proposal and review requirements | reconcile or disposition every current ambiguity |
-| changed instruction/evidence/target after plan | refuse apply | inspect change and re-plan |
+| changed instruction/evidence/target after plan | emit typed no-mutation refusal | create an immutable successor plan and review its semantic delta |
 | staged validation failure | restore/no target mutation | fix owned source or configuration and re-plan |
 | interrupted live mutation | leave/write-ahead journal | exact recover; refuse independently changed paths |
 | changed path after apply | refuse rollback | project-owned reconciliation or specialist recovery |
-| stale collaboration or check evidence | withhold selection/adoption claim | gather current evidence explicitly |
+| stale collaboration or check evidence | withhold selection/adoption claim and refuse proof hit | gather current evidence explicitly |
 | derived-only drift | doctor proposes exact repair digest | accept derived repair or run explicit refresh |
 | project-owned invalid configuration | no automatic repair | owner decision and reviewed transaction |
 | unknown legacy baseline | refuse seed/upgrade | supply reviewed old pristine hash or reconcile manually |
@@ -248,7 +254,9 @@ Every release candidate records JSON or table evidence for:
 3. **Established-project adoption:** low-conflict and authority-collision
    fixtures, inspected-file bounds, unchanged pre-apply tree, and apply time.
 4. **Task setup and closure:** plan and apply times on small, 2k, 10k, and 20k
-   trees; report staging separately when instrumentation is added.
+   trees; transaction receipt v3 reports staging, refresh, staged validation,
+   live apply, post-apply validation, and receipt preparation separately; the
+   process reports receipt persistence and total time after the immutable write.
 5. **Resume:** command time, bytes/lines returned, exact revision availability,
    and unchanged-tree result.
 6. **Manual touchpoints:** commands, distinct semantic inputs, project-owned
@@ -260,10 +268,13 @@ Every release candidate records JSON or table evidence for:
 8. **Automation success/fallback:** plans applied unchanged, stale plans,
    review-required proposals, automatic upgrade paths, manual conflicts, and
    rollback/recovery outcomes.
-9. **False positives:** detector candidates rejected by reviewers, invalid
+9. **Continuation recovery:** refusal-to-current-successor time, invalidated
+    versus preserved input counts, repeated semantic inputs, concrete-next-argv
+    execution success, and false preservation/invalidation findings.
+10. **False positives:** detector candidates rejected by reviewers, invalid
    collision classifications, irrelevant diagnostics, and package triggers
    assessed non-applicable.
-10. **Maintenance burden:** authoritative manifest edits per release, duplicate
+11. **Maintenance burden:** authoritative manifest edits per release, duplicate
     representations detected, source/derived drift, fixture update count, and
     runtime regression.
 

@@ -7,6 +7,21 @@ current project-owned values; do not copy them as facts.
 
 ## Guided setup for any mode
 
+For a TTY workflow, prefer one command and one explicit external review area:
+
+```text
+./octon init --target /absolute/project --review-dir /absolute/review
+./octon adopt --target /absolute/project --review-dir /absolute/review
+./octon upgrade --target /absolute/project --review-dir /absolute/review
+```
+
+The command asks only unresolved blockers, shows the shared plan summary and
+full digest, requests one `apply` confirmation, then revalidates immediately.
+A collision or review gate leaves immutable artifacts in the review directory
+and prints the typed shortest continuation. Resume with its exact session,
+proposal/review, and optional `--prior-plan` arguments. No review pause applies
+or overwrites anything.
+
 When facts are not already supplied through flags, create a read-only setup
 session outside the target:
 
@@ -32,8 +47,9 @@ Use `adopt setup` or `upgrade setup` only when read-only evidence establishes
 that mode; stop if detection is ambiguous. Conversational agents, TTY
 interaction, and legacy flags use the same stable question IDs and validation
 rules. Review observations, recommendations, selections, accepted-authority
-references, unknowns, deferrals, blockers, and the exact session digest before
-planning. Session creation writes only the explicitly requested external
+references, reused accepted decisions, validity classifications, unknowns,
+deferrals, blockers, and the exact session digest before planning. Session
+creation writes only the explicitly requested external
 artifact. Plan and apply remain the existing mode-specific transaction flow.
 
 ## New solo project
@@ -248,10 +264,40 @@ python -B .agent/scripts/run_project_checks.py \
 Use changed-scope routing for routine work and `--verify-adoption` for the full
 boundary. Writing or external hooks require their explicit acknowledgment.
 
+For exact unchanged routine `read_only` hooks, the explicit writer may reuse a
+content-addressed proof:
+
+```text
+python -B .agent/scripts/run_project_checks.py \
+  --write-evidence --changed-scope --reuse-proofs
+```
+
+Input, tool/version, command/configuration, instruction, environment, effect,
+or freshness changes rerun only the affected selected check. Never pass proof
+reuse to `--verify-adoption`; that complete gate rejects it.
+
+## Safe local bundles
+
+```text
+./octon transaction bundle plan \
+  --member registry=.agent/transactions/plans/registry.json \
+  --member hooks=.agent/transactions/plans/hooks.json \
+  --authority-source authority:<current-common-local-scope> \
+  --output .agent/transactions/plans/bundle.json
+```
+
+Bundle only coherent reversible local plans with the same authority,
+confirmation, instructions, freshness, and rollback boundary. The planner
+rejects overlapping paths, nested bundles, incompatible owners or freshness,
+and every external or monotonic effect. Apply the one bundle digest through
+ordinary `octon transaction apply`; its receipt contains every path preimage
+and postimage and rolls back atomically while unchanged.
+
 ## Recovery
 
 ```text
 ./octon doctor
+./octon doctor --json
 ./octon transaction recover --pending <pending-journal>
 ./octon transaction rollback --receipt <applied-receipt>
 ```
@@ -263,6 +309,13 @@ surviving pending journal with an exact terminal receipt is finalized without
 undoing the receipted result. Retry the same rollback receipt when its status
 is `rollback_in_progress`.
 
+Every covered refusal states `Nothing changed` or lists its bounded mutation.
+When setup wrote immutable review artifacts outside the target, the finding
+says the target was unchanged while naming those preserved artifacts instead
+of claiming that no filesystem write occurred. Each finding names invalidated
+and preserved proofs and provides one shell-free `argv`.
+There is no global force continuation.
+
 ## Upgrade
 
 For a native Octon Mini inventory-v2 project, run `octon upgrade plan`
@@ -271,6 +324,10 @@ migration with no `pb` compatibility. For 3.1.0, follow
 `migrations/3.1.0-to-4.0.0.md`: inspect, supply an exact reviewed old baseline,
 create a non-applied seed, classify the three-way proposal, disposition every
 review path, then accept the exact transaction digest.
+
+The interactive upgrade command accepts that exact seed as a migration input,
+pauses on the same three-way proposal, and resumes only after a bound review.
+It does not execute or restore the legacy command.
 
 After apply, distinguish the outcomes:
 
