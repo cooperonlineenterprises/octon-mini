@@ -436,8 +436,10 @@ limitations.
 The public `cooperonlineenterprises/octon-mini` source repository is licensed
 under the [MIT No Attribution license](LICENSE), SPDX identifier `MIT-0`, with
 `Copyright 2026 Cooper Online Enterprises`. This permits use, modification, and
-redistribution without an attribution-carrying condition. Public visibility and
-licensed source reuse do not make Octon Mini 4.0.0 a completed release.
+redistribution without an attribution-carrying condition. Octon Mini 4.0.0 is
+a completed source release: annotated tag `v4.0.0` targets
+`68701faa1898879779e5a7c4c8cedbf8009c6ce0`, and its GitHub Release is
+published. No separate package registry or package channel was used.
 
 An installed Octon Mini Project Bootstrap source bundle includes the repository
 license. Generated target projects do not receive this `LICENSE` file and do not

@@ -1,8 +1,8 @@
 # Release and Distribution
 
-## Current development version
+## Current release
 
-- Product and generator: Octon Mini `4.0.0` (unreleased)
+- Product and generator: Octon Mini `4.0.0` (released 2026-08-18)
 - Bootstrap capability: Octon Mini Project Bootstrap
 - Bootstrap skill ID: `octon-mini-project-bootstrap`
 - Harness kernel: `4.0.0`
@@ -12,17 +12,17 @@
   migration
 
 Version `4.0.0` implements the source-only velocity program recorded in
-`VELOCITY_ROADMAP.md`. It is not yet a completed release, tag, GitHub Release,
-or target-project adoption decision. Existing snapshots remain independent and
-are not updated automatically. Upgrade automation is limited to exact-pristine
+`VELOCITY_ROADMAP.md`. It is a completed source release, represented by the
+annotated `v4.0.0` tag and published GitHub Release. It is not a target-project
+adoption or readiness decision. Existing snapshots remain independent and are
+not updated automatically. Upgrade automation is limited to exact-pristine
 non-authoritative implementation assets, safe additions, and explicit derived
 regeneration; all authority-bearing or ambiguous paths require reviewed
 dispositions and exact digest acceptance.
 
-`RELEASE_READINESS.md` is the subordinate working checklist for 4.0.0 evidence
-and unresolved owner choices. It creates no release authority and cannot
-replace this file's release gate or populate final integrated-`main` evidence
-from a feature-branch run.
+`RELEASE_READINESS.md` is the subordinate evidence record for 4.0.0. It did not
+create release authority or replace this file's release gate; its final fields
+were populated only from observed integrated-`main` and hosted release state.
 
 Octon Mini 4.0.0 is the breaking successor to Project Blueprint 3.x. `octon`
 is the sole current command; no `pb` compatibility command exists. Upgrade is
@@ -30,8 +30,8 @@ an explicit reviewed Project Blueprint 3.x→Octon Mini 4.0.0 migration.
 
 The GitHub repository rename to `cooperonlineenterprises/octon-mini` and the
 local project-directory rename to `octon-mini` are complete. The repository is
-currently public. Octon Mini 4.0.0 remains unreleased: no `v4.0.0` tag, GitHub
-Release, or package publication has occurred.
+public. Octon Mini 4.0.0 is released through its annotated tag and GitHub
+Release. No separate package registry or package channel was used.
 
 Accepted source decision `SRC-DEC-0014` records this owner-directed identity
 and clean-break migration. It created no external operational authority and did
@@ -52,7 +52,29 @@ project. The capability and automatic event hook are generated disabled;
 external apply requires separate exact current task-scoped authorization and
 uses resumable progress evidence rather than an atomic rollback claim.
 
-## Current completed historical release
+## 4.0.0 release record
+
+Pull requests #14, #15, and #16 were integrated with `merge_commit`. The final
+candidate is `68701faa1898879779e5a7c4c8cedbf8009c6ce0`; its automatic
+`main-smoke` run `32184242471` passed, and manually dispatched full-matrix run
+`32185219444` passed all twelve Ubuntu/macOS/Windows × Python 3.11–3.14 jobs.
+Failed predecessor matrix `32175919937` remains retained: its four Windows
+failures exposed the launcher and fingerprint-order portability regression
+fixed by pull request #16.
+
+Annotated tag `v4.0.0` targets that exact final candidate and was created on
+2026-08-18. The GitHub Release was published the same day. Repository ruleset
+`21013176` applies Stage A `solo_hybrid` protection to `main` with no bypass
+actors, zero independent approvals, merge commits only, the `required` status
+check, and deletion/force-push prevention. Independent-review capacity remains
+`0 (not_established)`. Separate package publication was explicitly `none`;
+the GitHub Release supplies source archives under MIT-0.
+
+Real-project usability reports and unfamiliar-operator timing remain
+unavailable. Current release validation is synthetic and adversarial, and the
+known large-tree and deferred-architecture boundaries remain in effect.
+
+## Previous completed historical release
 
 - Product: Project Blueprint `3.0.0`
 - Harness kernel: `3.0.0`
@@ -67,7 +89,8 @@ integrated with `merge_commit` at
 `31539907441` then passed the complete 12-job matrix on that exact `main`
 revision, and the annotated `v3.0.0` tag was created on that revision later the
 same day. At this post-release reconciliation, annotated `v1.0.0`, `v2.0.0`,
-and `v3.0.0` tags exist locally and remotely; no GitHub Release exists. Major
+and `v3.0.0` tags exist locally and remotely; no GitHub Release was created for
+those historical releases. Major
 versions may break paths, schemas, IDs, lifecycle semantics, extension
 compatibility, or migration behavior. Minor versions add backward-compatible
 artifacts or checks. Patch versions correct behavior without changing accepted
@@ -187,10 +210,11 @@ Octon Mini source repository and its installed source bundle are distributed
 under the canonical MIT No Attribution license, SPDX identifier `MIT-0`.
 
 Public visibility, licensed source reuse, and an Octon Mini release are separate
-facts. Octon Mini 4.0.0 remains unreleased, with no `v4.0.0` tag, GitHub Release,
-or package publication. The generator does not copy the source `LICENSE` into a
-target snapshot or choose a target project's overall license; that remains a
-separate project-owned decision.
+facts. Octon Mini 4.0.0 is released through annotated tag `v4.0.0` and its
+GitHub Release; no separate package registry publication occurred. The
+generator does not copy the source `LICENSE` into a target snapshot or choose
+a target project's overall license; that remains a separate project-owned
+decision.
 
 ## Supported and unsupported claims
 
