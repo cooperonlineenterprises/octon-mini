@@ -1758,24 +1758,38 @@ def repository_files(
 ) -> list[Path]:
     exclusions, _ = fingerprint_exclusions(root)
     files: list[Path] = []
-    for path in sorted(root.rglob("*")):
-        rel_path = path.relative_to(root)
+
+    def omitted(rel_path: Path) -> bool:
         rel = rel_path.as_posix()
         if ".git" in rel_path.parts or "__pycache__" in rel_path.parts:
-            continue
+            return True
         if source_only and (
-            rel.startswith(".agent/generated/")
+            rel == ".agent/generated"
+            or rel.startswith(".agent/generated/")
+            or rel == ".agent/transactions"
             or rel.startswith(".agent/transactions/")
             or rel in DERIVED_EXCLUSIONS
             or any(rel == item or rel.startswith(item + "/") for item in exclusions)
         ):
-            continue
-        if path.is_symlink():
-            files.append(path)
-            continue
-        if path.is_dir():
-            continue
-        files.append(path)
+            return True
+        return False
+
+    def visit(directory: Path, relative_directory: Path) -> None:
+        with os.scandir(directory) as iterator:
+            entries = sorted(iterator, key=lambda entry: entry.name)
+        for entry in entries:
+            rel_path = relative_directory / entry.name
+            if omitted(rel_path):
+                continue
+            path = directory / entry.name
+            if entry.is_symlink():
+                files.append(path)
+            elif entry.is_dir(follow_symlinks=False):
+                visit(path, rel_path)
+            else:
+                files.append(path)
+
+    visit(root, Path())
     return files
 
 

@@ -494,12 +494,11 @@ def main() -> int:
     require(
         (
             "concurrency:\n"
-            "  group: ${{ github.workflow }}-${{ "
-            "github.event.pull_request.number || github.ref }}\n"
-            "  cancel-in-progress: ${{ github.event_name == 'pull_request' || "
-            "github.ref == 'refs/heads/main' }}"
+            "  group: ${{ github.workflow }}-${{ github.event_name }}-${{ "
+            "github.event.pull_request.number || github.run_id }}\n"
+            "  cancel-in-progress: ${{ github.event_name == 'pull_request' }}"
         ) in ci_workflow,
-        "source CI concurrency does not isolate uncancelled manual release evidence",
+        "source CI concurrency does not preserve uncancelled push/manual evidence",
         failures,
     )
     require(

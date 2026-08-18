@@ -122,7 +122,9 @@ boundary, and limitations.
 | `docs/COMPATIBILITY.md` | v4 compatibility, migration, and deprecation boundary |
 | `docs/DECISION_GOVERNANCE.md` | authoritative decision, review, maturity, handoff, and read-only assurance practice |
 | `docs/GUIDED_SETUP.md` | canonical setup interview, session, authority, staleness, and migration practice |
+| `docs/REAL_PROJECT_VALIDATION.md` | source-only real-project usability protocol and content-free report template |
 | `VELOCITY_VALIDATION.md` | benchmarks, touchpoints, validation matrix |
+| `RELEASE_READINESS.md` | non-authorizing 4.0.0 preparation checklist; `RELEASE.md` retains the release gate |
 
 Strict JSON and Python 3.11+ keep the generated kernel portable and
 duplicate-key rejecting. Extensions may add formats only with a pinned parser
@@ -413,6 +415,7 @@ python3 -B skills/octon-mini-project-bootstrap/scripts/test_migration_3_1_0_to_4
 python3 -B skills/octon-mini-project-bootstrap/scripts/test_velocity_workflows.py
 python3 -B skills/octon-mini-project-bootstrap/scripts/validate_octon_mini.py
 python3 -B skills/octon-mini-project-bootstrap/scripts/test_acceptance.py
+python3 -B skills/octon-mini-project-bootstrap/scripts/profile_large_project.py --sizes 0 2000 10000 20000
 python3 -B skills/octon-mini-project-bootstrap/scripts/benchmark_validation.py --enforce
 ```
 

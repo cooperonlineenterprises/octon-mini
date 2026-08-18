@@ -66,13 +66,19 @@ tags, decisions, and fixtures retain their Project Blueprint identity.
   and upgrade, with a canonical question catalog, strict external session
   artifacts, dependency-ordered conversational/TTY/flag inputs, fail-closed
   freshness binding, work-completion opt-in closure planning, and no second
-  apply or authority system.
+  apply or authority system;
 - fail-closed continuation with typed no-change findings, dependency-scoped
   setup-session v2 successors, accepted-decision applicability reuse,
   interactive one-command init/adopt/upgrade, human plan summaries and semantic
   plan deltas, transaction v3 phase timing, conservative routine validation
   proof reuse, and compatible reversible local bundles with one receipt and
-  rollback boundary.
+  rollback boundary;
+- a source-only real-project usability protocol with a reusable content-free
+  report template and material release-disposition boundary;
+- a non-authorizing 4.0.0 release-readiness checklist that keeps tag, GitHub
+  Release, and package-publication choices separate; and
+- a source-only, non-enforcing large-project phase profiler that preserves
+  benchmark-v2 thresholds and sample accounting.
 
 ### Changed
 
@@ -103,6 +109,14 @@ tags, decisions, and fixtures retain their Project Blueprint identity.
   `octon-mini.project.validation-benchmark.v2` protocol, preserving one
   operational cold-start proxy plus ten warm samples, explicit host context,
   nearest-rank combined and warm p90, and the unchanged thresholds;
+- source CI now cancels only superseded runs for the same pull request; push
+  and manual evidence use unique concurrency groups and are not displaced by
+  another run targeting `main`;
+- generated repository and transaction tree walks now prune excluded
+  directories with deterministic, non-symlink-following `os.scandir`
+  traversal while retaining byte/mode identity semantics; and
+- refresh reuses the post-validation invocation-local source inventory for its
+  manifest, while retaining before-replacement fingerprint revalidation;
 - primitive scaffolding uses structural plus bounded fast validation, while
   consequential init/adoption/upgrade/release transactions retain release-tier
   staging;

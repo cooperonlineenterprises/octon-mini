@@ -223,7 +223,28 @@ class VelocityWorkflowTests(unittest.TestCase):
             receipt, receipt_path = transaction.apply_plan(
                 root, bundle, bundle["canonical_plan_digest"]
             )
+            expected_receipt_timings = {
+                "staging_seconds",
+                "refresh_seconds",
+                "staged_validation_seconds",
+                "apply_seconds",
+                "post_apply_validation_seconds",
+                "receipt_preparation_seconds",
+                "total_before_receipt_persist_seconds",
+            }
+            self.assertEqual(set(receipt["timings"]), expected_receipt_timings)
+            self.assertTrue(
+                all(
+                    transaction.LAST_PHASE_TIMINGS[key] == receipt["timings"][key]
+                    for key in expected_receipt_timings
+                )
+            )
             self.assertIn("receipt_persist_seconds", transaction.LAST_PHASE_TIMINGS)
+            self.assertIn("total_seconds", transaction.LAST_PHASE_TIMINGS)
+            self.assertGreaterEqual(
+                transaction.LAST_PHASE_TIMINGS["total_seconds"],
+                receipt["timings"]["total_before_receipt_persist_seconds"],
+            )
             self.assertEqual({item["path"] for item in receipt["paths"]}, {"first.txt", "second.txt"})
             self.assertTrue((root / "first.txt").is_file())
             self.assertTrue((root / "second.txt").is_file())

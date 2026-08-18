@@ -57,6 +57,7 @@ REQUIRED_PATHS = (
     "LICENSE",
     "README.md",
     "RELEASE.md",
+    "RELEASE_READINESS.md",
     "VERSION",
     "VELOCITY_ROADMAP.md",
     "VELOCITY_VALIDATION.md",
@@ -66,6 +67,7 @@ REQUIRED_PATHS = (
     "docs/DECISION_GOVERNANCE.md",
     "docs/GUIDED_SETUP.md",
     "docs/GOLDEN_PATHS.md",
+    "docs/REAL_PROJECT_VALIDATION.md",
     "docs/examples/DECISION_GOVERNANCE_WORKED_EXAMPLE.md",
     "docs/examples/GUIDED_SETUP_WORKED_EXAMPLE.md",
     "dossier/SPECIFICATION.md",
@@ -98,6 +100,7 @@ REQUIRED_PATHS = (
     "patterns/fixtures/architecture-proof/valid/inconclusive-provider.json",
     "pyproject.toml",
     "shared/GENERATION_CONTRACT.md",
+    "shared/source-contracts/large-project-phase-profile.schema.json",
     "shared/optional-schemas/context-pack-manifest.schema.json",
     "shared/reference-evidence.json",
     "shared/source-contracts/information-state-semantics.json",
@@ -169,6 +172,7 @@ REQUIRED_PATHS = (
     "skills/octon-mini-project-bootstrap/scripts/guided_workflow.py",
     "skills/octon-mini-project-bootstrap/scripts/init_project.py",
     "skills/octon-mini-project-bootstrap/scripts/package_project.py",
+    "skills/octon-mini-project-bootstrap/scripts/profile_large_project.py",
     "skills/octon-mini-project-bootstrap/scripts/octon.py",
     "skills/octon-mini-project-bootstrap/scripts/plan_adoption.py",
     "skills/octon-mini-project-bootstrap/scripts/scaffold_project.py",
@@ -1244,15 +1248,14 @@ def validate_ci_contract(issues: list[str]) -> None:
         issues.append("CI workflow must retain pull-request validation")
     expected_concurrency = (
         "concurrency:\n"
-        "  group: ${{ github.workflow }}-${{ "
-        "github.event.pull_request.number || github.ref }}\n"
-        "  cancel-in-progress: ${{ github.event_name == 'pull_request' || "
-        "github.ref == 'refs/heads/main' }}"
+        "  group: ${{ github.workflow }}-${{ github.event_name }}-${{ "
+        "github.event.pull_request.number || github.run_id }}\n"
+        "  cancel-in-progress: ${{ github.event_name == 'pull_request' }}"
     )
     if expected_concurrency not in workflow:
         issues.append(
-            "CI workflow concurrency must cancel superseded pull-request and "
-            "main smoke runs without cancelling manual release matrices"
+            "CI workflow concurrency must cancel only superseded runs for the "
+            "same pull request and give push/manual evidence unique groups"
         )
     required_snippets = {
         "read-only contents permission": "permissions:\n  contents: read",
@@ -1279,9 +1282,8 @@ def validate_ci_contract(issues: list[str]) -> None:
         "Python 3.11-3.14 release matrix": (
             'python: ["3.11", "3.12", "3.13", "3.14"]'
         ),
-        "routine cancellation": (
-            "cancel-in-progress: ${{ github.event_name == 'pull_request' || "
-            "github.ref == 'refs/heads/main' }}"
+        "evidence-preserving cancellation": (
+            "cancel-in-progress: ${{ github.event_name == 'pull_request' }}"
         ),
         "pull-request timeout": "timeout-minutes: 45",
         "main timeout": "timeout-minutes: 15",

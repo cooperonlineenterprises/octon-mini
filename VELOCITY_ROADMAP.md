@@ -62,4 +62,25 @@ action, authority, readiness, trust, or state machine.
 Fast tests cover pure contracts and bounded mutations. Full-tree integration is
 retained for fingerprint, symlink, ignored-file, host-metadata, refresh,
 read-only, adoption, upgrade, and release boundaries. Human usability targets
-require timed project exercises and are never inferred from structural tests.
+require timed project exercises under `docs/REAL_PROJECT_VALIDATION.md` and are
+never inferred from structural tests.
+
+## Deferred architecture trigger index
+
+This routing table makes existing triggers easier to find. It creates no work
+item, authority, implementation commitment, accepted decision, or evidence.
+The detailed source remains `ARCHITECTURAL_PATTERN_INTEGRATION_REVIEW.md`, and
+the accepted boundaries remain in `ARCHITECTURE_DECISIONS.md`.
+
+| Candidate | All required activation evidence | Boundary while absent |
+|---|---|---|
+| Resource accounting or reservations | A real adopter owns a measurable fungible resource, crosses a logical/provider unit boundary, and demonstrates material overcommitment or reconciliation risk | Authority, credentials, capability registration, and coordination leases are not quantities; no kernel ledger |
+| Bounded invalidation | Measured material regeneration cost, sufficiently complete typed dependencies, missing-edge fault injection, conservative widening/full-rebuild fallback, and unchanged unrelated outputs | Full regeneration remains the safe behavior; a graph database is never the trigger |
+| Reusable policy or rights lock | A specialist restriction extension demonstrates versioned current-policy gating, expiry/revocation, waiver authority, descendant impact, and specialist ownership beyond existing entry points | No generic policy engine or implied specialist authority |
+| Corpus-use controls | Actual material retrieval, extraction, fixture construction, evaluation, training, redistribution, or publication across a trust or rights boundary | No speculative corpus classes or cross-project rights inference |
+| General external-effect infrastructure | A concrete adopter supplies an explicit partial-failure model covering duplicate dispatch, timeout/read-back, ambiguous outcome, reconciliation, compensation, and point of no return | Preserve the narrow `SRC-DEC-0013` Git completion exception; no universal outbox/effect runtime |
+| Action, lifecycle, readiness, trust, or state enums | Not an activation candidate as a global primitive | Universal enums remain rejected global defaults; only a specialized, adopter-triggered module may be evaluated without introducing one |
+
+Documenting or observing an idea does not satisfy its trigger. Promotion into
+implementation requires the project-owned adopter and proof named by the
+existing architecture review.

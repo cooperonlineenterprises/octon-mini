@@ -107,6 +107,7 @@ def main() -> int:
             "octon-mini.json",
             "CHANGELOG.md",
             "RELEASE.md",
+            "RELEASE_READINESS.md",
             "GIT_WORKFLOW.md",
             "ARCHITECTURE_DECISIONS.md",
             "ARCHITECTURAL_PATTERN_INTEGRATION_REVIEW.md",
