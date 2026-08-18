@@ -690,6 +690,20 @@
         "record_versions": {
           "type": "object"
         },
+        "contract_versions": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["continuation", "plan_summary", "transaction_plan", "transaction_receipt", "transaction_bundle", "decision_reuse", "validation_proof"],
+          "properties": {
+            "continuation": {"const": "octon-mini.continuation.v1"},
+            "plan_summary": {"const": "harness.plan-summary.v1"},
+            "transaction_plan": {"const": "harness.transaction-plan.v3"},
+            "transaction_receipt": {"const": "harness.transaction-receipt.v3"},
+            "transaction_bundle": {"const": "harness.transaction-bundle.v1"},
+            "decision_reuse": {"const": "harness.decision-reuse-registry.v1"},
+            "validation_proof": {"const": "harness.validation-proof.v1"}
+          }
+        },
         "id_patterns": {
           "type": "object"
         },
@@ -879,7 +893,7 @@
       ],
       "properties": {
         "schema_version": {
-          "const": "harness.validators.v4"
+          "enum": ["harness.validators.v4", "harness.validators.v5"]
         },
         "validator_version": {
           "type": "string",
@@ -945,6 +959,9 @@
             "project_checks": {
               "$ref": "#/$defs/command"
             },
+            "project_checks_reuse": {
+              "$ref": "#/$defs/command"
+            },
             "adoption_verify": {
               "$ref": "#/$defs/command"
             },
@@ -979,7 +996,7 @@
       ],
       "properties": {
         "schema_version": {
-          "const": "harness.project.v5"
+          "enum": ["harness.project.v5", "harness.project.v6"]
         },
         "project": {
           "type": "object",
@@ -1108,7 +1125,10 @@
           ],
           "properties": {
             "evidence_schema": {
-              "const": ".agent/schemas/harness-project-check-evidence.schema.json"
+              "enum": [
+                ".agent/schemas/harness-project-check-evidence.schema.json",
+                ".agent/schemas/harness-project-check-evidence-v3.schema.json"
+              ]
             },
             "evidence_store": {
               "const": ".agent/project-checks/evidence.json"
@@ -1140,6 +1160,35 @@
             },
             "shell_interpretation": {
               "const": false
+            },
+            "proof_reuse": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "status",
+                "input_routing",
+                "environment_characteristics",
+                "external_or_runtime_authorization_cache_hits",
+                "expired_proof_cache_hits",
+                "adoption_and_release_gate_reuse"
+              ],
+              "properties": {
+                "status": {"const": "enabled_for_explicit_routine_writer_only"},
+                "input_routing": {"const": "declared_source_and_test_roots_with_governance_fallback"},
+                "environment_characteristics": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 64,
+                  "uniqueItems": true,
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                  }
+                },
+                "external_or_runtime_authorization_cache_hits": {"const": false},
+                "expired_proof_cache_hits": {"const": false},
+                "adoption_and_release_gate_reuse": {"const": false}
+              }
             }
           }
         },

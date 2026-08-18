@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://octon-mini.local/schemas/harness-plan-summary.schema.json",
+  "title": "Octon Mini Human Plan Summary",
+  "description": "A concise non-authorizing projection of an exact detailed transaction plan.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "artifact_kind",
+    "permission_grant",
+    "operation",
+    "bundle_members",
+    "changes",
+    "unchanged",
+    "safety_basis",
+    "review_required",
+    "effects",
+    "validation",
+    "recovery_boundary",
+    "reused_inputs",
+    "semantic_delta",
+    "canonical_plan_digest",
+    "confirmation"
+  ],
+  "properties": {
+    "schema_version": {"const": "harness.plan-summary.v1"},
+    "artifact_kind": {"const": "plan_summary"},
+    "permission_grant": {"const": false},
+    "operation": {"type": "string", "minLength": 1},
+    "bundle_members": {"$ref": "#/$defs/strings"},
+    "changes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["create", "replace", "delete", "derived_write"],
+      "properties": {
+        "create": {"$ref": "#/$defs/strings"},
+        "replace": {"$ref": "#/$defs/strings"},
+        "delete": {"$ref": "#/$defs/strings"},
+        "derived_write": {"$ref": "#/$defs/strings"}
+      }
+    },
+    "unchanged": {"$ref": "#/$defs/strings"},
+    "safety_basis": {"$ref": "#/$defs/strings"},
+    "review_required": {"$ref": "#/$defs/strings"},
+    "effects": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository_local", "external"],
+      "properties": {
+        "repository_local": {"$ref": "#/$defs/strings"},
+        "external": {"$ref": "#/$defs/strings"}
+      }
+    },
+    "validation": {"type": "array", "items": {"$ref": "#/$defs/argv"}},
+    "recovery_boundary": {"type": "string", "minLength": 1},
+    "reused_inputs": {"type": "array", "items": {"$ref": "#/$defs/reused"}},
+    "semantic_delta": {"type": ["object", "null"]},
+    "canonical_plan_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "confirmation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["required", "kind", "displayed_digest"],
+      "properties": {
+        "required": {"const": true},
+        "kind": {"const": "accept_exact_canonical_digest"},
+        "displayed_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+      }
+    }
+  },
+  "$defs": {
+    "strings": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "argv": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+    "reused": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "reference", "validity", "limitations"],
+      "properties": {
+        "kind": {"enum": ["decision", "evidence", "selection", "validation_proof"]},
+        "reference": {"type": "string", "minLength": 1},
+        "validity": {"type": "string", "minLength": 1},
+        "limitations": {"$ref": "#/$defs/strings"}
+      }
+    }
+  }
+}

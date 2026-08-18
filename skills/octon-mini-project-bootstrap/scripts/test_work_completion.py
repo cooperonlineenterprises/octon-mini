@@ -39,6 +39,7 @@ TRANSACTION_SOURCE = SKILL_ROOT / "assets/templates/core/.agent/scripts/octon_tr
 CHECK_SOURCE = SKILL_ROOT / "assets/templates/core/.agent/scripts/run_project_checks.py.tmpl"
 VALIDATOR_SOURCE = SKILL_ROOT / "assets/templates/core/.agent/scripts/validate.py.tmpl"
 OCTON_SOURCE = SKILL_ROOT / "assets/templates/core/.agent/scripts/octon.py.tmpl"
+CONTINUATION_SOURCE = SKILL_ROOT / "assets/templates/core/.agent/scripts/octon_continuation.py.tmpl"
 WORKFLOW_SOURCE = SKILL_ROOT / "assets/packages/small-team-git-portfolio/templates/.agent/workflows/small-team-git.json.tmpl"
 TOOLS_SOURCE = SKILL_ROOT / "assets/templates/core/.agent/tools.json.tmpl"
 WORK_COMPLETION_SCHEMA = OCTON_MINI_ROOT / "shared/schemas/harness-work-completion.schema.json"
@@ -119,6 +120,9 @@ class FixtureProject:
         (scripts / "octon_transaction.py").write_bytes(TRANSACTION_SOURCE.read_bytes())
         (scripts / "octon_work_completion.py").write_bytes(FINISH_SOURCE.read_bytes())
         (scripts / "run_project_checks.py").write_bytes(CHECK_SOURCE.read_bytes())
+        (scripts / "octon_continuation.py").write_bytes(
+            CONTINUATION_SOURCE.read_bytes()
+        )
         schema_path = self.root / ".agent/schemas/harness-work-completion.schema.json"
         schema_path.parent.mkdir(parents=True)
         schema_path.write_bytes(WORK_COMPLETION_SCHEMA.read_bytes())
@@ -263,6 +267,8 @@ class WorkCompletionTests(unittest.TestCase):
     maxDiff = None
 
     def setUp(self) -> None:
+        self.continuation = load_module("octon_continuation", CONTINUATION_SOURCE)
+        sys.modules["octon_continuation"] = self.continuation
         self.transaction = load_module("octon_transaction", TRANSACTION_SOURCE)
         sys.modules["octon_transaction"] = self.transaction
         self.finish = load_module("octon_work_completion_fixture", FINISH_SOURCE)
@@ -292,6 +298,46 @@ class WorkCompletionTests(unittest.TestCase):
         value["evidence_fingerprint"] = self.finish.digest(value)
         write_json(path, value)
         return path
+
+    def test_completion_refusals_are_typed_and_receipt_resumable(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="octon-work-completion-continuation-") as temporary:
+            fixture = FixtureProject(Path(temporary), "solo_direct")
+            project_path = fixture.root / ".agent/project.json"
+            project = json.loads(project_path.read_text(encoding="utf-8"))
+            project["work_completion"]["status"] = "disabled"
+            write_json(project_path, project)
+            with self.assertRaises(self.finish.FinishBlocked) as blocked:
+                self.finish.build_plan(fixture.root)
+            self.assertEqual(
+                blocked.exception.report["failure_code"],
+                "OCTON-WORK-4002",
+            )
+            self.assertFalse(blocked.exception.report["mutation"]["occurred"])
+            self.assertTrue(blocked.exception.report["next_action"]["argv"])
+
+            receipt = {"receipt_id": "WCR-" + "1" * 24}
+
+            @self.finish.named_operation("push_branch")
+            def synthetic_failure(root: Path, current: dict[str, object]) -> None:
+                raise self.finish.FinishBlocked("synthetic resumable failure")
+
+            with self.assertRaises(self.finish.FinishBlocked) as attempted:
+                synthetic_failure(fixture.root, receipt)
+            report = attempted.exception.report
+            self.assertEqual(report["phase"], "apply")
+            self.assertTrue(report["mutation"]["occurred"])
+            self.assertEqual(report["mutation"]["external_effects"], ["push_branch"])
+            self.assertEqual(
+                report["next_action"]["argv"],
+                [
+                    "./octon",
+                    "work",
+                    "finish",
+                    "resume",
+                    "--receipt-id",
+                    receipt["receipt_id"],
+                ],
+            )
 
     def test_plan_is_read_only_for_all_workflows_and_concurrent_modifier(self) -> None:
         cases = {
@@ -323,6 +369,23 @@ class WorkCompletionTests(unittest.TestCase):
                 self.assertFalse(plan["permission_grant"])
                 self.assertEqual(plan["pull_request"]["requirement"], expected[0])
                 self.assertEqual(plan["review"]["requirement"], expected[1])
+                summary = self.continuation.plan_summary(plan)
+                self.assertEqual(summary["operation"], "work.finish")
+                self.assertEqual(
+                    summary["effects"]["external"], plan["external_operations"]
+                )
+                self.assertEqual(
+                    json.loads(
+                        self.continuation.render_plan_summary(
+                            summary, json_output=True
+                        )
+                    ),
+                    summary,
+                )
+                self.assertIn(
+                    plan["canonical_plan_digest"],
+                    self.continuation.render_plan_summary(summary),
+                )
                 external_operations.update(plan["external_operations"])
             concurrent = FixtureProject(area / "concurrent", "solo_hybrid", concurrent=True)
             before = snapshot(concurrent.root)
@@ -505,45 +568,40 @@ class WorkCompletionTests(unittest.TestCase):
     def test_current_closure_receipt_is_bound_without_hiding_other_dirt(self) -> None:
         with tempfile.TemporaryDirectory(prefix="octon-work-completion-closure-") as temporary:
             fixture = FixtureProject(Path(temporary), "solo_direct")
-            receipt_id = "RCPT-" + "1" * 24
-            relative = f".agent/transactions/receipts/{receipt_id}.json"
-            receipt_path = fixture.root / relative
             task_relative = ".agent/tasks/TASK-0001.md"
-            task_state = self.transaction.path_state(fixture.root, task_relative)
-            value = {
-                "schema_version": "harness.transaction-receipt.v2",
-                "artifact_kind": "transaction_receipt",
-                "permission_grant": False,
-                "receipt_id": receipt_id,
-                "operation": "work.close",
-                "plan_digest": "5" * 64,
-                "applied_at": datetime.now(timezone.utc).isoformat(),
-                "status": "applied",
-                "paths": [
-                    {
-                        "path": task_relative,
-                        "before": task_state,
-                        "after": task_state,
-                        "before_content_base64": None,
-                    }
+            task_bytes = (fixture.root / task_relative).read_bytes()
+            validation = [[sys.executable, "-B", "-c", "raise SystemExit(0)"]]
+            close_plan = self.transaction.build_plan(
+                fixture.root,
+                operation_name="work.close",
+                scope="Synthetic exact v3 closure receipt",
+                operations=[
+                    self.transaction.operation(
+                        "replace",
+                        task_relative,
+                        task_bytes,
+                        "Preserve the completed task bytes while producing a real close receipt.",
+                    )
                 ],
-                "created_directories": [],
-                "validation": [],
-                "rollback": {
-                    "available": True,
-                    "refuse_if_post_apply_changed": True,
-                    "command": [
-                        "python",
-                        "-B",
-                        ".agent/scripts/octon.py",
-                        "transaction",
-                        "rollback",
-                        "--receipt",
-                        relative,
-                    ],
-                },
-            }
-            write_json(receipt_path, value)
+                evidence=[],
+                assumptions=[],
+                confidence="deterministic",
+                limitations=["Synthetic v3 close-to-finish integration fixture."],
+                staged_validation_plan=validation,
+                post_apply_validation_plan=validation,
+            )
+            value, receipt_path = self.transaction.apply_plan(
+                fixture.root,
+                close_plan,
+                close_plan["canonical_plan_digest"],
+            )
+            self.assertEqual(value["schema_version"], "harness.transaction-receipt.v3")
+            self.assertIn("bundle", value)
+            self.assertIn("timings", value)
+            receipt_id = value["receipt_id"]
+            relative = receipt_path.resolve().relative_to(
+                fixture.root.resolve()
+            ).as_posix()
             plan = self.finish.build_plan(fixture.root)
             self.assertEqual(plan["closure_transaction"]["receipt_ref"], receipt_id)
             self.assertEqual(

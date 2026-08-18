@@ -123,8 +123,11 @@ REQUIRED_PATHS = (
     "shared/schemas/harness-assurance-records.schema.json",
     "shared/schemas/harness-capability-records.schema.json",
     "shared/schemas/harness-collaboration-profile.schema.json",
+    "shared/schemas/harness-continuation.schema.json",
     "shared/schemas/harness-current-state.schema.json",
     "shared/schemas/harness-decision-governance.schema.json",
+    "shared/schemas/harness-decision-reuse.schema.json",
+    "shared/schemas/harness-diagnostics-v2.schema.json",
     "shared/schemas/harness-diagnostics.schema.json",
     "shared/schemas/harness-extension-registry.schema.json",
     "shared/schemas/harness-focus.schema.json",
@@ -132,14 +135,19 @@ REQUIRED_PATHS = (
     "shared/schemas/harness-hook-candidate.schema.json",
     "shared/schemas/harness-kernel.schema.json",
     "shared/schemas/harness-package-registry.schema.json",
+    "shared/schemas/harness-plan-summary.schema.json",
+    "shared/schemas/harness-project-check-evidence-v3.schema.json",
     "shared/schemas/harness-project-check-evidence.schema.json",
     "shared/schemas/harness-record.schema.json",
     "shared/schemas/harness-scm.schema.json",
+    "shared/schemas/harness-transaction-v3.schema.json",
     "shared/schemas/harness-transaction.schema.json",
+    "shared/schemas/harness-validation-proof.schema.json",
     "shared/schemas/harness-work-completion.schema.json",
     "shared/schemas/octon-mini-bootstrap-migration-seed.schema.json",
     "shared/schemas/octon-mini-project-origin.schema.json",
     "shared/schemas/octon-mini-bootstrap-setup-answers.schema.json",
+    "shared/schemas/octon-mini-bootstrap-setup-session-v2.schema.json",
     "shared/schemas/octon-mini-bootstrap-setup-session.schema.json",
     "shared/schemas/octon-mini-bootstrap-upgrade.schema.json",
     "shared/schemas/reference-evidence.schema.json",
@@ -158,6 +166,7 @@ REQUIRED_PATHS = (
     "skills/octon-mini-project-bootstrap/scripts/benchmark_validation.py",
     "skills/octon-mini-project-bootstrap/scripts/collaboration_project.py",
     "skills/octon-mini-project-bootstrap/scripts/detect_project.py",
+    "skills/octon-mini-project-bootstrap/scripts/guided_workflow.py",
     "skills/octon-mini-project-bootstrap/scripts/init_project.py",
     "skills/octon-mini-project-bootstrap/scripts/package_project.py",
     "skills/octon-mini-project-bootstrap/scripts/octon.py",
@@ -180,6 +189,9 @@ REQUIRED_PATHS = (
     "skills/octon-mini-project-bootstrap/scripts/validate_skill_package.py",
     "skills/octon-mini-project-bootstrap/scripts/verify_reference_evidence.py",
     "skills/octon-mini-project-bootstrap/fixtures/decision-governance/README.md",
+    "skills/octon-mini-project-bootstrap/fixtures/continuation/README.md",
+    "skills/octon-mini-project-bootstrap/fixtures/continuation/valid/blocked-operation.json",
+    "skills/octon-mini-project-bootstrap/fixtures/continuation/invalid/mutations.json",
     "skills/octon-mini-project-bootstrap/fixtures/work-completion/README.md",
     "skills/octon-mini-project-bootstrap/fixtures/work-completion/valid-config.json",
     "skills/octon-mini-project-bootstrap/fixtures/work-completion/invalid-mutations.json",
@@ -1271,7 +1283,7 @@ def validate_ci_contract(issues: list[str]) -> None:
             "cancel-in-progress: ${{ github.event_name == 'pull_request' || "
             "github.ref == 'refs/heads/main' }}"
         ),
-        "routine timeout": "timeout-minutes: 20",
+        "pull-request timeout": "timeout-minutes: 45",
         "main timeout": "timeout-minutes: 15",
         "release timeout": "timeout-minutes: 90",
         "pinned checkout action": (
@@ -1487,8 +1499,12 @@ def validate_executable_contracts(issues: list[str]) -> None:
             timeout=5,
             env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
         )
-        if local_result.returncode != 2 or "no verified generated-project Octon Mini interface" not in (
-            local_result.stderr + local_result.stdout
+        refusal_output = local_result.stderr + local_result.stdout
+        if (
+            local_result.returncode != 2
+            or "OCTON-CMD-1002" not in refusal_output
+            or "Nothing changed" not in refusal_output
+            or 'Argv: ["./octon", "--help"]' not in refusal_output
         ):
             issues.append("source octon generated-command refusal is missing or recursive")
 

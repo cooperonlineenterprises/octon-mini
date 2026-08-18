@@ -77,7 +77,7 @@ audit's proposed package set:
    reviewed optional patterns. Do not scaffold or implement them until a real
    adopting project supplies the trigger and proof subject.
 6. Defer resource accounting, quantitative reservations, bounded
-   invalidation, corpus-use machinery, and general policy locks until a
+   general derived-artifact invalidation, corpus-use machinery, and general policy locks until a
    project demonstrates the corresponding problem.
 7. Reject every literal MFMS ontology, topology, status, and workflow transfer.
 
@@ -92,7 +92,7 @@ audit's proposed package set:
 | P05 Lifecycle/disposition | Task cancellation/closure, artifact retention/destination, lease expiry/handback, Git cleanup safeguards, operations retirement/deactivation | Partly satisfied | `harness/BLUEPRINT.md:424`, `:505`, `:622`; `harness-record.schema.json` artifact contract; operations records schema; Git workflow cleanup tests | No reusable record for a durable temporary resource that is not already a task, artifact, lease, or operations record | Accept a reviewed optional pattern/template; do not make every ephemeral item a record |
 | P06 Staged binding | Generator binds Blueprint/profile identity, rejects unresolved template variables, transfers no project facts, and defers adoption facts to project evidence | Behavior satisfied; contract explanation can improve | `shared/GENERATION_CONTRACT.md:8`, `:73`, `:111`; `scaffold_project.py:192`, `:497`; generated baselines and origin tests | Stable, project-owned unresolved, and execution-volatile inputs are not named as binding classes | Add a narrow Generation Contract explanation; preserve unresolved-template failure |
 | P07 Typed specs/transformations/renditions | Strict JSON schemas, authoritative registry, derived catalog/path map/manifest, transactional refresh, typed migrations | Satisfied | `shared/GENERATION_CONTRACT.md:244`, `dossier/BLUEPRINT.md:227`, `scaffold_project.py:239`; refresh, drift, and migration suites | No demonstrated gap requiring a new compiler abstraction | Preserve; use extensions for domain transformations |
-| P08 Dependency graphs/invalidation | Separate task and plan DAGs, reciprocal links, ready-frontier derivation; full regeneration of a small declared derived set | Correctly scoped; conditional invalidation absent | `harness/BLUEPRINT.md:424`, `:480`, `dossier/BLUEPRINT.md:1493`; DAG/frontier tests at `test_validate.py.tmpl:1761`, `:1912`, and `:1983` | No typed derived-artifact dependency graph; no evidence that full refresh is costly | Defer until dependency completeness and measured regeneration cost justify selective invalidation |
+| P08 Dependency graphs/invalidation | Separate task and plan DAGs, reciprocal links, ready-frontier derivation; dependency-scoped setup validity and exact routine proof reuse; full regeneration of a small declared derived set | Narrow input/proof invalidation accepted by `SRC-DEC-0017`; general derived-artifact graph remains absent | Current setup/proof/bundle fixtures plus the historical references below | No complete typed derived-artifact dependency graph; full refresh remains the consequential fallback | Keep general P08 deferred until dependency completeness and measured regeneration cost justify derived-output invalidation |
 | P09 Heuristics without authority | Deterministic eligibility before selection, non-authorizing collaboration recommendations, metrics cannot infer readiness | Satisfied | `README.md:143`, `harness/BLUEPRINT.md:493`, `harness-assurance-records.schema.json` `readiness_inference: false`; collaboration/frontier tests | No general optimizer or hidden score exists | Preserve; reject a generic scoring package without an adopter |
 | P10 Quantitative reservation/conservation | Coordination lease explicitly grants no authority and is not a quantity | Correctly absent from kernel | `harness/BLUEPRINT.md:622`, coordination schema/template, concurrency tests | No owned fungible capacity is managed by Blueprint | Defer; never reinterpret authority, credentials, or write scopes as inventory |
 | P11 Recovery/degradation/reconciliation | Recovery events, interrupted-refresh recovery, exact migration rollback evidence, operations incident/backup/provider-outage contracts | Strong foundation; typed external-outcome grammar incomplete | `harness/BLUEPRINT.md:517`, `:653`; operations extension records schema; recovery fixture at `recovery-event.jsonl.tmpl`; migration tests | Retry, reconcile, compensate, abandon, and unresolved external outcome are not one reusable typed contract | Refine the optional operations/effects layer when an adopter has ambiguous consequential effects |
@@ -374,6 +374,12 @@ audit's proposed package set:
 - **Decision owner / evidence:** Repository owner; current Generation Contract.
 
 ### P08 — Typed Dependency Graphs and Bounded Invalidation
+
+`SRC-DEC-0017` later accepts a narrower mechanism for setup-answer validity and
+content-addressed routine check proofs. Those contracts bind complete declared
+inputs and conservatively rerun on a miss; they do not create the general
+derived-artifact dependency graph evaluated here. The P08 decision below
+therefore remains deferred for selective derived-output rebuilding.
 
 - **Source audit reference:** P08; CD-032, CD-044; TRACK-10.
 - **Current Project Blueprint state:**

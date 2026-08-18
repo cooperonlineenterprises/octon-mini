@@ -1,0 +1,165 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://octon-mini.local/schemas/harness-continuation.schema.json",
+  "title": "Octon Mini Continuation Contract",
+  "description": "A non-authorizing, structured refusal that preserves valid progress and identifies one shortest safe continuation.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "artifact_kind",
+    "permission_grant",
+    "failure_code",
+    "blocked_operation",
+    "phase",
+    "mutation",
+    "root_cause",
+    "invalidated",
+    "preserved",
+    "authority_source",
+    "repair_class",
+    "next_action",
+    "safe_read_only_actions",
+    "successor",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {"const": "octon-mini.continuation.v1"},
+    "artifact_kind": {"const": "blocked_operation"},
+    "permission_grant": {"const": false},
+    "failure_code": {"type": "string", "pattern": "^OCTON-[A-Z]+-[0-9]{4}$"},
+    "blocked_operation": {"type": "string", "pattern": "^[a-z][a-z0-9_.-]+$"},
+    "phase": {
+      "enum": [
+        "inspect",
+        "questions",
+        "plan",
+        "review",
+        "confirm",
+        "revalidate",
+        "stage",
+        "validate",
+        "apply",
+        "receipt",
+        "recover",
+        "rollback"
+      ]
+    },
+    "mutation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["occurred", "repository_paths", "external_effects", "statement"],
+      "properties": {
+        "occurred": {"type": "boolean"},
+        "repository_paths": {"$ref": "#/$defs/strings"},
+        "external_effects": {"$ref": "#/$defs/strings"},
+        "statement": {"type": "string", "minLength": 1}
+      }
+    },
+    "root_cause": {"type": "string", "minLength": 1},
+    "invalidated": {"type": "array", "items": {"$ref": "#/$defs/proof_state"}},
+    "preserved": {"type": "array", "items": {"$ref": "#/$defs/proof_state"}},
+    "authority_source": {"type": "string", "minLength": 1},
+    "repair_class": {
+      "enum": [
+        "derived_only",
+        "input_required",
+        "review_required",
+        "project_decision_required",
+        "project_action_required",
+        "specialist_or_owner_gate",
+        "replan_required",
+        "explicit_recovery_required",
+        "manual_reconciliation_required"
+      ]
+    },
+    "next_action": {"$ref": "#/$defs/action"},
+    "safe_read_only_actions": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/action"}
+    },
+    "successor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["session_supported", "plan_supported", "reason"],
+      "properties": {
+        "session_supported": {"type": "boolean"},
+        "plan_supported": {"type": "boolean"},
+        "reason": {"type": "string", "minLength": 1}
+      }
+    },
+    "limitations": {"$ref": "#/$defs/strings"}
+  },
+  "$defs": {
+    "strings": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "argv": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 128,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "pattern": "^[^\\u0000-\\u001F\\u007F]+$"
+      }
+    },
+    "proof_state": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "reference", "reason", "validity_classes"],
+      "properties": {
+        "kind": {
+          "enum": [
+            "answer",
+            "observation",
+            "selection",
+            "decision",
+            "authority_reference",
+            "evidence",
+            "instruction",
+            "target",
+            "session",
+            "plan",
+            "configuration",
+            "validation_proof",
+            "receipt",
+            "transaction"
+          ]
+        },
+        "reference": {"type": "string", "minLength": 1},
+        "reason": {"type": "string", "minLength": 1},
+        "validity_classes": {"$ref": "#/$defs/validity_classes"}
+      }
+    },
+    "validity_classes": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "re_observe_every_run",
+          "source_fingerprint_bound",
+          "dependency_bound",
+          "expiry_bound",
+          "decision_successor_or_revocation_bound",
+          "runtime_only_never_reusable"
+        ]
+      }
+    },
+    "action": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["description", "argv", "read_only", "requires_confirmation"],
+      "properties": {
+        "description": {"type": "string", "minLength": 1},
+        "argv": {"$ref": "#/$defs/argv"},
+        "read_only": {"type": "boolean"},
+        "requires_confirmation": {"type": "boolean"}
+      }
+    }
+  }
+}

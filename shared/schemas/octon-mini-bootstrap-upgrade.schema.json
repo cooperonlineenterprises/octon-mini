@@ -29,7 +29,7 @@
         "candidate": {"type": ["object", "null"]},
         "automatic": {"type": "boolean"},
         "review_reason": {"type": ["string", "null"]},
-        "allowed_dispositions": {"type": "array", "uniqueItems": true, "items": {"enum": ["accept_candidate", "preserve_current", "merge_version_only", "migrate_legacy_project_contract", "delete", "defer"]}}
+        "allowed_dispositions": {"type": "array", "uniqueItems": true, "items": {"enum": ["accept_candidate", "preserve_current", "merge_version_only", "migrate_legacy_project_contract", "migrate_legacy_project_check_evidence", "delete", "defer"]}}
       }
     },
     "proposal": {
@@ -75,7 +75,7 @@
             "required": ["id", "disposition", "rationale"],
             "properties": {
               "id": {"type": "string", "pattern": "^UPG-[0-9]{4}$"},
-              "disposition": {"enum": ["accept_candidate", "preserve_current", "merge_version_only", "migrate_legacy_project_contract", "delete", "defer"]},
+              "disposition": {"enum": ["accept_candidate", "preserve_current", "merge_version_only", "migrate_legacy_project_contract", "migrate_legacy_project_check_evidence", "delete", "defer"]},
               "rationale": {"type": "string", "minLength": 1}
             }
           }

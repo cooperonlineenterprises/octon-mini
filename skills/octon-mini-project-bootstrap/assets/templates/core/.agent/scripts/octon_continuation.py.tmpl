@@ -1,0 +1,472 @@
+#!/usr/bin/env python3
+"""Typed continuation findings and concise plan-review projections."""
+
+from __future__ import annotations
+
+import copy
+import hashlib
+import json
+from pathlib import Path
+from typing import Any, Iterable
+
+
+CONTINUATION_SCHEMA = "octon-mini.continuation.v1"
+PLAN_SUMMARY_SCHEMA = "harness.plan-summary.v1"
+FALLBACK_CODE = "OCTON-CONT-0001"
+VALIDITY_CLASSES = {
+    "re_observe_every_run",
+    "source_fingerprint_bound",
+    "dependency_bound",
+    "expiry_bound",
+    "decision_successor_or_revocation_bound",
+    "runtime_only_never_reusable",
+}
+PROOF_KINDS = {
+    "answer",
+    "observation",
+    "selection",
+    "decision",
+    "authority_reference",
+    "evidence",
+    "instruction",
+    "target",
+    "session",
+    "plan",
+    "configuration",
+    "validation_proof",
+    "receipt",
+    "transaction",
+}
+
+
+def canonical_bytes(value: object) -> bytes:
+    return json.dumps(
+        value,
+        ensure_ascii=False,
+        allow_nan=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+
+
+def digest(value: object) -> str:
+    return hashlib.sha256(canonical_bytes(value)).hexdigest()
+
+
+def action(
+    description: str,
+    argv: Iterable[str],
+    *,
+    read_only: bool,
+    requires_confirmation: bool = False,
+) -> dict[str, Any]:
+    rendered = [str(item) for item in argv]
+    if not description.strip() or not rendered or any(not item for item in rendered):
+        raise ValueError("continuation action requires a description and nonempty shell-free argv")
+    return {
+        "description": description,
+        "argv": rendered,
+        "read_only": read_only,
+        "requires_confirmation": requires_confirmation,
+    }
+
+
+def proof_state(
+    kind: str,
+    reference: str,
+    reason: str,
+    validity_classes: Iterable[str],
+) -> dict[str, Any]:
+    classes = sorted(set(validity_classes))
+    if kind not in PROOF_KINDS:
+        raise ValueError("continuation proof state has unknown kind")
+    if not classes or not set(classes) <= VALIDITY_CLASSES:
+        raise ValueError("continuation proof state has unknown validity classes")
+    return {
+        "kind": kind,
+        "reference": reference,
+        "reason": reason,
+        "validity_classes": classes,
+    }
+
+
+def finding(
+    *,
+    failure_code: str,
+    blocked_operation: str,
+    phase: str,
+    root_cause: str,
+    authority_source: str,
+    repair_class: str,
+    next_action: dict[str, Any],
+    invalidated: Iterable[dict[str, Any]] = (),
+    preserved: Iterable[dict[str, Any]] = (),
+    safe_read_only_actions: Iterable[dict[str, Any]] = (),
+    successor_session: bool = False,
+    successor_plan: bool = False,
+    successor_reason: str = "No automatic successor is safe for this failure.",
+    mutation_occurred: bool = False,
+    repository_paths: Iterable[str] = (),
+    external_effects: Iterable[str] = (),
+    limitations: Iterable[str] = (),
+) -> dict[str, Any]:
+    paths = sorted(set(repository_paths))
+    effects = sorted(set(external_effects))
+    statement = (
+        "Mutation occurred only in the explicitly listed scope."
+        if mutation_occurred
+        else "Nothing changed; the affected operation stopped before mutation."
+    )
+    return {
+        "schema_version": CONTINUATION_SCHEMA,
+        "artifact_kind": "blocked_operation",
+        "permission_grant": False,
+        "failure_code": failure_code,
+        "blocked_operation": blocked_operation,
+        "phase": phase,
+        "mutation": {
+            "occurred": mutation_occurred,
+            "repository_paths": paths,
+            "external_effects": effects,
+            "statement": statement,
+        },
+        "root_cause": root_cause,
+        "invalidated": list(invalidated),
+        "preserved": list(preserved),
+        "authority_source": authority_source,
+        "repair_class": repair_class,
+        "next_action": next_action,
+        "safe_read_only_actions": list(safe_read_only_actions),
+        "successor": {
+            "session_supported": successor_session,
+            "plan_supported": successor_plan,
+            "reason": successor_reason,
+        },
+        "limitations": sorted(
+            set(limitations)
+            | {
+                "This continuation finding is non-authorizing and does not establish adoption or readiness."
+            }
+        ),
+    }
+
+
+class ContinuationError(ValueError):
+    """A typed fail-closed refusal carrying its shortest safe continuation."""
+
+    def __init__(self, report: dict[str, Any]):
+        self.report = report
+        super().__init__(str(report.get("root_cause", "operation blocked")))
+
+
+def fallback(
+    error: BaseException | str,
+    *,
+    blocked_operation: str,
+    phase: str,
+    next_argv: Iterable[str],
+    authority_source: str = "reported_path_or_project_governance_source",
+) -> dict[str, Any]:
+    message = str(error).strip() or "An unclassified fail-closed boundary blocked the operation."
+    return finding(
+        failure_code=FALLBACK_CODE,
+        blocked_operation=blocked_operation,
+        phase=phase,
+        root_cause=message,
+        authority_source=authority_source,
+        repair_class="manual_reconciliation_required",
+        next_action=action(
+            "Inspect the exact finding and run the read-only diagnostic.",
+            next_argv,
+            read_only=True,
+        ),
+        safe_read_only_actions=[
+            action("Inspect the project without mutation.", ["./octon", "check"], read_only=True)
+        ],
+    )
+
+
+def record_local_artifact_writes(
+    report: dict[str, Any],
+    target: Path,
+    artifacts: Iterable[Path],
+) -> dict[str, Any]:
+    """Truthfully scope immutable local artifacts without treating them as target apply."""
+    root = target.expanduser().resolve()
+    paths = [Path(item).expanduser().resolve() for item in artifacts]
+    repository_paths: list[str] = []
+    for path in paths:
+        try:
+            relative = path.relative_to(root).as_posix()
+        except ValueError:
+            continue
+        if relative and relative != ".":
+            repository_paths.append(relative)
+    report["mutation"] = {
+        "occurred": bool(paths),
+        "repository_paths": sorted(set(repository_paths)),
+        "external_effects": [],
+        "statement": (
+            "No proposed target changes were applied; immutable review artifacts were written at the listed repository paths."
+            if repository_paths
+            else "The target project was unchanged; immutable review artifacts were written outside it."
+            if paths
+            else "Nothing changed; the affected operation stopped before mutation."
+        ),
+    }
+    return report
+
+
+def render_finding(report: dict[str, Any], *, json_output: bool = False) -> str:
+    if json_output:
+        return json.dumps(report, indent=2, sort_keys=True, allow_nan=False)
+    lines = [
+        f"[BLOCKED {report['failure_code']}] {report['blocked_operation']} ({report['phase']})",
+        report["mutation"]["statement"],
+        f"Cause: {report['root_cause']}",
+    ]
+    invalidated = report.get("invalidated", [])
+    preserved = report.get("preserved", [])
+    if invalidated:
+        lines.append(
+            "Invalidated: "
+            + "; ".join(f"{item['reference']} — {item['reason']}" for item in invalidated)
+        )
+    if preserved:
+        lines.append("Preserved: " + ", ".join(item["reference"] for item in preserved))
+    next_action = report["next_action"]
+    lines.append(f"Next: {next_action['description']}")
+    lines.append("Argv: " + json.dumps(next_action["argv"], ensure_ascii=False))
+    return "\n".join(lines)
+
+
+def _summary_reused(plan: dict[str, Any]) -> list[dict[str, Any]]:
+    reused: list[dict[str, Any]] = []
+    for item in plan.get("source_evidence", []):
+        if not isinstance(item, dict):
+            continue
+        kind = str(item.get("kind", "evidence"))
+        reference = str(item.get("reference", "unknown"))
+        if kind == "guided_setup_session":
+            reuse_kind = "selection"
+        elif "decision" in kind:
+            reuse_kind = "decision"
+        elif "proof" in kind:
+            reuse_kind = "validation_proof"
+        else:
+            reuse_kind = "evidence"
+        reused.append(
+            {
+                "kind": reuse_kind,
+                "reference": reference,
+                "validity": "bound_to_exact_recorded_digest_and_current_plan_preconditions",
+                "limitations": list(item.get("limitations", [])),
+            }
+        )
+    return reused
+
+
+def _completion_plan_summary(plan: dict[str, Any]) -> dict[str, Any]:
+    digest_value = str(plan.get("canonical_plan_digest", ""))
+    reused = [
+        {
+            "kind": "decision",
+            "reference": str(plan.get("adopted_workflow_authority_ref", "unknown")),
+            "validity": "accepted_workflow_decision_revalidated_at_apply_not_runtime_authorization",
+            "limitations": ["Workflow adoption does not authorize any external operation."],
+        }
+    ]
+    closure = plan.get("closure_transaction")
+    if isinstance(closure, dict) and closure.get("receipt_ref"):
+        reused.append(
+            {
+                "kind": "evidence",
+                "reference": str(closure["receipt_ref"]),
+                "validity": "exact_unchanged_close_receipt_and_postimages",
+                "limitations": ["Task closure evidence does not authorize work completion."],
+            }
+        )
+    validation = [
+        item["argv"]
+        for item in plan.get("validation_commands", [])
+        if isinstance(item, dict) and isinstance(item.get("argv"), list)
+    ]
+    return {
+        "schema_version": PLAN_SUMMARY_SCHEMA,
+        "artifact_kind": "plan_summary",
+        "permission_grant": False,
+        "operation": "work.finish",
+        "bundle_members": [],
+        "changes": {
+            "create": [],
+            "replace": sorted(set(plan.get("eligible_staging_paths", []))),
+            "delete": [],
+            "derived_write": [],
+        },
+        "unchanged": [
+            "Paths outside eligible_staging_paths are not staged.",
+            "Planning performed no fetch, provider query, commit, push, merge, synchronization, or cleanup.",
+            "Release, production, efficacy, and readiness remain unclaimed.",
+        ],
+        "safety_basis": [
+            "The plan binds exact task, workflow decision, repository, branches, revisions, paths, checks, review, integration, cleanup, and input fingerprint.",
+            "Apply reconstructs this plan and requires current task-scoped authorization for the exact external operation list.",
+            "Every external step re-observes dependent state before acting and records monotonic progress.",
+        ],
+        "review_required": sorted(set(plan.get("blocking_reasons", []))),
+        "effects": {
+            "repository_local": sorted(set(plan.get("eligible_staging_paths", []))),
+            "external": list(plan.get("external_operations", [])),
+        },
+        "validation": validation,
+        "recovery_boundary": "external_effects_are_monotonic_resume_or_fix_forward_not_atomic_rollback",
+        "reused_inputs": reused,
+        "semantic_delta": None,
+        "canonical_plan_digest": digest_value,
+        "confirmation": {
+            "required": True,
+            "kind": "accept_exact_canonical_digest",
+            "displayed_digest": digest_value,
+        },
+    }
+
+
+def plan_summary(plan: dict[str, Any]) -> dict[str, Any]:
+    if plan.get("artifact_kind") == "work_completion_plan":
+        return _completion_plan_summary(plan)
+    changes = {"create": [], "replace": [], "delete": [], "derived_write": []}
+    derived = set(plan.get("validation", {}).get("declared_write_paths", []))
+    for item in plan.get("operations", []):
+        if not isinstance(item, dict):
+            continue
+        action_name = item.get("action")
+        path = item.get("path")
+        if isinstance(path, str) and action_name in {"create", "replace", "delete"}:
+            changes[action_name].append(path)
+    changes["derived_write"] = sorted(derived)
+    for key in changes:
+        changes[key] = sorted(set(changes[key]))
+    bundle = plan.get("bundle")
+    members = [item["id"] for item in bundle.get("members", [])] if isinstance(bundle, dict) else []
+    conflicts = [str(item) for item in plan.get("conflicts", [])]
+    external = list(plan.get("effects", {}).get("external", [])) if isinstance(plan.get("effects"), dict) else []
+    validation = []
+    for key in ("staged_argv", "post_apply_argv"):
+        for argv in plan.get("validation", {}).get(key, []):
+            if argv not in validation:
+                validation.append(argv)
+    digest_value = str(plan.get("canonical_plan_digest", ""))
+    return {
+        "schema_version": PLAN_SUMMARY_SCHEMA,
+        "artifact_kind": "plan_summary",
+        "permission_grant": False,
+        "operation": str(plan.get("operation", "unknown")),
+        "bundle_members": members,
+        "changes": changes,
+        "unchanged": sorted(
+            set(plan.get("excluded_paths", []))
+            | {
+                "Paths outside the exact operation inventory are not changed.",
+                "Project adoption and target-project readiness are not inferred.",
+            }
+        ),
+        "safety_basis": [
+            "The plan is bound to exact governing instructions, evidence preimages, target preimages, and canonical bytes.",
+            "Apply stages and validates the complete candidate before live mutation.",
+            "Rollback restores exact receipt preimages only while postimages remain unchanged.",
+            "No force, silent overwrite, or external-effect fallback is available.",
+        ],
+        "review_required": conflicts,
+        "effects": {
+            "repository_local": sorted(set(sum((changes[key] for key in changes), []))),
+            "external": external,
+        },
+        "validation": validation,
+        "recovery_boundary": str(
+            plan.get("rollback_plan", {}).get(
+                "strategy", "receipt_embeds_exact_preimage"
+            )
+        ),
+        "reused_inputs": _summary_reused(plan),
+        "semantic_delta": copy.deepcopy(plan.get("semantic_delta")),
+        "canonical_plan_digest": digest_value,
+        "confirmation": {
+            "required": True,
+            "kind": "accept_exact_canonical_digest",
+            "displayed_digest": digest_value,
+        },
+    }
+
+
+def render_plan_summary(summary: dict[str, Any], *, json_output: bool = False) -> str:
+    if json_output:
+        return json.dumps(summary, indent=2, sort_keys=True, allow_nan=False)
+    changes = summary["changes"]
+    lines = [f"Plan: {summary['operation']}"]
+    if summary["bundle_members"]:
+        lines.append("Bundle: " + ", ".join(summary["bundle_members"]))
+    for label in ("create", "replace", "delete", "derived_write"):
+        paths = changes[label]
+        lines.append(f"{label.replace('_', ' ').title()}: {len(paths)}")
+        lines.extend(f"  - {path}" for path in paths[:20])
+        if len(paths) > 20:
+            lines.append(f"  - … {len(paths) - 20} more in the detailed plan")
+    lines.append("Will not change: " + "; ".join(summary["unchanged"][:20]))
+    lines.append("Safety: " + " ".join(summary["safety_basis"]))
+    lines.append(
+        "External effects: "
+        + (", ".join(summary["effects"]["external"]) if summary["effects"]["external"] else "none")
+    )
+    if summary["review_required"]:
+        lines.append("Review required: " + "; ".join(summary["review_required"]))
+    else:
+        lines.append("Review required: no unresolved collision or conflict is recorded.")
+    lines.append("Validation: " + str(len(summary["validation"])) + " staged/post-apply command(s).")
+    lines.append("Recovery: " + summary["recovery_boundary"])
+    if summary["reused_inputs"]:
+        lines.append("Reused current inputs: " + ", ".join(item["reference"] for item in summary["reused_inputs"]))
+    if summary["semantic_delta"]:
+        lines.append("Successor delta: review the changed and review-again fields below the detailed plan.")
+    lines.append("Digest: " + summary["canonical_plan_digest"])
+    lines.append("Confirmation: accept this exact canonical digest once; apply revalidates immediately before mutation.")
+    return "\n".join(lines)
+
+
+def semantic_delta(previous: dict[str, Any], current: dict[str, Any]) -> dict[str, Any]:
+    ignored = {"created_at", "planned_receipt_id", "canonical_plan_digest", "predecessor_plan", "semantic_delta"}
+    fields = sorted((set(previous) | set(current)) - ignored)
+    changed = [key for key in fields if previous.get(key) != current.get(key)]
+    identical = [key for key in fields if previous.get(key) == current.get(key)]
+    review_again = [
+        key
+        for key in changed
+        if key in {"analysis", "conflicts", "evidence_preimages", "governing_instruction_fingerprint", "operations", "source_evidence", "targets", "validation", "bundle"}
+    ]
+    preserved = [
+        key
+        for key in identical
+        if key in {"analysis", "conflicts", "operations", "source_evidence", "targets", "validation", "bundle"}
+    ]
+    reasons = [f"{key} changed" for key in changed]
+    if not reasons:
+        reasons = ["A successor plan has new immutable identity and creation metadata."]
+    return {
+        "changed": changed,
+        "identical": identical,
+        "preserved_review_conclusions": preserved,
+        "review_again": review_again,
+        "digest_change_reasons": reasons,
+    }
+
+
+def load_exact_plan(path: Path) -> dict[str, Any]:
+    if path.is_symlink() or not path.is_file():
+        raise ValueError(f"predecessor plan is unavailable or unsafe: {path}")
+    value = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(value, dict) or value.get("artifact_kind") != "transaction_plan":
+        raise ValueError("predecessor artifact is not a transaction plan")
+    unsigned = dict(value)
+    supplied = unsigned.pop("canonical_plan_digest", None)
+    if supplied != digest(unsigned):
+        raise ValueError("predecessor plan digest is invalid")
+    return value

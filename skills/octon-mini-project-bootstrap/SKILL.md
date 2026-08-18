@@ -47,6 +47,12 @@ command identity with their generated-project command inventory.
   unknowns, deferrals, and runtime authorization distinct. Write a session only
   to an explicitly requested external path, use immutable successors, summarize
   before planning, and bind `--setup-session` into the existing planner.
+- Guided one-command operation: use interactive `octon init`, `octon adopt`, or
+  `octon upgrade` with an explicit target and external review directory. Let it
+  inspect, ask only unresolved blockers, create immutable session/plan
+  artifacts, show the shared summary and full digest, ask once for confirmation,
+  then revalidate before apply. A collision or review gate must preserve the
+  artifacts and return the Continuation Contract; never guess or auto-apply.
 - New project: `octon init plan|apply`. Non-interactive planning requires an
   explicit profile flag or a reviewed setup-session answer. Interactive
   `octon init` proposes Minimal and requires confirmation. Archetypes, hooks, and collaboration are proposals; create a
@@ -75,9 +81,20 @@ command identity with their generated-project command inventory.
   `octon maintain refresh --apply` is the explicit generated-integrity writer.
   `.agent/scripts/run_project_checks.py --write-evidence` is the separately
   explicit hook/evidence writer.
+- Routine proof reuse: only the explicit project-check writer may pass
+  `--reuse-proofs`, and only for an exact current unexpired passing `read_only`
+  proof. Input, tool/version, configuration, instruction, environment, effect,
+  or freshness changes are misses. Never reuse at adoption/release gates or for
+  external state or runtime authorization.
 - Recovery: use `octon doctor`, then exact `octon transaction recover` for a pending
   journal or `octon transaction rollback` for an unchanged applied receipt. Never
   add or simulate a force bypass.
+- Continuation and bundles: render human output concisely and use `--json` for
+  strict automation. A covered refusal states mutation outcome, invalidated and
+  preserved proofs, owning source, and one shell-free next argv. Bundle only
+  compatible reversible repository-local plans through `octon transaction
+  bundle plan`; reject overlaps, different authority/freshness/confirmation,
+  nested bundles, and external or monotonic effects.
 - Upgrade: use the applicable migration guide and `octon upgrade plan|apply`.
   The 3.1→4.0 path first creates a reviewed legacy inventory seed. Automatic
   upgrade is limited to safe additions, exact-pristine non-authoritative
@@ -88,6 +105,12 @@ plans are instruction- and path-fingerprint-bound, staged, validated,
 receipted, and exactly recoverable. Governed external completion instead uses
 monotonic evidence-backed receipts and safe resume or fix-forward. Stale or
 ambiguous plans fail closed.
+
+Setup-session v2 preserves a prior value only while its declared question,
+dependency, instruction, evidence, authority, and expiry bindings remain
+current. Accepted project decisions may be reused only through the empty-by-
+default project-owned decision-reuse registry and never as operation
+confirmation, runtime authorization, external-action permission, or readiness.
 
 ## Non-negotiable boundaries
 
@@ -122,6 +145,10 @@ ambiguous plans fail closed.
 Run from the skill directory or use absolute paths.
 
 ```text
+python3 -B scripts/octon.py init \
+  --target /absolute/project/path \
+  --review-dir /absolute/review-area
+
 python3 -B scripts/octon.py init setup \
   --target /absolute/project/path \
   --output /absolute/review-area/setup-01.json
@@ -171,8 +198,11 @@ python -B .agent/tests/test_validate.py --tier fast
 
 Report the Octon Mini version, profile, layout, collaboration assessment and
 workflow-adoption status, setup-session digest/status, recommendations versus
-selections versus accepted authority, unknowns/deferrals, exact plan/receipt
+selections versus accepted authority versus reused decisions, reinspection
+classifications, unknowns/deferrals, continuation code/next argv, plan-summary
+digest, exact plan/receipt
 identity, collisions or deferred review, work-completion closure sequence,
-validation tier run, rollback/recovery path, and remaining adoption or readiness
-work. Never describe setup, structural success, or a selected option as
+validation proof hits/misses and complete-gate execution, bundle members,
+phase timings, rollback/recovery path, and remaining adoption or readiness work.
+Never describe setup, structural success, a cached proof, or a selected option as
 permission or readiness.

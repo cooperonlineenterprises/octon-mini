@@ -13,6 +13,14 @@ runtime link to this source repository and does not rewrite an existing Project
 Blueprint snapshot automatically. Structural conformance, harness adoption,
 and project readiness remain separate claims.
 
+The fail-closed continuation program is delivered only in new snapshots or a
+reviewed upgrade. Existing setup-session v1, transaction-plan/receipt v2,
+diagnostic-report v1, project contract v5, validator contract v4, and
+project-check evidence v2 artifacts remain truthful historical predecessors.
+New source and generated workflows emit setup-session v2, transaction
+plan/receipt v3, diagnostic report v2, project contract v6, validator contract
+v5, and project-check evidence v3. Predecessors are never rewritten in place.
+
 ## Clean command and identity break
 
 `octon` is the sole current command. New source workflows use
@@ -72,6 +80,8 @@ automatically.
 A successful migration:
 
 - installs `octon` and `.agent/scripts/octon.py`;
+- adds the continuation renderer and successor schemas as reviewed absent
+  implementation assets;
 - writes `.octon-mini-origin.json` and current Octon Mini identities;
 - removes the old launcher, runtime modules, and current legacy provenance only
   through the reviewed migration operation;
@@ -93,12 +103,18 @@ their Project Blueprint identity.
 
 - scripted generation without `--profile` fails;
 - interactive initialization proposes Minimal and requires confirmation;
+- interactive initialization, adoption, and upgrade can orchestrate one
+  inspect/question/plan/summary/confirmation/apply command while retaining the
+  explicit non-interactive plan/apply interfaces;
 - compact is the new-project physical layout default;
 - current state is derived and operator intent resides in focus;
 - Git and domain extensions are trigger-installed packages;
 - routine generated tests expose `fast`, `integration`, and `release` tiers;
 - evidence-complete work may close directly from an active state;
-- new snapshots include decision-governance records and review templates; and
+- new snapshots include decision-governance records and review templates;
+- new snapshots include an empty decision-reuse registry, typed continuation
+  findings, human plan summaries, conservative routine validation proofs, and
+  safe reversible local bundle planning; and
 - governed work completion and its event hook remain disabled and
   non-authorizing until explicitly adopted.
 
@@ -106,6 +122,13 @@ Guided setup remains orchestration over the existing initialization, adoption,
 and upgrade planners. Its question catalog is not projected into target
 authority, and new questions remain unanswered or deferred rather than
 receiving defaults.
+
+Dependency-scoped session v2 may preserve an old answer only when its exact
+question, dependencies, instructions, evidence, authority, and freshness
+bindings remain current. A v1 session requires an explicit reinspection
+successor. Accepted decision reuse requires a separately project-owned
+applicability record bound to an exact accepted unsuperseded decision; no
+runtime authorization or external-action permission is migrated or cached.
 
 ## Unsupported shortcuts
 

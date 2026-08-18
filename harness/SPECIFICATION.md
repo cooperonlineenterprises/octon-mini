@@ -213,6 +213,11 @@ records remain the only durable decision authority.
 23. Structural validation, documentation, a commit, a PR, or a completion
     receipt does not establish release, production, efficacy, or commercial
     readiness.
+24. Mutation remains fail-closed, while every covered refusal uses one
+    non-authorizing continuation finding that states mutation outcome,
+    invalidates only declared proofs, preserves current inputs, and provides
+    one shell-free next action; no continuation creates permission or a force
+    bypass.
 
 ## 5. Recommended directory structure
 
@@ -236,7 +241,8 @@ records remain the only durable decision authority.
 │   ├── approvals/                     # conditional attestation metadata
 │   ├── coordination/                  # conditional leases/write ownership
 │   ├── decisions/
-│   │   └── governance-register.json   # question/review source; not accepted authority
+│   │   ├── governance-register.json   # question/review source; not accepted authority
+│   │   └── reuse-policy.json          # empty project-owned applicability bindings to accepted decisions
 │   ├── tasks/
 │   ├── evidence/                     # standard+
 │   ├── project-checks/               # explicit target-check evidence
@@ -260,6 +266,7 @@ records remain the only durable decision authority.
 │   ├── generated/                    # staging in all; HA integrity evidence
 │   ├── scripts/
 │   │   ├── octon.py                   # workflow-oriented project interface
+│   │   ├── octon_continuation.py      # typed refusals and shared plan summaries
 │   │   ├── octon_work_completion.py   # read-only plan plus resumable completion
 │   │   ├── octon_transaction.py       # staged plan/apply/recover/rollback
 │   │   ├── octon_doctor.py            # coded read-only diagnostics
@@ -579,13 +586,26 @@ unresolved unknowns, deferred matters, and runtime authorization remain
 separate.
 
 Successor sessions are immutable: resume never overwrites its predecessor.
-Changed target content or revision, governing instructions, catalog definition,
-Octon Mini version/provenance, or expiring material evidence invalidates the
-session. Reinspection preserves explicit unknown, deferred, and inapplicable
-states when their question definitions remain unchanged and their dependencies
-remain eligible, but requires factual
-answers and selections to be reviewed again. Later catalog questions appear
-unanswered and never acquire defaults.
+Session v2 classifies every state with one or more of
+`re_observe_every_run`, `source_fingerprint_bound`, `dependency_bound`,
+`expiry_bound`, `decision_successor_or_revocation_bound`, and
+`runtime_only_never_reusable`. Reinspection reports `preserved`, `reobserved`,
+`needs_confirmation`, `invalidated`, and `newly_introduced`. An unrelated
+target or revision change does not discard a value whose declared bindings
+remain exact. Changed governing instructions, relevant evidence, catalog or
+question definitions, Octon Mini provenance, accepted authority, exact
+dependencies, or expiry still fails closed. Later catalog questions appear
+unanswered and never acquire defaults. A v1 session becomes current only
+through an explicit immutable v2 successor.
+
+The generated decision-reuse registry starts empty. A project may populate it
+only through its normal governed change process. Each active entry binds one
+exact accepted and unsuperseded `DEC-####`, its authority source, question and
+operation applicability, governing instructions, dependency fingerprints,
+validity interval, and projected value. A current entry may avoid a repeated
+policy question but is never a recommendation, owner selection, operation
+confirmation, runtime authorization, standing external-action permission, or
+readiness evidence.
 
 `octon init|adopt|upgrade plan --setup-session <file>` maps reviewed answers into
 the existing planner and binds the exact session bytes and canonical digest
@@ -605,6 +625,49 @@ required, integration method, read-only hooks, no-active-Git-hooks and inactive
 `core.fsmonitor` controls, cleanup choices, and assurance references are all
 present. Setup reports the smallest dependency-ordered closure sequence; it
 does not enable the capability or overwrite project-owned configuration.
+
+### 7.4 Continuation, plan review, and safe local bundles
+
+Every covered blocked operation emits `octon-mini.continuation.v1` directly
+from its typed failure boundary. The finding contains a stable code, operation
+and phase, exact mutation statement, root cause, invalidated and preserved
+proofs with validity classes, owning authority source, repair class, one
+shell-free next action, other available read-only actions, successor support,
+and limitations. Human output is concise by default; `--json` preserves the
+same semantics. The structural validator assigns stable diagnostic codes at
+its owning check-group boundaries; the versioned catalog turns those codes
+into continuation guidance. Substring classification remains only a safe
+compatibility fallback for an untyped predecessor finding.
+
+Transaction plan v3 supports an immutable predecessor and semantic delta.
+`harness.plan-summary.v1` is a derived review projection showing operations by
+create/replace/delete/derived write, excluded and otherwise unchanged scope,
+safety basis, unresolved review, local and external effects, validation,
+recovery, reused decisions/evidence/proofs and validity, the full canonical
+digest, and the one required confirmation. The detailed plan remains the apply
+input. Interactive source `octon init`, `octon adopt`, and `octon upgrade`
+perform inspect → necessary questions → plan → summary → confirmation →
+revalidation → apply. Review blocks preserve external session/proposal/plan
+artifacts, report those local writes separately, and stop before target apply.
+
+`harness.transaction-bundle.v1` combines two or more coherent plans only when
+they target this one project, are repository-local and exactly reversible,
+share compatible authority, confirmation, governing-instruction, freshness,
+and rollback requirements, have no overlapping or contradictory paths, and
+contain no external or monotonic effect. The bundle uses one stage, digest,
+pending journal, receipt, and rollback. An incompatible set is rejected rather
+than partially bundled or silently split. Bundle planning records one explicit
+common `authority:` or `external:` source when member plans do not already
+carry an identical authorization-gate source set; this record remains
+non-authorizing.
+
+Receipt v3 also records host-specific staging, refresh, staged-validation,
+live-apply, post-apply-validation, and receipt-preparation timings. These are
+paired with a process-local receipt-persistence and total timing emitted after
+the immutable receipt is safely written; the post-write observation cannot be
+inserted back into that receipt. These are performance observations, not
+human-usability evidence or permission to use
+hardlinks, shared writable inodes, incomplete final gates, or weaker staging.
 
 ## 8. Record and state model
 
@@ -628,9 +691,10 @@ readiness by itself.
 | provider-neutral Git workflow | trigger-installed `workflows/small-team-git.json` | content-addressed package contract | complete supported steps only when Git is selected |
 | durable intent | `decisions/` | immutable plus successor | why a lasting choice exists |
 | decision questions and review | `decisions/governance-register.json` | project-maintained source with exact inventory reconciliation | what remains material, recommended, selected, accepted, evidence-first, compatible, and blocking |
+| accepted-decision reuse applicability | `decisions/reuse-policy.json` | project-maintained empty-by-default registry bound to exact accepted decisions | which durable policy value may answer a matching future question without becoming action authority |
 | active work | `tasks/` | lifecycle updates | what is being done |
 | observation | `evidence/` | immutable record | what was inspected or executed |
-| target-project check evidence | `project-checks/evidence.json` plus immutable archive | bounded current index plus successor-linked archive | what selected configured hooks actually returned for an exact subject |
+| target-project check evidence and proofs | `project-checks/evidence.json` plus immutable archive | bounded current index, content-addressed routine proofs, and successor-linked archive | what selected configured hooks returned and which exact unexpired read-only result may be reused by the explicit writer |
 | review finding | `reviews/` | disposition updates | what a separate pass found |
 | chronology | `events/` | append-only | meaningful transitions |
 | approval attestation | `approvals/` | immutable plus revocation/successor | who attested to what, under which external authority |
@@ -832,6 +896,17 @@ detected repository mutations. Mutation comparison is observation after
 execution, not sandbox isolation. The read-only harness check only validates
 this evidence and never executes project hooks or writes evidence.
 
+For routine work, the same explicit writer may request conservative proof
+reuse. `harness.validation-proof.v1` binds an exact declared input inventory
+and digest, check identity, shell-free argv, executable bytes and version
+output, relevant configuration, governing instructions, hashed environment
+characteristics, side-effect classification, observation/freshness, passing
+result, and limitations. Only an unexpired `read_only` proof with no declared
+repository or external effect is reusable. Any changed binding is a miss and
+reruns that check. Volatile external state and runtime authorization are never
+proof inputs or hits. Proof records are persistent only inside the explicit
+evidence-writing boundary.
+
 An agent is a constrained task mode. A skill packages a repeated method and
 selectively loaded references. A workflow is a versioned state machine whose
 transitions invoke policy checks and produce evidence. A tool record separates
@@ -959,6 +1034,10 @@ and final read-only check. A configured hook declaring repository writes or
 possible external effects additionally requires `--acknowledge-side-effects`;
 that acknowledgement is not permission.
 
+Adoption and release gates prohibit proof reuse and execute the complete
+configured boundary before their final read-only check. Routine proof reuse
+therefore reduces repeated work without weakening consequential validation.
+
 `check` must not write bytecode, caches, reports, indexes, timestamps, or
 lockfiles or execute target-project hooks. It snapshots repository paths and
 content before and after extension execution and fails if mutation is detected;
@@ -1030,6 +1109,10 @@ Use for small, early, or low-risk projects. Required:
   writer;
 - compact SCM/package triggers and an unassessed collaboration profile;
 - staged plan/apply/recovery transactions and coded read-only diagnostics;
+- typed continuation findings, shared plan summaries, transaction-v3 successor
+  and safe-bundle support, and an empty accepted-decision reuse registry;
+- exact routine validation-proof storage in the explicit project-check writer,
+  with complete adoption/release gates and read-only `check` unchanged;
 - project-local derivative source plus refresh command;
 - valid and invalid fixtures with mutation tests; and
 - dossier minimal profile.
@@ -1234,11 +1317,24 @@ A harness is complete only when these demonstrations pass:
 17. Guided question generation changes no target or projection; one catalog and
     shared session engine govern initialization, adoption, and upgrade; TTY,
     answer-file, and legacy-flag inputs reconcile to stable IDs; unknown and
-    deferred answers survive resume; changed target, instructions, catalog,
-    Octon Mini version, evidence, session digest, or plan digest fails closed;
+    deferred answers survive resume; unrelated target edits preserve valid
+    answers while changed mode, instructions, catalog/question definitions,
+    Octon Mini provenance, relevant evidence/authority/dependencies, expiry,
+    session digest, or plan digest fails closed;
     recommendations, selections, accepted authority, and runtime permission
     remain distinct; work completion stays disabled or pending until every
     prerequisite is proven; and malformed/mutation fixtures are rejected.
+18. Covered refusals use stable typed continuation codes, state whether
+    anything changed, preserve exact current inputs, and provide concrete
+    shell-free next argv; interactive init reaches one reviewed confirmation
+    and apply; adoption and upgrade preserve proposal/session state across
+    review; human and JSON summaries match detailed plans; accepted decisions
+    reuse only under current applicability while runtime authorization never
+    does; routine validation proofs hit only on exact current bindings while
+    adoption/release gates run completely; `check` remains unchanged-tree;
+    compatible bundles apply and roll back atomically; and overlapping,
+    differently authorized, incompatible-freshness, or externally effective
+    bundles fail without a global force path.
 
 Passing these criteria proves the harness is usable and testable. It does not
 prove production safety, security, accessibility, legal compliance,
@@ -1248,7 +1344,7 @@ Acceptance has two explicit gates:
 
 | Gate | Criteria | Required evidence |
 |---|---|---|
-| Octon Mini release automation | 2, 4–10, 12, and 15–17, plus structural portions of 1, 3, and 14 | cross-profile valid/invalid fixtures, collaboration/workflow/setup matrices, operation-reference coverage, unchanged-tree checks, stale/partial refresh and completion/setup recovery, extension confinement, secret redaction |
+| Octon Mini release automation | 2, 4–10, 12, and 15–18, plus structural portions of 1, 3, and 14 | cross-profile valid/invalid fixtures, collaboration/workflow/setup/continuation matrices, proof hit/miss and full-gate coverage, bundle compatibility/rollback mutations, operation-reference coverage, unchanged-tree checks, stale/partial refresh and completion/setup recovery, extension confinement, secret redaction |
 | Target-project adoption | human portions of 1 and 3, plus 11, 13, and 14 | timed unfamiliar-maintainer exercise, actual platform enforcement, one real task/closure, exact project revision checks, truthful handoff report |
 
 The release suite reports every criterion as `automated_pass`,
@@ -1273,10 +1369,11 @@ partial matrix as complete acceptance.
 
 1. Select assurance from risk, collaboration from current writer count,
    concurrency as a separate modifier, and layout from representation needs.
-2. Use the read-only guided setup interview for initialization, adoption, or
-   upgrade; summarize observations, recommendations, selections, authority,
-   unknowns, deferrals, and closure steps; then use the existing planner and
-   accept only its exact digest.
+2. Use interactive `octon init|adopt|upgrade` for one-command orchestration, or
+   the read-only setup plus explicit plan/apply interfaces for automation;
+   summarize observations, recommendations, selections, reused decisions,
+   authority, unknowns, deferrals, continuation findings, and closure steps;
+   then accept only the exact displayed digest.
 3. Inspect `.octon-mini-origin.json`, the artifact catalog, and all
    proposed or unassessed sentinels.
 4. Read applicable project instructions and classify real authority sources.
@@ -1294,8 +1391,10 @@ partial matrix as complete acceptance.
    among independent ready items.
 9. Register every dossier representation in the project-local artifact source;
    run refresh to derive catalog, path authority, and integrity outputs.
-10. Run changed-scope checks during work and the read-only validator, complete
-    project checks, release tier, and recovery tests at adoption/release gates.
+10. Run changed-scope checks during work, optionally reusing only exact current
+    routine proofs through the explicit writer, and run the read-only validator,
+    complete project checks, release tier, and recovery tests without proof
+    reuse at adoption/release gates.
 11. Demonstrate one real dependency-gated task lifecycle through the adopted
     SCM workflow when applicable and a safe focus-derived handoff.
 12. Record conditional trigger decisions, remaining unknowns, and limits; do

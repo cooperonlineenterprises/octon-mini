@@ -40,6 +40,10 @@ TRANSACTION = load_module(
     "octon_upgrade_transaction",
     SKILL_ROOT / "assets/templates/core/.agent/scripts/octon_transaction.py.tmpl",
 )
+CONTINUATION = load_module(
+    "octon_upgrade_continuation",
+    SKILL_ROOT / "assets/templates/core/.agent/scripts/octon_continuation.py.tmpl",
+)
 
 
 class UpgradeError(ValueError):
@@ -257,6 +261,13 @@ def classification_rows(target: Path, candidate: Path, origin: dict[str, Any]) -
                         and old_item.get("baseline_version") == "3.1.0"
                     ):
                         dispositions.insert(2, "migrate_legacy_project_contract")
+                if (
+                    path == ".agent/project-checks/evidence.json"
+                    and current["type"] == "file"
+                    and old_item.get("baseline_product") == LEGACY_PRODUCT
+                    and old_item.get("baseline_version") == "3.1.0"
+                ):
+                    dispositions.insert(1, "migrate_legacy_project_check_evidence")
         rows.append(
             {
                 "id": f"UPG-{number:04d}",
@@ -412,6 +423,7 @@ def exact_plan(
     evidence_paths: list[str],
     baseline_origin: dict[str, Any] | None = None,
     setup_binding: tuple[dict[str, Any], Path] | None = None,
+    predecessor_plan: tuple[dict[str, Any], Path] | None = None,
 ) -> dict[str, Any]:
     current_origin = baseline_origin or load_json(target / CURRENT_ORIGIN_PATH)
     candidate_origin = load_json(candidate / CURRENT_ORIGIN_PATH)
@@ -492,6 +504,38 @@ def exact_plan(
                     path,
                     content,
                     "Migrate the explicitly reviewed unassessed 3.1 project contract without inferring collaboration, hooks, packages, authority, or readiness.",
+                    mode=mode,
+                )
+            )
+            final_contents[path] = (content, mode)
+            preserved.add(path)
+        elif disposition == "migrate_legacy_project_check_evidence":
+            if (
+                path != ".agent/project-checks/evidence.json"
+                or proposal["from_product"] != LEGACY_PRODUCT
+                or proposal["from_version"] != "3.1.0"
+            ):
+                raise UpgradeError("legacy evidence migration is limited to the reviewed 3.1.0 project-check store")
+            current = load_json(target / path)
+            if (
+                current.get("schema_version") != "harness.project-check-evidence-store.v2"
+                or current.get("permission_grant") is not False
+                or not isinstance(current.get("records"), list)
+                or not isinstance(current.get("successor_relationships"), list)
+            ):
+                raise UpgradeError("legacy project-check evidence store is unsupported or malformed")
+            migrated = dict(current)
+            migrated["schema_version"] = "harness.project-check-evidence-store.v3"
+            migrated["document_role"] = "bounded_current_index_and_content_addressed_proofs_of_project_owned_execution_evidence"
+            migrated["proofs"] = []
+            content = json_bytes(migrated)
+            mode = stat.S_IMODE((target / path).stat().st_mode)
+            operations.append(
+                TRANSACTION.operation(
+                    "replace",
+                    path,
+                    content,
+                    "Migrate the explicitly reviewed project-check evidence header while preserving every prior record and adding no proof.",
                     mode=mode,
                 )
             )
@@ -605,7 +649,7 @@ def exact_plan(
                             "id": "upgrade.guided_setup_session",
                             "summary": "A current non-authorizing guided setup session supplied reviewed inputs without changing accepted project authority.",
                             "source_refs": [setup_binding[0]["canonical_session_digest"]],
-                            "rule": "octon-mini.bootstrap.setup-session.v1",
+                            "rule": "octon-mini.bootstrap.setup-session.v2",
                             "confidence": "deterministic",
                             "limitations": ["The session does not enable work completion or establish readiness."],
                         }
@@ -636,18 +680,28 @@ def exact_plan(
         post_apply_validation_plan=[
             [sys.executable, "-B", ".agent/scripts/validate.py", "--check"]
         ],
+        predecessor_plan=predecessor_plan,
     )
 
 
-def write_artifact(path: Path, value: dict[str, Any]) -> None:
+def write_artifact(path: Path, value: dict[str, Any], *, json_output: bool = False) -> None:
     TRANSACTION.write_new_json(path, value)
     digest = value.get("canonical_plan_digest") or value.get("canonical_proposal_digest")
-    print(f"[PLAN] {path}")
-    print(f"[DIGEST] {digest}")
+    if value.get("artifact_kind") == "transaction_plan":
+        summary = CONTINUATION.plan_summary(value)
+        print(
+            json.dumps(summary, indent=2, sort_keys=True, allow_nan=False)
+            if json_output
+            else f"[PLAN] {path}\n{CONTINUATION.render_plan_summary(summary)}"
+        )
+    elif not json_output:
+        print(f"[PROPOSAL] {path}")
+        print(f"[DIGEST] {digest}")
 
 
 def plan_command(args: argparse.Namespace) -> int:
     target = args.target.resolve()
+    output = args.output.expanduser().resolve()
     setup_binding = SETUP.prepare_plan_session("upgrade", args)
     args._setup_binding = setup_binding
     if args.authority_source is None:
@@ -655,6 +709,10 @@ def plan_command(args: argparse.Namespace) -> int:
     if not args.evidence_ref:
         raise UpgradeError("upgrade requires --evidence-ref or setup.upgrade-evidence")
     cross_brand_seed: dict[str, Any] | None = None
+    predecessor = None
+    if args.prior_plan is not None:
+        prior_path = args.prior_plan.expanduser().resolve()
+        predecessor = (CONTINUATION.load_exact_plan(prior_path), prior_path)
     if args.project_blueprint_seed:
         if (target / CURRENT_ORIGIN_PATH).exists():
             if not (target / LEGACY_ORIGIN_PATH).exists():
@@ -760,8 +818,9 @@ def plan_command(args: argparse.Namespace) -> int:
                 evidence_paths,
                 baseline_origin=origin,
                 setup_binding=setup_binding,
+                predecessor_plan=predecessor,
             )
-            write_artifact(args.output, value)
+            write_artifact(output, value, json_output=args.json)
             return 0
         rows = classification_rows(target, candidate, origin)
         proposal = build_proposal(
@@ -778,8 +837,44 @@ def plan_command(args: argparse.Namespace) -> int:
         )
         review_required = any(not row["automatic"] for row in rows)
         if review_required:
-            write_artifact(args.output, proposal)
-            print("[REVIEW REQUIRED] disposition every non-automatic UPG item in a proposal-bound review file")
+            write_artifact(output, proposal, json_output=args.json)
+            review_output = output.with_name(output.stem + "-review.json")
+            successor_output = output.with_name(output.stem + "-successor.json")
+            next_argv = [
+                "./octon", "upgrade", "plan", "--target", str(target),
+                "--authority-source", args.authority_source,
+            ]
+            for evidence_ref in args.evidence_ref:
+                next_argv.extend(["--evidence-ref", evidence_ref])
+            if args.project_blueprint_seed:
+                next_argv.extend(
+                    ["--project-blueprint-seed", str(args.project_blueprint_seed.expanduser().resolve())]
+                )
+            next_argv.extend(
+                [
+                    "--proposal", str(output), "--review", str(review_output),
+                    "--output", str(successor_output),
+                ]
+            )
+            report = CONTINUATION.finding(
+                failure_code="OCTON-UPGRADE-1101",
+                blocked_operation="upgrade.project",
+                phase="review",
+                root_cause="The three-way upgrade contains non-automatic paths requiring exact proposal-bound dispositions.",
+                authority_source="upgrade_proposal_review_and_project_owned_authority",
+                repair_class="review_required",
+                next_action=CONTINUATION.action(
+                    "Create the exact proposal-bound review file, then run this successor-plan command.",
+                    next_argv,
+                    read_only=True,
+                ),
+                preserved=[CONTINUATION.proof_state("plan", str(output), "The immutable three-way proposal remains current review input.", ["source_fingerprint_bound"])],
+                safe_read_only_actions=[CONTINUATION.action("Inspect coded recovery guidance.", ["./octon", "doctor", "--json"], read_only=True)],
+                successor_plan=True,
+                successor_reason="A successor transaction plan can be generated after exact review dispositions are supplied.",
+            )
+            CONTINUATION.record_local_artifact_writes(report, target, [output])
+            print(CONTINUATION.render_finding(report, json_output=args.json), file=sys.stderr)
             return 3
         value = exact_plan(
             target,
@@ -789,8 +884,9 @@ def plan_command(args: argparse.Namespace) -> int:
             evidence_paths,
             baseline_origin=origin,
             setup_binding=setup_binding,
+            predecessor_plan=predecessor,
         )
-        write_artifact(args.output, value)
+        write_artifact(output, value, json_output=args.json)
         return 0
 
 
@@ -815,12 +911,15 @@ def main() -> int:
     plan.add_argument("--review", type=Path)
     plan.add_argument("--output", type=Path, required=True)
     plan.add_argument("--setup-session", type=Path)
+    plan.add_argument("--prior-plan", type=Path)
+    plan.add_argument("--json", action="store_true")
     apply = commands.add_parser(
         "apply", help="apply the exact accepted version-migration plan"
     )
     apply.add_argument("--target", type=Path, required=True)
     apply.add_argument("--plan", type=Path, required=True)
     apply.add_argument("--accept-digest", required=True)
+    apply.add_argument("--json", action="store_true")
     SETUP.add_setup_parser(commands, "upgrade")
     args = parser.parse_args()
     try:
@@ -834,12 +933,24 @@ def main() -> int:
             raise UpgradeError("plan is not a live-upgrade transaction")
         SETUP.verify_plan_binding(target, value)
         receipt, receipt_path = TRANSACTION.apply_plan(target, value, args.accept_digest)
-        print(f"[APPLIED] {receipt['receipt_id']}")
-        print(f"[RECEIPT] {receipt_path}")
-        print("[STATUS] structural conformance passed; adoption and readiness were not inferred")
+        if args.json:
+            print(json.dumps(receipt, indent=2, sort_keys=True, allow_nan=False))
+        else:
+            print(f"[APPLIED] {receipt['receipt_id']}")
+            print(f"[RECEIPT] {receipt_path}")
+            print("[TIMING] " + json.dumps(TRANSACTION.LAST_PHASE_TIMINGS, sort_keys=True))
+            print("[STATUS] structural conformance passed; adoption and readiness were not inferred")
         return 0
     except (OSError, RuntimeError, ValueError, UpgradeError, SETUP.SetupError, TRANSACTION.TransactionError) as error:
-        print(f"[FAIL] {error}", file=sys.stderr)
+        report = getattr(error, "report", None)
+        if not isinstance(report, dict):
+            report = CONTINUATION.fallback(
+                error,
+                blocked_operation="upgrade.project",
+                phase="apply" if getattr(args, "command", None) == "apply" else "plan",
+                next_argv=["./octon", "upgrade", "--help"],
+            )
+        print(CONTINUATION.render_finding(report, json_output=getattr(args, "json", False)), file=sys.stderr)
         return 2
 
 

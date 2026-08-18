@@ -100,6 +100,11 @@
         "ownership": "project_owned_decision_question_and_review_source_not_accepted_authority"
       },
       {
+        "path": ".agent/decisions/reuse-policy.json",
+        "minimum_profile": "minimal",
+        "ownership": "project_owned_reuse_applicability_bound_to_accepted_decisions_not_operation_authority"
+      },
+      {
         "path": "project-dossier/machine-readable/artifact-registry.json",
         "minimum_profile": "minimal",
         "ownership": "project_owned_authoritative_source"
@@ -289,7 +294,8 @@
     {"id": 14, "title": "truthful_final_reporting", "release_coverage": "project_demonstration_required"},
     {"id": 15, "title": "small_team_collaboration_and_workflows", "release_coverage": "automated_pass"},
     {"id": 16, "title": "governed_resumable_work_completion", "release_coverage": "automated_pass"},
-    {"id": 17, "title": "guided_resumable_setup_interview", "release_coverage": "automated_pass"}
+    {"id": 17, "title": "guided_resumable_setup_interview", "release_coverage": "automated_pass"},
+    {"id": 18, "title": "fail_closed_continuation_successors_proof_reuse_and_safe_bundles", "release_coverage": "automated_pass"}
   ],
   "documentation_projections": [
     {
@@ -329,6 +335,7 @@
         ".agent/context.json.tmpl",
         ".agent/decisions/README.md.tmpl",
         ".agent/decisions/governance-register.json.tmpl",
+        ".agent/decisions/reuse-policy.json.tmpl",
         ".agent/generated/README.md.tmpl",
         ".agent/lifecycle.json.tmpl",
         ".agent/packages.json.tmpl",
@@ -340,6 +347,7 @@
         ".agent/scm.json.tmpl",
         ".agent/scripts/refresh.py.tmpl",
         ".agent/scripts/octon.py.tmpl",
+        ".agent/scripts/octon_continuation.py.tmpl",
         ".agent/scripts/octon_doctor.py.tmpl",
         ".agent/scripts/octon_work_completion.py.tmpl",
         ".agent/scripts/octon_transaction.py.tmpl",
@@ -385,8 +393,8 @@
         "project-dossier/validation/QUALITY_GATES.json.tmpl",
         "project-dossier/validation/README.md.tmpl"
       ],
-      "inventory_count": 59,
-      "inventory_paths_sha256": "97e1bcd67de9948122de1cce747ef75724bda47a79c12ded95ef2b47ee5abeff",
+      "inventory_count": 61,
+      "inventory_paths_sha256": "5b37d5d54e0377889d705e52cc190c4b5e12a8ed282f89ee774e1fa7dd21fa3d",
       "output": {
         "root": ".",
         "strip_suffix": ".tmpl"
@@ -494,8 +502,11 @@
         "harness-assurance-records.schema.json",
         "harness-capability-records.schema.json",
         "harness-collaboration-profile.schema.json",
+        "harness-continuation.schema.json",
         "harness-current-state.schema.json",
         "harness-decision-governance.schema.json",
+        "harness-decision-reuse.schema.json",
+        "harness-diagnostics-v2.schema.json",
         "harness-diagnostics.schema.json",
         "harness-extension-registry.schema.json",
     "harness-focus.schema.json",
@@ -503,20 +514,25 @@
     "harness-hook-candidate.schema.json",
     "harness-kernel.schema.json",
         "harness-package-registry.schema.json",
+        "harness-plan-summary.schema.json",
+        "harness-project-check-evidence-v3.schema.json",
         "harness-project-check-evidence.schema.json",
         "harness-record.schema.json",
         "harness-scm.schema.json",
-    "harness-transaction.schema.json",
+        "harness-transaction-v3.schema.json",
+        "harness-transaction.schema.json",
+        "harness-validation-proof.schema.json",
     "harness-work-completion.schema.json",
     "octon-mini-bootstrap-migration-seed.schema.json",
     "octon-mini-project-origin.schema.json",
-    "octon-mini-bootstrap-setup-answers.schema.json",
-    "octon-mini-bootstrap-setup-session.schema.json",
+        "octon-mini-bootstrap-setup-answers.schema.json",
+        "octon-mini-bootstrap-setup-session-v2.schema.json",
+        "octon-mini-bootstrap-setup-session.schema.json",
     "octon-mini-bootstrap-upgrade.schema.json",
     "reference-evidence.schema.json"
       ],
-      "inventory_count": 28,
-      "inventory_paths_sha256": "d5c5d1983f1783180c409a7afbc2286e82cb89eb68ef08d658293423b98c3008",
+      "inventory_count": 36,
+      "inventory_paths_sha256": "bd9abe89481749453821b0fb9d54eb562164363c3904dca5244c49b6306f75af",
       "output": {
         "root": ".agent/schemas",
         "strip_suffix": null

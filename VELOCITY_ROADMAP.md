@@ -35,6 +35,8 @@ and is not evidence that a target project is adopted or ready.
 | 11 | PBV-02 semantic adoption | Adoption maintainer | detectors, transaction framework | bounded inspection, exclusions, semantic plan, fingerprint-bound apply, archetype fixtures |
 | 12 | PBV-04 live upgrades | Migration maintainer | adoption, transaction framework | three-way classification, safe apply, receipts, rollback refusal, cross-version fixtures |
 | 13 | Compact representation layout | Dossier representation maintainer | registry reconciliation, upgrades | compact/separate selection, registry migration, ownership/lifecycle separation tests |
+| 14 | Fail-closed continuation contract | Transaction and setup maintainers | guided setup, diagnostics, transaction framework | typed no-change findings, dependency-scoped successors, shared plan summaries, interactive init/adopt/upgrade |
+| 15 | Routine proof reuse and safe local bundles | Evidence and transaction maintainers | continuation contract, project checks, transaction v3 | exact proof hit/miss matrix, complete final gates, compatible bundle apply/rollback and unsafe-member refusals |
 
 Owner roles identify the contract surface responsible for review; they are not
 identities, principals, approvers, or standing authority.
@@ -49,6 +51,11 @@ stage, and writes an exact receipt. Rollback verifies post-apply hashes and
 refuses any path changed since the receipt. Diagnostics group root causes and
 dependent symptoms, identify the owning source, and distinguish derived-only
 repair from project decisions or authorization gates.
+
+The continuation successors are authorized by `SRC-DEC-0017` and do not
+retroactively alter the completed PBV workstreams. They preserve every prior
+deny, keep old independent snapshots unchanged, and introduce no universal
+action, authority, readiness, trust, or state machine.
 
 ## Validation boundary
 

@@ -941,7 +941,7 @@ def validate_guided_setup_contracts(root: Path = ROOT) -> list[str]:
     catalog_path = root / "shared/source-contracts/setup-questions.json"
     catalog_schema_path = root / "shared/source-contracts/setup-questions.schema.json"
     answers_schema_path = root / "shared/schemas/octon-mini-bootstrap-setup-answers.schema.json"
-    session_schema_path = root / "shared/schemas/octon-mini-bootstrap-setup-session.schema.json"
+    session_schema_path = root / "shared/schemas/octon-mini-bootstrap-setup-session-v2.schema.json"
     try:
         catalog = load_json(catalog_path)
         catalog_schema = load_json(catalog_schema_path)
@@ -1133,6 +1133,14 @@ def validate_repository(root: Path = ROOT) -> list[str]:
         root / "shared/optional-schemas/context-pack-manifest.schema.json",
         root / "shared/schemas/octon-mini-bootstrap-setup-answers.schema.json",
         root / "shared/schemas/octon-mini-bootstrap-setup-session.schema.json",
+        root / "shared/schemas/octon-mini-bootstrap-setup-session-v2.schema.json",
+        root / "shared/schemas/harness-continuation.schema.json",
+        root / "shared/schemas/harness-plan-summary.schema.json",
+        root / "shared/schemas/harness-decision-reuse.schema.json",
+        root / "shared/schemas/harness-validation-proof.schema.json",
+        root / "shared/schemas/harness-transaction-v3.schema.json",
+        root / "shared/schemas/harness-diagnostics-v2.schema.json",
+        root / "shared/schemas/harness-project-check-evidence-v3.schema.json",
     )
     for path in schema_paths:
         try:

@@ -14,6 +14,10 @@ The fixture verifies:
 - exact old-baseline review binding and deterministic seed generation;
 - stale-seed and changed-path refusal;
 - proposal-bound review of every non-automatic path;
+- one-command upgrade pause on the immutable three-way proposal and exact
+  resume after a proposal-bound review;
+- explicit project-check evidence v2→v3 header migration that preserves every
+  historical record and adds no validation proof;
 - staged creation of `octon` and `.octon-mini-origin.json` plus reviewed
   deletion of every legacy runtime and origin path;
 - deterministic second-application refusal with unchanged target bytes;

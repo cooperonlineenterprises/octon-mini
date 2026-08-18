@@ -19,7 +19,7 @@ tags, decisions, and fixtures retain their Project Blueprint identity.
   the repository and installed source bundle but not projected as a generated
   target-project licensing decision;
 - one authoritative profile, layout, package, inventory, and acceptance
-  manifest, including criterion-level coverage for all 17 acceptance criteria;
+  manifest, including criterion-level coverage for all 18 acceptance criteria;
 - fast, integration, and release validation tiers, bounded mutation baselines,
   scale benchmarks, structured diagnostic codes, and read-only `octon doctor`;
 - a shared staged plan/apply framework with target and instruction
@@ -67,6 +67,12 @@ tags, decisions, and fixtures retain their Project Blueprint identity.
   artifacts, dependency-ordered conversational/TTY/flag inputs, fail-closed
   freshness binding, work-completion opt-in closure planning, and no second
   apply or authority system.
+- fail-closed continuation with typed no-change findings, dependency-scoped
+  setup-session v2 successors, accepted-decision applicability reuse,
+  interactive one-command init/adopt/upgrade, human plan summaries and semantic
+  plan deltas, transaction v3 phase timing, conservative routine validation
+  proof reuse, and compatible reversible local bundles with one receipt and
+  rollback boundary.
 
 ### Changed
 

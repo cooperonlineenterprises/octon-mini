@@ -6,12 +6,52 @@ from __future__ import annotations
 import subprocess
 import sys
 import json
+import importlib.util
+import types
 from pathlib import Path
 
 
 sys.dont_write_bytecode = True
 SCRIPT_ROOT = Path(__file__).resolve().parent
 SKILL_ROOT = SCRIPT_ROOT.parent
+
+
+def load_continuation():
+    path = SKILL_ROOT / "assets/templates/core/.agent/scripts/octon_continuation.py.tmpl"
+    spec = importlib.util.spec_from_file_location("octon_source_continuation", path)
+    if spec is None or spec.loader is None:
+        module = types.ModuleType("octon_source_continuation")
+        module.__file__ = str(path)
+        exec(compile(path.read_text(encoding="utf-8"), str(path), "exec"), module.__dict__)
+        return module
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+CONTINUATION = load_continuation()
+
+
+def emit_block(code: str, operation: str, cause: str, next_argv: list[str]) -> int:
+    report = CONTINUATION.finding(
+        failure_code=code,
+        blocked_operation=operation,
+        phase="inspect",
+        root_cause=cause,
+        authority_source="authoritative_command_manifest",
+        repair_class="input_required",
+        next_action=CONTINUATION.action(
+            "Inspect the current supported command inventory.",
+            next_argv,
+            read_only=True,
+        ),
+        safe_read_only_actions=[],
+    )
+    print(
+        CONTINUATION.render_finding(report, json_output="--json" in sys.argv),
+        file=sys.stderr,
+    )
+    return 2
 
 
 def availability_values(value: object) -> set[str]:
@@ -177,10 +217,13 @@ def workflow_help(manifest: dict[str, object]) -> str:
     return f"""Octon Mini workflow interface
 
 {capabilities['bootstrap.initialization']}:
+  ./octon init [--target ...]           Guided inspect/question/plan/confirm/apply.
   ./octon init setup|plan|apply ...     {commands['init']}
 {capabilities['bootstrap.adoption']}:
+  ./octon adopt [--target ...]          Guided flow; pauses on proposal review.
   ./octon adopt setup|plan|apply ...    {commands['adopt']}
 {capabilities['bootstrap.upgrade']}:
+  ./octon upgrade [--target ...]        Guided flow; pauses on migration review.
   ./octon upgrade setup|plan|apply ...  {commands['upgrade']}
 {capabilities['bootstrap.detection']}:
   ./octon detect --target PATH          {commands['detect']}
@@ -218,11 +261,12 @@ def local(arguments: list[str]) -> int:
         or manifest_path.is_symlink()
         or script.resolve() == Path(__file__).resolve()
     ):
-        print(
-            "[FAIL] no verified generated-project Octon Mini interface in the current directory",
-            file=sys.stderr,
+        return emit_block(
+            "OCTON-CMD-1002",
+            "generated_project.dispatch",
+            "No verified generated-project Octon Mini interface exists in the current directory.",
+            ["./octon", "--help"],
         )
-        return 2
     try:
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         if (
@@ -259,11 +303,19 @@ def local(arguments: list[str]) -> int:
             and "generated_project" in availability_values(item.get("availability"))
         }
     except (OSError, ValueError, json.JSONDecodeError, AttributeError):
-        print("[FAIL] generated-project command inventory is invalid", file=sys.stderr)
-        return 2
+        return emit_block(
+            "OCTON-CMD-1003",
+            "generated_project.dispatch",
+            "The generated-project command inventory is invalid.",
+            ["./octon", "check", "--json"],
+        )
     if not arguments or arguments[0] not in generated_roots:
-        print("[FAIL] workflow is not available in this generated project", file=sys.stderr)
-        return 2
+        return emit_block(
+            "OCTON-CMD-1004",
+            "generated_project.dispatch",
+            "The requested workflow is not available in this generated project snapshot.",
+            ["./octon", "--help"],
+        )
     return execute(script, arguments)
 
 
@@ -279,10 +331,16 @@ def main() -> int:
         return 0
     command, rest = arguments[0], arguments[1:]
     if command == "init":
+        if not rest or rest[0].startswith("-"):
+            return execute(SCRIPT_ROOT / "guided_workflow.py", ["initialization", *rest])
         return execute(SCRIPT_ROOT / "init_project.py", rest)
     if command == "adopt":
+        if not rest or rest[0].startswith("-"):
+            return execute(SCRIPT_ROOT / "guided_workflow.py", ["adoption", *rest])
         return execute(SCRIPT_ROOT / "adopt_project.py", rest)
     if command == "upgrade":
+        if not rest or rest[0].startswith("-"):
+            return execute(SCRIPT_ROOT / "guided_workflow.py", ["upgrade", *rest])
         script = SCRIPT_ROOT / "upgrade_project.py"
         if not script.is_file():
             print("[FAIL] live upgrade planner is unavailable in this snapshot", file=sys.stderr)
@@ -297,9 +355,12 @@ def main() -> int:
             return execute(SCRIPT_ROOT / "collaboration_project.py", rest[1:])
     if command in {"work", "check", "doctor", "maintain", "transaction"}:
         return local(arguments)
-    print(f"[FAIL] unknown workflow: {command}", file=sys.stderr)
-    print(workflow_help(manifest), file=sys.stderr)
-    return 2
+    return emit_block(
+        "OCTON-CMD-1001",
+        "source.dispatch",
+        f"Unknown or unsupported workflow: {command}",
+        ["./octon", "--help"],
+    )
 
 
 if __name__ == "__main__":
