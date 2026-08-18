@@ -361,6 +361,7 @@ python3 -B skills/octon-mini-project-bootstrap/scripts/test_migration_3_1_0_to_4
 python3 -B skills/octon-mini-project-bootstrap/scripts/test_velocity_workflows.py
 python3 -B skills/octon-mini-project-bootstrap/scripts/validate_octon_mini.py
 python3 -B skills/octon-mini-project-bootstrap/scripts/test_acceptance.py
+python3 -B skills/octon-mini-project-bootstrap/scripts/profile_large_project.py --sizes 0 2000 10000 20000
 python3 -B skills/octon-mini-project-bootstrap/scripts/benchmark_validation.py --enforce
 ```
 

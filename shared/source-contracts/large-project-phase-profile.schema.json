@@ -1,0 +1,262 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://octon-mini.local/source-contracts/large-project-phase-profile.schema.json",
+  "title": "Octon Mini Large-Project Phase Profile",
+  "description": "Content-free, source-only, non-enforcing phase timing evidence. It grants no authority and creates no readiness or performance claim.",
+  "$defs": {
+    "phase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "seconds",
+        "invocations",
+        "observed_file_count",
+        "overlaps_other_phases",
+        "limitations"
+      ],
+      "properties": {
+        "status": {
+          "enum": ["measured", "failed", "not_run"]
+        },
+        "seconds": {
+          "type": ["number", "null"],
+          "minimum": 0
+        },
+        "invocations": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "observed_file_count": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "overlaps_other_phases": {
+          "type": "boolean"
+        },
+        "limitations": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "preparation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "scaffold_seconds", "payload_seconds", "refresh_seconds"],
+      "properties": {
+        "status": {
+          "enum": ["completed", "failed"]
+        },
+        "scaffold_seconds": {
+          "type": ["number", "null"],
+          "minimum": 0
+        },
+        "payload_seconds": {
+          "type": ["number", "null"],
+          "minimum": 0
+        },
+        "refresh_seconds": {
+          "type": ["number", "null"],
+          "minimum": 0
+        }
+      }
+    }
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "document_role",
+    "permission_grant",
+    "octon_mini_version",
+    "source_revision",
+    "source_dirty",
+    "configuration",
+    "host_context",
+    "measurements",
+    "execution_failures",
+    "enforcement",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "octon-mini.source.large-project-phase-profile.v1"
+    },
+    "document_role": {
+      "const": "local_content_free_non_authorizing_informational_phase_measurement"
+    },
+    "permission_grant": {
+      "const": false
+    },
+    "octon_mini_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_revision": {
+      "type": ["string", "null"],
+      "pattern": "^[a-f0-9]{40}$"
+    },
+    "source_dirty": {
+      "type": ["boolean", "null"]
+    },
+    "configuration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "synthetic_payload_file_counts",
+        "profile",
+        "layout",
+        "samples_per_size",
+        "phase_ids",
+        "threshold_policy",
+        "child_python_bytecode_disabled"
+      ],
+      "properties": {
+        "synthetic_payload_file_counts": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "profile": {
+          "const": "minimal"
+        },
+        "layout": {
+          "const": "compact"
+        },
+        "samples_per_size": {
+          "const": 1
+        },
+        "phase_ids": {
+          "const": [
+            "validator.tree_traversal",
+            "validator.hash_inventory",
+            "validator.schema_semantic_validation",
+            "validator.text_json_scan",
+            "validator.integrity_validation",
+            "transaction.staging_copy",
+            "transaction.tree_state",
+            "transaction.staged_refresh_validation",
+            "transaction.live_apply",
+            "transaction.post_apply_validation",
+            "transaction.receipt_creation",
+            "transaction.total_apply"
+          ]
+        },
+        "threshold_policy": {
+          "const": "informational_only_no_thresholds"
+        },
+        "child_python_bytecode_disabled": {
+          "const": true
+        }
+      }
+    },
+    "host_context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operating_system",
+        "operating_system_release",
+        "architecture",
+        "python_implementation",
+        "python_version",
+        "logical_cpu_count",
+        "filesystem_encoding"
+      ],
+      "properties": {
+        "operating_system": {"type": "string", "minLength": 1},
+        "operating_system_release": {"type": "string", "minLength": 1},
+        "architecture": {"type": "string", "minLength": 1},
+        "python_implementation": {"type": "string", "minLength": 1},
+        "python_version": {"type": "string", "minLength": 1},
+        "logical_cpu_count": {"type": ["integer", "null"], "minimum": 1},
+        "filesystem_encoding": {"type": "string", "minLength": 1}
+      }
+    },
+    "measurements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["synthetic_payload_files", "preparation", "phases", "limitations"],
+        "properties": {
+          "synthetic_payload_files": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "preparation": {
+            "$ref": "#/$defs/preparation"
+          },
+          "phases": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "validator.tree_traversal",
+              "validator.hash_inventory",
+              "validator.schema_semantic_validation",
+              "validator.text_json_scan",
+              "validator.integrity_validation",
+              "transaction.staging_copy",
+              "transaction.tree_state",
+              "transaction.staged_refresh_validation",
+              "transaction.live_apply",
+              "transaction.post_apply_validation",
+              "transaction.receipt_creation",
+              "transaction.total_apply"
+            ],
+            "properties": {
+              "validator.tree_traversal": {"$ref": "#/$defs/phase"},
+              "validator.hash_inventory": {"$ref": "#/$defs/phase"},
+              "validator.schema_semantic_validation": {"$ref": "#/$defs/phase"},
+              "validator.text_json_scan": {"$ref": "#/$defs/phase"},
+              "validator.integrity_validation": {"$ref": "#/$defs/phase"},
+              "transaction.staging_copy": {"$ref": "#/$defs/phase"},
+              "transaction.tree_state": {"$ref": "#/$defs/phase"},
+              "transaction.staged_refresh_validation": {"$ref": "#/$defs/phase"},
+              "transaction.live_apply": {"$ref": "#/$defs/phase"},
+              "transaction.post_apply_validation": {"$ref": "#/$defs/phase"},
+              "transaction.receipt_creation": {"$ref": "#/$defs/phase"},
+              "transaction.total_apply": {"$ref": "#/$defs/phase"}
+            }
+          },
+          "limitations": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {"type": "string", "minLength": 1}
+          }
+        }
+      }
+    },
+    "execution_failures": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["synthetic_payload_files", "phase", "exit_code"],
+        "properties": {
+          "synthetic_payload_files": {"type": "integer", "minimum": 0},
+          "phase": {"type": "string", "minLength": 1},
+          "exit_code": {"type": ["integer", "null"]}
+        }
+      }
+    },
+    "enforcement": {
+      "const": "informational_only_no_thresholds_or_release_claim"
+    },
+    "limitations": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    }
+  }
+}

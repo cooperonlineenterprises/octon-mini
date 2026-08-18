@@ -281,6 +281,12 @@ Every release candidate records JSON or table evidence for:
     representations detected, source/derived drift, fixture update count, and
     runtime regression.
 
+Content-free phase profiling may separately isolate tree traversal, hashing,
+schema/semantic checks, transaction staging, staged validation, live apply,
+post-apply validation, and receipt creation. Phase observations are
+informational, overlap where disclosed, and do not change benchmark-v2 sample
+accounting or thresholds.
+
 Suggested release thresholds retain the current `<10 s` scaffold, `<2 s`
 10k check, and `<10 s` fast mutation goals. A threshold change requires a
 recorded architecture decision and must not conceal a regression.
@@ -290,6 +296,12 @@ recorded architecture decision and must not conceal a regression.
 - Complete portable transaction staging is slower at large file counts but
   preserves pre-write validation and rollback evidence. Unsafe shared-inode
   acceleration is explicitly rejected.
+- Copy-on-write or reflink staging is a separately gated candidate, not a 4.0
+  optimization. Before implementation, an Architecture Proof must establish
+  write isolation, file/symlink/mode identity, unsupported-platform and
+  cross-filesystem fallback, partial-clone cleanup, concurrent-mutation and
+  interruption recovery, and cross-platform behavior. No such proof is
+  currently recorded.
 - Semantic detectors are bounded recipes, not complete project understanding;
   false negatives remain possible and candidates never self-adopt.
 - Compact layout currently combines only the representation pair whose
@@ -312,6 +324,8 @@ python3 -B skills/octon-mini-project-bootstrap/scripts/test_guided_setup.py
 python3 -B skills/octon-mini-project-bootstrap/scripts/test_migration_3_1_0_to_4_0_0.py
 python3 -B skills/octon-mini-project-bootstrap/scripts/validate_octon_mini.py
 python3 -B skills/octon-mini-project-bootstrap/scripts/test_acceptance.py
+python3 -B skills/octon-mini-project-bootstrap/scripts/profile_large_project.py \
+  --sizes 0 2000 10000 20000
 python3 -B skills/octon-mini-project-bootstrap/scripts/benchmark_validation.py \
   --sizes 0 2000 10000 20000 --samples 10 --enforce
 ```

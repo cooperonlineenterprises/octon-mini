@@ -18,6 +18,7 @@ from unittest import mock
 
 sys.dont_write_bytecode = True
 SCRIPT = Path(__file__).resolve().with_name("benchmark_validation.py")
+PHASE_SCRIPT = Path(__file__).resolve().with_name("profile_large_project.py")
 SOURCE_VALIDATOR_SCRIPT = Path(__file__).resolve().with_name(
     "validate_source_contracts.py"
 )
@@ -32,6 +33,9 @@ SOURCE_ROOT = next(
 )
 BENCHMARK_SCHEMA = (
     SOURCE_ROOT / "shared/source-contracts/validation-benchmark-report.schema.json"
+)
+PHASE_SCHEMA = (
+    SOURCE_ROOT / "shared/source-contracts/large-project-phase-profile.schema.json"
 )
 
 
@@ -49,6 +53,24 @@ def load_benchmark() -> types.ModuleType:
 
 
 BENCHMARK = load_benchmark()
+
+
+def load_phase_profiler() -> types.ModuleType:
+    spec = importlib.util.spec_from_file_location(
+        "octon_mini_large_project_phase_test", PHASE_SCRIPT
+    )
+    if spec is None or spec.loader is None:
+        raise RuntimeError("large-project phase profiler cannot be loaded")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    try:
+        spec.loader.exec_module(module)
+    finally:
+        sys.modules.pop(spec.name, None)
+    return module
+
+
+PHASE_PROFILER = load_phase_profiler()
 
 
 def load_source_validator() -> types.ModuleType:
@@ -143,6 +165,62 @@ class BenchmarkMethodologyTests(unittest.TestCase):
             SOURCE_VALIDATOR.schema_issues(report, schema, "benchmark-report"),
             [],
         )
+
+    def test_phase_profile_is_separate_content_free_and_non_enforcing(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="octon-mini phase schema ") as temporary:
+            with mock.patch.object(
+                PHASE_PROFILER,
+                "source_git_state",
+                return_value=("a" * 40, False),
+            ):
+                report = PHASE_PROFILER.initial_report((0, 50_000))
+        self.assertEqual(
+            report["schema_version"],
+            "octon-mini.source.large-project-phase-profile.v1",
+        )
+        self.assertIs(report["permission_grant"], False)
+        self.assertEqual(
+            report["enforcement"],
+            "informational_only_no_thresholds_or_release_claim",
+        )
+        self.assertEqual(
+            report["configuration"]["threshold_policy"],
+            "informational_only_no_thresholds",
+        )
+        self.assertIn(50_000, report["configuration"]["synthetic_payload_file_counts"])
+        self.assertEqual(
+            report["configuration"]["phase_ids"],
+            list(PHASE_PROFILER.PHASE_IDS),
+        )
+        encoded = json.dumps(report, sort_keys=True)
+        self.assertNotIn(temporary, encoded)
+        self.assertNotIn(str(Path.home()), encoded)
+        schema = json.loads(PHASE_SCHEMA.read_text(encoding="utf-8"))
+        self.assertEqual(
+            SOURCE_VALIDATOR.schema_issues(report, schema, "phase-profile"),
+            [],
+        )
+
+    def test_phase_records_preserve_overlap_failure_and_non_run_state(self) -> None:
+        measured = PHASE_PROFILER.measured_phase(
+            1.25,
+            invocations=4,
+            observed_file_count=20_000,
+            overlaps=True,
+            limitations=["Inclusive observation."],
+        )
+        self.assertEqual(measured["status"], "measured")
+        self.assertEqual(measured["invocations"], 4)
+        self.assertIs(measured["overlaps_other_phases"], True)
+        failed = PHASE_PROFILER.failed_phase(
+            0.5,
+            "Failure details are deliberately content-free.",
+        )
+        self.assertEqual(failed["status"], "failed")
+        self.assertEqual(failed["seconds"], 0.5)
+        not_run = PHASE_PROFILER.empty_phase("Prerequisite did not complete.")
+        self.assertEqual(not_run["status"], "not_run")
+        self.assertIsNone(not_run["seconds"])
 
     def test_series_preserves_cold_and_warm_samples_and_both_p90_values(self) -> None:
         series = BENCHMARK.empty_series()
