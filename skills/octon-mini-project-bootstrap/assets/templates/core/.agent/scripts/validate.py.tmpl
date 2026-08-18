@@ -1790,6 +1790,7 @@ def repository_files(
                 files.append(path)
 
     visit(root, Path())
+    files.sort()
     return files
 
 

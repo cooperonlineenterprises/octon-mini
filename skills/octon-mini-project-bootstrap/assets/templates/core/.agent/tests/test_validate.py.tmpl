@@ -2395,7 +2395,7 @@ class HarnessValidatorTests(unittest.TestCase):
             write_json(current_path, current)
             before = VALIDATOR.snapshot_files(test_root)
             json_result = subprocess.run(
-                [str(test_root / "octon"), "doctor", "--json"],
+                octon_command(test_root, "doctor", "--json"),
                 cwd=test_root,
                 capture_output=True,
                 text=True,
@@ -2425,7 +2425,7 @@ class HarnessValidatorTests(unittest.TestCase):
             self.assertFalse(finding["mutation"]["occurred"])
             self.assertTrue(finding["next_action"]["argv"])
             human_result = subprocess.run(
-                [str(test_root / "octon"), "doctor"],
+                octon_command(test_root, "doctor"),
                 cwd=test_root,
                 capture_output=True,
                 text=True,
@@ -2476,7 +2476,7 @@ class HarnessValidatorTests(unittest.TestCase):
             plan["canonical_plan_digest"] = "0" * 64
             write_json(plan_path, plan)
             invalid_result = subprocess.run(
-                [str(test_root / "octon"), "doctor", "--json"],
+                octon_command(test_root, "doctor", "--json"),
                 cwd=test_root,
                 capture_output=True,
                 text=True,
@@ -2500,7 +2500,7 @@ class HarnessValidatorTests(unittest.TestCase):
             pending_path.parent.mkdir(parents=True, exist_ok=True)
             write_json(pending_path, {})
             pending_result = subprocess.run(
-                [str(test_root / "octon"), "doctor", "--json"],
+                octon_command(test_root, "doctor", "--json"),
                 cwd=test_root,
                 capture_output=True,
                 text=True,
@@ -3387,6 +3387,8 @@ class HarnessValidatorTests(unittest.TestCase):
                 (".agent/project-checks/archive/old.json", "A\n"),
                 (".agent/state/current.json", "{}\n"),
                 ("excluded/nested/hidden.txt", "excluded\n"),
+                ("order/child.txt", "nested ordering\n"),
+                ("order.txt", "sibling ordering\n"),
                 ("src/a.txt", "AAAA\n"),
                 ("src/z.txt", "zeta\n"),
                 (".DS_Store", "ignored identity\n"),

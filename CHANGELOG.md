@@ -132,6 +132,13 @@ tags, decisions, and fixtures retain their Project Blueprint identity.
   compatibility behavior. Project Blueprint identifiers remain only as
   truthful history or explicit legacy migration inputs.
 
+### Fixed
+
+- generated doctor tests invoke the extensionless launcher through Python on
+  Windows, and the pruned scandir repository walk preserves the prior global
+  platform `Path` order so project-check evidence and validator fingerprints
+  remain identical across supported runtimes.
+
 ### Compatibility and migration note
 
 Generated snapshots remain independent. Existing Project Blueprint 3.x
