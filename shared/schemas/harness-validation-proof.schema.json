@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://octon-mini.local/schemas/harness-validation-proof.schema.json",
+  "title": "Content-Addressed Validation Proof",
+  "description": "A conservative reusable result written only through the explicit project-check evidence boundary.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "proof_id",
+    "permission_grant",
+    "reusable",
+    "input_set",
+    "input_digest",
+    "check_identity",
+    "argv",
+    "executable",
+    "configuration_digest",
+    "governing_instruction_digest",
+    "environment",
+    "side_effects",
+    "freshness_days",
+    "observed_at",
+    "fresh_until",
+    "result",
+    "limitations",
+    "canonical_proof_digest"
+  ],
+  "properties": {
+    "schema_version": {"const": "harness.validation-proof.v1"},
+    "proof_id": {"type": "string", "pattern": "^VPR-[a-f0-9]{32}$"},
+    "permission_grant": {"const": false},
+    "reusable": {"type": "boolean"},
+    "input_set": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/input"}},
+    "input_digest": {"$ref": "#/$defs/digest"},
+    "check_identity": {"type": "string", "minLength": 1},
+    "argv": {"$ref": "#/$defs/argv"},
+    "executable": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["resolved_path", "sha256", "version_argv", "version_output_sha256"],
+      "properties": {
+        "resolved_path": {"type": "string", "minLength": 1},
+        "sha256": {"$ref": "#/$defs/digest"},
+        "version_argv": {"$ref": "#/$defs/argv"},
+        "version_output_sha256": {"$ref": "#/$defs/digest"}
+      }
+    },
+    "configuration_digest": {"$ref": "#/$defs/digest"},
+    "governing_instruction_digest": {"$ref": "#/$defs/digest"},
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["platform", "python_version", "working_directory", "characteristics_digest"],
+      "properties": {
+        "platform": {"type": "string", "minLength": 1},
+        "python_version": {"type": "string", "minLength": 1},
+        "working_directory": {"const": "."},
+        "characteristics_digest": {"$ref": "#/$defs/digest"}
+      }
+    },
+    "side_effects": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["classification", "repository_write_paths", "external_effects"],
+      "properties": {
+        "classification": {"enum": ["read_only", "repository_writes", "external_effects_possible"]},
+        "repository_write_paths": {"$ref": "#/$defs/strings"},
+        "external_effects": {"$ref": "#/$defs/strings"}
+      }
+    },
+    "freshness_days": {"type": "integer", "minimum": 1},
+    "observed_at": {"type": "string", "format": "date-time"},
+    "fresh_until": {"type": "string", "format": "date-time"},
+    "result": {"const": "pass"},
+    "limitations": {"$ref": "#/$defs/strings"},
+    "canonical_proof_digest": {"$ref": "#/$defs/digest"}
+  },
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "strings": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "argv": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+    "input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "type", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "type": {"enum": ["file", "symlink", "absent"]},
+        "sha256": {"type": ["string", "null"], "pattern": "^[a-f0-9]{64}$"}
+      }
+    }
+  }
+}

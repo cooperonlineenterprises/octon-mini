@@ -18,3 +18,11 @@ and `.agent/templates/read-only-review.md` for review assurance. Reconcile the
 machine register after a review. A recommendation is not an owner selection;
 an owner selection remains pending until an accepted `DEC-####` authority
 record is linked.
+
+`reuse-policy.json` is a separate empty project-owned applicability registry.
+It may project a value from an exact current accepted `DEC-####` into matching
+future setup questions only while the decision bytes, authority source,
+applicability, governing instructions, dependency fingerprints, and freshness
+remain current. A superseded, revoked, expired, mismatched, or unresolved
+decision is not reused. The registry never stores runtime authorization,
+operation confirmation, external-action permission, or readiness evidence.

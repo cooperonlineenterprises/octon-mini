@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import hashlib
+import copy
 import json
 import os
 import re
@@ -347,6 +348,53 @@ def main() -> int:
         print("FAIL: Python 3.11+ is required")
         return 2
     failures: list[str] = []
+    source_contracts = runpy.run_path(
+        str(SKILL_ROOT / "scripts/validate_source_contracts.py")
+    )
+    continuation_schema = json.loads(
+        (ROOT / "shared/schemas/harness-continuation.schema.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    continuation_fixture = json.loads(
+        (
+            SKILL_ROOT
+            / "fixtures/continuation/valid/blocked-operation.json"
+        ).read_text(encoding="utf-8")
+    )
+    continuation_issues = source_contracts["schema_issues"](
+        continuation_fixture,
+        continuation_schema,
+        "continuation valid fixture",
+    )
+    require(
+        not continuation_issues,
+        "valid Continuation Contract fixture failed: "
+        + "; ".join(continuation_issues),
+        failures,
+    )
+    continuation_mutations = json.loads(
+        (
+            SKILL_ROOT
+            / "fixtures/continuation/invalid/mutations.json"
+        ).read_text(encoding="utf-8")
+    )["mutations"]
+    for mutation in continuation_mutations:
+        value = copy.deepcopy(continuation_fixture)
+        current = value
+        for part in mutation["path"][:-1]:
+            current = current[part]
+        current[mutation["path"][-1]] = mutation["value"]
+        issues = source_contracts["schema_issues"](
+            value,
+            continuation_schema,
+            f"continuation mutation {mutation['id']}",
+        )
+        require(
+            mutation["expected_diagnostic"] in "; ".join(issues),
+            f"Continuation Contract mutation {mutation['id']} did not fail as expected: {issues}",
+            failures,
+        )
     work_completion = run(
         [sys.executable, "-B", str(SKILL_ROOT / "scripts/test_work_completion.py")],
         ROOT,

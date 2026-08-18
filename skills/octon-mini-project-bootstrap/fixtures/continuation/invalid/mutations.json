@@ -1,0 +1,33 @@
+{
+  "schema_version": "octon-mini.continuation-mutations.v1",
+  "permission_grant": false,
+  "mutations": [
+    {
+      "id": "permission-grant",
+      "path": ["permission_grant"],
+      "value": true,
+      "expected_diagnostic": "must equal False"
+    },
+    {
+      "id": "empty-next-argv",
+      "path": ["next_action", "argv"],
+      "value": [],
+      "expected_diagnostic": "array has too few items"
+    },
+    {
+      "id": "unknown-repair-class",
+      "path": ["repair_class"],
+      "value": "force_anyway",
+      "expected_diagnostic": "outside the allowed vocabulary"
+    },
+    {
+      "id": "authorizing-artifact-kind",
+      "path": ["artifact_kind"],
+      "value": "permission_grant",
+      "expected_diagnostic": "must equal 'blocked_operation'"
+    }
+  ],
+  "limitations": [
+    "Mutation fixtures prove only closed-contract rejection."
+  ]
+}

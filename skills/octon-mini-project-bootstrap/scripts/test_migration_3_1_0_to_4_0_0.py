@@ -4,6 +4,9 @@
 from __future__ import annotations
 
 import hashlib
+import argparse
+import importlib.util
+import io
 import json
 import os
 import shutil
@@ -11,13 +14,16 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
+from unittest import mock
 
 
 SCRIPT_ROOT = Path(__file__).resolve().parent
 SCAFFOLDER = SCRIPT_ROOT / "scaffold_project.py"
 MIGRATOR = SCRIPT_ROOT / "migrate_3_1_0_to_4_0_0.py"
 UPGRADER = SCRIPT_ROOT / "upgrade_project.py"
+GUIDED = SCRIPT_ROOT / "guided_workflow.py"
 LEGACY_ORIGIN = ".project-blueprint-origin.json"
 CURRENT_ORIGIN = ".octon-mini-origin.json"
 
@@ -33,6 +39,18 @@ LEGACY_PATH_MAP = {
     ".agent/schemas/octon-mini-bootstrap-upgrade.schema.json": ".agent/schemas/project-blueprint-upgrade.schema.json",
     ".agent/schemas/octon-mini-project-origin.schema.json": ".agent/schemas/project-blueprint-origin.schema.json",
     CURRENT_ORIGIN: LEGACY_ORIGIN,
+}
+CURRENT_ONLY_CONTINUATION_PATHS = {
+    ".agent/decisions/reuse-policy.json",
+    ".agent/scripts/octon_continuation.py",
+    ".agent/schemas/harness-continuation.schema.json",
+    ".agent/schemas/harness-decision-reuse.schema.json",
+    ".agent/schemas/harness-diagnostics-v2.schema.json",
+    ".agent/schemas/harness-plan-summary.schema.json",
+    ".agent/schemas/harness-project-check-evidence-v3.schema.json",
+    ".agent/schemas/harness-transaction-v3.schema.json",
+    ".agent/schemas/harness-validation-proof.schema.json",
+    ".agent/schemas/octon-mini-bootstrap-setup-session-v2.schema.json",
 }
 
 V1_COLLABORATION = {
@@ -107,8 +125,41 @@ def file_state(root: Path) -> dict[str, str]:
     }
 
 
+def load_module(name: str, path: Path):
+    spec = importlib.util.spec_from_file_location(name, path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"cannot load {path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def octon_mini_source_root() -> Path:
+    candidates = (
+        SCRIPT_ROOT.parents[2],
+        SCRIPT_ROOT.parent / "assets/octon-mini-source",
+    )
+    for candidate in candidates:
+        if (
+            candidate
+            / "shared/schemas/harness-continuation.schema.json"
+        ).is_file():
+            return candidate
+    return candidates[0]
+
+
 class Migration310To400Tests(unittest.TestCase):
     def setUp(self) -> None:
+        self.source_contracts = load_module(
+            "migration_continuation_source_contracts",
+            SCRIPT_ROOT / "validate_source_contracts.py",
+        )
+        self.continuation_schema = json.loads(
+            (
+                octon_mini_source_root()
+                / "shared/schemas/harness-continuation.schema.json"
+            ).read_text(encoding="utf-8")
+        )
         self.temporary = tempfile.TemporaryDirectory(
             prefix="octon-mini-cross-brand-migration-310-400-"
         )
@@ -209,8 +260,14 @@ class Migration310To400Tests(unittest.TestCase):
         current_origin_path = self.root / CURRENT_ORIGIN
         current_origin = load(current_origin_path)
         generated_paths = [
-            LEGACY_PATH_MAP.get(path, path) for path in current_origin["generated_paths"]
+            LEGACY_PATH_MAP.get(path, path)
+            for path in current_origin["generated_paths"]
+            if path not in CURRENT_ONLY_CONTINUATION_PATHS
         ]
+        for current_only in CURRENT_ONLY_CONTINUATION_PATHS:
+            path = self.root / current_only
+            if path.is_file():
+                path.unlink()
         for current, legacy in LEGACY_PATH_MAP.items():
             source = self.root / current
             destination = self.root / legacy
@@ -249,6 +306,29 @@ class Migration310To400Tests(unittest.TestCase):
         }
         project.pop("packages", None)
         write(project_path, project)
+        evidence_path = self.root / ".agent/project-checks/evidence.json"
+        evidence_store = load(evidence_path)
+        evidence_store["schema_version"] = "harness.project-check-evidence-store.v2"
+        evidence_store["document_role"] = "bounded_current_index_of_project_owned_execution_evidence"
+        evidence_store.pop("proofs", None)
+        write(evidence_path, evidence_store)
+        validators_path = self.root / ".agent/validators.json"
+        validators = load(validators_path)
+        validators["schema_version"] = "harness.validators.v4"
+        validators["commands"].pop("project_checks_reuse", None)
+        validators["required_core_checks"] = [
+            item
+            for item in validators["required_core_checks"]
+            if item not in {
+                "content_addressed_validation_proof_reuse",
+                "typed_continuation_and_safe_transaction_bundles",
+            }
+        ]
+        write(validators_path, validators)
+        schema_path = self.root / ".agent/schema.json"
+        schema_contract = load(schema_path)
+        schema_contract.pop("contract_versions", None)
+        write(schema_path, schema_contract)
 
         initial = current_origin["initial_generation"]
         legacy_origin = {
@@ -382,6 +462,111 @@ class Migration310To400Tests(unittest.TestCase):
         self.assertEqual(seed_path.read_bytes(), second.read_bytes())
         return review_path, seed_path
 
+    def test_guided_one_command_upgrade_pauses_on_review_and_resumes_exactly(self) -> None:
+        _, seed_path = self._review_and_seed()
+        guided = load_module("guided_upgrade_fixture", GUIDED)
+        review_dir = Path(self.temporary.name) / "guided-review"
+        args = argparse.Namespace(
+            mode="upgrade",
+            target=self.root,
+            review_dir=review_dir,
+            session=None,
+            proposal=None,
+            review=None,
+            prior_plan=None,
+            project_blueprint_seed=seed_path,
+            json=True,
+        )
+        before = file_state(self.root)
+        with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()) as blocked_output, mock.patch(
+            "builtins.input",
+                side_effect=[
+                    "authority:migration-fixture-owner",
+                    '["EVD-0001"]',
+                    "disabled",
+                ],
+        ):
+            blocked = guided.run_guided(
+                args,
+                require_tty=False,
+                input_fn=lambda _: self.fail("review-required planning must not ask for apply confirmation"),
+            )
+        self.assertEqual(blocked, 3)
+        self.assertEqual(file_state(self.root), before)
+        blocked_report = json.loads(blocked_output.getvalue())
+        self.assertEqual(
+            self.source_contracts.schema_issues(
+                blocked_report,
+                self.continuation_schema,
+                "emitted upgrade continuation",
+            ),
+            [],
+        )
+        self.assertEqual(blocked_report["failure_code"], "OCTON-UPGRADE-1101")
+        self.assertTrue(blocked_report["mutation"]["occurred"])
+        self.assertEqual(blocked_report["mutation"]["repository_paths"], [])
+        self.assertIn(
+            "target project was unchanged",
+            blocked_report["mutation"]["statement"],
+        )
+        self.assertTrue(blocked_report["next_action"]["argv"])
+        proposal_path = sorted(review_dir.glob("upgrade-plan-*.json"))[-1]
+        proposal = load(proposal_path)
+        dispositions = []
+        for row in proposal["classifications"]:
+            if row["automatic"]:
+                continue
+            if row["path"] == ".agent/project.json":
+                disposition = "migrate_legacy_project_contract"
+            elif row["path"] == ".agent/project-checks/evidence.json":
+                disposition = "migrate_legacy_project_check_evidence"
+            elif row["classification"] == "removed_upstream":
+                disposition = "delete"
+            elif "accept_candidate" in row["allowed_dispositions"]:
+                disposition = "accept_candidate"
+            else:
+                disposition = "preserve_current"
+            dispositions.append(
+                {
+                    "id": row["id"],
+                    "disposition": disposition,
+                    "rationale": "Explicit guided successor fixture review.",
+                }
+            )
+        upgrade_review = review_dir / "upgrade-review.json"
+        write(
+            upgrade_review,
+            {
+                "schema_version": "octon-mini.bootstrap.upgrade-review.v1",
+                "permission_grant": False,
+                "proposal_digest": proposal["canonical_proposal_digest"],
+                "dispositions": dispositions,
+                "limitations": ["Synthetic guided upgrade review."],
+            },
+        )
+        session_path = sorted(review_dir.glob("setup-session-*.json"))[-1]
+        resumed_args = argparse.Namespace(
+            **{
+                **vars(args),
+                "session": session_path,
+                "proposal": proposal_path,
+                "review": upgrade_review,
+            }
+        )
+        confirmations: list[str] = []
+        with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
+            resumed = guided.run_guided(
+                resumed_args,
+                require_tty=False,
+                input_fn=lambda prompt: confirmations.append(prompt) or "apply",
+            )
+        self.assertEqual(resumed, 0)
+        self.assertEqual(len(confirmations), 1)
+        self.assertTrue((self.root / CURRENT_ORIGIN).is_file())
+        self.assertTrue((self.root / "octon").is_file())
+        self.assertFalse((self.root / LEGACY_ORIGIN).exists())
+        self.assertFalse((self.root / "pb").exists())
+
     def test_reviewed_cross_brand_upgrade_rollback_and_refusals(self) -> None:
         _, seed_path = self._review_and_seed()
         seed = load(seed_path)
@@ -467,6 +652,8 @@ class Migration310To400Tests(unittest.TestCase):
                 continue
             if row["path"] == ".agent/project.json":
                 disposition = "migrate_legacy_project_contract"
+            elif row["path"] == ".agent/project-checks/evidence.json":
+                disposition = "migrate_legacy_project_check_evidence"
             elif row["classification"] == "removed_upstream":
                 disposition = "delete"
             elif (
@@ -540,7 +727,7 @@ class Migration310To400Tests(unittest.TestCase):
         self.assertEqual(final_origin["schema_version"], "octon-mini.project.origin.v1")
         self.assertEqual(final_origin["product"], "octon-mini")
         self.assertEqual(final_origin["octon_mini_version"], "4.0.0")
-        self.assertEqual(final_project["schema_version"], "harness.project.v5")
+        self.assertEqual(final_project["schema_version"], "harness.project.v6")
         self.assertEqual(final_project["project"]["octon_mini_version"], "4.0.0")
         self.assertEqual(
             final_project["collaboration_profile"]["assessment_status"],

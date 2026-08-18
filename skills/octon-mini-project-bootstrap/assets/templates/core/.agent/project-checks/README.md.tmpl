@@ -22,6 +22,16 @@ reviewed changed-scope routing with `--changed-scope`. These modes are mutually
 exclusive. `--verify-adoption` rejects selective routing and executes the
 complete configured boundary.
 
+Routine explicit evidence writing may additionally pass `--reuse-proofs`.
+Only a current passing `read_only` proof with no repository-write or external
+effect declaration can hit. The proof binds the exact declared input set,
+check and argv, executable bytes and version output, project configuration,
+governing instructions, hashed environment characteristics, observation time,
+freshness, result, and limitations. Any input, tool, configuration,
+instruction, environment, effect, or freshness change is a miss and reruns the
+hook. Proofs are written only inside this evidence store by this writer.
+`validate.py --check` never writes or refreshes them.
+
 The writer records the exact argv, observed tool-version output, executable
 fingerprint, source revision and fingerprint, Git dirty/untracked/ignored
 scope, environment metadata, start/end times, outcome, skipped checks,
@@ -57,3 +67,8 @@ passing result into a readiness or certification claim. A hook that declares
 repository writes or possible external effects additionally requires
 `--acknowledge-side-effects`; that flag acknowledges execution risk but grants
 no authority.
+
+Adoption and release verification prohibit proof reuse and execute the full
+applicable configured boundary. Volatile external state, runtime
+authorization, expired proofs, and externally effective hooks are never cache
+hits.

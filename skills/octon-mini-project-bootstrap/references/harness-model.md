@@ -49,9 +49,13 @@ agent procedure remain Octon Mini source guidance.
 - material decision inventory and trade-off review:
   `.agent/decisions/governance-register.json`, subordinate to accepted
   `DEC-####` authority;
+- accepted-decision reuse applicability: empty-by-default
+  `.agent/decisions/reuse-policy.json`, bound to exact current accepted
+  decisions and never operation authority;
 - direct observation: `.agent/evidence/`;
 - explicit operator focus plus derived resumption: `.agent/state/`;
-- plan/apply/recovery receipts: `.agent/transactions/`; and
+- plan/apply/recovery receipts: `.agent/transactions/`;
+- typed refusals and plan summaries: `.agent/scripts/octon_continuation.py`; and
 - governed work-completion configuration: optional `work_completion` in
   `.agent/project.json`, exact task inputs in the task's optional completion
   contract, shared engine in `.agent/scripts/octon_work_completion.py`, and monotonic local
@@ -69,6 +73,12 @@ satisfied gates, resolved structured blockers, and reciprocal plan links. Use
 the read-only ready-frontier command to identify eligible work; current
 direction or an accepted priority/value/risk decision chooses among independent
 items, never a date-based inference.
+
+Routine project-check proofs remain inside the explicit evidence store. The
+read-only validator may validate them but never writes or refreshes them.
+Consequential adoption/release gates prohibit reuse. Transaction bundle v1 is
+limited to nonoverlapping, compatibly authorized, fresh, reversible local
+members with no external effect and one exact receipt.
 
 Each profile has a closed minimum governed-file inventory. Missing router,
 kernel, state, script, schema, template, fixture, store, extension-registry,

@@ -1,8 +1,8 @@
 {
-  "schema_version": "octon-mini.bootstrap.setup-question-catalog.v1",
+  "schema_version": "octon-mini.bootstrap.setup-question-catalog.v2",
   "document_role": "authoritative_guided_setup_question_catalog",
   "permission_grant": false,
-  "catalog_version": "1.0.0",
+  "catalog_version": "2.0.0",
   "modes": ["initialization", "adoption", "upgrade"],
   "information_roles": [
     "observation",
@@ -13,6 +13,41 @@
     "accepted_authority_reference",
     "runtime_authorization_forbidden"
   ],
+  "validity_policy": {
+    "schema_version": "octon-mini.setup-validity.v1",
+    "classes": [
+      "re_observe_every_run",
+      "source_fingerprint_bound",
+      "dependency_bound",
+      "expiry_bound",
+      "decision_successor_or_revocation_bound",
+      "runtime_only_never_reusable"
+    ],
+    "role_defaults": {
+      "observation": ["re_observe_every_run", "source_fingerprint_bound"],
+      "inference": ["re_observe_every_run", "dependency_bound"],
+      "initialization_input": ["dependency_bound"],
+      "recommendation": ["re_observe_every_run", "dependency_bound"],
+      "owner_selection": ["dependency_bound"],
+      "accepted_authority_reference": ["dependency_bound", "decision_successor_or_revocation_bound"],
+      "runtime_authorization_forbidden": ["runtime_only_never_reusable"]
+    },
+    "reinspection_classifications": [
+      "preserved",
+      "reobserved",
+      "needs_confirmation",
+      "invalidated",
+      "newly_introduced"
+    ],
+    "rules": [
+      "Every stored question state binds its exact question definition and dependency-state digests.",
+      "Evidence with an expiry adds expiry_bound even when its role default does not include it.",
+      "Governing-instruction changes require confirmation or invalidation for affected non-observational inputs.",
+      "An unrelated target edit does not invalidate a state whose declared bindings remain identical.",
+      "Accepted decisions are reusable only through a current project-owned decision-reuse record bound to an accepted unsuperseded decision.",
+      "Runtime authorization is never collected, persisted, inferred, or reused."
+    ]
+  },
   "questions": [
     {
       "id": "setup.target-identity",

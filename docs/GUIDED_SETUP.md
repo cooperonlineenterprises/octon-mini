@@ -47,9 +47,14 @@ An AI agent conducting setup must:
    where the catalog permits; and explain what the state blocks.
 8. Summarize every answer, recommendation, authority reference, unknown,
    deferral, blocker, and minimum closure step before planning.
-9. Generate the exact digest-bound plan through `init`, `adopt`, or `upgrade`.
-10. Require explicit acceptance of that plan digest before apply.
-11. Validate and report structural conformance, project adoption,
+9. On reinspection, classify every prior state as `preserved`, `reobserved`,
+   `needs_confirmation`, `invalidated`, or `newly_introduced`; do not discard a
+   selection because an unrelated target byte changed.
+10. Generate the exact digest-bound plan through `init`, `adopt`, or `upgrade`.
+    When re-planning, bind the immutable predecessor and show its semantic
+    delta.
+11. Require explicit acceptance of that plan digest before apply.
+12. Validate and report structural conformance, project adoption,
     implementation evidence, specialist approval, release readiness, production
     readiness, and efficacy or commercial viability separately.
 
@@ -58,6 +63,22 @@ needs durable authority, record it as a selection, name the required ADR or
 approval, and leave acceptance pending until that process completes.
 
 ## Interfaces
+
+The interactive one-command interfaces orchestrate the full safe path:
+
+```text
+./octon init --target <path> --review-dir <external-path>
+./octon adopt --target <path> --review-dir <external-path>
+./octon upgrade --target <path> --review-dir <external-path>
+```
+
+They inspect, ask only unresolved blocking questions, create immutable session
+and plan artifacts, render the shared plan summary, request one confirmation of
+the full displayed digest, then revalidate the unchanged plan bytes, target,
+instructions, evidence, and ordinary transaction preconditions before apply.
+Collisions and three-way review items preserve the current artifacts and emit
+the Continuation Contract rather than guessing or applying. Non-interactive
+automation retains the explicit interfaces below.
 
 Each mode exposes the same setup engine:
 
@@ -73,7 +94,8 @@ Python launcher and arguments as `python -B octon init setup --target <path>` or
 as needed. The platform form changes only launcher invocation, not setup
 semantics, authority, artifacts, or command identity.
 
-With no `--output`, the command prints a question batch and writes nothing.
+With no `--output`, the command prints a concise question batch and writes
+nothing. Add `--json` for the strict machine-readable batch.
 An explicit `--output` creates one new session outside the target. It refuses
 overwrite:
 
@@ -103,8 +125,18 @@ plan uses:
 ./octon upgrade plan --target <path> --setup-session <session.json> --output <proposal-or-plan.json>
 ```
 
+Each planner accepts `--prior-plan <immutable-plan.json>` when a semantic
+successor is needed. The new plan records what changed, what remained
+identical, which review conclusions remain valid, why its digest changed, and
+what must be reviewed again.
+
 Adoption and upgrade proposal/review artifacts remain separate because they
 already own collision and path-disposition authority.
+
+Decline, EOF, interruption, collision, and proposal-review pauses preserve the
+latest immutable external review artifacts. Their continuation finding states
+that the target was unchanged while truthfully reporting that those local
+artifacts were written.
 
 After an exact transaction plan exists, record its digest and path in a new
 immutable session successor without changing the target:
@@ -140,7 +172,7 @@ are rejected.
 
 ## Session model and resume
 
-`octon-mini.bootstrap.setup-session.v1` records:
+`octon-mini.bootstrap.setup-session.v2` records:
 
 - session identity, sequence, timestamps, status, and predecessor;
 - mode and exact target identity;
@@ -148,11 +180,16 @@ are rejected.
 - governing-instruction fingerprint;
 - Octon Mini source, candidate, and installed versions and provenance;
 - question-catalog version and digest;
+- the `octon-mini.setup-validity.v1` policy and per-state validity bindings;
 - explicit selected profile and layout when supplied;
 - question states plus reconciled answered, unknown, deferred, and
   inapplicable inventories;
 - recommendations separately from user selections;
 - accepted-authority references separately from selections;
+- current accepted decision reuse separately from recommendations, selections,
+  operation confirmation, and runtime authorization;
+- reinspection inventories for preserved, reobserved, needs-confirmation,
+  invalidated, and newly introduced states;
 - blockers and next eligible questions;
 - generated-plan references when a reviewed successor records them;
 - one minimum dependency-ordered closure sequence for pending decisions,
@@ -162,13 +199,30 @@ are rejected.
 - limitations and canonical session digest.
 
 Sessions are immutable successors. Resume never overwrites a predecessor.
-Target content/revision, instruction, catalog, Octon Mini version/provenance, or
-material evidence changes fail closed. `--reinspect` creates a successor from
-current observations. It preserves explicit unknown, deferred, and
-inapplicable states only when the stable question ID and version are unchanged
-and their dependencies remain eligible;
-factual answers and selections must be reviewed again. New catalog questions
-are unanswered, never silently defaulted.
+Every state uses one or more explicit validity classes:
+
+- re-observe every run;
+- source-fingerprint-bound;
+- dependency-bound;
+- expiry-bound;
+- valid until a decision successor or revocation; or
+- runtime-only and never reusable.
+
+`--reinspect` re-observes volatile facts and preserves prior answers only when
+their exact question definition, dependencies, governing instructions,
+evidence source, decision, and freshness bindings still match. An unrelated
+content or revision change does not discard them. Changed instructions,
+relevant evidence, authority, question definitions, exact dependencies, or
+expiry still fail closed. New catalog questions are unanswered and no
+predecessor is silently rewritten. A v1 session can become current only through
+an explicit immutable v2 reinspection successor.
+
+Generated projects contain an empty project-owned
+`.agent/decisions/reuse-policy.json`. A record may reuse an exact accepted,
+unsuperseded `DEC-####` value for matching setup questions only while its
+authority, applicability, instruction and dependency fingerprints, and expiry
+remain current. It never supplies operation confirmation, runtime
+authorization, standing external-action permission, or readiness evidence.
 
 ## Question families
 
@@ -250,13 +304,15 @@ staleness observed by a separate read-only integrity check must be reported and
 left unchanged; setup itself does not establish projection freshness.
 
 Apply is bound to the exact session bytes/digest, exact plan digest, current
-target/instruction fingerprints, and normal transaction preconditions. It
+relevant target/instruction/evidence bindings, and normal transaction
+preconditions. It
 revalidates before the existing apply engine acts. A changed or missing session
 blocks apply.
 
 ## Installation and migration
 
-New Octon Mini snapshots include the strict session and answer schemas, but no
+New Octon Mini snapshots include the strict historical-v1 and current-v2
+session schemas plus the answer schema, but no
 project answers, accepted decisions, workflow adoption, hooks, provider
 settings, branch policy, or authorization. The catalog and engine live in the
 Octon Mini Project Bootstrap skill source.

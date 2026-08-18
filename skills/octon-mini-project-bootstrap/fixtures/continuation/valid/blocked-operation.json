@@ -1,0 +1,55 @@
+{
+  "schema_version": "octon-mini.continuation.v1",
+  "artifact_kind": "blocked_operation",
+  "permission_grant": false,
+  "failure_code": "OCTON-TXN-2004",
+  "blocked_operation": "work.start",
+  "phase": "revalidate",
+  "mutation": {
+    "occurred": false,
+    "repository_paths": [],
+    "external_effects": [],
+    "statement": "Nothing changed; the affected operation stopped before mutation."
+  },
+  "root_cause": "The exact target preimage changed after planning.",
+  "invalidated": [
+    {
+      "kind": "target",
+      "reference": ".agent/tasks/TASK-0001.md",
+      "reason": "The exact target preimage changed.",
+      "validity_classes": ["source_fingerprint_bound"]
+    }
+  ],
+  "preserved": [
+    {
+      "kind": "plan",
+      "reference": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "reason": "The immutable predecessor remains comparison evidence.",
+      "validity_classes": ["source_fingerprint_bound"]
+    }
+  ],
+  "authority_source": "transaction_plan_and_current_repository_state",
+  "repair_class": "replan_required",
+  "next_action": {
+    "description": "Inspect current coded recovery guidance.",
+    "argv": ["./octon", "doctor", "--json"],
+    "read_only": true,
+    "requires_confirmation": false
+  },
+  "safe_read_only_actions": [
+    {
+      "description": "Run the complete read-only structural check.",
+      "argv": ["./octon", "check", "--json"],
+      "read_only": true,
+      "requires_confirmation": false
+    }
+  ],
+  "successor": {
+    "session_supported": false,
+    "plan_supported": true,
+    "reason": "A new immutable plan can be generated from current inputs."
+  },
+  "limitations": [
+    "This continuation finding grants no permission and establishes no readiness."
+  ]
+}

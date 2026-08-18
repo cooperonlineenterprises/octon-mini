@@ -1,5 +1,5 @@
 {
-  "schema_version": "harness.project.v5",
+  "schema_version": "harness.project.v6",
   "project": {
     "id": "{{PROJECT_SLUG}}",
     "name": {{PROJECT_NAME_JSON}},
@@ -49,13 +49,21 @@
     "work_completion_plan": {"status": "not_assessed", "owner": null, "rationale": null, "tool_name": null, "argv": null, "version_argv": null, "timeout_seconds": null, "evidence_freshness_days": null, "side_effects": {"classification": "not_assessed", "repository_write_paths": [], "external_effects": []}}
   },
   "project_checks": {
-    "evidence_schema": ".agent/schemas/harness-project-check-evidence.schema.json",
+    "evidence_schema": ".agent/schemas/harness-project-check-evidence-v3.schema.json",
     "evidence_store": ".agent/project-checks/evidence.json",
     "evidence_archive": ".agent/project-checks/archive",
     "writer_argv": ["python", "-B", ".agent/scripts/run_project_checks.py", "--write-evidence"],
     "adoption_verification_argv": ["python", "-B", ".agent/scripts/run_project_checks.py", "--write-evidence", "--verify-adoption"],
     "execution": "explicit_writer_only_with_selective_hooks_and_full_adoption_verification",
-    "shell_interpretation": false
+    "shell_interpretation": false,
+    "proof_reuse": {
+      "status": "enabled_for_explicit_routine_writer_only",
+      "input_routing": "declared_source_and_test_roots_with_governance_fallback",
+      "environment_characteristics": ["CI", "PATH", "PYTHONPATH", "VIRTUAL_ENV"],
+      "external_or_runtime_authorization_cache_hits": false,
+      "expired_proof_cache_hits": false,
+      "adoption_and_release_gate_reuse": false
+    }
   },
   "work_completion": {
     "schema_version": "harness.work-completion-config.v1",

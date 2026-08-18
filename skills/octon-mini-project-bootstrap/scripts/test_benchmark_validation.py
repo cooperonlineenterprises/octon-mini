@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import copy
 import importlib.util
 import io
 import json
@@ -221,6 +222,194 @@ class BenchmarkMethodologyTests(unittest.TestCase):
         not_run = PHASE_PROFILER.empty_phase("Prerequisite did not complete.")
         self.assertEqual(not_run["status"], "not_run")
         self.assertIsNone(not_run["seconds"])
+
+    def test_transaction_v3_native_phase_mapping_is_exact_and_content_free(self) -> None:
+        receipt_timings = {
+            "staging_seconds": 1.0,
+            "refresh_seconds": 2.0,
+            "staged_validation_seconds": 3.0,
+            "apply_seconds": 4.0,
+            "post_apply_validation_seconds": 5.0,
+            "receipt_preparation_seconds": 6.0,
+            "total_before_receipt_persist_seconds": 7.0,
+        }
+        receipt = {
+            "schema_version": "harness.transaction-receipt.v3",
+            "timings": receipt_timings,
+            "ignored_sensitive_value": "must-not-enter-phase-output",
+        }
+        process_timings = {
+            **receipt_timings,
+            "receipt_persist_seconds": 8.0,
+            "total_seconds": 9.0,
+        }
+        records, failure = PHASE_PROFILER.native_transaction_phase_records(
+            receipt,
+            process_timings,
+            tree_seconds=0.5,
+            tree_invocations=4,
+        )
+        self.assertIsNone(failure)
+        expected = {
+            "transaction.staging_copy": 1.0,
+            "transaction.staged_refresh_validation": 3.0,
+            "transaction.live_apply": 4.0,
+            "transaction.post_apply_validation": 5.0,
+            "transaction.receipt_creation": 14.0,
+            "transaction.total_apply": 9.0,
+            "transaction.tree_state": 0.5,
+        }
+        self.assertEqual(
+            {phase: record["seconds"] for phase, record in records.items()},
+            expected,
+        )
+        self.assertTrue(
+            all(record["overlaps_other_phases"] for record in records.values())
+        )
+        self.assertEqual(records["transaction.tree_state"]["invocations"], 4)
+        self.assertEqual(records["transaction.receipt_creation"]["invocations"], 1)
+        encoded = json.dumps(records, allow_nan=False, sort_keys=True)
+        self.assertNotIn("must-not-enter-phase-output", encoded)
+        self.assertNotEqual(
+            records["transaction.staged_refresh_validation"]["seconds"],
+            receipt_timings["refresh_seconds"],
+        )
+        self.assertNotEqual(
+            records["transaction.total_apply"]["seconds"],
+            receipt_timings["total_before_receipt_persist_seconds"],
+        )
+        profiler_source = PHASE_SCRIPT.read_text(encoding="utf-8")
+        for prohibited in (
+            "transaction._clone_for_staging =",
+            "transaction._staged_result =",
+            "transaction._run_commands =",
+            "transaction.write_new_json =",
+        ):
+            self.assertNotIn(prohibited, profiler_source)
+        self.assertIn("transaction._tree_state = tree_wrapper", profiler_source)
+
+    def test_transaction_v3_native_phase_mapping_fails_closed(self) -> None:
+        receipt_timings = {
+            "staging_seconds": 1.0,
+            "refresh_seconds": 2.0,
+            "staged_validation_seconds": 3.0,
+            "apply_seconds": 4.0,
+            "post_apply_validation_seconds": 5.0,
+            "receipt_preparation_seconds": 6.0,
+            "total_before_receipt_persist_seconds": 7.0,
+        }
+        receipt = {
+            "schema_version": "harness.transaction-receipt.v3",
+            "timings": receipt_timings,
+        }
+        process_timings = {
+            **receipt_timings,
+            "receipt_persist_seconds": 8.0,
+            "total_seconds": 9.0,
+        }
+
+        cases = (
+            (
+                "missing",
+                lambda r, _p: r["timings"].pop("staging_seconds"),
+                "transaction.staging_copy",
+            ),
+            (
+                "mismatch",
+                lambda _r, p: p.__setitem__("refresh_seconds", 20.0),
+                "transaction.staged_refresh_validation",
+            ),
+            (
+                "boolean",
+                lambda r, p: (
+                    r["timings"].__setitem__("apply_seconds", True),
+                    p.__setitem__("apply_seconds", True),
+                ),
+                "transaction.live_apply",
+            ),
+            (
+                "negative",
+                lambda r, p: (
+                    r["timings"].__setitem__("post_apply_validation_seconds", -1.0),
+                    p.__setitem__("post_apply_validation_seconds", -1.0),
+                ),
+                "transaction.post_apply_validation",
+            ),
+            (
+                "nan",
+                lambda r, p: (
+                    r["timings"].__setitem__("staging_seconds", float("nan")),
+                    p.__setitem__("staging_seconds", float("nan")),
+                ),
+                "transaction.staging_copy",
+            ),
+            (
+                "infinity",
+                lambda r, p: (
+                    r["timings"].__setitem__("receipt_preparation_seconds", float("inf")),
+                    p.__setitem__("receipt_preparation_seconds", float("inf")),
+                ),
+                "transaction.receipt_creation",
+            ),
+            (
+                "missing-persist",
+                lambda _r, p: p.pop("receipt_persist_seconds"),
+                "transaction.receipt_creation",
+            ),
+            (
+                "missing-total",
+                lambda _r, p: p.pop("total_seconds"),
+                "transaction.total_apply",
+            ),
+        )
+        for label, mutate, expected_phase in cases:
+            with self.subTest(label=label):
+                changed_receipt = copy.deepcopy(receipt)
+                changed_process = copy.deepcopy(process_timings)
+                mutate(changed_receipt, changed_process)
+                records, failure = PHASE_PROFILER.native_transaction_phase_records(
+                    changed_receipt,
+                    changed_process,
+                    tree_seconds=0.5,
+                    tree_invocations=4,
+                )
+                self.assertEqual(failure, "transaction.native_timings")
+                self.assertEqual(records[expected_phase]["status"], "failed")
+                self.assertIsNone(records[expected_phase]["seconds"])
+                json.dumps(records, allow_nan=False, sort_keys=True)
+
+        records, failure = PHASE_PROFILER.native_transaction_phase_records(
+            receipt,
+            process_timings,
+            tree_seconds=0.0,
+            tree_invocations=0,
+        )
+        self.assertEqual(failure, "transaction.tree_state")
+        self.assertEqual(records["transaction.tree_state"]["status"], "failed")
+
+    def test_zero_file_phase_profile_uses_transaction_v3_native_timings(self) -> None:
+        result = subprocess.run(
+            [sys.executable, "-B", str(PHASE_SCRIPT), "--sizes", "0"],
+            cwd=SOURCE_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+            shell=False,
+            env=PHASE_PROFILER.child_environment(),
+            timeout=180,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr or result.stdout)
+        report = json.loads(result.stdout)
+        schema = json.loads(PHASE_SCHEMA.read_text(encoding="utf-8"))
+        self.assertEqual(
+            SOURCE_VALIDATOR.schema_issues(report, schema, "phase-profile"),
+            [],
+        )
+        self.assertEqual(report["execution_failures"], [])
+        phases = report["measurements"][0]["phases"]
+        self.assertTrue(
+            all(record["status"] == "measured" for record in phases.values())
+        )
 
     def test_series_preserves_cold_and_warm_samples_and_both_p90_values(self) -> None:
         series = BENCHMARK.empty_series()

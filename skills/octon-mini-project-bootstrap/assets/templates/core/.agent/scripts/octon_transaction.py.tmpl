@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import importlib.util
 import json
 import os
 import re
@@ -13,21 +14,125 @@ import shutil
 import stat
 import subprocess
 import tempfile
+import time
+import types
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 from typing import Any, Callable
 
 
 ROOT = Path(__file__).resolve().parents[2]
-PLAN_SCHEMA = "harness.transaction-plan.v2"
-RECEIPT_SCHEMA = "harness.transaction-receipt.v2"
+PLAN_SCHEMA = "harness.transaction-plan.v3"
+LEGACY_PLAN_SCHEMA = "harness.transaction-plan.v2"
+RECEIPT_SCHEMA = "harness.transaction-receipt.v3"
+LEGACY_RECEIPT_SCHEMA = "harness.transaction-receipt.v2"
 PENDING_SCHEMA = "harness.transaction-pending.v1"
 RECOVERY_SCHEMA = "harness.transaction-recovery.v1"
 ValidatePreview = Callable[[dict[str, bytes | None]], list[str]]
+LAST_PHASE_TIMINGS: dict[str, float] = {}
+SHELL_EXECUTABLES = {
+    "bash",
+    "cmd",
+    "cmd.exe",
+    "dash",
+    "fish",
+    "ksh",
+    "powershell",
+    "powershell.exe",
+    "pwsh",
+    "pwsh.exe",
+    "sh",
+    "zsh",
+}
 
 
-class TransactionError(ValueError):
+def _load_continuation():
+    candidates = (
+        Path(__file__).with_name("octon_continuation.py"),
+        Path(__file__).with_name("octon_continuation.py.tmpl"),
+    )
+    path = next((item for item in candidates if item.is_file()), None)
+    if path is None:
+        raise RuntimeError("continuation runtime is unavailable")
+    spec = importlib.util.spec_from_file_location("octon_transaction_continuation", path)
+    if spec is None or spec.loader is None:
+        module = types.ModuleType("octon_transaction_continuation")
+        module.__file__ = str(path)
+        exec(compile(path.read_text(encoding="utf-8"), str(path), "exec"), module.__dict__)
+        return module
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+CONTINUATION = _load_continuation()
+
+
+class TransactionError(CONTINUATION.ContinuationError):
     """Raised when a plan is ambiguous, stale, unsafe, or invalid."""
+
+    def __init__(self, value: str | dict[str, Any]):
+        report = value if isinstance(value, dict) else CONTINUATION.fallback(
+            value,
+            blocked_operation="transaction",
+            phase="plan",
+            next_argv=["./octon", "doctor"],
+            authority_source="transaction_plan_and_current_repository_state",
+        )
+        super().__init__(report)
+
+
+def transaction_error(
+    code: str,
+    *,
+    operation_name: str,
+    phase: str,
+    root_cause: str,
+    repair_class: str,
+    next_description: str,
+    next_argv: list[str],
+    next_read_only: bool | None = None,
+    authority_source: str = "transaction_plan_and_current_repository_state",
+    invalidated: list[dict[str, Any]] | None = None,
+    preserved: list[dict[str, Any]] | None = None,
+    successor_plan: bool = False,
+) -> TransactionError:
+    return TransactionError(
+        CONTINUATION.finding(
+            failure_code=code,
+            blocked_operation=operation_name,
+            phase=phase,
+            root_cause=root_cause,
+            authority_source=authority_source,
+            repair_class=repair_class,
+            next_action=CONTINUATION.action(
+                next_description,
+                next_argv,
+                read_only=(phase not in {"apply", "recover", "rollback"}) if next_read_only is None else next_read_only,
+                requires_confirmation=phase in {"apply", "recover", "rollback"},
+            ),
+            invalidated=invalidated or [],
+            preserved=preserved or [],
+            safe_read_only_actions=[
+                CONTINUATION.action(
+                    "Inspect current structural state.",
+                    ["./octon", "check", "--json"],
+                    read_only=True,
+                ),
+                CONTINUATION.action(
+                    "Inspect coded recovery guidance.",
+                    ["./octon", "doctor", "--json"],
+                    read_only=True,
+                ),
+            ],
+            successor_plan=successor_plan,
+            successor_reason=(
+                "A new immutable plan can be generated from current inputs and compared with this predecessor."
+                if successor_plan
+                else "The reported condition must be resolved before a successor plan is meaningful."
+            ),
+        )
+    )
 
 
 def utc_timestamp() -> str:
@@ -142,6 +247,79 @@ def instruction_fingerprint(root: Path) -> dict[str, Any]:
     }
 
 
+def project_identity(root: Path) -> dict[str, Any]:
+    """Bind a plan to one resolved target without disclosing its host path."""
+    resolved = root.resolve()
+    project_id = None
+    project_path = resolved / ".agent/project.json"
+    if project_path.is_file() and not project_path.is_symlink():
+        try:
+            value = json.loads(project_path.read_text(encoding="utf-8"))
+            candidate = value.get("project", {}).get("id") if isinstance(value, dict) else None
+            if isinstance(candidate, str) and candidate:
+                project_id = candidate
+        except (OSError, json.JSONDecodeError):
+            project_id = None
+    return {
+        "schema_version": "harness.project-identity.v1",
+        "binding": "canonical_resolved_root_sha256_v1",
+        "canonical_root_sha256": sha256(os.fsencode(str(resolved))),
+        "project_id": project_id,
+    }
+
+
+def validation_contract_issue(root: Path, value: Any) -> str | None:
+    required = {
+        "staged_argv",
+        "declared_write_paths",
+        "post_apply_argv",
+        "proof_reuse",
+        "shell_interpretation",
+        "external_effects",
+    }
+    if not isinstance(value, dict) or set(value) != required:
+        return "validation metadata does not use the closed v3 contract"
+    if value.get("shell_interpretation") is not False or value.get("external_effects") != []:
+        return "transaction validation must declare no shell interpretation or external effects"
+    if value.get("proof_reuse") not in {
+        "prohibited_at_consequential_gate",
+        "explicit_routine_only",
+    }:
+        return "transaction proof-reuse classification is invalid"
+    declared = value.get("declared_write_paths")
+    if (
+        not isinstance(declared, list)
+        or len(declared) != len(set(item for item in declared if isinstance(item, str)))
+    ):
+        return "declared validation write paths must be a unique array"
+    for relative in declared:
+        if not isinstance(relative, str):
+            return "declared validation write paths must be strings"
+        try:
+            confined_path(root, relative)
+        except TransactionError:
+            return f"declared validation write path is unsafe: {relative!r}"
+    for field in ("staged_argv", "post_apply_argv"):
+        commands = value.get(field)
+        if not isinstance(commands, list) or not commands:
+            return f"{field} must be a nonempty argv set"
+        for argv in commands:
+            if (
+                not isinstance(argv, list)
+                or not 1 <= len(argv) <= 128
+                or any(
+                    not isinstance(item, str)
+                    or not item.strip()
+                    or any(ord(character) < 32 or ord(character) == 127 for character in item)
+                    for item in argv
+                )
+            ):
+                return f"{field} contains an unsafe argv"
+            if Path(argv[0]).name.casefold() in SHELL_EXECUTABLES:
+                return f"{field} invokes a shell executable: {argv[0]}"
+    return None
+
+
 def source_evidence(
     kind: str,
     reference: str,
@@ -165,6 +343,7 @@ def operation(
     rationale: str,
     *,
     mode: int | None = 0o644,
+    bundle_member: str | None = None,
 ) -> dict[str, Any]:
     if action not in {"create", "replace", "delete"}:
         raise TransactionError(f"unsupported transaction action: {action}")
@@ -177,6 +356,7 @@ def operation(
         "content_base64": base64.b64encode(content).decode("ascii") if content is not None else None,
         "mode": mode,
         "rationale": rationale,
+        "bundle_member": bundle_member,
     }
 
 
@@ -208,9 +388,21 @@ def build_plan(
     evidence_paths: list[str] | None = None,
     analysis: dict[str, list[dict[str, Any]]] | None = None,
     planned_receipt_id: str | None = None,
+    predecessor_plan: tuple[dict[str, Any], Path] | None = None,
+    bundle: dict[str, Any] | None = None,
+    proof_reuse: str = "prohibited_at_consequential_gate",
+    bundle_authority_class: str = "repository_local_current_request",
+    bundle_freshness_boundary: str = "apply_revalidation",
 ) -> dict[str, Any]:
+    root = root.resolve()
     if not operations:
         raise TransactionError("a transaction plan requires at least one operation")
+    normalized_operations = []
+    for item in operations:
+        normalized = dict(item)
+        normalized.setdefault("bundle_member", None)
+        normalized_operations.append(normalized)
+    operations = normalized_operations
     operation_paths = [str(item.get("path")) for item in operations]
     if len(operation_paths) != len(set(operation_paths)):
         raise TransactionError("a transaction plan may operate on each path only once")
@@ -237,6 +429,26 @@ def build_plan(
     ]
     staged_argv = staged_validation_plan or legacy_validation
     post_argv = post_apply_validation_plan or legacy_validation
+    validation = {
+        "staged_argv": staged_argv,
+        "declared_write_paths": derived_paths,
+        "post_apply_argv": post_argv,
+        "proof_reuse": proof_reuse,
+        "shell_interpretation": False,
+        "external_effects": [],
+    }
+    validation_issue = validation_contract_issue(root, validation)
+    if validation_issue is not None:
+        raise transaction_error(
+            "OCTON-TXN-1007",
+            operation_name=operation_name,
+            phase="plan",
+            root_cause=validation_issue,
+            repair_class="manual_reconciliation_required",
+            next_description="Replace the validation command with an exact shell-free argv and review the successor plan.",
+            next_argv=["./octon", "doctor", "--json"],
+            successor_plan=True,
+        )
     proposal_analysis = analysis or empty_analysis()
     if set(proposal_analysis) != set(empty_analysis()) or any(
         not isinstance(proposal_analysis[key], list) for key in empty_analysis()
@@ -258,6 +470,7 @@ def build_plan(
         "assumptions": assumptions,
         "confidence": confidence,
         "limitations": limitations,
+        "project_identity": project_identity(root),
         "governing_instruction_fingerprint": instruction_fingerprint(root),
         "evidence_preimages": [
             path_state(root, path)
@@ -267,17 +480,38 @@ def build_plan(
         "operations": operations,
         "conflicts": conflicts or [],
         "excluded_paths": excluded_paths or [],
-        "validation": {
-            "staged_argv": staged_argv,
-            "declared_write_paths": derived_paths,
-            "post_apply_argv": post_argv,
-        },
+        "validation": validation,
         "rollback_plan": {
             "strategy": "receipt_embeds_exact_preimage",
             "refuse_if_post_apply_changed": True,
             "interruption_recovery": "write_ahead_pending_journal",
         },
+        "predecessor_plan": None,
+        "semantic_delta": None,
+        "bundle": bundle,
+        "effects": {
+            "repository_local": True,
+            "external": [],
+            "monotonic_external": False,
+        },
+        "bundle_requirements": {
+            "authority_class": bundle_authority_class,
+            "confirmation": "accept_exact_canonical_digest",
+            "freshness_boundary": bundle_freshness_boundary,
+            "reversibility": "exact_receipt_rollback",
+            "external_effects": [],
+        },
     }
+    if predecessor_plan is not None:
+        predecessor, predecessor_path = predecessor_plan
+        predecessor_digest = predecessor.get("canonical_plan_digest")
+        if predecessor.get("artifact_kind") != "transaction_plan" or not isinstance(predecessor_digest, str):
+            raise TransactionError("predecessor plan is malformed")
+        plan["predecessor_plan"] = {
+            "path": str(predecessor_path),
+            "canonical_plan_digest": predecessor_digest,
+        }
+        plan["semantic_delta"] = CONTINUATION.semantic_delta(predecessor, plan)
     plan["canonical_plan_digest"] = plan_digest(plan)
     return plan
 
@@ -287,14 +521,347 @@ def load_plan(path: Path) -> dict[str, Any]:
         value = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as error:
         raise TransactionError(f"cannot load transaction plan: {error}") from error
-    if not isinstance(value, dict) or value.get("schema_version") != PLAN_SCHEMA:
+    if not isinstance(value, dict) or value.get("schema_version") not in {PLAN_SCHEMA, LEGACY_PLAN_SCHEMA}:
         raise TransactionError("unsupported or malformed transaction plan")
     if value.get("permission_grant") is not False:
         raise TransactionError("transaction plan must be explicitly non-authorizing")
     expected = plan_digest(value)
     if value.get("canonical_plan_digest") != expected:
         raise TransactionError("transaction plan digest is invalid")
+    if value.get("schema_version") == PLAN_SCHEMA:
+        issue = validation_contract_issue(Path.cwd(), value.get("validation"))
+        if issue is not None:
+            raise transaction_error(
+                "OCTON-TXN-2007",
+                operation_name=str(value.get("operation", "transaction")),
+                phase="revalidate",
+                root_cause=issue,
+                repair_class="replan_required",
+                next_description="Create and review a successor with exact shell-free validation argv.",
+                next_argv=["./octon", "doctor", "--json"],
+                successor_plan=True,
+            )
     return value
+
+
+def _authority_sources(plan: dict[str, Any]) -> list[str]:
+    sources: set[str] = set()
+    analysis = plan.get("analysis", {})
+    for item in analysis.get("authorization_gates", []) if isinstance(analysis, dict) else []:
+        if not isinstance(item, dict):
+            continue
+        for reference in item.get("source_refs", []):
+            if isinstance(reference, str) and reference:
+                sources.add(reference)
+    return sorted(sources)
+
+
+def build_bundle_plan(
+    root: Path,
+    members: list[tuple[str, dict[str, Any]]],
+    *,
+    authority_sources: list[str] | None = None,
+) -> dict[str, Any]:
+    """Combine compatible repository-local plans into one stage and receipt."""
+    if len(members) < 2:
+        raise transaction_error(
+            "OCTON-BUNDLE-3001",
+            operation_name="transaction.bundle",
+            phase="plan",
+            root_cause="A safe bundle requires at least two reviewed member plans.",
+            repair_class="input_required",
+            next_description="Supply at least two exact member plans.",
+            next_argv=["./octon", "transaction", "bundle", "plan", "--help"],
+        )
+    member_ids = [identifier for identifier, _ in members]
+    explicit_authority = sorted(set(authority_sources or []))
+    if explicit_authority and any(
+        not item.startswith(("authority:", "external:"))
+        for item in explicit_authority
+    ):
+        raise TransactionError("bundle authority sources must use authority: or external: references")
+    if len(member_ids) != len(set(member_ids)) or any(
+        re.fullmatch(r"[a-z][a-z0-9_.-]+", identifier) is None
+        for identifier in member_ids
+    ):
+        raise TransactionError("bundle member identities must be unique stable lowercase names")
+    current_instruction = instruction_fingerprint(root)
+    current_project_identity = project_identity(root)
+    authority_sets: list[list[str]] = []
+    bundle_requirement_sets: list[dict[str, Any]] = []
+    seen_paths: set[str] = set()
+    operations: list[dict[str, Any]] = []
+    evidence: list[dict[str, Any]] = []
+    evidence_paths: list[str] = []
+    assumptions: list[str] = []
+    limitations: list[str] = []
+    conflicts: list[str] = []
+    excluded_paths: list[str] = []
+    derived_paths: list[str] = []
+    staged_argv: list[list[str]] = []
+    post_argv: list[list[str]] = []
+    analysis = empty_analysis()
+    bundle_members: list[dict[str, Any]] = []
+    for identifier, plan in members:
+        if plan.get("artifact_kind") != "transaction_plan" or plan.get("permission_grant") is not False:
+            raise TransactionError(f"bundle member is not a non-authorizing transaction plan: {identifier}")
+        if plan.get("schema_version") != PLAN_SCHEMA:
+            raise transaction_error(
+                "OCTON-BUNDLE-3009",
+                operation_name="transaction.bundle",
+                phase="revalidate",
+                root_cause=f"Bundle member {identifier} uses a predecessor transaction schema and lacks current bundle/effect/freshness bindings.",
+                repair_class="replan_required",
+                next_description="Create a reviewed v3 successor for the predecessor plan before bundling.",
+                next_argv=["./octon", "doctor", "--json"],
+                successor_plan=True,
+            )
+        if plan.get("canonical_plan_digest") != plan_digest(plan):
+            raise TransactionError(f"bundle member canonical digest is invalid: {identifier}")
+        if plan.get("project_identity") != current_project_identity:
+            raise transaction_error(
+                "OCTON-BUNDLE-3010",
+                operation_name="transaction.bundle",
+                phase="revalidate",
+                root_cause=f"Bundle member {identifier} was planned for a different target project identity.",
+                repair_class="replan_required",
+                next_description="Create a reviewed member plan from this exact project before bundling.",
+                next_argv=["./octon", "doctor", "--json"],
+                successor_plan=True,
+            )
+        if plan.get("bundle") is not None:
+            raise TransactionError(f"nested transaction bundles are prohibited: {identifier}")
+        if plan.get("governing_instruction_fingerprint") != current_instruction:
+            raise transaction_error(
+                "OCTON-BUNDLE-3002",
+                operation_name="transaction.bundle",
+                phase="plan",
+                root_cause=f"Bundle member {identifier} has a different or stale governing-instruction fingerprint.",
+                repair_class="replan_required",
+                next_description="Re-plan the stale member from current instructions.",
+                next_argv=["./octon", "doctor", "--json"],
+                successor_plan=True,
+            )
+        stale_references = [
+            item["path"]
+            for item in [
+                *plan.get("evidence_preimages", []),
+                *plan.get("targets", []),
+            ]
+            if path_state(root, item["path"]) != item
+        ]
+        if stale_references or plan.get("conflicts"):
+            raise transaction_error(
+                "OCTON-BUNDLE-3008",
+                operation_name="transaction.bundle",
+                phase="revalidate",
+                root_cause=(
+                    f"Bundle member {identifier} is stale or conflicted: "
+                    + ", ".join(stale_references or plan.get("conflicts", []))
+                ),
+                repair_class="replan_required",
+                next_description="Create and review a current immutable successor for the stale member.",
+                next_argv=["./octon", "doctor", "--json"],
+                successor_plan=True,
+            )
+        effects = plan.get("effects", {"repository_local": True, "external": [], "monotonic_external": False})
+        if (
+            not isinstance(effects, dict)
+            or effects.get("repository_local") is not True
+            or effects.get("external")
+            or effects.get("monotonic_external") is not False
+        ):
+            raise transaction_error(
+                "OCTON-BUNDLE-3003",
+                operation_name="transaction.bundle",
+                phase="plan",
+                root_cause=f"Bundle member {identifier} crosses the repository-local reversible boundary.",
+                repair_class="manual_reconciliation_required",
+                next_description="Inspect the separate exact transaction-apply interface for this non-bundle member.",
+                next_argv=["./octon", "transaction", "apply", "--help"],
+            )
+        sources = _authority_sources(plan)
+        if sources and explicit_authority and sources != explicit_authority:
+            raise transaction_error(
+                "OCTON-BUNDLE-3006",
+                operation_name="transaction.bundle",
+                phase="review",
+                root_cause=f"Bundle member {identifier} authority sources differ from the explicit common bundle authority.",
+                repair_class="manual_reconciliation_required",
+                next_description="Apply differently authorized member plans separately.",
+                next_argv=["./octon", "transaction", "apply", "--help"],
+            )
+        if not sources:
+            sources = explicit_authority
+        if not sources:
+            raise transaction_error(
+                "OCTON-BUNDLE-3004",
+                operation_name="transaction.bundle",
+                phase="review",
+                root_cause=f"Bundle member {identifier} has no explicit compatible authority source in its authorization gates.",
+                repair_class="project_decision_required",
+                next_description="Re-plan the member with its current authority source recorded.",
+                next_argv=["./octon", "doctor", "--json"],
+                successor_plan=True,
+            )
+        authority_sets.append(sources)
+        requirements = plan.get(
+            "bundle_requirements",
+            {
+                "authority_class": "repository_local_current_request",
+                "confirmation": "accept_exact_canonical_digest",
+                "freshness_boundary": "apply_revalidation",
+                "reversibility": "exact_receipt_rollback",
+                "external_effects": [],
+            },
+        )
+        if not isinstance(requirements, dict) or requirements.get("external_effects"):
+            raise TransactionError(f"bundle member {identifier} has invalid or external confirmation requirements")
+        bundle_requirement_sets.append(requirements)
+        member_paths = [str(item.get("path")) for item in plan.get("targets", [])]
+        overlap = sorted(seen_paths & set(member_paths))
+        if overlap:
+            raise transaction_error(
+                "OCTON-BUNDLE-3005",
+                operation_name="transaction.bundle",
+                phase="plan",
+                root_cause="Bundle members overlap or contradict path operations: " + ", ".join(overlap),
+                repair_class="manual_reconciliation_required",
+                next_description="Split or reconcile the overlapping member plans.",
+                next_argv=["./octon", "transaction", "bundle", "plan", "--help"],
+            )
+        seen_paths.update(member_paths)
+        for item in plan.get("operations", []):
+            operations.append({**item, "bundle_member": identifier})
+        evidence.extend(item for item in plan.get("source_evidence", []) if item not in evidence)
+        evidence.append(
+            source_evidence(
+                "bundle_member_plan",
+                f"{identifier}:{plan['canonical_plan_digest']}",
+                content=canonical_bytes(plan),
+                limitations=[
+                    "The member plan is non-authorizing and was current when the bundle was planned."
+                ],
+            )
+        )
+        evidence_paths.extend(item["path"] for item in plan.get("evidence_preimages", []) if item.get("path") not in evidence_paths)
+        assumptions.extend(item for item in plan.get("assumptions", []) if item not in assumptions)
+        limitations.extend(item for item in plan.get("limitations", []) if item not in limitations)
+        conflicts.extend(item for item in plan.get("conflicts", []) if item not in conflicts)
+        excluded_paths.extend(item for item in plan.get("excluded_paths", []) if item not in excluded_paths)
+        validation = plan.get("validation", {})
+        validation_issue = validation_contract_issue(root, validation)
+        if validation_issue is not None:
+            raise transaction_error(
+                "OCTON-BUNDLE-3003",
+                operation_name="transaction.bundle",
+                phase="plan",
+                root_cause=f"Bundle member {identifier} has unsafe validation metadata: {validation_issue}.",
+                repair_class="manual_reconciliation_required",
+                next_description="Apply the externally effective member separately.",
+                next_argv=["./octon", "transaction", "apply", "--help"],
+            )
+        derived_paths.extend(item for item in validation.get("declared_write_paths", []) if item not in derived_paths)
+        staged_argv.extend(item for item in validation.get("staged_argv", []) if item not in staged_argv)
+        post_argv.extend(item for item in validation.get("post_apply_argv", []) if item not in post_argv)
+        for category in analysis:
+            for item in plan.get("analysis", {}).get(category, []):
+                copied = dict(item)
+                copied["id"] = f"{identifier}.{copied.get('id', category)}"
+                analysis[category].append(copied)
+        bundle_members.append(
+            {
+                "id": identifier,
+                "operation": str(plan.get("operation")),
+                "paths": sorted(member_paths),
+                "authority_sources": sources,
+                "freshness_fingerprint": "",
+                "reversibility": "exact_receipt_rollback",
+                "external_effects": [],
+                "project_identity_digest": sha256(
+                    canonical_bytes(plan["project_identity"])
+                ),
+            }
+        )
+    if any(item != authority_sets[0] for item in authority_sets[1:]):
+        raise transaction_error(
+            "OCTON-BUNDLE-3006",
+            operation_name="transaction.bundle",
+            phase="review",
+            root_cause="Bundle members have different authority owners or source requirements.",
+            repair_class="manual_reconciliation_required",
+            next_description="Apply differently authorized member plans separately.",
+            next_argv=["./octon", "transaction", "apply", "--help"],
+        )
+    if any(item != bundle_requirement_sets[0] for item in bundle_requirement_sets[1:]):
+        raise transaction_error(
+            "OCTON-BUNDLE-3007",
+            operation_name="transaction.bundle",
+            phase="review",
+            root_cause="Bundle members have incompatible confirmation, freshness, authority-class, or reversibility requirements.",
+            repair_class="manual_reconciliation_required",
+            next_description="Apply members with incompatible freshness or confirmation boundaries separately.",
+            next_argv=["./octon", "transaction", "apply", "--help"],
+        )
+    freshness = sha256(
+        canonical_bytes(
+            {
+                "instructions": current_instruction,
+                "evidence_preimages": sorted(
+                    (
+                        item.get("path"),
+                        item.get("type"),
+                        item.get("sha256"),
+                    )
+                    for _, plan in members
+                    for item in plan.get("evidence_preimages", [])
+                ),
+            }
+        )
+    )
+    for item in bundle_members:
+        item["freshness_fingerprint"] = freshness
+    bundle = {
+        "schema_version": "harness.transaction-bundle.v1",
+        "project_root": ".",
+        "project_identity": current_project_identity,
+        "atomic_boundary": "single_stage_single_receipt_single_rollback",
+        "members": bundle_members,
+    }
+    if explicit_authority:
+        analysis["authorization_gates"].append(
+            {
+                "id": "bundle.explicit_common_authority",
+                "summary": "The bundle records one explicit common repository-local authority source set without creating permission.",
+                "source_refs": explicit_authority,
+                "rule": "compatible_authority_required_for_every_bundle_member",
+                "confidence": "deterministic",
+                "limitations": [
+                    "This plan metadata is non-authorizing and does not supply external or runtime authority."
+                ],
+            }
+        )
+    return build_plan(
+        root,
+        operation_name="bundle.repository_local",
+        scope="Atomic bundle of: " + ", ".join(member_ids),
+        operations=operations,
+        evidence=evidence,
+        assumptions=assumptions,
+        confidence="deterministic",
+        limitations=limitations
+        + ["The bundle is non-authorizing and contains no external or monotonic effects."],
+        conflicts=conflicts,
+        excluded_paths=excluded_paths,
+        staged_validation_plan=staged_argv,
+        post_apply_validation_plan=post_argv,
+        derived_write_paths=derived_paths,
+        evidence_paths=evidence_paths,
+        analysis=analysis,
+        bundle=bundle,
+        bundle_authority_class=bundle_requirement_sets[0]["authority_class"],
+        bundle_freshness_boundary=bundle_requirement_sets[0]["freshness_boundary"],
+    )
 
 
 def write_new_json(path: Path, value: object) -> None:
@@ -527,6 +1094,8 @@ def _run_commands(
     *,
     phase: str,
     declared_writes: list[str],
+    operation_name: str,
+    plan_digest_value: str,
     active_pending: tuple[str, str] | None = None,
 ) -> list[dict[str, Any]]:
     before = _tree_state(root)
@@ -540,14 +1109,47 @@ def _run_commands(
                     "OCTON_MINI_ACTIVE_TRANSACTION_PLAN_DIGEST": active_pending[1],
                 }
             )
-        result = subprocess.run(
-            argv,
-            cwd=root,
-            capture_output=True,
-            check=False,
-            shell=False,
-            env=environment,
-        )
+        command_started = time.perf_counter()
+        try:
+            result = subprocess.run(
+                argv,
+                cwd=root,
+                capture_output=True,
+                check=False,
+                shell=False,
+                env=environment,
+            )
+        except OSError as error:
+            raise transaction_error(
+                "OCTON-TXN-2201",
+                operation_name=operation_name,
+                phase="validate",
+                root_cause=(
+                    f"{phase} validation command could not start: "
+                    f"{json.dumps(argv, ensure_ascii=False)}: {error}"
+                ),
+                repair_class="replan_required",
+                next_description="Inspect current diagnostics, repair the validation command or its owned inputs, and create a successor plan.",
+                next_argv=["./octon", "doctor", "--json"],
+                invalidated=[
+                    CONTINUATION.proof_state(
+                        "validation_proof",
+                        f"{phase}:{json.dumps(argv, ensure_ascii=False)}",
+                        "The declared validation command could not be executed.",
+                        ["source_fingerprint_bound"],
+                    )
+                ],
+                preserved=[
+                    CONTINUATION.proof_state(
+                        "plan",
+                        plan_digest_value,
+                        "The exact predecessor plan remains immutable comparison evidence.",
+                        ["source_fingerprint_bound"],
+                    )
+                ],
+                successor_plan=True,
+            ) from error
+        duration = time.perf_counter() - command_started
         results.append(
             {
                 "phase": phase,
@@ -555,13 +1157,38 @@ def _run_commands(
                 "exit_code": result.returncode,
                 "stdout_sha256": sha256(result.stdout),
                 "stderr_sha256": sha256(result.stderr),
+                "duration_seconds": round(duration, 9),
             }
         )
         if result.returncode:
-            detail = result.stderr.decode("utf-8", errors="replace").strip()
-            raise TransactionError(
-                f"{phase} validation failed"
-                + (f": {detail[:4000]}" if detail else "")
+            raise transaction_error(
+                "OCTON-TXN-2201",
+                operation_name=operation_name,
+                phase="validate",
+                root_cause=(
+                    f"{phase} validation command {json.dumps(argv, ensure_ascii=False)} "
+                    f"exited {result.returncode}; stderr sha256={sha256(result.stderr)}."
+                ),
+                repair_class="replan_required",
+                next_description="Inspect current diagnostics, repair the validation failure, and create a successor plan.",
+                next_argv=["./octon", "doctor", "--json"],
+                invalidated=[
+                    CONTINUATION.proof_state(
+                        "validation_proof",
+                        f"{phase}:{json.dumps(argv, ensure_ascii=False)}",
+                        "This validation conclusion failed for the exact planned inputs.",
+                        ["source_fingerprint_bound"],
+                    )
+                ],
+                preserved=[
+                    CONTINUATION.proof_state(
+                        "plan",
+                        plan_digest_value,
+                        "The exact predecessor plan remains immutable comparison evidence.",
+                        ["source_fingerprint_bound"],
+                    )
+                ],
+                successor_plan=True,
             )
     after = _tree_state(root)
     changed = sorted(
@@ -569,8 +1196,35 @@ def _run_commands(
     )
     unexpected = [item for item in changed if not _allowed_change(item, declared_writes)]
     if unexpected:
-        raise TransactionError(
-            f"{phase} validation wrote outside its declared paths: " + ", ".join(unexpected[:20])
+        raise transaction_error(
+            "OCTON-TXN-2202",
+            operation_name=operation_name,
+            phase="validate",
+            root_cause=(
+                f"{phase} validation wrote outside its declared paths: "
+                + ", ".join(unexpected[:20])
+            ),
+            repair_class="replan_required",
+            next_description="Remove the undeclared validation writes or declare a compatible isolated boundary, then create a successor plan.",
+            next_argv=["./octon", "doctor", "--json"],
+            invalidated=[
+                CONTINUATION.proof_state(
+                    "validation_proof",
+                    f"{phase}:declared-write-boundary",
+                    "Validation changed paths outside its exact declared scope: "
+                    + ", ".join(unexpected[:20]),
+                    ["source_fingerprint_bound"],
+                )
+            ],
+            preserved=[
+                CONTINUATION.proof_state(
+                    "plan",
+                    plan_digest_value,
+                    "The exact predecessor plan remains immutable comparison evidence.",
+                    ["source_fingerprint_bound"],
+                )
+            ],
+            successor_plan=True,
         )
     return results
 
@@ -592,23 +1246,29 @@ def _staged_result(
     root: Path,
     plan: dict[str, Any],
     decoded: dict[str, bytes | None],
-) -> tuple[dict[str, tuple[bytes | None, int | None]], list[dict[str, Any]]]:
+) -> tuple[dict[str, tuple[bytes | None, int | None]], list[dict[str, Any]], dict[str, float]]:
     with tempfile.TemporaryDirectory(prefix="octon-mini-transaction-") as temporary:
         stage = Path(temporary) / "project"
+        staging_started = time.perf_counter()
         _clone_for_staging(root, stage)
+        staging_seconds = time.perf_counter() - staging_started
         _apply_static(stage, plan, decoded)
         validation = plan["validation"]
         declared = list(validation["declared_write_paths"])
+        validation_started = time.perf_counter()
         results = _run_commands(
             stage,
             validation["staged_argv"],
             phase="staged",
             declared_writes=declared,
+            operation_name=str(plan["operation"]),
+            plan_digest_value=str(plan["canonical_plan_digest"]),
             active_pending=(
                 str(plan["planned_receipt_id"]),
                 str(plan["canonical_plan_digest"]),
             ),
         )
+        staged_validation_seconds = time.perf_counter() - validation_started
         outcomes: dict[str, tuple[bytes | None, int | None]] = {}
         for relative in (item["path"] for item in plan["targets"]):
             state = path_state(stage, relative)
@@ -623,7 +1283,41 @@ def _staged_result(
                 raise TransactionError(
                     f"staged output is not a regular file: {relative} ({state['type']})"
                 )
-        return outcomes, results
+        refresh_seconds = sum(
+            float(item.get("duration_seconds", 0.0))
+            for item in results
+            if any("refresh" in str(part).casefold() for part in item.get("argv", []))
+        )
+        return outcomes, results, {
+            "staging_seconds": round(staging_seconds, 9),
+            "refresh_seconds": round(refresh_seconds, 9),
+            "staged_validation_seconds": round(staged_validation_seconds, 9),
+        }
+
+
+def _run_post_apply_isolated(
+    root: Path,
+    commands: list[list[str]],
+    *,
+    active_pending: tuple[str, str],
+    operation_name: str,
+    plan_digest_value: str,
+) -> list[dict[str, Any]]:
+    """Validate an exact post-apply clone so a bad validator cannot mutate live state."""
+    with tempfile.TemporaryDirectory(
+        prefix="octon-mini-post-apply-validation-"
+    ) as temporary:
+        isolated = Path(temporary) / "project"
+        _clone_for_staging(root, isolated)
+        return _run_commands(
+            isolated,
+            commands,
+            phase="post_apply",
+            declared_writes=[],
+            operation_name=operation_name,
+            plan_digest_value=plan_digest_value,
+            active_pending=active_pending,
+        )
 
 
 def _planned_outcomes(
@@ -751,34 +1445,128 @@ def apply_plan(
     *,
     validate_preview: ValidatePreview | None = None,
 ) -> tuple[dict[str, Any], Path]:
+    LAST_PHASE_TIMINGS.clear()
+    total_started = time.perf_counter()
     root = root.resolve()
     pending_root = root / ".agent/transactions/pending"
-    if pending_root.is_dir() and any(pending_root.iterdir()):
-        raise TransactionError(
-            "an interrupted transaction is pending; run explicit transaction recovery before applying another plan"
+    pending_paths = sorted(pending_root.iterdir()) if pending_root.is_dir() else []
+    if pending_paths:
+        pending_reference = pending_paths[0].relative_to(root).as_posix()
+        raise transaction_error(
+            "OCTON-TXN-2101",
+            operation_name=str(plan.get("operation", "transaction")),
+            phase="apply",
+            root_cause="An interrupted transaction is pending; another mutation cannot begin until exact recovery completes.",
+            repair_class="explicit_recovery_required",
+            next_description="Recover the exact pending write-ahead journal.",
+            next_argv=["./octon", "transaction", "recover", "--pending", pending_reference],
+            authority_source=".agent/transactions/pending",
+        )
+    if plan.get("schema_version") == LEGACY_PLAN_SCHEMA:
+        raise transaction_error(
+            "OCTON-TXN-2006",
+            operation_name=str(plan.get("operation", "transaction")),
+            phase="revalidate",
+            root_cause="Transaction-plan v2 is an immutable predecessor and lacks current continuation, effect, freshness, and bundle bindings.",
+            repair_class="replan_required",
+            next_description="Create and review a transaction-plan v3 successor before apply.",
+            next_argv=["./octon", "doctor", "--json"],
+            preserved=[CONTINUATION.proof_state("plan", str(plan.get("canonical_plan_digest", "unknown")), "The v2 plan remains immutable predecessor evidence.", ["source_fingerprint_bound"])],
+            successor_plan=True,
         )
     digest = plan_digest(plan)
     if plan.get("canonical_plan_digest") != digest or accepted_digest != digest:
-        raise TransactionError("apply requires the exact reviewed canonical plan digest")
+        raise transaction_error(
+            "OCTON-TXN-2001",
+            operation_name=str(plan.get("operation", "transaction")),
+            phase="confirm",
+            root_cause="Apply did not receive the exact canonical digest of the reviewed plan bytes.",
+            repair_class="review_required",
+            next_description="Inspect the current diagnostic and plan location before retrying exact apply.",
+            next_argv=["./octon", "doctor", "--json"],
+            invalidated=[CONTINUATION.proof_state("plan", "accepted-digest", "The supplied confirmation does not bind these exact plan bytes.", ["source_fingerprint_bound"])],
+            preserved=[CONTINUATION.proof_state("plan", str(plan.get("canonical_plan_digest", "unknown")), "The immutable plan remains available for review.", ["source_fingerprint_bound"])],
+        )
+    validation_issue = validation_contract_issue(root, plan.get("validation"))
+    if validation_issue is not None:
+        raise transaction_error(
+            "OCTON-TXN-2007",
+            operation_name=str(plan.get("operation", "transaction")),
+            phase="revalidate",
+            root_cause=validation_issue,
+            repair_class="replan_required",
+            next_description="Create and review a successor with exact shell-free validation argv.",
+            next_argv=["./octon", "doctor", "--json"],
+            successor_plan=True,
+        )
+    if plan.get("project_identity") != project_identity(root):
+        raise transaction_error(
+            "OCTON-TXN-2008",
+            operation_name=str(plan.get("operation", "transaction")),
+            phase="revalidate",
+            root_cause="The transaction plan is bound to a different target project identity.",
+            repair_class="replan_required",
+            next_description="Create and review a successor plan for this exact target project.",
+            next_argv=["./octon", "doctor", "--json"],
+            successor_plan=True,
+        )
     if plan.get("conflicts"):
-        raise TransactionError("plan has unresolved conflicts and cannot be applied")
+        raise transaction_error(
+            "OCTON-TXN-2005",
+            operation_name=str(plan.get("operation", "transaction")),
+            phase="review",
+            root_cause="The reviewed plan still contains unresolved collisions or conflicts.",
+            repair_class="review_required",
+            next_description="Review and disposition the exact recorded conflict set, then create a successor plan.",
+            next_argv=["./octon", "doctor", "--json"],
+            successor_plan=True,
+        )
     if instruction_fingerprint(root) != plan.get("governing_instruction_fingerprint"):
-        raise TransactionError("governing instructions changed after planning; re-plan")
+        raise transaction_error(
+            "OCTON-TXN-2002",
+            operation_name=str(plan.get("operation", "transaction")),
+            phase="revalidate",
+            root_cause="Governing instructions changed after planning.",
+            repair_class="replan_required",
+            next_description="Create an immutable successor plan from the current instructions.",
+            next_argv=["./octon", "doctor", "--json"],
+            invalidated=[CONTINUATION.proof_state("instruction", "governing-instruction-fingerprint", "The recorded fingerprint no longer matches current applicable instructions.", ["source_fingerprint_bound"])],
+            preserved=[CONTINUATION.proof_state("plan", digest, "The predecessor remains immutable comparison evidence.", ["source_fingerprint_bound"])],
+            successor_plan=True,
+        )
     for expected in plan.get("evidence_preimages", []):
         if path_state(root, expected["path"]) != expected:
-            raise TransactionError(
-                f"transaction source evidence changed after planning: {expected['path']}"
+            raise transaction_error(
+                "OCTON-TXN-2003",
+                operation_name=str(plan.get("operation", "transaction")),
+                phase="revalidate",
+                root_cause=f"Transaction source evidence changed after planning: {expected['path']}",
+                repair_class="replan_required",
+                next_description="Re-plan from current evidence and review the semantic delta.",
+                next_argv=["./octon", "doctor", "--json"],
+                invalidated=[CONTINUATION.proof_state("evidence", expected["path"], "The exact evidence preimage changed.", ["source_fingerprint_bound"])],
+                successor_plan=True,
             )
     for expected in plan["targets"]:
         if path_state(root, expected["path"]) != expected:
-            raise TransactionError(f"transaction target changed after planning: {expected['path']}")
+            raise transaction_error(
+                "OCTON-TXN-2004",
+                operation_name=str(plan.get("operation", "transaction")),
+                phase="revalidate",
+                root_cause=f"Transaction target changed after planning: {expected['path']}",
+                repair_class="replan_required",
+                next_description="Re-plan from the current target and review the changed path.",
+                next_argv=["./octon", "doctor", "--json"],
+                invalidated=[CONTINUATION.proof_state("target", expected["path"], "The exact target preimage changed.", ["source_fingerprint_bound"])],
+                successor_plan=True,
+            )
     decoded = _decode_operations(plan)
     if validate_preview is not None:
         preview_errors = validate_preview(decoded)
         if preview_errors:
             raise TransactionError("operation preview validation failed: " + "; ".join(preview_errors))
 
-    staged_outcomes, staged_results = _staged_result(root, plan, decoded)
+    staged_outcomes, staged_results, stage_timings = _staged_result(root, plan, decoded)
     outcomes = _planned_outcomes(plan, decoded, staged_outcomes)
     receipt_paths = _receipt_paths(root, plan, outcomes)
     created_directories = _created_parent_directories(
@@ -794,6 +1582,8 @@ def apply_plan(
         root, receipt_id, plan, receipt_paths, created_directories
     )
     validation_results = list(staged_results)
+    apply_started = time.perf_counter()
+    post_apply_validation_seconds = 0.0
     try:
         _apply_static(root, plan, decoded)
         for relative in plan["validation"]["declared_write_paths"]:
@@ -809,24 +1599,36 @@ def apply_plan(
                 raise TransactionError(
                     f"live transaction result differs from its staged postimage: {item['path']}"
                 )
+        apply_seconds = time.perf_counter() - apply_started
+        post_validation_started = time.perf_counter()
         validation_results.extend(
-            _run_commands(
+            _run_post_apply_isolated(
                 root,
                 plan["validation"]["post_apply_argv"],
-                phase="post_apply",
-                declared_writes=[],
                 active_pending=(receipt_id, digest),
+                operation_name=str(plan["operation"]),
+                plan_digest_value=digest,
             )
         )
-    except BaseException:
+        post_apply_validation_seconds = time.perf_counter() - post_validation_started
+    except BaseException as error:
         _restore(root, receipt_paths, created_directories)
         pending_path.unlink(missing_ok=True)
         _remove_empty_directories(
             root,
             [".agent/transactions/pending", ".agent/transactions"],
         )
+        report = getattr(error, "report", None)
+        if isinstance(report, dict):
+            report["mutation"] = {
+                "occurred": True,
+                "repository_paths": sorted(item["path"] for item in receipt_paths),
+                "external_effects": [],
+                "statement": "Live mutation began, then exact preimages were restored; no lasting target change remains.",
+            }
         raise
 
+    receipt_preparation_started = time.perf_counter()
     receipt = {
         "schema_version": RECEIPT_SCHEMA,
         "artifact_kind": "transaction_receipt",
@@ -839,6 +1641,14 @@ def apply_plan(
         "paths": receipt_paths,
         "created_directories": created_directories,
         "validation": validation_results,
+        "bundle": plan.get("bundle"),
+        "timings": {
+            **stage_timings,
+            "apply_seconds": round(apply_seconds, 9),
+            "post_apply_validation_seconds": round(post_apply_validation_seconds, 9),
+            "receipt_preparation_seconds": 0.0,
+            "total_before_receipt_persist_seconds": 0.0,
+        },
         "rollback": {
             "available": True,
             "refuse_if_post_apply_changed": True,
@@ -853,14 +1663,30 @@ def apply_plan(
             ],
         },
     }
+    receipt["timings"]["receipt_preparation_seconds"] = round(
+        time.perf_counter() - receipt_preparation_started, 9
+    )
+    receipt["timings"]["total_before_receipt_persist_seconds"] = round(
+        time.perf_counter() - total_started, 9
+    )
     receipt_path = confined_path(
         root, f".agent/transactions/receipts/{receipt_id}.json"
     )
     try:
+        receipt_persist_started = time.perf_counter()
         write_new_json(receipt_path, receipt)
+        receipt_persist_seconds = time.perf_counter() - receipt_persist_started
     except BaseException:
         _restore(root, receipt_paths, created_directories)
         raise
+    LAST_PHASE_TIMINGS.clear()
+    LAST_PHASE_TIMINGS.update(
+        {
+            **receipt["timings"],
+            "receipt_persist_seconds": round(receipt_persist_seconds, 9),
+            "total_seconds": round(time.perf_counter() - total_started, 9),
+        }
+    )
     pending_path.unlink(missing_ok=True)
     return receipt, receipt_path
 
@@ -873,16 +1699,23 @@ def rollback(root: Path, receipt_path: Path) -> dict[str, Any]:
         raise TransactionError(f"cannot load receipt: {error}") from error
     if (
         not isinstance(receipt, dict)
-        or receipt.get("schema_version") != RECEIPT_SCHEMA
+        or receipt.get("schema_version") not in {RECEIPT_SCHEMA, LEGACY_RECEIPT_SCHEMA}
         or receipt.get("status") not in {"applied", "rollback_in_progress"}
         or receipt.get("permission_grant") is not False
     ):
-        raise TransactionError("receipt is not an applied or resumable v2 transaction receipt")
+        raise TransactionError("receipt is not an applied or resumable supported transaction receipt")
     if receipt["status"] == "applied":
         for item in receipt["paths"]:
             if path_state(root, item["path"]) != item["after"]:
-                raise TransactionError(
-                    f"rollback refused because a post-apply path changed: {item['path']}"
+                raise transaction_error(
+                    "OCTON-TXN-2102",
+                    operation_name=str(receipt.get("operation", "transaction.rollback")),
+                    phase="rollback",
+                    root_cause=f"Rollback refused because a post-apply path changed independently: {item['path']}",
+                    repair_class="manual_reconciliation_required",
+                    next_description="Inspect current recovery state without changing it.",
+                    next_argv=["./octon", "doctor", "--json"],
+                    invalidated=[CONTINUATION.proof_state("target", item["path"], "The current path no longer matches the receipted postimage.", ["source_fingerprint_bound"])],
                 )
         receipt["status"] = "rollback_in_progress"
         _atomic_write(
@@ -894,8 +1727,15 @@ def rollback(root: Path, receipt_path: Path) -> dict[str, Any]:
         for item in receipt["paths"]:
             current = path_state(root, item["path"])
             if current not in (item["before"], item["after"]):
-                raise TransactionError(
-                    f"rollback resume refused because a path changed independently: {item['path']}"
+                raise transaction_error(
+                    "OCTON-TXN-2102",
+                    operation_name=str(receipt.get("operation", "transaction.rollback")),
+                    phase="rollback",
+                    root_cause=f"Rollback resume refused because a path changed independently: {item['path']}",
+                    repair_class="manual_reconciliation_required",
+                    next_description="Inspect current recovery state without changing it.",
+                    next_argv=["./octon", "doctor", "--json"],
+                    invalidated=[CONTINUATION.proof_state("target", item["path"], "The current path matches neither the receipt preimage nor postimage.", ["source_fingerprint_bound"])],
                 )
     _restore(root, receipt["paths"], receipt.get("created_directories", []))
     receipt["status"] = "rolled_back"
@@ -939,7 +1779,7 @@ def recover_pending(root: Path, pending_path: Path) -> dict[str, Any]:
             raise TransactionError(f"cannot load existing transaction receipt: {error}") from error
         if (
             not isinstance(receipt, dict)
-            or receipt.get("schema_version") != RECEIPT_SCHEMA
+            or receipt.get("schema_version") not in {RECEIPT_SCHEMA, LEGACY_RECEIPT_SCHEMA}
             or receipt.get("permission_grant") is not False
             or receipt.get("receipt_id") != pending.get("receipt_id")
             or receipt.get("operation") != pending.get("operation")
@@ -990,8 +1830,15 @@ def recover_pending(root: Path, pending_path: Path) -> dict[str, Any]:
         if item.get("after") is not None:
             allowed.append(item.get("after"))
         if current not in allowed:
-            raise TransactionError(
-                f"interruption recovery refused because a target changed independently: {item['path']}"
+            raise transaction_error(
+                "OCTON-TXN-2103",
+                operation_name=str(pending.get("operation", "transaction.recover")),
+                phase="recover",
+                root_cause=f"Interruption recovery refused because a target changed independently: {item['path']}",
+                repair_class="manual_reconciliation_required",
+                next_description="Inspect current recovery state without changing it.",
+                next_argv=["./octon", "doctor", "--json"],
+                invalidated=[CONTINUATION.proof_state("target", item["path"], "The current path matches neither the journal preimage nor planned postimage.", ["source_fingerprint_bound"])],
             )
     _restore(root, pending["paths"], pending.get("created_directories", []))
     recovery = dict(pending)

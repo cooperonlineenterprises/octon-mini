@@ -14,3 +14,10 @@ Session, question-generation, and reinspection artifacts are written only to
 test-owned temporary paths outside the target. Tests fingerprint the target
 before and after read-only setup operations and never refresh generated
 artifacts.
+
+The setup-session v2 cases also demonstrate unrelated-edit preservation,
+exact dependent-answer invalidation, accepted-decision reuse and
+expiry/supersession/runtime-authority refusals, semantic plan successors,
+human/JSON plan-summary equivalence, one-command initialization, and safe
+adoption review continuation. Cross-brand one-command upgrade pause/resume is
+covered by the 3.1.0→4.0.0 migration fixture suite.

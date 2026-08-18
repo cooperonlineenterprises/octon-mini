@@ -81,7 +81,7 @@ AUTHORIZATION_FIELDS = {
     "constraints",
     "evidence_fingerprint",
 }
-TRANSACTION_RECEIPT_FIELDS = {
+TRANSACTION_RECEIPT_V2_FIELDS = {
     "schema_version",
     "artifact_kind",
     "permission_grant",
@@ -95,15 +95,51 @@ TRANSACTION_RECEIPT_FIELDS = {
     "validation",
     "rollback",
 }
+TRANSACTION_RECEIPT_V3_FIELDS = TRANSACTION_RECEIPT_V2_FIELDS | {
+    "bundle",
+    "timings",
+}
 INTERRUPTION_HOOK: Callable[[str], None] = lambda _operation: None
 
 
 class FinishError(ValueError):
     """The completion contract, reviewed plan, or observation is invalid."""
 
+    failure_code = "OCTON-WORK-4001"
+    repair_class = "manual_reconciliation_required"
+
+    def __init__(self, value: str | dict[str, Any]):
+        report = value if isinstance(value, dict) else transaction.CONTINUATION.finding(
+            failure_code=self.failure_code,
+            blocked_operation="work.finish",
+            phase="plan",
+            root_cause=str(value),
+            authority_source="work_completion_plan_and_project_owned_governance",
+            repair_class=self.repair_class,
+            next_action=transaction.CONTINUATION.action(
+                "Inspect current coded diagnostics before creating a successor completion plan.",
+                ["./octon", "doctor", "--json"],
+                read_only=True,
+            ),
+            safe_read_only_actions=[
+                transaction.CONTINUATION.action(
+                    "Inspect current structural state.",
+                    ["./octon", "check", "--json"],
+                    read_only=True,
+                )
+            ],
+            successor_plan=True,
+            successor_reason="A successor completion plan can be created only after its owning input or authority source is current.",
+        )
+        self.report = report
+        super().__init__(str(report.get("root_cause", "work completion blocked")))
+
 
 class FinishBlocked(FinishError):
     """A safe, resumable workflow reached a material stop condition."""
+
+    failure_code = "OCTON-WORK-4002"
+    repair_class = "project_action_required"
 
 
 def named_operation(operation: str):
@@ -116,6 +152,52 @@ def named_operation(operation: str):
             except FinishError as error:
                 if not hasattr(error, "operation"):
                     error.operation = operation
+                report = error.report
+                report["blocked_operation"] = f"work.finish.{operation}"
+                report["phase"] = "apply"
+                report["authority_source"] = (
+                    "current_runtime_authorization_and_work_completion_receipt"
+                )
+                report["mutation"] = {
+                    "occurred": True,
+                    "repository_paths": [],
+                    "external_effects": [operation],
+                    "statement": (
+                        "A repository-mutating or externally observed completion step was attempted; its exact outcome must be recovered from the receipt and current state."
+                    ),
+                }
+                receipt = next(
+                    (
+                        item
+                        for item in args
+                        if isinstance(item, dict)
+                        and re.fullmatch(r"WCR-[a-f0-9]{24}", str(item.get("receipt_id")))
+                    ),
+                    None,
+                )
+                if receipt is not None:
+                    receipt_id = str(receipt["receipt_id"])
+                    report["preserved"] = [
+                        transaction.CONTINUATION.proof_state(
+                            "receipt",
+                            receipt_id,
+                            "The append-only completion receipt preserves observed progress for deterministic resume.",
+                            ["re_observe_every_run", "source_fingerprint_bound"],
+                        )
+                    ]
+                    report["next_action"] = transaction.CONTINUATION.action(
+                        "Resume from the exact completion receipt after current authorization is revalidated.",
+                        [
+                            "./octon",
+                            "work",
+                            "finish",
+                            "resume",
+                            "--receipt-id",
+                            receipt_id,
+                        ],
+                        read_only=False,
+                        requires_confirmation=True,
+                    )
                 raise
         return wrapped
     return decorate
@@ -253,10 +335,19 @@ def closure_transaction(
         if path.is_symlink() or not path.is_file():
             continue
         value = load_json(path)
+        receipt_schema = value.get("schema_version") if isinstance(value, dict) else None
+        expected_receipt_fields = (
+            TRANSACTION_RECEIPT_V3_FIELDS
+            if receipt_schema == "harness.transaction-receipt.v3"
+            else TRANSACTION_RECEIPT_V2_FIELDS
+        )
         if (
             not isinstance(value, dict)
-            or set(value) != TRANSACTION_RECEIPT_FIELDS
-            or value.get("schema_version") != "harness.transaction-receipt.v2"
+            or set(value) != expected_receipt_fields
+            or receipt_schema not in {
+                "harness.transaction-receipt.v2",
+                "harness.transaction-receipt.v3",
+            }
             or value.get("artifact_kind") != "transaction_receipt"
             or value.get("permission_grant") is not False
             or value.get("operation") != "work.close"

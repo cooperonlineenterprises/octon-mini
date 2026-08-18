@@ -108,6 +108,13 @@ A setup session itself is never generated into a project, never copied between
 projects, and never becomes project authority merely because a planner accepts
 its digest.
 
+New snapshots receive both the historical setup-session v1 schema and the
+dependency-scoped v2 successor schema. They also receive the non-authorizing
+Continuation Contract, plan-summary, decision-reuse, validation-proof,
+transaction-v3, diagnostic-v2, and project-check-evidence-v3 schemas plus the
+shared continuation renderer. The project-owned decision-reuse registry is
+generated empty; generation creates no reusable decision record.
+
 ## Non-transfer rules
 
 Generation transfers structure, schemas, vocabulary, and validation patterns.
@@ -152,6 +159,14 @@ install packages, update receipts, query hosted providers without separate
 authority, or create accepted decisions. The final plan remains an ordinary
 init, adopt, or upgrade transaction plan, bound to the canonical session
 digest and current fingerprints.
+
+Interactive `octon init`, `octon adopt`, and `octon upgrade` are orchestration
+over these same mechanisms. They write session and plan artifacts only to the
+operator's explicit external review directory, may pass the full displayed
+digest internally after one confirmation, and must revalidate unchanged plan
+bytes plus every normal precondition before apply. A review block preserves
+the artifacts and emits the Continuation Contract; it never becomes an
+overwrite or auto-apply exception.
 
 ## Binding classes and revalidation
 
@@ -247,6 +262,14 @@ Blueprint command and field identities may be recognized only as inputs to the
 explicit reviewed cross-brand migration; Octon Mini provides no `pb` runtime
 compatibility.
 
+Adding continuation, decision reuse, persistent validation proofs, or bundle
+support follows that same boundary. An upgrade may add absent Octon Mini-owned
+schemas and implementation files. It may not create a decision-reuse record,
+convert an old decision into reusable authority, enable a project hook, rewrite
+project-check evidence, bundle a prior operation, or treat an old plan as
+accepted. Setup-session v1 and transaction v2 artifacts remain immutable
+predecessors and become current only through explicit successor workflows.
+
 Project Blueprint 3.x→Octon Mini 4.0.0 is the current cross-brand migration.
 It may read legacy `pb`, `.project-blueprint-origin.json`, and
 `project-blueprint.*` identities only as legacy inputs to transform; it must
@@ -295,6 +318,9 @@ It also generates an empty project-owned decision-governance register plus
 blank owner-workbook, trade-off-review, and read-only-review templates. The
 register contains no decision question, recommendation, owner selection,
 accepted authority, evidence result, or readiness conclusion.
+It also generates an empty decision-reuse registry and the shared continuation
+renderer. Neither artifact creates accepted authority, operation confirmation,
+runtime authorization, or a readiness claim.
 It also generates a project-check evidence store, an explicit project-check
 writer, an unassessed privacy-minimized collaboration profile, and compact SCM
 and package triggers. The full provider-neutral Git portfolio and domain
@@ -444,6 +470,21 @@ per-path type/mode/hash, exact operations, conflicts/exclusions, staged and
 post-apply validation, rollback strategy, planned receipt identity, and a
 canonical digest.
 
+New plans use `harness.transaction-plan.v3`. A semantic successor names its
+immutable predecessor and records changed and identical fields, preserved
+review conclusions, review-again fields, and digest-change reasons. The shared
+`harness.plan-summary.v1` projection groups create/replace/delete/derived
+writes, non-changes, safety rules, review items, local/external effects,
+validation, recovery, reused current inputs, the full digest, and its one
+confirmation. Detailed plan bytes remain the machine authority for apply.
+
+Two or more plans may form `harness.transaction-bundle.v1` only when they
+target one project, use current identical governing instructions, have
+nonoverlapping operations, compatible authority/confirmation/freshness and
+reversibility requirements, one atomic staging/receipt/rollback boundary, and
+no external or monotonic effect. Every other combination fails or remains
+separate. One bundle receipt retains every per-path preimage and postimage.
+
 Apply requires that exact reviewed digest, refuses changed instructions,
 evidence or targets, clones the repository into staging, permits only declared
 derived writes, validates the staged result, writes a pending journal before
@@ -452,6 +493,14 @@ preimages and postimages. Recovery restores only when paths match before or
 planned-after state, or finalizes an exact terminal receipt. Rollback records a
 durable in-progress state, resumes only across exact before/after states, and
 refuses subsequent independent changes. There is no force mode.
+
+Transaction receipt v3 records host-specific phase timings for staging,
+refresh, staged validation, live apply, post-apply validation, and receipt
+preparation. The apply process emits receipt-persistence and total timing only
+after the immutable receipt write completes. These measurements guide
+optimization but are not human-usability
+evidence and do not permit hardlinks, shared writable inodes, skipped final
+gates, or weaker isolation.
 
 GitHub is an optional integration boundary. Generation does not imply an
 account, provider, credential, reviewer, branch protection, required check,
@@ -504,6 +553,16 @@ outcome, limitations, skipped checks, declared possible external effects,
 explicitly unassessed observed external effects, and repository mutations.
 Output content is hashed rather than retained when it could expose secrets.
 Mutation comparison is detection, not sandbox isolation.
+
+For routine iteration only, that writer may reuse
+`harness.validation-proof.v1` results stored in project-check evidence v3. A
+hit binds the exact declared input set, check identity and shell-free argv,
+executable bytes and version output, configuration, governing instructions,
+hashed environment characteristics, side-effect class, observation and
+freshness, passing result, and limitations. Any changed binding, expiry,
+external effect, or runtime authorization is a miss. `check` writes and
+refreshes no proof. Adoption and release gates prohibit reuse and execute the
+complete applicable boundary.
 
 An adopted project requires coherent adoption status, a resolved accepted
 externally grounded adoption decision, no adoption blockers, every command

@@ -1002,6 +1002,7 @@ class HarnessValidatorTests(unittest.TestCase):
             expected_local_roots,
             {"check", "doctor", "work", "maintain", "transaction"},
         )
+        self.assertNotIn("--force", parser.format_help())
 
     @FULL_TREE_ONLY
     def test_octon_is_the_only_current_project_command(self) -> None:
@@ -1009,6 +1010,7 @@ class HarnessValidatorTests(unittest.TestCase):
         current_paths = (
             ROOT / "octon",
             ROOT / ".agent/scripts/octon.py",
+            ROOT / ".agent/scripts/octon_continuation.py",
             ROOT / ".agent/scripts/octon_doctor.py",
             ROOT / ".agent/scripts/octon_transaction.py",
             ROOT / ".agent/scripts/octon_work_completion.py",
@@ -2100,6 +2102,7 @@ class HarnessValidatorTests(unittest.TestCase):
                     "-B",
                     ".agent/scripts/run_project_checks.py",
                     "--write-evidence",
+                    "--json",
                 ],
                 cwd=test_root,
                 capture_output=True,
@@ -2134,6 +2137,202 @@ class HarnessValidatorTests(unittest.TestCase):
             self.assertTrue(
                 any("project_test lacks current passing evidence" in item for item in findings),
                 findings,
+            )
+        finally:
+            temporary.cleanup()
+
+    def test_validation_proof_reuse_hits_only_exact_current_dependencies(self) -> None:
+        temporary, test_root = clone()
+        try:
+            commands = {
+                hook: not_applicable_command()
+                for hook in VALIDATOR.PROJECT_COMMAND_HOOKS
+            }
+            commands["project_test"] = configured_python_command()
+            adopt_harness(test_root, commands=commands)
+            project_path = test_root / ".agent/project.json"
+            project = VALIDATOR.load_json(project_path)
+            project["project_checks"]["proof_reuse"][
+                "environment_characteristics"
+            ].append("REVIEW_ENVIRONMENT")
+            write_json(project_path, project)
+            writer = [
+                sys.executable,
+                "-I",
+                "-B",
+                ".agent/scripts/run_project_checks.py",
+                "--write-evidence",
+                "--hook",
+                "project_test",
+            ]
+
+            baseline_environment = {**os.environ, "REVIEW_ENVIRONMENT": "alpha"}
+
+            def run_writer(*extra: str, environment: dict[str, str] | None = None):
+                return subprocess.run(
+                    [*writer, *extra],
+                    cwd=test_root,
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                    env=baseline_environment if environment is None else environment,
+                )
+
+            first = run_writer()
+            self.assertEqual(first.returncode, 0, first.stderr or first.stdout)
+            evidence_path = test_root / ".agent/project-checks/evidence.json"
+            store = VALIDATOR.load_json(evidence_path)
+            self.assertTrue(store["proofs"])
+            first_proof = store["proofs"][-1]
+            self.assertTrue(first_proof["reusable"])
+
+            hit = run_writer("--reuse-proofs")
+            self.assertEqual(hit.returncode, 0, hit.stderr or hit.stdout)
+            store = VALIDATOR.load_json(evidence_path)
+            hit_record = store["records"][-1]
+            self.assertEqual(hit_record["proof_reuse"]["hits"], ["project_test"])
+            self.assertEqual(hit_record["checks"][0]["execution"], "reused")
+            self.assertEqual(hit_record["reused_proof_ids"], [first_proof["proof_id"]])
+
+            store["proofs"][-1]["fresh_until"] = "2099-01-01T00:00:00Z"
+            write_json(evidence_path, store)
+            tampered_miss = run_writer("--reuse-proofs")
+            self.assertEqual(
+                tampered_miss.returncode,
+                0,
+                tampered_miss.stderr or tampered_miss.stdout,
+            )
+            store = VALIDATOR.load_json(evidence_path)
+            self.assertEqual(store["records"][-1]["proof_reuse"]["hits"], [])
+            self.assertEqual(store["records"][-1]["checks"][0]["execution"], "executed")
+
+            (test_root / "synthetic-proof-input.txt").write_text("changed input\n", encoding="utf-8")
+            input_miss = run_writer("--reuse-proofs")
+            self.assertEqual(input_miss.returncode, 0, input_miss.stderr or input_miss.stdout)
+            store = VALIDATOR.load_json(evidence_path)
+            self.assertEqual(store["records"][-1]["proof_reuse"]["hits"], [])
+            self.assertEqual(store["records"][-1]["checks"][0]["execution"], "executed")
+
+            project = VALIDATOR.load_json(project_path)
+            project["commands"]["project_test"]["argv"] = [
+                sys.executable,
+                "-c",
+                "print('changed configuration')",
+            ]
+            write_json(project_path, project)
+            config_miss = run_writer("--reuse-proofs")
+            self.assertEqual(config_miss.returncode, 0, config_miss.stderr or config_miss.stdout)
+            store = VALIDATOR.load_json(evidence_path)
+            self.assertEqual(store["records"][-1]["proof_reuse"]["hits"], [])
+
+            changed_environment = dict(baseline_environment)
+            changed_environment["CI"] = "synthetic-proof-environment"
+            environment_miss = run_writer(
+                "--reuse-proofs",
+                environment=changed_environment,
+            )
+            self.assertEqual(
+                environment_miss.returncode,
+                0,
+                environment_miss.stderr or environment_miss.stdout,
+            )
+            store = VALIDATOR.load_json(evidence_path)
+            self.assertEqual(store["records"][-1]["proof_reuse"]["hits"], [])
+
+            custom_environment = dict(baseline_environment)
+            custom_environment["REVIEW_ENVIRONMENT"] = "beta"
+            custom_environment_miss = run_writer(
+                "--reuse-proofs",
+                environment=custom_environment,
+            )
+            self.assertEqual(
+                custom_environment_miss.returncode,
+                0,
+                custom_environment_miss.stderr or custom_environment_miss.stdout,
+            )
+            store = VALIDATOR.load_json(evidence_path)
+            self.assertEqual(store["records"][-1]["proof_reuse"]["hits"], [])
+            self.assertEqual(store["records"][-1]["checks"][0]["execution"], "executed")
+
+            for proof in store["proofs"]:
+                proof["fresh_until"] = "2000-01-01T00:00:00Z"
+                unsigned = dict(proof)
+                unsigned.pop("canonical_proof_digest", None)
+                proof["canonical_proof_digest"] = hashlib.sha256(
+                    json.dumps(
+                        unsigned,
+                        ensure_ascii=False,
+                        allow_nan=False,
+                        sort_keys=True,
+                        separators=(",", ":"),
+                    ).encode("utf-8")
+                ).hexdigest()
+            write_json(evidence_path, store)
+            freshness_miss = run_writer("--reuse-proofs")
+            self.assertEqual(
+                freshness_miss.returncode,
+                0,
+                freshness_miss.stderr or freshness_miss.stdout,
+            )
+            store = VALIDATOR.load_json(evidence_path)
+            self.assertEqual(store["records"][-1]["proof_reuse"]["hits"], [])
+            self.assertEqual(store["records"][-1]["checks"][0]["execution"], "executed")
+        finally:
+            temporary.cleanup()
+
+    def test_validation_proof_version_probe_mutation_cannot_escape_boundary(self) -> None:
+        temporary, test_root = clone()
+        try:
+            marker = test_root / ".agent/generated/version-probe-write.txt"
+            commands = {
+                hook: not_applicable_command()
+                for hook in VALIDATOR.PROJECT_COMMAND_HOOKS
+            }
+            command = configured_python_command()
+            command["version_argv"] = [
+                sys.executable,
+                "-c",
+                (
+                    "from pathlib import Path; "
+                    "Path('.agent/generated/version-probe-write.txt').write_text('mutated'); "
+                    "print('synthetic 1.0')"
+                ),
+            ]
+            commands["project_test"] = command
+            adopt_harness(test_root, commands=commands)
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-I",
+                    "-B",
+                    ".agent/scripts/run_project_checks.py",
+                    "--write-evidence",
+                    "--hook",
+                    "project_test",
+                    "--reuse-proofs",
+                ],
+                cwd=test_root,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertTrue(marker.is_file())
+            store = VALIDATOR.load_json(
+                test_root / ".agent/project-checks/evidence.json"
+            )
+            check_result = store["records"][-1]["checks"][0]
+            self.assertEqual(check_result["outcome"], "fail")
+            self.assertIn(
+                ".agent/generated/version-probe-write.txt",
+                check_result["repository_mutation"]["outside_declared_write_scope"],
+            )
+            self.assertEqual(store["records"][-1]["reused_proof_ids"], [])
+            self.assertFalse(
+                any(
+                    proof["check_identity"] == "project_test"
+                    for proof in store["proofs"]
+                )
             )
         finally:
             temporary.cleanup()
@@ -2187,6 +2386,147 @@ class HarnessValidatorTests(unittest.TestCase):
         finally:
             temporary.cleanup()
 
+    def test_doctor_uses_continuation_contract_in_human_and_json_modes(self) -> None:
+        temporary, test_root = clone()
+        try:
+            current_path = test_root / ".agent/state/current.json"
+            current = VALIDATOR.load_json(current_path)
+            current["synthetic_drift"] = True
+            write_json(current_path, current)
+            before = VALIDATOR.snapshot_files(test_root)
+            json_result = subprocess.run(
+                [str(test_root / "octon"), "doctor", "--json"],
+                cwd=test_root,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(json_result.returncode, 0, json_result.stderr or json_result.stdout)
+            report = json.loads(json_result.stdout)
+            self.assertEqual(report["schema_version"], "harness.diagnostic-report.v2")
+            self.assertTrue(report["findings"])
+            finding = report["findings"][0]
+            typed = VALIDATOR.check_findings(test_root)
+            self.assertTrue(typed)
+            self.assertEqual(typed[0]["failure_code"], "OCTON-DIAG-0101")
+            self.assertEqual(finding["failure_code"], typed[0]["failure_code"])
+            self.assertEqual(finding["schema_version"], "octon-mini.continuation.v1")
+            continuation_schema = VALIDATOR.load_schema(
+                test_root, "harness-continuation.schema.json"
+            )
+            self.assertEqual(
+                VALIDATOR.validate_schema(
+                    finding,
+                    continuation_schema,
+                    root_schema=continuation_schema,
+                ),
+                [],
+            )
+            self.assertFalse(finding["mutation"]["occurred"])
+            self.assertTrue(finding["next_action"]["argv"])
+            human_result = subprocess.run(
+                [str(test_root / "octon"), "doctor"],
+                cwd=test_root,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(human_result.returncode, 0, human_result.stderr or human_result.stdout)
+            self.assertIn("[BLOCKED OCTON-DIAG-", human_result.stdout)
+            self.assertIn("Nothing changed", human_result.stdout)
+            self.assertEqual(VALIDATOR.snapshot_files(test_root), before)
+        finally:
+            temporary.cleanup()
+
+    def test_doctor_distinguishes_invalid_plan_from_pending_recovery(self) -> None:
+        temporary, test_root = clone()
+        try:
+            plan_path = test_root / ".agent/transactions/plans/invalid-digest.json"
+            planned = subprocess.run(
+                octon_command(
+                    test_root,
+                    "work",
+                    "start",
+                    "--title",
+                    "Invalid plan diagnostic",
+                    "--scope",
+                    "Exercise exact transaction diagnostic typing",
+                    "--authority-basis",
+                    "authority:synthetic-diagnostic-owner",
+                    "--owner",
+                    "test_suite",
+                    "--operator",
+                    "test_suite",
+                    "--acceptance",
+                    "Invalid plans and pending journals are distinguished",
+                    "--validation",
+                    "Run doctor JSON",
+                    "--next-action",
+                    "Inspect the coded finding",
+                    "--output",
+                    str(plan_path),
+                ),
+                cwd=test_root,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(planned.returncode, 0, planned.stderr or planned.stdout)
+            plan = VALIDATOR.load_json(plan_path)
+            plan["canonical_plan_digest"] = "0" * 64
+            write_json(plan_path, plan)
+            invalid_result = subprocess.run(
+                [str(test_root / "octon"), "doctor", "--json"],
+                cwd=test_root,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(invalid_result.returncode, 0, invalid_result.stderr)
+            invalid_report = json.loads(invalid_result.stdout)
+            invalid_finding = next(
+                item
+                for item in invalid_report["findings"]
+                if item["failure_code"] == "OCTON-DIAG-0601"
+            )
+            self.assertEqual(invalid_finding["repair_class"], "replan_required")
+            self.assertNotIn("recover", invalid_finding["next_action"]["argv"])
+            self.assertNotIn("--pending", invalid_finding["next_action"]["argv"])
+            plan_path.unlink()
+
+            receipt_id = "RCPT-" + "3" * 24
+            pending_reference = f".agent/transactions/pending/{receipt_id}.json"
+            pending_path = test_root / pending_reference
+            pending_path.parent.mkdir(parents=True, exist_ok=True)
+            write_json(pending_path, {})
+            pending_result = subprocess.run(
+                [str(test_root / "octon"), "doctor", "--json"],
+                cwd=test_root,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(pending_result.returncode, 0, pending_result.stderr)
+            pending_report = json.loads(pending_result.stdout)
+            pending_finding = next(
+                item
+                for item in pending_report["findings"]
+                if item["failure_code"] == "OCTON-DIAG-0602"
+                and item["next_action"]["argv"][-1] == pending_reference
+            )
+            self.assertEqual(
+                pending_finding["next_action"]["argv"],
+                [
+                    "./octon",
+                    "transaction",
+                    "recover",
+                    "--pending",
+                    pending_reference,
+                ],
+            )
+        finally:
+            temporary.cleanup()
+
     def test_explicit_writer_never_fabricates_pass_or_conflates_unavailable(self) -> None:
         temporary, test_root = clone()
         try:
@@ -2207,6 +2547,7 @@ class HarnessValidatorTests(unittest.TestCase):
                     "-B",
                     ".agent/scripts/run_project_checks.py",
                     "--write-evidence",
+                    "--json",
                 ],
                 cwd=test_root,
                 capture_output=True,
@@ -2214,6 +2555,22 @@ class HarnessValidatorTests(unittest.TestCase):
                 check=False,
             )
             self.assertNotEqual(failed.returncode, 0)
+            failed_report = json.loads(failed.stderr)
+            self.assertEqual(failed_report["failure_code"], "OCTON-CHECK-5006")
+            self.assertEqual(failed_report["phase"], "validate")
+            self.assertTrue(failed_report["mutation"]["occurred"])
+            self.assertTrue(failed_report["next_action"]["argv"])
+            continuation_schema = VALIDATOR.load_schema(
+                test_root, "harness-continuation.schema.json"
+            )
+            self.assertEqual(
+                VALIDATOR.validate_schema(
+                    failed_report,
+                    continuation_schema,
+                    root_schema=continuation_schema,
+                ),
+                [],
+            )
             evidence_path = test_root / ".agent/project-checks/evidence.json"
             evidence = VALIDATOR.load_json(evidence_path)
             failed_record = evidence["records"][-1]
@@ -2248,6 +2605,7 @@ class HarnessValidatorTests(unittest.TestCase):
                 check=False,
             )
             self.assertNotEqual(missing.returncode, 0)
+            self.assertIn("OCTON-CHECK-5006", missing.stderr)
             evidence = VALIDATOR.load_json(evidence_path)
             unavailable_record = evidence["records"][-1]
             unavailable_check = next(
@@ -2294,6 +2652,14 @@ class HarnessValidatorTests(unittest.TestCase):
                 check=False,
             )
             self.assertEqual(result.returncode, 0, result.stderr or result.stdout)
+            evidence = VALIDATOR.load_json(
+                test_root / ".agent/project-checks/evidence.json"
+            )
+            final_record = evidence["records"][-1]
+            self.assertEqual(final_record["reused_proof_ids"], [])
+            self.assertTrue(
+                all(item["execution"] == "executed" for item in final_record["checks"])
+            )
             self.assertEqual(VALIDATOR.check(test_root), [])
         finally:
             temporary.cleanup()

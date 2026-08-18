@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://octon-mini.local/schemas/harness-decision-reuse.schema.json",
+  "title": "Project-Owned Decision Reuse Registry",
+  "description": "A machine-readable applicability projection bound to accepted durable decisions; it grants no operation or runtime authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "document_role", "permission_grant", "runtime_authorization", "records", "limitations"],
+  "properties": {
+    "schema_version": {"const": "harness.decision-reuse-registry.v1"},
+    "document_role": {"const": "project_owned_reuse_applicability_bound_to_accepted_decisions"},
+    "permission_grant": {"const": false},
+    "runtime_authorization": {"const": false},
+    "records": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/record"}},
+    "limitations": {"$ref": "#/$defs/strings"}
+  },
+  "$defs": {
+    "strings": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "question_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^setup\\.[a-z0-9]+(?:[.-][a-z0-9]+)*$"}},
+    "record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "status",
+        "decision_ref",
+        "decision_sha256",
+        "authority_source",
+        "question_ids",
+        "operations",
+        "value",
+        "applicability",
+        "governing_instruction_digest",
+        "evidence_refs",
+        "valid_from",
+        "expires_at",
+        "successor",
+        "runtime_authorization",
+        "external_action_authority",
+        "limitations"
+      ],
+      "properties": {
+        "id": {"type": "string", "pattern": "^DRP-[0-9]{4}$"},
+        "status": {"enum": ["active", "revoked", "superseded"]},
+        "decision_ref": {"type": "string", "pattern": "^DEC-[0-9]{4}$"},
+        "decision_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "authority_source": {"type": "string", "minLength": 1},
+        "question_ids": {"$ref": "#/$defs/question_ids"},
+        "operations": {"$ref": "#/$defs/strings"},
+        "value": {},
+        "applicability": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["modes", "profiles", "path_prefixes", "dependency_fingerprints"],
+          "properties": {
+            "modes": {"type": "array", "uniqueItems": true, "items": {"enum": ["initialization", "adoption", "upgrade", "generated_project"]}},
+            "profiles": {"type": "array", "uniqueItems": true, "items": {"enum": ["minimal", "standard", "high-assurance"]}},
+            "path_prefixes": {"$ref": "#/$defs/strings"},
+            "dependency_fingerprints": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["path", "type", "sha256"],
+                "properties": {
+                  "path": {"type": "string", "pattern": "^[^/]+(?:/[^/]+)*$"},
+                  "type": {"enum": ["absent", "file"]},
+                  "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+                }
+              }
+            }
+          }
+        },
+        "governing_instruction_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "evidence_refs": {"$ref": "#/$defs/strings"},
+        "valid_from": {"type": "string", "format": "date-time"},
+        "expires_at": {"type": ["string", "null"], "format": "date-time"},
+        "successor": {"type": ["string", "null"], "pattern": "^DRP-[0-9]{4}$"},
+        "runtime_authorization": {"const": false},
+        "external_action_authority": {"const": false},
+        "limitations": {"$ref": "#/$defs/strings"}
+      }
+    }
+  }
+}

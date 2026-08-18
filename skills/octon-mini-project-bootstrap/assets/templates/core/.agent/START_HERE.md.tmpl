@@ -77,6 +77,14 @@ harness adoption, and target-project readiness are separate conclusions.
 ./octon doctor
 ```
 
+A blocked writer emits `octon-mini.continuation.v1`: stable code, an exact
+no-change or bounded-change statement, invalidated and preserved proofs, the
+owning source, and one shell-free next action. Use `--json` for automation.
+`./octon transaction bundle plan` combines only compatible reversible
+repository-local members into one stage, digest, receipt, and rollback;
+overlapping paths, different authority/freshness/confirmation boundaries, and
+external or monotonic effects are rejected.
+
 `work finish` is disabled in the generated baseline. If a project explicitly
 adopts it, `plan` remains read-only and non-authorizing; `apply` requires the
 exact reviewed digest plus current task-scoped authorization for every planned

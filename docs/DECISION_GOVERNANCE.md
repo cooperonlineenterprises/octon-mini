@@ -24,6 +24,15 @@ existing harness lifecycle. The identities are deliberately different:
 - `DEC-####` says which durable choice was accepted under valid project
   authority.
 
+`.agent/decisions/reuse-policy.json` owns only the machine applicability of an
+accepted decision value to a matching future setup question. Each `DRP-####`
+entry binds exact decision bytes, authority source, scope, instructions,
+dependencies, and freshness. It is neither a third decision lifecycle nor
+permission: a recommendation, owner selection, accepted durable decision,
+operation confirmation, and runtime authorization remain five distinct roles.
+Superseded, revoked, expired, mismatched, or unresolved decisions are never
+reused.
+
 The relationship is a reference, not identity reuse. A project must not rename
 a `DREG-####` into a `DEC-####`, infer an accepted record from a register state,
 or let a workbook overwrite accepted authority. An accepted register entry

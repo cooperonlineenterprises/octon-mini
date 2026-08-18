@@ -12,7 +12,7 @@ import subprocess
 import sys
 import tempfile
 import stat
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from pathlib import Path, PurePosixPath
 from typing import Any
 
@@ -496,6 +496,8 @@ EXPECTED_REQUIRED_CORE_CHECKS = [
     "collaboration_topology_and_workflow_selection",
     "small_team_git_workflow_and_operation_contract",
     "project_command_assessment_and_current_evidence",
+    "content_addressed_validation_proof_reuse",
+    "typed_continuation_and_safe_transaction_bundles",
     "dossier_catalog_path_authority_and_traceability",
     "extension_compatibility_confinement_and_validator_protocol",
     "unresolved_generation_placeholders",
@@ -2419,7 +2421,7 @@ def check_project_command_contract(
             errors.append(f"{location}: unknown assessment status")
 
     expected_project_checks = {
-        "evidence_schema": ".agent/schemas/harness-project-check-evidence.schema.json",
+        "evidence_schema": ".agent/schemas/harness-project-check-evidence-v3.schema.json",
         "evidence_store": PROJECT_CHECK_EVIDENCE_PATH,
         "evidence_archive": ".agent/project-checks/archive",
         "writer_argv": [
@@ -2438,7 +2440,47 @@ def check_project_command_contract(
         "execution": "explicit_writer_only_with_selective_hooks_and_full_adoption_verification",
         "shell_interpretation": False,
     }
-    if project.get("project_checks") != expected_project_checks:
+    legacy_project_checks = {
+        **{key: value for key, value in expected_project_checks.items() if key != "proof_reuse"},
+        "evidence_schema": ".agent/schemas/harness-project-check-evidence.schema.json",
+    }
+    project_checks = project.get("project_checks")
+    if project.get("schema_version") == "harness.project.v6":
+        if (
+            not isinstance(project_checks, dict)
+            or set(project_checks) != set(expected_project_checks) | {"proof_reuse"}
+            or any(project_checks.get(key) != value for key, value in expected_project_checks.items())
+        ):
+            errors.append(".agent/project.json: project-check writer contract differs from kernel")
+        else:
+            proof = project_checks.get("proof_reuse")
+            fixed_proof = {
+                "status": "enabled_for_explicit_routine_writer_only",
+                "input_routing": "declared_source_and_test_roots_with_governance_fallback",
+                "external_or_runtime_authorization_cache_hits": False,
+                "expired_proof_cache_hits": False,
+                "adoption_and_release_gate_reuse": False,
+            }
+            names = proof.get("environment_characteristics") if isinstance(proof, dict) else None
+            baseline = {"CI", "PATH", "PYTHONPATH", "VIRTUAL_ENV"}
+            if (
+                not isinstance(proof, dict)
+                or set(proof) != set(fixed_proof) | {"environment_characteristics"}
+                or any(proof.get(key) != value for key, value in fixed_proof.items())
+                or not isinstance(names, list)
+                or not 1 <= len(names) <= 64
+                or len(names) != len(set(item for item in names if isinstance(item, str)))
+                or not baseline <= set(item for item in names if isinstance(item, str))
+                or any(
+                    not isinstance(item, str)
+                    or re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", item) is None
+                    for item in names
+                )
+            ):
+                errors.append(
+                    ".agent/project.json: proof reuse requires a unique, bounded project-owned environment allowlist containing the kernel baseline"
+                )
+    elif project_checks != legacy_project_checks:
         errors.append(".agent/project.json: project-check writer contract differs from kernel")
     return errors
 
@@ -2625,7 +2667,13 @@ def load_project_check_evidence(
     errors: list[str] = []
     try:
         store = load_json(path)
-        schema = load_schema(root, "harness-project-check-evidence.schema.json")
+        schema_name = (
+            "harness-project-check-evidence-v3.schema.json"
+            if isinstance(store, dict)
+            and store.get("schema_version") == "harness.project-check-evidence-store.v3"
+            else "harness-project-check-evidence.schema.json"
+        )
+        schema = load_schema(root, schema_name)
     except (OSError, ValueError, json.JSONDecodeError) as error:
         return None, [f"{PROJECT_CHECK_EVIDENCE_PATH}: {error}"]
     errors.extend(
@@ -2634,6 +2682,41 @@ def load_project_check_evidence(
     )
     if not isinstance(store, dict):
         return None, errors
+    proof_ids: set[str] = set()
+    proofs = store.get("proofs", [])
+    if store.get("schema_version") == "harness.project-check-evidence-store.v3":
+        if not isinstance(proofs, list):
+            errors.append(f"{PROJECT_CHECK_EVIDENCE_PATH}: proofs must be an array")
+            proofs = []
+        for proof_index, proof in enumerate(proofs):
+            location = f"{PROJECT_CHECK_EVIDENCE_PATH}: proofs[{proof_index}]"
+            if not isinstance(proof, dict):
+                continue
+            proof_id = proof.get("proof_id")
+            if not isinstance(proof_id, str) or proof_id in proof_ids:
+                errors.append(f"{location}: validation proof ID is malformed or duplicated")
+            else:
+                proof_ids.add(proof_id)
+            unsigned = dict(proof)
+            supplied = unsigned.pop("canonical_proof_digest", None)
+            expected = hashlib.sha256(
+                json.dumps(
+                    unsigned,
+                    ensure_ascii=False,
+                    allow_nan=False,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                ).encode("utf-8")
+            ).hexdigest()
+            if supplied != expected:
+                errors.append(f"{location}: canonical validation-proof digest is invalid")
+            effects = proof.get("side_effects", {})
+            if proof.get("reusable") is True and (
+                not isinstance(effects, dict)
+                or effects.get("external_effects")
+                or effects.get("classification") == "external_effects_possible"
+            ):
+                errors.append(f"{location}: externally volatile proof cannot be reusable")
     records = store.get("records")
     if not isinstance(records, list):
         return store, errors
@@ -2681,6 +2764,14 @@ def load_project_check_evidence(
             errors.append(f"{location}: check results must cover a unique nonempty hook subset")
         if "--verify-adoption" in writer_argv and set(hooks) != set(PROJECT_COMMAND_HOOKS):
             errors.append(f"{location}: adoption verification must cover every hook")
+        reused_proof_ids = record.get("reused_proof_ids", [])
+        if reused_proof_ids:
+            if "--verify-adoption" in writer_argv:
+                errors.append(f"{location}: adoption verification cannot reuse prior proofs")
+            if not isinstance(reused_proof_ids, list) or any(
+                item not in proof_ids for item in reused_proof_ids
+            ):
+                errors.append(f"{location}: reused validation proof does not resolve")
         for check_index, result in enumerate(checks):
             if not isinstance(result, dict):
                 continue
@@ -3185,6 +3276,13 @@ def check_kernel(root: Path) -> list[str]:
             ),
             "writes": [".agent/project-checks/archive", PROJECT_CHECK_EVIDENCE_PATH],
         },
+        "project_checks_reuse": {
+            "run": (
+                "python -B .agent/scripts/run_project_checks.py --write-evidence "
+                "--changed-scope --reuse-proofs"
+            ),
+            "writes": [".agent/project-checks/archive", PROJECT_CHECK_EVIDENCE_PATH],
+        },
         "adoption_verify": {
             "run": (
                 "python -B .agent/scripts/run_project_checks.py --write-evidence "
@@ -3201,10 +3299,22 @@ def check_kernel(root: Path) -> list[str]:
             "writes": "not_assessed",
         },
     }
+    expected_for_version = dict(expected_commands)
+    expected_checks = list(EXPECTED_REQUIRED_CORE_CHECKS)
+    if validators.get("schema_version") == "harness.validators.v4":
+        expected_for_version.pop("project_checks_reuse", None)
+        expected_checks = [
+            item
+            for item in expected_checks
+            if item not in {
+                "content_addressed_validation_proof_reuse",
+                "typed_continuation_and_safe_transaction_bundles",
+            }
+        ]
     if (
         validators.get("validator_version") != KERNEL_VERSION
-        or commands != expected_commands
-        or validators.get("required_core_checks") != EXPECTED_REQUIRED_CORE_CHECKS
+        or commands != expected_for_version
+        or validators.get("required_core_checks") != expected_checks
     ):
         errors.append(".agent/validators.json: core command contract mismatch")
     tools = values.get(".agent/tools.json", {})
@@ -3545,7 +3655,7 @@ def check_record_store_filenames(root: Path) -> list[str]:
         for path in sorted(base.iterdir()):
             if path.name == "README.md" or (
                 directory == ".agent/decisions"
-                and path.name == "governance-register.json"
+                and path.name in {"governance-register.json", "reuse-policy.json"}
             ):
                 continue
             if path.is_dir() or not re.fullmatch(pattern, path.name):
@@ -7271,6 +7381,7 @@ def check_transactions(root: Path) -> list[str]:
         return []
     try:
         schema = load_schema(root, "harness-transaction.schema.json")
+        successor_schema = load_schema(root, "harness-transaction-v3.schema.json")
     except (OSError, ValueError, json.JSONDecodeError) as error:
         return [f".agent/transactions: {error}"]
     definitions = schema.get("$defs", {}) if isinstance(schema, dict) else {}
@@ -7302,12 +7413,25 @@ def check_transactions(root: Path) -> list[str]:
             except (OSError, ValueError, json.JSONDecodeError) as error:
                 errors.append(f"{location}: {error}")
                 continue
+            definition = definitions.get(definition_name)
+            active_schema = schema
+            active_definitions = definitions
+            if isinstance(value, dict) and value.get("schema_version") in {
+                "harness.transaction-plan.v3",
+                "harness.transaction-receipt.v3",
+            }:
+                active_schema = successor_schema
+                active_definitions = successor_schema.get("$defs", {})
+                definition = active_definitions.get(definition_name)
+                if not isinstance(definition, dict):
+                    errors.append(f"{location}: successor transaction schema lacks {definition_name} definition")
+                    continue
             errors.extend(
                 f"{location}: {item}"
                 for item in validate_schema(
                     value,
                     definition,
-                    root_schema=schema,
+                    root_schema=active_schema,
                 )
             )
             if not isinstance(value, dict):
@@ -7342,8 +7466,8 @@ def check_transactions(root: Path) -> list[str]:
                         f"{location}: after {detail}"
                         for detail in validate_schema(
                             after,
-                            definitions.get("path_state", {}),
-                            root_schema=schema,
+                            active_definitions.get("path_state", {}),
+                            root_schema=active_schema,
                         )
                     )
                     if after.get("path") != item.get("path"):
@@ -7373,6 +7497,55 @@ def check_transactions(root: Path) -> list[str]:
                         f"{location}: pending transaction requires explicit interruption recovery"
                     )
     return errors
+
+
+def check_transaction_findings(root: Path) -> list[dict[str, Any]]:
+    """Split transaction findings by the owning durable artifact boundary."""
+    findings: list[dict[str, Any]] = []
+    for message in check_transactions(root):
+        location = message.partition(":")[0]
+        if location == ".agent/transactions/plans" or location.startswith(
+            ".agent/transactions/plans/"
+        ):
+            findings.append(
+                {
+                    "failure_code": "OCTON-DIAG-0601",
+                    "message": safe_diagnostic(message),
+                    "next_argv": ["./octon", "--help"],
+                }
+            )
+            continue
+        finding: dict[str, Any] = {
+            "failure_code": "OCTON-DIAG-0602",
+            "message": safe_diagnostic(message),
+        }
+        if re.fullmatch(
+            r"\.agent/transactions/pending/RCPT-[a-f0-9]{24}\.json",
+            location,
+        ):
+            finding["next_argv"] = [
+                "./octon",
+                "transaction",
+                "recover",
+                "--pending",
+                location,
+            ]
+        elif (
+            re.fullmatch(
+                r"\.agent/transactions/receipts/RCPT-[a-f0-9]{24}\.json",
+                location,
+            )
+            and "interrupted rollback" in message
+        ):
+            finding["next_argv"] = [
+                "./octon",
+                "transaction",
+                "rollback",
+                "--receipt",
+                location,
+            ]
+        findings.append(finding)
+    return findings
 
 
 def expected_manifest_files(root: Path) -> dict[str, str]:
@@ -7846,50 +8019,198 @@ def git_scope(root: Path) -> dict[str, Any]:
     return result
 
 
+def check_decision_reuse(
+    root: Path,
+    records: dict[str, tuple[dict[str, Any], str]],
+) -> list[str]:
+    path = root / ".agent/decisions/reuse-policy.json"
+    if not path.exists():
+        return []
+    location = ".agent/decisions/reuse-policy.json"
+    try:
+        value = load_json(path)
+        schema = load_schema(root, "harness-decision-reuse.schema.json")
+    except (OSError, ValueError, json.JSONDecodeError) as error:
+        return [f"{location}: {error}"]
+    errors = [
+        f"{location}: {item}" for item in validate_schema(value, schema)
+    ]
+    if not isinstance(value, dict) or not isinstance(value.get("records"), list):
+        return errors
+    instruction_hash = hashlib.sha256()
+    for instruction in sorted(
+        item for item in root.rglob("AGENTS.md") if item.is_file() and not item.is_symlink()
+    ):
+        relative_path = instruction.relative_to(root).as_posix()
+        instruction_hash.update(relative_path.encode("utf-8"))
+        instruction_hash.update(b"\0")
+        instruction_hash.update(instruction.read_bytes())
+        instruction_hash.update(b"\0")
+    current_instruction_digest = instruction_hash.hexdigest()
+    now = datetime.now(timezone.utc)
+    seen: set[str] = set()
+    for index, policy in enumerate(value["records"]):
+        item_location = f"{location}: records[{index}]"
+        if not isinstance(policy, dict):
+            continue
+        policy_id = policy.get("id")
+        if isinstance(policy_id, str):
+            if policy_id in seen:
+                errors.append(f"{item_location}: duplicate decision-reuse ID")
+            seen.add(policy_id)
+        if policy.get("status") != "active":
+            continue
+        if policy.get("governing_instruction_digest") != current_instruction_digest:
+            errors.append(f"{item_location}: active reuse policy has stale governing instructions")
+        expiry = policy.get("expires_at")
+        valid_from = policy.get("valid_from")
+        if isinstance(valid_from, str):
+            try:
+                if datetime.fromisoformat(valid_from.replace("Z", "+00:00")) > now:
+                    errors.append(f"{item_location}: active reuse policy is not yet valid")
+            except ValueError:
+                pass
+        if isinstance(expiry, str):
+            try:
+                if datetime.fromisoformat(expiry.replace("Z", "+00:00")) <= now:
+                    errors.append(f"{item_location}: active reuse policy is expired")
+            except ValueError:
+                pass
+        decision_ref = policy.get("decision_ref")
+        decision_entry = records.get(decision_ref) if isinstance(decision_ref, str) else None
+        if decision_entry is None:
+            errors.append(f"{item_location}: accepted decision reference does not resolve")
+            continue
+        decision, decision_location = decision_entry
+        if (
+            decision.get("status") != "accepted"
+            or decision.get("successor") is not None
+            or decision.get("authority_source") != policy.get("authority_source")
+        ):
+            errors.append(f"{item_location}: decision is not current accepted authority")
+        decision_path = root / decision_location
+        if decision_path.is_file() and not decision_path.is_symlink():
+            if hashlib.sha256(decision_path.read_bytes()).hexdigest() != policy.get("decision_sha256"):
+                errors.append(f"{item_location}: decision fingerprint is stale")
+    return errors
+
+
+def _coded_findings(code: str, errors: list[str]) -> list[dict[str, str]]:
+    return [
+        {"failure_code": code, "message": safe_diagnostic(item)}
+        for item in errors
+    ]
+
+
+def _unique_findings(
+    findings: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    seen: set[str] = set()
+    result: list[dict[str, Any]] = []
+    for item in findings:
+        message = item["message"]
+        if message in seen:
+            continue
+        seen.add(message)
+        result.append(item)
+    return result
+
+
+def check_source_findings(
+    root: Path = ROOT,
+    *,
+    scan_repository_files: bool = True,
+) -> list[dict[str, str]]:
+    """Return source-owned stable categories before derived refresh."""
+    findings: list[dict[str, str]] = []
+    findings.extend(_coded_findings("OCTON-DIAG-0001", check_runtime()))
+    if scan_repository_files:
+        findings.extend(
+            _coded_findings(
+                "OCTON-DIAG-0201",
+                check_files_and_json(root, include_derived=False),
+            )
+        )
+    findings.extend(_coded_findings("OCTON-DIAG-0201", check_kernel(root)))
+    findings.extend(
+        _coded_findings("OCTON-DIAG-0202", check_project_check_evidence(root))
+    )
+    findings.extend(_coded_findings("OCTON-DIAG-0101", check_focus(root)))
+    records, record_errors = collect_records(root)
+    findings.extend(_coded_findings("OCTON-DIAG-0201", record_errors))
+    findings.extend(_coded_findings("OCTON-DIAG-0201", check_origin(root, records)))
+    findings.extend(
+        _coded_findings("OCTON-DIAG-0401", check_collaboration_profile(root, records))
+    )
+    findings.extend(_coded_findings("OCTON-DIAG-0401", check_git_workflows(root, records)))
+    findings.extend(
+        _coded_findings("OCTON-DIAG-0201", check_references_and_lifecycle(root, records))
+    )
+    findings.extend(
+        _coded_findings("OCTON-DIAG-0203", check_decision_governance(root, records))
+    )
+    findings.extend(_coded_findings("OCTON-DIAG-0203", check_decision_reuse(root, records)))
+    findings.extend(_coded_findings("OCTON-DIAG-0201", check_maturity_assessments(records)))
+    findings.extend(_coded_findings("OCTON-DIAG-0201", check_plan_and_traceability(records)))
+    findings.extend(
+        _coded_findings("OCTON-DIAG-0201", check_governance_semantics(root, records))
+    )
+    findings.extend(_coded_findings("OCTON-DIAG-0301", check_dossier_registry(root)))
+    findings.extend(_coded_findings("OCTON-DIAG-0501", check_capabilities(root, records)))
+    findings.extend(_coded_findings("OCTON-DIAG-0501", check_extensions(root, records)))
+    findings.extend(_coded_findings("OCTON-DIAG-0501", check_packages(root)))
+    findings.extend(check_transaction_findings(root))
+    return _unique_findings(findings)
+
+
 def check_sources(
     root: Path = ROOT,
     *,
     scan_repository_files: bool = True,
 ) -> list[str]:
     """Validate authoritative/project-maintained inputs before derived refresh."""
-    errors: list[str] = []
-    errors.extend(check_runtime())
-    if scan_repository_files:
-        errors.extend(check_files_and_json(root, include_derived=False))
-    errors.extend(check_kernel(root))
-    errors.extend(check_project_check_evidence(root))
-    errors.extend(check_focus(root))
-    records, record_errors = collect_records(root)
-    errors.extend(record_errors)
-    errors.extend(check_origin(root, records))
-    errors.extend(check_collaboration_profile(root, records))
-    errors.extend(check_git_workflows(root, records))
-    errors.extend(check_references_and_lifecycle(root, records))
-    errors.extend(check_decision_governance(root, records))
-    errors.extend(check_maturity_assessments(records))
-    errors.extend(check_plan_and_traceability(records))
-    errors.extend(check_governance_semantics(root, records))
-    errors.extend(check_dossier_registry(root))
-    errors.extend(check_capabilities(root, records))
-    errors.extend(check_extensions(root, records))
-    errors.extend(check_packages(root))
-    errors.extend(check_transactions(root))
-    return list(dict.fromkeys(safe_diagnostic(item) for item in errors))
+    return [
+        item["message"]
+        for item in check_source_findings(
+            root,
+            scan_repository_files=scan_repository_files,
+        )
+    ]
 
 
-def check(root: Path = ROOT, include_generated: bool = True) -> list[str]:
+def check_findings(
+    root: Path = ROOT,
+    include_generated: bool = True,
+) -> list[dict[str, str]]:
     # The complete file scan subsumes the source-only scan. Keeping the source
     # contract checks while enumerating repository payload once is material at
     # 10k+ files and does not narrow validation coverage.
-    errors = check_sources(root, scan_repository_files=False)
-    errors.extend(check_files_and_json(root, include_derived=True))
+    findings = check_source_findings(root, scan_repository_files=False)
+    findings.extend(
+        _coded_findings(
+            "OCTON-DIAG-0101",
+            check_files_and_json(root, include_derived=True),
+        )
+    )
     records, record_errors = collect_records(root)
-    errors.extend(record_errors)
-    errors.extend(check_current_state(root, records))
-    errors.extend(check_dossier_catalog(root))
+    findings.extend(_coded_findings("OCTON-DIAG-0201", record_errors))
+    findings.extend(_coded_findings("OCTON-DIAG-0101", check_current_state(root, records)))
+    findings.extend(_coded_findings("OCTON-DIAG-0101", check_dossier_catalog(root)))
     if include_generated:
-        errors.extend(check_integrity(root, include_generated=True))
-    return list(dict.fromkeys(safe_diagnostic(item) for item in errors))
+        findings.extend(
+            _coded_findings(
+                "OCTON-DIAG-0101",
+                check_integrity(root, include_generated=True),
+            )
+        )
+    return _unique_findings(findings)
+
+
+def check(root: Path = ROOT, include_generated: bool = True) -> list[str]:
+    return [
+        item["message"]
+        for item in check_findings(root, include_generated=include_generated)
+    ]
 
 
 def main() -> int:

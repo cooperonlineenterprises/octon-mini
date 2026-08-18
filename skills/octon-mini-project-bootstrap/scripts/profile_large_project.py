@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import json
+import math
 import os
 import platform
 import shutil
@@ -292,6 +293,160 @@ def octon_command(root: Path, *arguments: str) -> list[str]:
     return [*command, *arguments]
 
 
+def native_transaction_phase_records(
+    receipt: object,
+    process_timings: object,
+    *,
+    tree_seconds: float,
+    tree_invocations: int,
+) -> tuple[dict[str, dict[str, object]], str | None]:
+    records: dict[str, dict[str, object]] = {}
+    native_failure = False
+    tree_failure = False
+    invalid_phases: set[str] = set()
+
+    def fail_native(phase: str, limitation: str) -> None:
+        nonlocal native_failure
+        records[phase] = failed_phase(None, limitation)
+        invalid_phases.add(phase)
+        native_failure = True
+
+    if (
+        not isinstance(receipt, dict)
+        or receipt.get("schema_version") != "harness.transaction-receipt.v3"
+        or not isinstance(receipt.get("timings"), dict)
+        or not isinstance(process_timings, dict)
+    ):
+        for phase in PHASE_IDS:
+            if phase.startswith("transaction."):
+                fail_native(
+                    phase,
+                    "Transaction-v3 native timing sources were unavailable or invalid.",
+                )
+        return records, "transaction.native_timings"
+
+    receipt_timings = receipt["timings"]
+
+    def number(value: object) -> float | None:
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            return None
+        result = float(value)
+        return result if result >= 0 and math.isfinite(result) else None
+
+    required_embedded = {
+        "staging_seconds": "transaction.staging_copy",
+        "refresh_seconds": "transaction.staged_refresh_validation",
+        "staged_validation_seconds": "transaction.staged_refresh_validation",
+        "apply_seconds": "transaction.live_apply",
+        "post_apply_validation_seconds": "transaction.post_apply_validation",
+        "receipt_preparation_seconds": "transaction.receipt_creation",
+        "total_before_receipt_persist_seconds": "transaction.total_apply",
+    }
+    shared: dict[str, float] = {}
+    for key, phase in required_embedded.items():
+        receipt_value = number(receipt_timings.get(key))
+        process_value = number(process_timings.get(key))
+        if receipt_value is None or process_value is None or receipt_value != process_value:
+            fail_native(
+                phase,
+                f"Transaction-v3 native timing {key} was unavailable, invalid, or inconsistent.",
+            )
+        else:
+            shared[key] = process_value
+
+    native_map = {
+        "transaction.staging_copy": (
+            "staging_seconds",
+            [
+                "Native receipt-v3 staging time measures the complete portable copy; staged static writes occur afterward, and no hardlink, reflink, or partial staging is used."
+            ],
+        ),
+        "transaction.staged_refresh_validation": (
+            "staged_validation_seconds",
+            [
+                "Native receipt-v3 staged validation includes refresh and before/after tree-state observations; refresh_seconds remains in the receipt but is not projected as a separate phase."
+            ],
+        ),
+        "transaction.live_apply": (
+            "apply_seconds",
+            [
+                "Native receipt-v3 apply time begins after pending-journal creation and covers live static and declared derived writes plus exact postimage checks before post-apply validation."
+            ],
+        ),
+        "transaction.post_apply_validation": (
+            "post_apply_validation_seconds",
+            [
+                "Native receipt-v3 post-apply validation includes its second isolated full clone, command execution, and before/after tree-state observations."
+            ],
+        ),
+    }
+    for phase, (key, limitations) in native_map.items():
+        value = shared.get(key)
+        if value is not None and phase not in invalid_phases:
+            records[phase] = measured_phase(
+                value,
+                overlaps=True,
+                limitations=limitations,
+            )
+
+    if tree_invocations < 1 or tree_seconds < 0 or not math.isfinite(tree_seconds):
+        records["transaction.tree_state"] = failed_phase(
+            None,
+            "Invocation-local transaction tree-state timing was unavailable or invalid.",
+        )
+        tree_failure = True
+    else:
+        records["transaction.tree_state"] = measured_phase(
+            tree_seconds,
+            invocations=tree_invocations,
+            overlaps=True,
+            limitations=[
+                "Invocation-local tree-state observations overlap native staged and post-apply validation timings and do not intercept command semantics."
+            ],
+        )
+
+    preparation = shared.get("receipt_preparation_seconds")
+    persistence = number(process_timings.get("receipt_persist_seconds"))
+    if preparation is None or persistence is None:
+        if "transaction.receipt_creation" not in invalid_phases:
+            fail_native(
+                "transaction.receipt_creation",
+                "Transaction-v3 receipt preparation or post-write persistence timing was unavailable or invalid.",
+            )
+    elif "transaction.receipt_creation" not in invalid_phases:
+        records["transaction.receipt_creation"] = measured_phase(
+            round(preparation + persistence, 9),
+            overlaps=True,
+            limitations=[
+                "One composed phase observation equal to receipt-v3 receipt_preparation_seconds plus process-local receipt_persist_seconds; it excludes path confinement and pending-journal deletion, and the post-write persistence observation is not inserted back into the immutable receipt."
+            ],
+        )
+
+    total = number(process_timings.get("total_seconds"))
+    if total is None:
+        fail_native(
+            "transaction.total_apply",
+            "Transaction-v3 process-local total_seconds was unavailable or invalid.",
+        )
+    elif "transaction.total_apply" not in invalid_phases:
+        records["transaction.total_apply"] = measured_phase(
+            total,
+            overlaps=True,
+            limitations=[
+                "Uses process-local transaction-v3 total_seconds from apply entry through receipt persistence and timing publication, before pending-journal unlink; it does not substitute total_before_receipt_persist_seconds."
+            ],
+        )
+
+    return (
+        records,
+        "transaction.native_timings"
+        if native_failure
+        else "transaction.tree_state"
+        if tree_failure
+        else None,
+    )
+
+
 def profile_transaction(
     source: Path,
     phases: dict[str, dict[str, object]],
@@ -335,154 +490,42 @@ def profile_transaction(
                 f"octon_mini_phase_transaction_{time.time_ns()}",
             )
             plan = transaction.load_plan(plan_path)
-            timings: dict[str, float] = {}
-            invocations: dict[str, int] = {}
-            state: dict[str, float | None] = {"staged_complete_at": None}
-
-            original_clone = transaction._clone_for_staging
             original_tree = transaction._tree_state
-            original_staged = transaction._staged_result
-            original_run = transaction._run_commands
-            original_write_new = transaction.write_new_json
-
-            def add_timing(phase: str, value: float) -> None:
-                timings[phase] = timings.get(phase, 0.0) + value
-                invocations[phase] = invocations.get(phase, 0) + 1
-
-            def clone_wrapper(root: Path, destination: Path) -> None:
-                started = time.perf_counter()
-                try:
-                    original_clone(root, destination)
-                finally:
-                    add_timing("transaction.staging_copy", time.perf_counter() - started)
+            tree_seconds = 0.0
+            tree_invocations = 0
 
             def tree_wrapper(root: Path) -> dict[str, tuple[str, int, str]]:
+                nonlocal tree_seconds, tree_invocations
                 started = time.perf_counter()
                 try:
                     return original_tree(root)
                 finally:
-                    add_timing("transaction.tree_state", time.perf_counter() - started)
+                    tree_seconds += time.perf_counter() - started
+                    tree_invocations += 1
 
-            def staged_wrapper(
-                root: Path,
-                plan_value: dict[str, Any],
-                decoded: dict[str, bytes | None],
-            ) -> tuple[dict[str, tuple[bytes | None, int | None]], list[dict[str, Any]]]:
-                result = original_staged(root, plan_value, decoded)
-                state["staged_complete_at"] = time.perf_counter()
-                return result
-
-            def run_wrapper(
-                root: Path,
-                commands: list[list[str]],
-                *,
-                phase: str,
-                declared_writes: list[str],
-                active_pending: tuple[str, str] | None = None,
-            ) -> list[dict[str, Any]]:
-                started = time.perf_counter()
-                if phase == "post_apply" and state["staged_complete_at"] is not None:
-                    add_timing(
-                        "transaction.live_apply",
-                        started - float(state["staged_complete_at"]),
-                    )
-                try:
-                    return original_run(
-                        root,
-                        commands,
-                        phase=phase,
-                        declared_writes=declared_writes,
-                        active_pending=active_pending,
-                    )
-                finally:
-                    identifier = (
-                        "transaction.staged_refresh_validation"
-                        if phase == "staged"
-                        else "transaction.post_apply_validation"
-                    )
-                    add_timing(identifier, time.perf_counter() - started)
-
-            def write_new_wrapper(path: Path, value: object) -> None:
-                if path.parent.name != "receipts":
-                    original_write_new(path, value)
-                    return
-                started = time.perf_counter()
-                try:
-                    original_write_new(path, value)
-                finally:
-                    add_timing(
-                        "transaction.receipt_creation", time.perf_counter() - started
-                    )
-
-            transaction._clone_for_staging = clone_wrapper
             transaction._tree_state = tree_wrapper
-            transaction._staged_result = staged_wrapper
-            transaction._run_commands = run_wrapper
-            transaction.write_new_json = write_new_wrapper
-            started = time.perf_counter()
             try:
-                transaction.apply_plan(
+                receipt, _receipt_path = transaction.apply_plan(
                     target,
                     plan,
                     plan["canonical_plan_digest"],
                 )
             finally:
-                add_timing("transaction.total_apply", time.perf_counter() - started)
+                transaction._tree_state = original_tree
 
-            overlap_phases = {
-                "transaction.tree_state",
-                "transaction.staged_refresh_validation",
-                "transaction.post_apply_validation",
-                "transaction.total_apply",
-            }
-            phase_limits = {
-                "transaction.staging_copy": [
-                    "Measures the existing complete portable copy; no hardlink, reflink, or partial staging is used."
-                ],
-                "transaction.tree_state": [
-                    "Inclusive tree snapshots overlap staged and post-apply validation."
-                ],
-                "transaction.staged_refresh_validation": [
-                    "Includes staged command execution and its before/after tree snapshots."
-                ],
-                "transaction.live_apply": [
-                    "Measures the interval after staged validation through live postimage checks, immediately before post-apply validation."
-                ],
-                "transaction.post_apply_validation": [
-                    "Includes post-apply command execution and its before/after tree snapshots."
-                ],
-                "transaction.receipt_creation": [
-                    "Measures final receipt file creation; pending-journal work is included in live apply."
-                ],
-                "transaction.total_apply": [
-                    "Inclusive total overlaps every transaction phase."
-                ],
-            }
-            for phase in (
-                "transaction.staging_copy",
-                "transaction.tree_state",
-                "transaction.staged_refresh_validation",
-                "transaction.live_apply",
-                "transaction.post_apply_validation",
-                "transaction.receipt_creation",
-                "transaction.total_apply",
-            ):
-                if phase not in timings:
-                    phases[phase] = failed_phase(None, "Expected transaction phase was not observed.")
-                    return phase
-                phases[phase] = measured_phase(
-                    timings[phase],
-                    invocations=invocations[phase],
-                    overlaps=phase in overlap_phases,
-                    limitations=phase_limits[phase],
-                )
-            return None
+            native_records, timing_failure = native_transaction_phase_records(
+                receipt,
+                dict(transaction.LAST_PHASE_TIMINGS),
+                tree_seconds=tree_seconds,
+                tree_invocations=tree_invocations,
+            )
+            phases.update(native_records)
+            return timing_failure
         except Exception:
-            if "transaction.total_apply" in locals().get("timings", {}):
-                phases["transaction.total_apply"] = failed_phase(
-                    timings["transaction.total_apply"],
-                    "Disposable transaction apply failed; exception content was not retained.",
-                )
+            phases["transaction.total_apply"] = failed_phase(
+                None,
+                "Disposable transaction-v3 apply failed; exception content and partial native timings were not retained.",
+            )
             return "transaction.apply"
 
 
