@@ -25,7 +25,7 @@
   "entries": [
     {"id": "LEGACY-0001", "path": "ARCHITECTURAL_PATTERN_INTEGRATION_REVIEW.md", "file_sha256": "257433c349dbb4bda027eefe3e57bec47ad393d5a41414fe1f2e041a935a35f1", "classification": "truthful_historical_record", "occurrence_count": 86},
     {"id": "LEGACY-0002", "path": "ARCHITECTURE_DECISIONS.md", "file_sha256": "a2afa38972edf94140b430355bc18b9e8e9631cab34d5e200c6230c2ab7c1ace", "classification": "truthful_historical_record", "occurrence_count": 13},
-    {"id": "LEGACY-0003", "path": "CHANGELOG.md", "file_sha256": "d76f347f1e9fdb2b2928f454761ff3b4c0048d413d1faafd808939bb6cbe8b2f", "classification": "truthful_historical_record", "occurrence_count": 10},
+    {"id": "LEGACY-0003", "path": "CHANGELOG.md", "file_sha256": "ce961b1fa15772da51dda9e29fd9600d70eae2e7ef131681cd5ee163b64c69f5", "classification": "truthful_historical_record", "occurrence_count": 10},
     {"id": "LEGACY-0004", "path": "GIT_WORKFLOW.md", "file_sha256": "49f2220f1169eda7f4d50debafd09447fe5e99baaaa536584b127f28eb681da2", "classification": "breaking_transition_explanation", "occurrence_count": 1},
     {"id": "LEGACY-0005", "path": "README.md", "file_sha256": "52647b0bb8505adf5fee039ef9abda2199260fec619a087ea1280971e9ed823f", "classification": "breaking_transition_explanation", "occurrence_count": 3},
     {"id": "LEGACY-0006", "path": "RELEASE.md", "file_sha256": "3beefd659e2b8ea18c6af4509c80b39faa6aa095ef201ae255b4d14cc2adf4b0", "classification": "truthful_historical_record", "occurrence_count": 7},

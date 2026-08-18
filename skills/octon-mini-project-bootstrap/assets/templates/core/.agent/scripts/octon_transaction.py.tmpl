@@ -483,22 +483,37 @@ def _apply_static(root: Path, plan: dict[str, Any], decoded: dict[str, bytes | N
 
 def _tree_state(root: Path) -> dict[str, tuple[str, int, str]]:
     values: dict[str, tuple[str, int, str]] = {}
-    for path in sorted(root.rglob("*")):
-        relative = path.relative_to(root).as_posix()
-        if relative == ".git" or relative.startswith(".git/"):
-            continue
-        if relative == ".agent/transactions" or relative.startswith(".agent/transactions/"):
-            continue
-        metadata = path.lstat()
-        mode = stat.S_IMODE(metadata.st_mode)
-        if path.is_symlink():
-            values[relative] = ("symlink", mode, sha256(os.readlink(path).encode("utf-8")))
-        elif path.is_file():
-            values[relative] = ("file", mode, sha256(path.read_bytes()))
-        elif path.is_dir():
-            values[relative] = ("directory", mode, "")
-        else:
-            values[relative] = ("other", mode, "")
+
+    def visit(directory: Path, relative_directory: Path) -> None:
+        with os.scandir(directory) as iterator:
+            entries = sorted(iterator, key=lambda entry: entry.name)
+        for entry in entries:
+            relative_path = relative_directory / entry.name
+            relative = relative_path.as_posix()
+            if relative == ".git" or relative.startswith(".git/"):
+                continue
+            if relative == ".agent/transactions" or relative.startswith(
+                ".agent/transactions/"
+            ):
+                continue
+            path = directory / entry.name
+            metadata = path.lstat()
+            mode = stat.S_IMODE(metadata.st_mode)
+            if stat.S_ISLNK(metadata.st_mode):
+                values[relative] = (
+                    "symlink",
+                    mode,
+                    sha256(os.readlink(path).encode("utf-8")),
+                )
+            elif stat.S_ISREG(metadata.st_mode):
+                values[relative] = ("file", mode, sha256(path.read_bytes()))
+            elif stat.S_ISDIR(metadata.st_mode):
+                values[relative] = ("directory", mode, "")
+                visit(path, relative_path)
+            else:
+                values[relative] = ("other", mode, "")
+
+    visit(root, Path())
     return values
 
 

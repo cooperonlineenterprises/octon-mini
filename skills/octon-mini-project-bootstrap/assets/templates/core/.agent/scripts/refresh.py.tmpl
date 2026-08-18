@@ -401,7 +401,8 @@ def main() -> int:
                 file=sys.stderr,
             )
             return 1
-        if validator.source_fingerprint(ROOT) != fingerprint:
+        file_hashes, validated_fingerprint = validator.source_inventory(ROOT)
+        if validated_fingerprint != fingerprint:
             raise RuntimeError(
                 "source changed during pre-refresh validation; no derived "
                 "files were updated"
@@ -421,7 +422,6 @@ def main() -> int:
         verify_physical_coverage(representations, by_path, str(profile))
         generated_at = datetime.now(timezone.utc).isoformat()
         identifier = secrets.token_hex(16)
-        file_hashes = validator.expected_manifest_files(ROOT)
         outputs = derived_paths(str(profile))
         project = validator.load_json(ROOT / ".agent/project.json")
         exclusions = (

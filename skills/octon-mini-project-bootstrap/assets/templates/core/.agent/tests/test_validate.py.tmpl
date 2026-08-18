@@ -7,6 +7,7 @@ import importlib.util
 import json
 import os
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
@@ -3007,6 +3008,257 @@ class HarnessValidatorTests(unittest.TestCase):
             self.assertTrue(any("escapes the repository" in item for item in findings))
         finally:
             temporary.cleanup()
+
+    def test_scandir_repository_walk_matches_legacy_inventory_and_prunes(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="harness-scandir-inventory-") as temporary:
+            root = Path(temporary)
+            for relative, content in (
+                (".git/objects/hidden", "git\n"),
+                ("nested/__pycache__/hidden.pyc", "cache\n"),
+                (".agent/generated/derived.json", "{}\n"),
+                (".agent/transactions/plans/plan.json", "{}\n"),
+                (".agent/project-checks/evidence.json", "A\n"),
+                (".agent/project-checks/archive/old.json", "A\n"),
+                (".agent/state/current.json", "{}\n"),
+                ("excluded/nested/hidden.txt", "excluded\n"),
+                ("src/a.txt", "AAAA\n"),
+                ("src/z.txt", "zeta\n"),
+                (".DS_Store", "ignored identity\n"),
+            ):
+                path = root / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(content, encoding="utf-8")
+            write_json(
+                root / ".agent/project.json",
+                {
+                    "paths": {
+                        "fingerprint_exclusions": [
+                            {"path": "excluded", "reason": "Synthetic exclusion."}
+                        ]
+                    }
+                },
+            )
+            try:
+                (root / "src/link.txt").symlink_to("a.txt")
+                (root / "src/directory-link").symlink_to("../excluded", target_is_directory=True)
+                (root / "src/broken-link").symlink_to("missing.txt")
+            except OSError:
+                pass
+
+            def legacy_files(source_only: bool) -> list[Path]:
+                exclusions, _ = VALIDATOR.fingerprint_exclusions(root)
+                files: list[Path] = []
+                for path in sorted(root.rglob("*")):
+                    rel_path = path.relative_to(root)
+                    rel = rel_path.as_posix()
+                    if ".git" in rel_path.parts or "__pycache__" in rel_path.parts:
+                        continue
+                    if source_only and (
+                        rel.startswith(".agent/generated/")
+                        or rel.startswith(".agent/transactions/")
+                        or rel in VALIDATOR.DERIVED_EXCLUSIONS
+                        or any(
+                            rel == item or rel.startswith(item + "/")
+                            for item in exclusions
+                        )
+                    ):
+                        continue
+                    if path.is_symlink():
+                        files.append(path)
+                        continue
+                    if path.is_dir():
+                        continue
+                    files.append(path)
+                return files
+
+            def inventory(
+                paths: list[Path], *, project_check: bool = False
+            ) -> tuple[dict[str, str], str]:
+                digest = hashlib.sha256()
+                values: dict[str, str] = {}
+                for path in paths:
+                    relative = path.relative_to(root).as_posix()
+                    if path.name == ".DS_Store" or (
+                        project_check
+                        and (
+                            relative == VALIDATOR.PROJECT_CHECK_EVIDENCE_PATH
+                            or relative.startswith(".agent/project-checks/archive/")
+                        )
+                    ):
+                        continue
+                    identity_hex = VALIDATOR.hash_path_identity(path)
+                    values[relative] = identity_hex
+                    digest.update(relative.encode("utf-8", errors="surrogateescape"))
+                    digest.update(b"\0")
+                    digest.update(bytes.fromhex(identity_hex))
+                    digest.update(b"\0")
+                return values, digest.hexdigest()
+
+            for source_only in (False, True):
+                expected = [
+                    path.relative_to(root).as_posix()
+                    for path in legacy_files(source_only)
+                ]
+                actual = [
+                    path.relative_to(root).as_posix()
+                    for path in VALIDATOR.repository_files(
+                        root, source_only=source_only
+                    )
+                ]
+                self.assertEqual(actual, expected)
+
+            visited: list[str] = []
+            real_scandir = os.scandir
+
+            def observe(directory: os.PathLike[str] | str):
+                visited.append(Path(directory).relative_to(root).as_posix())
+                return real_scandir(directory)
+
+            with mock.patch.object(VALIDATOR.os, "scandir", side_effect=observe):
+                VALIDATOR.repository_files(root, source_only=True)
+            for pruned in (
+                ".git",
+                "nested/__pycache__",
+                ".agent/generated",
+                ".agent/transactions",
+                "excluded",
+            ):
+                self.assertNotIn(pruned, visited)
+
+            source_paths = legacy_files(True)
+            expected_files, expected_fingerprint = inventory(source_paths)
+            self.assertEqual(
+                VALIDATOR.source_inventory(root),
+                (expected_files, expected_fingerprint),
+            )
+            _, expected_project_fingerprint = inventory(
+                source_paths, project_check=True
+            )
+            self.assertEqual(
+                VALIDATOR.project_check_source_fingerprint(root),
+                expected_project_fingerprint,
+            )
+
+            evidence_path = root / ".agent/project-checks/evidence.json"
+            source_before = VALIDATOR.source_fingerprint(root)
+            project_before = VALIDATOR.project_check_source_fingerprint(root)
+            evidence_metadata = evidence_path.stat()
+            evidence_path.write_text("B\n", encoding="utf-8")
+            os.utime(
+                evidence_path,
+                ns=(evidence_metadata.st_atime_ns, evidence_metadata.st_mtime_ns),
+            )
+            self.assertNotEqual(VALIDATOR.source_fingerprint(root), source_before)
+            self.assertEqual(
+                VALIDATOR.project_check_source_fingerprint(root), project_before
+            )
+
+            source_path = root / "src/a.txt"
+            fingerprint_before = VALIDATOR.source_fingerprint(root)
+            source_metadata = source_path.stat()
+            source_path.write_text("BBBB\n", encoding="utf-8")
+            os.utime(
+                source_path,
+                ns=(source_metadata.st_atime_ns, source_metadata.st_mtime_ns),
+            )
+            self.assertNotEqual(
+                VALIDATOR.source_fingerprint(root), fingerprint_before
+            )
+
+    def test_scandir_transaction_tree_state_matches_legacy_and_detects_changes(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="harness-scandir-transaction-") as temporary:
+            root = Path(temporary)
+            for relative, content in (
+                (".git/objects/hidden", "git\n"),
+                (".agent/transactions/plans/hidden.json", "{}\n"),
+                ("src/a.txt", "AAAA\n"),
+                ("src/z.txt", "zeta\n"),
+            ):
+                path = root / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(content, encoding="utf-8")
+            executable = root / "src/executable.sh"
+            executable.write_text("#!/bin/sh\n", encoding="utf-8")
+            executable.chmod(0o755)
+            try:
+                (root / "src/link.txt").symlink_to("a.txt")
+                (root / "src/broken-link").symlink_to("missing.txt")
+            except OSError:
+                pass
+
+            spec = importlib.util.spec_from_file_location(
+                "project_transaction_scandir_test",
+                ROOT / ".agent/scripts/octon_transaction.py",
+            )
+            self.assertIsNotNone(spec)
+            self.assertIsNotNone(spec.loader if spec else None)
+            transaction = importlib.util.module_from_spec(spec)
+            assert spec is not None and spec.loader is not None
+            spec.loader.exec_module(transaction)
+
+            def legacy_state() -> dict[str, tuple[str, int, str]]:
+                values: dict[str, tuple[str, int, str]] = {}
+                for path in sorted(root.rglob("*")):
+                    relative = path.relative_to(root).as_posix()
+                    if relative == ".git" or relative.startswith(".git/"):
+                        continue
+                    if relative == ".agent/transactions" or relative.startswith(
+                        ".agent/transactions/"
+                    ):
+                        continue
+                    metadata = path.lstat()
+                    mode = stat.S_IMODE(metadata.st_mode)
+                    if path.is_symlink():
+                        values[relative] = (
+                            "symlink",
+                            mode,
+                            transaction.sha256(os.readlink(path).encode("utf-8")),
+                        )
+                    elif path.is_file():
+                        values[relative] = (
+                            "file",
+                            mode,
+                            transaction.sha256(path.read_bytes()),
+                        )
+                    elif path.is_dir():
+                        values[relative] = ("directory", mode, "")
+                    else:
+                        values[relative] = ("other", mode, "")
+                return values
+
+            expected = legacy_state()
+            self.assertEqual(transaction._tree_state(root), expected)
+
+            visited: list[str] = []
+            real_scandir = os.scandir
+
+            def observe(directory: os.PathLike[str] | str):
+                visited.append(Path(directory).relative_to(root).as_posix())
+                return real_scandir(directory)
+
+            with mock.patch.object(transaction.os, "scandir", side_effect=observe):
+                transaction._tree_state(root)
+            self.assertNotIn(".git", visited)
+            self.assertNotIn(".agent/transactions", visited)
+
+            before = transaction._tree_state(root)
+            source = root / "src/a.txt"
+            source.write_text("BBBB\n", encoding="utf-8")
+            executable.chmod(0o644)
+            (root / "src/new.txt").write_text("new\n", encoding="utf-8")
+            (root / "src/z.txt").unlink()
+            after = transaction._tree_state(root)
+            changed = {
+                relative
+                for relative in set(before) | set(after)
+                if before.get(relative) != after.get(relative)
+            }
+            expected_changes = {"src/a.txt", "src/new.txt", "src/z.txt"}
+            if before.get("src/executable.sh") != after.get("src/executable.sh"):
+                expected_changes.add("src/executable.sh")
+            self.assertEqual(changed, expected_changes)
+            if os.name != "nt":
+                self.assertIn("src/executable.sh", changed)
 
     def test_gate_readiness_rejects_failed_or_expired_evidence(self) -> None:
         evidence_path = ROOT / "project-dossier/machine-readable/evidence-index.json"
