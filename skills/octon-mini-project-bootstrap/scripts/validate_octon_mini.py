@@ -1085,7 +1085,7 @@ def validate_skill_and_release(issues: list[str]) -> None:
         issues.append("agents/openai.yaml does not invoke $octon-mini-project-bootstrap")
     version = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
     if version != "4.0.0":
-        issues.append(f"development VERSION must be 4.0.0, found {version!r}")
+        issues.append(f"current VERSION must be 4.0.0, found {version!r}")
     changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
     release = (ROOT / "RELEASE.md").read_text(encoding="utf-8")
     release_compact = re.sub(r"\s+", " ", release)
@@ -1095,9 +1095,12 @@ def validate_skill_and_release(issues: list[str]) -> None:
     release_statements = (
         "The GitHub repository rename to `cooperonlineenterprises/octon-mini`",
         "local project-directory rename to `octon-mini` are complete",
-        "The repository is currently public.",
-        "Octon Mini 4.0.0 remains unreleased",
-        "no `v4.0.0` tag, GitHub Release, or package publication has occurred",
+        "The repository is public.",
+        "Octon Mini 4.0.0 is released through its annotated tag and GitHub Release",
+        "No separate package registry or package channel was used",
+        "candidate is `68701faa1898879779e5a7c4c8cedbf8009c6ce0`",
+        "full-matrix run `32185219444` passed all twelve",
+        "Repository ruleset `21013176` applies Stage A `solo_hybrid` protection",
         "did not itself authorize the later repository rename, visibility change,",
         "approved `KEEP_PUBLIC_WITH_LICENSE — MIT-0`",
         "canonical MIT No Attribution license, SPDX identifier `MIT-0`",
@@ -1107,15 +1110,15 @@ def validate_skill_and_release(issues: list[str]) -> None:
     for statement in release_statements:
         if statement not in release_compact:
             issues.append(f"RELEASE.md lacks current repository-state assertion: {statement}")
-    if "## 4.0.0 — Unreleased" not in changelog:
-        issues.append("CHANGELOG.md must retain the exact unreleased 4.0.0 heading")
-    for forbidden in (
-        "## 4.0.0 — Released",
-        "Octon Mini 4.0.0 is released",
-        "The `v4.0.0` tag was created",
+    if "## 4.0.0 — 2026-08-18" not in changelog:
+        issues.append("CHANGELOG.md must retain the exact 4.0.0 release heading")
+    for stale in (
+        "## 4.0.0 — Unreleased",
+        "Octon Mini 4.0.0 remains unreleased",
+        "no `v4.0.0` tag, GitHub Release, or package publication has occurred",
     ):
-        if forbidden in changelog or forbidden in release:
-            issues.append(f"current release material makes a false 4.0 release claim: {forbidden}")
+        if stale in changelog or stale in release:
+            issues.append(f"current release material retains stale pre-release text: {stale}")
     source_decisions = (ROOT / "ARCHITECTURE_DECISIONS.md").read_text(
         encoding="utf-8"
     )

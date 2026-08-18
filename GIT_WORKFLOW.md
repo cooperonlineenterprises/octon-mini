@@ -38,8 +38,9 @@ At acceptance time the repository was private, and the decision prohibited
 making it public or changing plans solely to obtain branch protection.
 `SRC-DEC-0016` later recorded the independently owner-directed public MIT-0
 boundary. Public visibility does not change contributor access, human team
-band, reviewer capacity, workflow adoption, or authority. The ruleset proposal
-below remains unapplied and non-authorizing.
+band, reviewer capacity, workflow adoption, or authority. Stage A of the
+ruleset proposal below was applied on 2026-08-18 under separate owner
+authorization; Stage B remains unapplied.
 
 ## Current read-only observation
 
@@ -49,7 +50,7 @@ replacing the accepted text of `SRC-DEC-0001`.
 | Field | Current assessment |
 |---|---|
 | Information role | Explicit repository-owner declaration plus direct local Git and read-only hosted GitHub observation |
-| Observed on | 2026-08-17 |
+| Observed on | 2026-08-18 |
 | Reassess by | 2026-09-10, or immediately after an access, contributor, reviewer-capacity, or standing-concurrency change |
 | Confidence | Hosted settings and aggregate access are `confirmed` for the observation time; availability, qualifications, intended responsibility, and future state are not established |
 | Declared write-capable human maintainers | 1 |
@@ -58,11 +59,11 @@ replacing the accepted text of `SRC-DEC-0001`.
 | Active human contributors in the preceding 90 days | 1 |
 | Human team band | `solo` |
 | Independent review capacity | 0 (`not_established`) |
-| Current implementation concurrency | One primary repository writer with parallel read-only auditors; no concurrent repository writer is expected |
+| Current implementation concurrency | One primary repository writer; no concurrent repository writer is expected |
 | Standing post-task concurrency expectation | `not_assessed`; reassessment required |
 | Repository visibility | `public`; visibility is not contributor acceptance, access, review capacity, or authority |
 | External contribution mode | `not_assessed`; public readability and forkability do not establish the accepted contribution path |
-| Default-branch enforcement | `main` is unprotected; no applicable repository or parent ruleset was observed |
+| Default-branch enforcement | `main` is protected by active repository ruleset `21013176` (`main-stage-a-solo-hybrid`) |
 | Adopted base workflow | `solo_hybrid` |
 | Current modifier | None; `concurrent_work` is not selected for this task |
 | Adoption status | `accepted` |
@@ -78,18 +79,19 @@ not establish availability, qualifications, intended responsibility, or
 independence, so independent-review capacity remains zero rather than being
 inferred from public visibility or activity.
 
-The repository is public and permits public forks; zero forks were observed at
-the inspection time. Only `merge_commit` is enabled, automatic merged-head
-deletion is enabled, `main` is unprotected, and the applicable ruleset query
-returned none. Public visibility and forkability grant no write access,
-reviewer eligibility, operation authority, or accepted contribution path.
-Hosted settings remain dated observations, not authority or proof of future
-enforcement.
+The repository is public and permits public forks. Only `merge_commit` is
+enabled and automatic merged-head deletion remains enabled. Active repository
+ruleset `21013176` now requires pull requests and the stable `required` check,
+permits zero approvals under `solo_hybrid`, allows only merge commits, blocks
+force pushes and `main` deletion, and configures no bypass actor. Public
+visibility and forkability grant no write access, reviewer eligibility,
+operation authority, or accepted contribution path. Hosted settings remain
+dated observations, not authority or proof of future enforcement.
 
-This stabilization task uses one primary repository writer and parallel
-read-only audits. Because no second writer is authorized or expected, it does
-not select `concurrent_work`. Standing post-task concurrency remains unknown
-and must be reassessed rather than silently carried forward.
+The release stabilization and reconciliation tasks used one primary repository
+writer. Because no second writer was authorized or expected, they did not
+select `concurrent_work`. Standing post-task concurrency remains unknown and
+must be reassessed rather than silently carried forward.
 
 ## Adopted workflow: `solo_hybrid`
 
@@ -160,14 +162,16 @@ Under separate owner authority on 2026-08-11, the hosted settings selected by
 No visibility, plan, protection, ruleset, collaborator, or permission change
 accompanied the 2026-08-11 merge-settings operation. The later public-license
 boundary is recorded separately by `SRC-DEC-0016`; it did not apply a ruleset
-or create operation authority. The 2026-08-17 read-only observation found no
-branch protection or applicable ruleset.
+or create operation authority. On 2026-08-18, separate current owner authority
+applied repository ruleset `21013176` exactly as Stage A below. No collaborator,
+visibility, or independent-review-capacity change accompanied that operation.
 
-## Proposed default-branch ruleset — unapplied
+## Default-branch ruleset — Stage A applied; Stage B unapplied
 
-This proposal is source documentation only. It has not been applied, grants no
-permission, and does not amend `SRC-DEC-0001` or establish hosted enforcement.
-Any settings mutation requires separate current owner authorization.
+This section does not amend `SRC-DEC-0001` or create permission. Stage A was
+applied on 2026-08-18 under separate current owner authorization; Stage B
+remains a non-authorizing proposal. Any later settings mutation, bypass, or
+Stage B transition requires separate current authority and its stated trigger.
 
 ### Stage A — current `solo_hybrid` topology
 
@@ -183,6 +187,10 @@ Any settings mutation requires separate current owner authorization.
 
 Stage A does not silently add conversation resolution, CODEOWNERS review,
 signed commits, a merge queue, or strict up-to-date-branch behavior.
+
+Applied observation: repository ruleset `21013176`, named
+`main-stage-a-solo-hybrid`, is active on `refs/heads/main`. API read-back
+confirmed every rule above and an empty bypass-actor list.
 
 ### Stage B — only after collaboration reassessment
 
@@ -210,8 +218,12 @@ exactly `ef8f352ca32a7fbdf1131726263ff545cdd8b08a`; it was not backdated.
 Version `3.0.0` was integrated at
 `1af3c1f85cd17e2c840857ad720e1a27e874585a`, passed the full hosted `main`
 matrix in run `31539907441`, and received an annotated `v3.0.0` tag on
-2026-08-11. No GitHub Release exists. This workflow record does not authorize
-moving either tag or creating a GitHub Release.
+2026-08-11. Octon Mini 4.0.0 was integrated at
+`68701faa1898879779e5a7c4c8cedbf8009c6ce0`, passed all twelve jobs in
+manually dispatched run `32185219444`, and received annotated tag `v4.0.0` and
+its GitHub Release on 2026-08-18. Failed predecessor run `32175919937` remains
+retained. Separate package publication was `none`. This workflow record does
+not authorize moving a published tag or performing a later release operation.
 
 ## Unsupported workflow families
 

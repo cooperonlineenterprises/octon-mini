@@ -3,7 +3,7 @@
 All notable Octon Mini contract changes are recorded here. Project-specific
 snapshots do not upgrade automatically.
 
-## 4.0.0 — Unreleased
+## 4.0.0 — 2026-08-18
 
 Velocity-focused major kernel release for solo developers, pairs, and tiny
 teams, with concurrent human/agent/automation work modeled separately from
@@ -12,6 +12,15 @@ assurance profile.
 This is the first Octon Mini release and the breaking successor to Project
 Blueprint 3.x. Product version continuity is preserved; historical releases,
 tags, decisions, and fixtures retain their Project Blueprint identity.
+
+Pull requests #14, #15, and #16 were integrated with `merge_commit`; the
+annotated `v4.0.0` tag targets exactly
+`68701faa1898879779e5a7c4c8cedbf8009c6ce0`. GitHub Actions run
+`32185219444` passed all twelve Ubuntu/macOS/Windows × Python 3.11–3.14 jobs
+on that revision. Failed predecessor run `32175919937` is retained as the
+evidence that exposed the Windows portability correction in pull request #16.
+The GitHub Release is published, Stage A `solo_hybrid` protection is active
+without bypass actors, and no separate package registry publication was made.
 
 ### Added
 
