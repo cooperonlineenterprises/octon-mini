@@ -198,6 +198,20 @@ High Assurance, conditional trigger contracts, package confinement, and
 external-effect gates. Tests intentionally perform no credentialed, financial,
 legal, publication, deployment, production, or destructive external action.
 
+## Real-project evidence status
+
+All evidence recorded above is synthetic or source-repository validation.
+Human elapsed-time ranges below are modeled workflow estimates, not measured
+human-study results. No completed real-project usability report is currently
+recorded, and the absence of one is not converted into a pass.
+
+`docs/REAL_PROJECT_VALIDATION.md` defines the source-only protocol and reusable
+content-free report template for greenfield initialization, dirty-repository
+adoption, non-software work, reviewed 3.1→4.0 migration, and an unfamiliar
+operator when available. Pair and tiny exercises require actual reviewer
+capacity. The protocol's presence creates no evidence, permission, adoption,
+review, release disposition, or readiness claim.
+
 ## Before-and-after touchpoint model
 
 These are workflow models, not measured human studies. A command is a user-run

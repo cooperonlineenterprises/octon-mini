@@ -19,6 +19,11 @@ non-authoritative implementation assets, safe additions, and explicit derived
 regeneration; all authority-bearing or ambiguous paths require reviewed
 dispositions and exact digest acceptance.
 
+`RELEASE_READINESS.md` is the subordinate working checklist for 4.0.0 evidence
+and unresolved owner choices. It creates no release authority and cannot
+replace this file's release gate or populate final integrated-`main` evidence
+from a feature-branch run.
+
 Octon Mini 4.0.0 is the breaking successor to Project Blueprint 3.x. `octon`
 is the sole current command; no `pb` compatibility command exists. Upgrade is
 an explicit reviewed Project Blueprint 3.x→Octon Mini 4.0.0 migration.

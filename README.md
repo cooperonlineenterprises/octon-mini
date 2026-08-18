@@ -114,7 +114,9 @@ boundary, and limitations.
 | `docs/COMPATIBILITY.md` | v4 compatibility, migration, and deprecation boundary |
 | `docs/DECISION_GOVERNANCE.md` | authoritative decision, review, maturity, handoff, and read-only assurance practice |
 | `docs/GUIDED_SETUP.md` | canonical setup interview, session, authority, staleness, and migration practice |
+| `docs/REAL_PROJECT_VALIDATION.md` | source-only real-project usability protocol and content-free report template |
 | `VELOCITY_VALIDATION.md` | benchmarks, touchpoints, validation matrix |
+| `RELEASE_READINESS.md` | non-authorizing 4.0.0 preparation checklist; `RELEASE.md` retains the release gate |
 
 Strict JSON and Python 3.11+ keep the generated kernel portable and
 duplicate-key rejecting. Extensions may add formats only with a pinned parser
