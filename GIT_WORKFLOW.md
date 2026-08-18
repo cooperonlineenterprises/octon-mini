@@ -34,59 +34,68 @@ authority on 2026-08-11, hosted configuration was changed to expose only that
 method and automatically delete merged head branches. Required peer approvals
 remain zero until an eligible independent reviewer is actually available.
 
-The repository must not be made public or moved to a higher GitHub plan solely
-to obtain branch protection. If protection later becomes available for an
-independent reason, first expose one stable aggregate validation context, then
-consider requiring PRs and that check while disallowing force pushes and
-deletion of the default branch.
+At acceptance time the repository was private, and the decision prohibited
+making it public or changing plans solely to obtain branch protection.
+`SRC-DEC-0016` later recorded the independently owner-directed public MIT-0
+boundary. Public visibility does not change contributor access, human team
+band, reviewer capacity, workflow adoption, or authority. The ruleset proposal
+below remains unapplied and non-authorizing.
 
-## Assessment
+## Current read-only observation
+
+This successor observation updates changeable hosted facts without amending or
+replacing the accepted text of `SRC-DEC-0001`.
 
 | Field | Current assessment |
 |---|---|
 | Information role | Explicit repository-owner declaration plus direct local Git and read-only hosted GitHub observation |
-| Observed on | 2026-08-11 |
+| Observed on | 2026-08-17 |
 | Reassess by | 2026-09-10, or immediately after an access, contributor, reviewer-capacity, or standing-concurrency change |
-| Confidence | `confirmed` |
+| Confidence | Hosted settings and aggregate access are `confirmed` for the observation time; availability, qualifications, intended responsibility, and future state are not established |
 | Declared write-capable human maintainers | 1 |
 | Observed write-capable human access | 1 |
+| Observed read-only human access | 1 |
 | Active human contributors in the preceding 90 days | 1 |
 | Human team band | `solo` |
 | Independent review capacity | 0 (`not_established`) |
-| Current implementation concurrency | One agent; no concurrent repository writer is expected for this post-release reconciliation |
+| Current implementation concurrency | One primary repository writer with parallel read-only auditors; no concurrent repository writer is expected |
 | Standing post-task concurrency expectation | `not_assessed`; reassessment required |
-| External contribution mode | `closed` (private and non-forking at observation time) |
+| Repository visibility | `public`; visibility is not contributor acceptance, access, review capacity, or authority |
+| External contribution mode | `not_assessed`; public readability and forkability do not establish the accepted contribution path |
+| Default-branch enforcement | `main` is unprotected; no applicable repository or parent ruleset was observed |
 | Adopted base workflow | `solo_hybrid` |
 | Current modifier | None; `concurrent_work` is not selected for this task |
 | Adoption status | `accepted` |
 | Accepted decision reference | `SRC-DEC-0001` |
 | Permission grant | `false` |
 
-Read-only hosted observation found one write-capable human, one read-only
-collaborator, no repository teams, no pending invitations, one human commit/PR
-author, and no observed independent reviewer. Bots and automation were
-excluded from the human counts; read-only access was not counted as a
-developer. Activity does not erase dormant write authority, and access does
-not prove intended responsibility or current availability. The completed
-3.0.0 release-candidate task used three concurrent agents without increasing
-the human team band. This post-release reconciliation has one agent and no
-expected concurrent writer. Standing concurrency remains unknown and must be
-reassessed rather than silently carried forward.
+The 2026-08-17 read-only hosted observation found one write-capable human, one
+read-only human, no repository teams, no pending invitations, one human
+commit/PR author in the inspected windows, and no qualifying independent
+approval. Bots and automation were excluded from human counts; read-only
+access was not counted as write capability. These aggregate observations do
+not establish availability, qualifications, intended responsibility, or
+independence, so independent-review capacity remains zero rather than being
+inferred from public visibility or activity.
 
-The repository is private and forking was disabled at observation time. The
-observed source PRs used short-lived branches, CI, no hosted review, and merge
-commits. The default branch remains unprotected; only the `merge_commit` method
-is enabled; and automatic merged-head deletion is enabled. Detailed ruleset
-inspection remains unavailable under the repository's hosted plan. The
-explicit owner declaration and observed write access agree, so the current
-human team band and workflow decision are `confirmed`. Hosted settings remain
-dated observations rather than authority or proof of enforcement.
+The repository is public and permits public forks; zero forks were observed at
+the inspection time. Only `merge_commit` is enabled, automatic merged-head
+deletion is enabled, `main` is unprotected, and the applicable ruleset query
+returned none. Public visibility and forkability grant no write access,
+reviewer eligibility, operation authority, or accepted contribution path.
+Hosted settings remain dated observations, not authority or proof of future
+enforcement.
+
+This stabilization task uses one primary repository writer and parallel
+read-only audits. Because no second writer is authorized or expected, it does
+not select `concurrent_work`. Standing post-task concurrency remains unknown
+and must be reassessed rather than silently carried forward.
 
 ## Adopted workflow: `solo_hybrid`
 
 The confirmed solo human band and accepted preference for reviewable
 integration establish `solo_hybrid` as the base workflow for this source
-repository. This post-release reconciliation has one agent and no expected
+repository. The current bounded task has one primary writer and no expected
 concurrent writer, so no `concurrent_work` modifier applies:
 
 1. inspect the working tree, exact revision, applicable instructions, and
@@ -126,10 +135,11 @@ The source workflow is configured locally to validate:
 - pushes to `main` only.
 
 Superseded pull-request runs may be cancelled by a concurrency group scoped to
-the workflow and PR number. Default-branch runs are not cancelled, preserving
-post-integration and release evidence. The workflow retains read-only token
-permissions, pinned action revisions, and the full operating-system/Python
-matrix.
+the workflow, event, and PR number. Push-to-`main` and `workflow_dispatch` runs
+use their unique run identity and are not cancelled or displaced merely because
+they target `main`, preserving post-integration and release evidence. The
+workflow retains read-only token permissions, pinned action revisions, and the
+full operating-system/Python matrix.
 
 This local configuration does not prove that GitHub accepted or ran it. Before
 this change, each update to the only observed open PR triggered duplicate full
@@ -147,13 +157,49 @@ Under separate owner authority on 2026-08-11, the hosted settings selected by
 - no peer approval is required while eligible independent-review capacity is
   not established.
 
-Do not make the repository public or move it to a higher GitHub plan solely to
-obtain branch protection. If protection later becomes available for an
-independent reason, first expose a stable aggregate validation context, then
-consider requiring PRs and that check while disallowing default-branch force
-pushes and deletion. No visibility, plan, protection, ruleset, collaborator,
-or permission change accompanied the applied merge settings. These facts do
-not authorize a later settings change or an individual merge.
+No visibility, plan, protection, ruleset, collaborator, or permission change
+accompanied the 2026-08-11 merge-settings operation. The later public-license
+boundary is recorded separately by `SRC-DEC-0016`; it did not apply a ruleset
+or create operation authority. The 2026-08-17 read-only observation found no
+branch protection or applicable ruleset.
+
+## Proposed default-branch ruleset — unapplied
+
+This proposal is source documentation only. It has not been applied, grants no
+permission, and does not amend `SRC-DEC-0001` or establish hosted enforcement.
+Any settings mutation requires separate current owner authorization.
+
+### Stage A — current `solo_hybrid` topology
+
+- target the default branch (`main` at the observation time);
+- require changes through pull requests;
+- require the existing stable `required` status check;
+- require zero independent approvals while eligible independent-review
+  capacity remains unestablished;
+- prohibit force pushes and default-branch deletion;
+- retain `merge_commit` and do not require linear history; and
+- configure no bypass actor. Any future emergency bypass requires a separate
+  owner decision naming its exact actor, scope, and audit expectation.
+
+Stage A does not silently add conversation resolution, CODEOWNERS review,
+signed commits, a merge queue, or strict up-to-date-branch behavior.
+
+### Stage B — only after collaboration reassessment
+
+Stage B is inapplicable until a qualified write-capable maintainer actually
+exists and an accepted workflow reassessment adopts the corresponding
+collaboration change. It would retain Stage A and additionally:
+
+- require one independent approval;
+- require approval of the latest reviewable push by someone other than its
+  author, or dismiss stale approvals under an explicitly selected equivalent;
+- require conversation resolution; and
+- require CODEOWNERS review only after real ownership boundaries are
+  established.
+
+An agent, bot, self-review, public contributor, or merely configured account
+does not satisfy independent review. Stage B proposes no bypass; any later
+bypass remains a separate owner choice.
 
 ## Release-state boundary
 
