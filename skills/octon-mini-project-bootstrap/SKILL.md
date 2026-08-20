@@ -66,6 +66,15 @@ command identity with their generated-project command inventory.
   Lifecycle writers allocate IDs and synchronize mechanical links and derived
   state, but never invent scope, authority, criteria, review, evidence, or
   external-effect authorization.
+- Long-running work: use generated `octon work run` only after the optional
+  `long-running-work` package is transactionally installed and separately
+  adopted through a current accepted project decision. Bind one run to an
+  existing task and exact path narrowing; compile deterministic context, accept
+  only its current digest, perform effects only through existing transaction or
+  `work.finish` boundaries, require current validation before progress, and
+  resume only from marker-backed checkpoints. Status, context, resume, and
+  explain are read-only. Never replay an ambiguous effect or treat run state as
+  task scope, permission, acceptance, release, or readiness.
 - Governed completion: use `octon work finish plan|apply|resume` only after the
   project explicitly enables the shared engine and adopts the installed
   small-team Git workflow. Planning is read-only. Apply requires the exact
@@ -119,6 +128,8 @@ confirmation, runtime authorization, external-action permission, or readiness.
 - Existing target paths are never silently overwritten.
 - Stable IDs and authority ownership are never silently reassigned.
 - Generated snapshots remain independent and versioned.
+- Optional long-running work is absent and inactive by default; a dormant
+  dispatcher and unassessed trigger do not establish applicability or adoption.
 - The installed source bundle includes the repository MIT-0 license; generated
   projects do not receive that `LICENSE` file or a project-wide license choice.
 - `check`, detection, diagnosis, planning, and resume views are read-only.

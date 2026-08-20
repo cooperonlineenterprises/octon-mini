@@ -40,6 +40,7 @@ class BenchmarkConfiguration:
     sizes: tuple[int, ...] = DEFAULT_SIZES
     warm_samples: int = DEFAULT_WARM_SAMPLES
     enforce: bool = False
+    output: Path | None = None
 
 
 class SequenceCounter:
@@ -646,11 +647,17 @@ def parse_args(argv: list[str] | None = None) -> BenchmarkConfiguration:
         ),
     )
     parser.add_argument("--enforce", action="store_true")
+    parser.add_argument(
+        "--output",
+        type=Path,
+        help="write the complete report to a new explicit path instead of stdout",
+    )
     args = parser.parse_args(argv)
     configuration = BenchmarkConfiguration(
         sizes=tuple(args.sizes),
         warm_samples=args.samples,
         enforce=args.enforce,
+        output=args.output,
     )
     errors = configuration_errors(configuration)
     if errors:
@@ -661,7 +668,26 @@ def parse_args(argv: list[str] | None = None) -> BenchmarkConfiguration:
 def main(argv: list[str] | None = None) -> int:
     configuration = parse_args(argv)
     report, status = run_benchmark(configuration)
-    print(json.dumps(report, indent=2, sort_keys=True))
+    rendered = json.dumps(report, indent=2, sort_keys=True) + "\n"
+    output_path = getattr(configuration, "output", None)
+    if output_path is None:
+        print(rendered, end="")
+    else:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            descriptor = os.open(
+                output_path,
+                os.O_WRONLY | os.O_CREAT | os.O_EXCL,
+                0o600,
+            )
+        except FileExistsError as error:
+            raise SystemExit(
+                f"refusing to overwrite benchmark report: {output_path}"
+            ) from error
+        with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+            stream.write(rendered)
+            stream.flush()
+            os.fsync(stream.fileno())
     enforcement = report["enforcement"]
     assert isinstance(enforcement, dict)
     for failure in enforcement["failures"]:

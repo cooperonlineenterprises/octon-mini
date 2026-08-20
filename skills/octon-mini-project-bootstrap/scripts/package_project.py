@@ -38,8 +38,29 @@ TRANSACTION = load_module(
 )
 
 
+def strict_pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    value: dict[str, Any] = {}
+    for key, item in pairs:
+        if key in value:
+            raise ValueError(f"duplicate JSON key: {key}")
+        value[key] = item
+    return value
+
+
+def reject_json_constant(value: str) -> None:
+    raise ValueError(f"invalid JSON constant: {value}")
+
+
+def loads_json(text: str) -> Any:
+    return json.loads(
+        text,
+        object_pairs_hook=strict_pairs,
+        parse_constant=reject_json_constant,
+    )
+
+
 def load_json(path: Path) -> Any:
-    return json.loads(path.read_text(encoding="utf-8"))
+    return loads_json(path.read_text(encoding="utf-8"))
 
 
 def json_bytes(value: object) -> bytes:
@@ -79,8 +100,8 @@ def require_accepted_decision(target: Path, decision_ref: str) -> dict[str, Any]
         raise ValueError(f"package trust decision lacks JSON front matter: {decision_ref}")
     try:
         end = next(index for index, line in enumerate(lines[1:], 1) if line.strip() == "---")
-        record = json.loads("".join(lines[1:end]))
-    except (StopIteration, json.JSONDecodeError) as error:
+        record = loads_json("".join(lines[1:end]))
+    except (StopIteration, json.JSONDecodeError, ValueError) as error:
         raise ValueError(f"package trust decision is malformed: {decision_ref}") from error
     if (
         not isinstance(record, dict)
@@ -127,13 +148,34 @@ def installed_content_digest(files: dict[str, bytes]) -> str:
     return digest.hexdigest()
 
 
+def installed_target_path(target: Path, raw: str) -> Path:
+    relative = PurePosixPath(raw)
+    if (
+        relative.is_absolute()
+        or any(part in {"", ".", ".."} for part in relative.parts)
+        or relative.as_posix() != raw
+    ):
+        raise ValueError(f"unsafe installed package path: {raw}")
+    candidate = target.joinpath(*relative.parts)
+    current = target
+    for part in relative.parts[:-1]:
+        current = current / part
+        if current.is_symlink():
+            raise ValueError(f"installed package path has a symlink ancestor: {raw}")
+    try:
+        candidate.parent.resolve(strict=False).relative_to(target.resolve())
+    except (OSError, ValueError) as error:
+        raise ValueError(f"installed package path escapes the target: {raw}") from error
+    return candidate
+
+
 def extension_entry(package_id: str, owner: str, trust_ref: str) -> dict[str, Any]:
     return {
         "id": package_id,
         "enabled": False,
         "version": "1.0.0",
         "path": f".agent/extensions/{package_id}",
-        "requires_core": "^4.0.0",
+        "requires_core": "^4.1.0",
         "config": f".agent/extensions/{package_id}/config.json",
         "validator": f".agent/extensions/{package_id}/validate.py",
         "owner": owner,
@@ -153,7 +195,7 @@ def extension_entry(package_id: str, owner: str, trust_ref: str) -> dict[str, An
 def registry_baseline() -> dict[str, Any]:
     return {
         "schema_version": "harness.extension-registry.v1",
-        "core_version": "4.0.0",
+        "core_version": "4.1.0",
         "extension_api": "harness.extension.v1",
         "permission_grant": False,
         "execution_boundary": (
@@ -172,8 +214,11 @@ def installation_plan(
     *,
     assess_applicable: bool = False,
     update: bool = False,
+    remove: bool = False,
 ) -> dict[str, Any]:
     target = target.resolve()
+    if not owner.strip():
+        raise ValueError("package owner must be nonempty")
     if not (target / ".octon-mini-origin.json").is_file():
         raise ValueError("target is not a generated Octon Mini snapshot")
     manifest, package = package_contract(package_id)
@@ -193,22 +238,72 @@ def installation_plan(
         ),
         None,
     )
-    if installed is not None and not update:
+    if update and remove:
+        raise ValueError("package update and removal are mutually exclusive")
+    if installed is not None and not update and not remove:
         raise ValueError(f"package {package_id} is already installed; use an explicit update plan")
-    if installed is None and update:
-        raise ValueError(f"package {package_id} is not installed and cannot be updated")
-    if update and package_id != "small-team-git-portfolio":
-        raise ValueError("package update is currently limited to the governed Git portfolio")
+    if installed is None and (update or remove):
+        raise ValueError(f"package {package_id} is not installed and cannot be updated or removed")
+    if update and package_id not in {"small-team-git-portfolio", "long-running-work"}:
+        raise ValueError("package update is currently limited to reviewed packages with explicit compatibility coverage")
     files = package_files(package)
     operations: list[dict[str, Any]] = []
-    if update:
+    if remove:
+        if package_id != "long-running-work":
+            raise ValueError("package removal is currently limited to long-running-work with explicit lifecycle coverage")
         assert installed is not None
         old_paths = installed.get("installed_paths")
         if not isinstance(old_paths, list) or any(not isinstance(item, str) for item in old_paths):
             raise ValueError("installed package inventory is malformed")
         current: dict[str, bytes] = {}
         for relative in old_paths:
-            path = target.joinpath(*PurePosixPath(relative).parts)
+            path = installed_target_path(target, relative)
+            if path.is_symlink() or not path.is_file():
+                raise ValueError(f"installed package path is absent or unsafe: {relative}")
+            current[relative] = path.read_bytes()
+        if installed_content_digest(current) != installed.get("installed_paths_sha256"):
+            raise ValueError("installed package content differs from its recorded baseline; removal refuses")
+        adoption_path = target / ".agent/work-runs/adoption.json"
+        if adoption_path.is_symlink():
+            raise ValueError("long-running-work adoption path is unsafe")
+        if adoption_path.is_file():
+            adoption = load_json(adoption_path)
+            if adoption.get("status") != "disabled":
+                raise ValueError("long-running-work must be disabled before package removal")
+        runs_root = target / ".agent/work-runs/runs"
+        if runs_root.is_symlink():
+            raise ValueError("long-running-work runs root is unsafe")
+        if runs_root.is_dir() and any(runs_root.iterdir()):
+            raise ValueError("package removal refuses retained run history without a separate project-owned disposition")
+        active_path = target / ".agent/work-runs/active.json"
+        if active_path.exists() or active_path.is_symlink():
+            raise ValueError("package removal refuses while an active-run pointer exists")
+        for relative in sorted(old_paths):
+            operations.append(
+                TRANSACTION.operation(
+                    "delete",
+                    relative,
+                    None,
+                    "Remove exact-pristine long-running-work package payload after disabled-state and no-history checks.",
+                )
+            )
+        if adoption_path.is_file():
+            operations.append(
+                TRANSACTION.operation(
+                    "delete",
+                    ".agent/work-runs/adoption.json",
+                    None,
+                    "Remove disabled adoption configuration; no run history exists.",
+                )
+            )
+    elif update:
+        assert installed is not None
+        old_paths = installed.get("installed_paths")
+        if not isinstance(old_paths, list) or any(not isinstance(item, str) for item in old_paths):
+            raise ValueError("installed package inventory is malformed")
+        current: dict[str, bytes] = {}
+        for relative in old_paths:
+            path = installed_target_path(target, relative)
             if path.is_symlink() or not path.is_file():
                 raise ValueError(f"installed package path is absent or unsafe: {relative}")
             current[relative] = path.read_bytes()
@@ -247,10 +342,10 @@ def installation_plan(
                 )
             )
 
-    if package["kind"] in {"domain_extension", "reference_extension"}:
+    if not remove and package["kind"] in {"domain_extension", "reference_extension", "workflow_capability"}:
         assessment_key = package_id.replace("-", "_")
         assessments = project.get("packages", {}).get("trigger_assessments", {})
-        if package["kind"] == "domain_extension":
+        if package["kind"] in {"domain_extension", "workflow_capability"}:
             if assessments.get(assessment_key) != "applicable":
                 if not assess_applicable:
                     raise ValueError(
@@ -266,44 +361,45 @@ def installation_plan(
                         "Record the explicitly decision-backed trigger assessment in the same transaction as installation.",
                     )
                 )
-        extension_registry_path = target / ".agent/extensions/registry.json"
-        if extension_registry_path.is_file():
-            extension_registry = load_json(extension_registry_path)
-            action = "replace"
-        else:
-            extension_registry = registry_baseline()
-            action = "create"
-        if any(item.get("id") == package_id for item in extension_registry["extensions"]):
-            raise ValueError(f"extension registry already contains {package_id}")
-        extension_registry["extensions"].append(extension_entry(package_id, owner, trust_ref))
-        operations.append(
-            TRANSACTION.operation(
-                action,
-                ".agent/extensions/registry.json",
-                json_bytes(extension_registry),
-                "Register installed extension without enabling it or granting authority.",
+        if package["kind"] in {"domain_extension", "reference_extension"}:
+            extension_registry_path = target / ".agent/extensions/registry.json"
+            if extension_registry_path.is_file():
+                extension_registry = load_json(extension_registry_path)
+                action = "replace"
+            else:
+                extension_registry = registry_baseline()
+                action = "create"
+            if any(item.get("id") == package_id for item in extension_registry["extensions"]):
+                raise ValueError(f"extension registry already contains {package_id}")
+            extension_registry["extensions"].append(extension_entry(package_id, owner, trust_ref))
+            operations.append(
+                TRANSACTION.operation(
+                    action,
+                    ".agent/extensions/registry.json",
+                    json_bytes(extension_registry),
+                    "Register installed extension without enabling it or granting authority.",
+                )
             )
-        )
-        config_path = f".agent/extensions/{package_id}/config.json"
-        if config_path in files:
-            config = json.loads(files[config_path])
-            config["adoption"] = {
-                "status": "applicable",
-                "owner": owner,
-                "assessed_on": date.today().isoformat(),
-                "decision_ref": trust_ref,
-                "rationale": "Project trigger was explicitly assessed applicable; package remains disabled until its records are ready.",
-            }
-            files[config_path] = json_bytes(config)
-            for index, item in enumerate(operations):
-                if item["path"] == config_path:
-                    operations[index] = TRANSACTION.operation(
-                        "create",
-                        config_path,
-                        json_bytes(config),
-                        "Record explicit applicability without inferring readiness.",
-                    )
-                    break
+            config_path = f".agent/extensions/{package_id}/config.json"
+            if config_path in files:
+                config = loads_json(files[config_path].decode("utf-8"))
+                config["adoption"] = {
+                    "status": "applicable",
+                    "owner": owner,
+                    "assessed_on": date.today().isoformat(),
+                    "decision_ref": trust_ref,
+                    "rationale": "Project trigger was explicitly assessed applicable; package remains disabled until its records are ready.",
+                }
+                files[config_path] = json_bytes(config)
+                for index, item in enumerate(operations):
+                    if item["path"] == config_path:
+                        operations[index] = TRANSACTION.operation(
+                            "create",
+                            config_path,
+                            json_bytes(config),
+                            "Record explicit applicability without inferring readiness.",
+                        )
+                        break
 
     if package_id == "small-team-git-portfolio":
         scm = load_json(target / ".agent/scm.json")
@@ -349,7 +445,19 @@ def installation_plan(
             set(prior_evidence) | {trust_ref, planned_receipt_id}
         ),
     }
-    if update:
+    if remove:
+        assert installed is not None
+        registry["packages"].remove(installed)
+        project["packages"]["trigger_assessments"]["long_running_work"] = "not_assessed"
+        operations.append(
+            TRANSACTION.operation(
+                "replace",
+                ".agent/project.json",
+                json_bytes(project),
+                "Return long-running-work applicability to not assessed without asserting non-applicability.",
+            )
+        )
+    elif update:
         assert installed is not None
         registry["packages"][registry["packages"].index(installed)] = registry_entry
     else:
@@ -364,8 +472,8 @@ def installation_plan(
     )
     return TRANSACTION.build_plan(
         target,
-        operation_name="maintain.package.update" if update else "maintain.package.install",
-        scope=f"{'Update' if update else 'Install'} triggered package {package_id}",
+        operation_name=("maintain.package.remove" if remove else "maintain.package.update" if update else "maintain.package.install"),
+        scope=f"{'Remove' if remove else 'Update' if update else 'Install'} triggered package {package_id}",
         operations=operations,
         evidence=[
             TRANSACTION.source_evidence(
@@ -380,6 +488,7 @@ def installation_plan(
         limitations=[
             "Installation never marks a trigger not applicable.",
             "Extensions are installed disabled; enabling requires current project configuration.",
+            "Workflow capabilities are installed inactive; project adoption is a separate digest-bound transaction.",
             "A package update changes only exact-pristine package-owned paths and never enables work completion or rewrites project-owned workflow authority or settings.",
         ],
         planned_receipt_id=planned_receipt_id,
@@ -414,6 +523,11 @@ def main() -> int:
         action="store_true",
         help="plan an exact-pristine update of an already installed supported package",
     )
+    plan.add_argument(
+        "--remove",
+        action="store_true",
+        help="plan safe removal of a disabled supported package with no retained run state",
+    )
     plan.add_argument("--output", type=Path, required=True)
     apply = commands.add_parser("apply", help="apply the exact accepted package plan")
     apply.add_argument("--target", type=Path, required=True)
@@ -430,14 +544,15 @@ def main() -> int:
                     args.trust_decision_ref,
                     assess_applicable=args.assess_applicable,
                     update=args.update,
+                    remove=args.remove,
                 ),
                 args.output,
             )
             return 0
         target = args.target.resolve()
         plan_value = TRANSACTION.load_plan(args.plan)
-        if plan_value.get("operation") not in {"maintain.package.install", "maintain.package.update"}:
-            raise ValueError("plan is not a package install/update transaction")
+        if plan_value.get("operation") not in {"maintain.package.install", "maintain.package.update", "maintain.package.remove"}:
+            raise ValueError("plan is not a package install/update/remove transaction")
         receipt, receipt_path = TRANSACTION.apply_plan(
             target,
             plan_value,

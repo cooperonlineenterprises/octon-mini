@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://octon-mini.local/source-contracts/long-running-work-benchmark-report.schema.json",
+  "title": "Octon Mini Long-Running Work Benchmark Report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "permission_grant", "subject", "host", "method",
+    "series", "thresholds", "result", "limitations"
+  ],
+  "properties": {
+    "schema_version": {"const": "octon-mini.long-running-work-benchmark.v1"},
+    "permission_grant": {"const": false},
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_revision", "source_dirty", "profile", "payload_files"],
+      "properties": {
+        "source_revision": {"type": "string", "minLength": 1},
+        "source_dirty": {"type": "boolean"},
+        "profile": {"const": "standard"},
+        "payload_files": {"type": "integer", "minimum": 0}
+      }
+    },
+    "host": {"type": "object"},
+    "method": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cold_samples", "warm_samples", "percentile_method", "read_only"],
+      "properties": {
+        "cold_samples": {"const": 1},
+        "warm_samples": {"type": "integer", "minimum": 1},
+        "percentile_method": {"const": "nearest_rank"},
+        "read_only": {"const": true}
+      }
+    },
+    "series": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "samples", "cold_seconds", "warm_p90_seconds", "deterministic_output", "all_exit_zero"],
+        "properties": {
+          "name": {"enum": ["context", "status", "resume", "explain"]},
+          "samples": {"type": "array", "minItems": 2, "items": {"type": "object"}},
+          "cold_seconds": {"type": "number", "minimum": 0},
+          "warm_p90_seconds": {"type": "number", "minimum": 0},
+          "deterministic_output": {"type": "boolean"},
+          "all_exit_zero": {"type": "boolean"}
+        }
+      }
+    },
+    "thresholds": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["warm_p90_seconds"],
+      "properties": {"warm_p90_seconds": {"const": 2.0}}
+    },
+    "result": {"enum": ["pass", "fail", "informational"]},
+    "limitations": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}
+  }
+}

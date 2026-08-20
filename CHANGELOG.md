@@ -3,6 +3,43 @@
 All notable Octon Mini contract changes are recorded here. Project-specific
 snapshots do not upgrade automatically.
 
+## 4.1.0 — Unreleased
+
+### Added
+
+- an optional, trigger-installed, provider-neutral long-running-work capability
+  for one bounded external worker, including deterministic context manifests,
+  exact measurable limits, no-progress detection, immutable transition
+  history, marker-backed checkpoints, and read-only status/resume/explain;
+- a dormant digest-verifying `octon work run` routing boundary that performs no
+  package work when the package is absent or unadopted;
+- source-only adapter-safety and boundary-complete fault-injection fixtures;
+  and
+- a separate long-running-work benchmark contract retaining every sample and
+  leaving benchmark-v2 thresholds unchanged.
+
+### Changed
+
+- the harness kernel and generator compatibility axes advance to `4.1.0`;
+- package contracts gain a domain-neutral `workflow_capability` kind plus
+  explicit exact-pristine update and safe unused-package removal coverage; and
+- package update receipts are accepted only through the same exact successful
+  transaction-evidence checks as install receipts;
+- elapsed limits use an unspoofable ordinary runtime clock, externally reported
+  counters are monotonic, and caller claims alone cannot manufacture progress;
+  and
+- marker recovery now survives a corrupt mutable run projection, activation
+  commits a successor checkpoint, package state rejects symlink ancestors, and
+  receipt/evidence references are revalidated before progress is accepted.
+
+This source work is not released. It creates no package adoption, task
+authority, external-effect permission, project readiness, or production
+readiness.
+
+`SRC-DEC-0018` accepted the optional source architecture on 2026-08-20. That
+acceptance does not authorize a commit, release, target-project installation or
+adoption, runtime effect, or readiness claim.
+
 ## 4.0.0 — 2026-08-18
 
 Velocity-focused major kernel release for solo developers, pairs, and tiny

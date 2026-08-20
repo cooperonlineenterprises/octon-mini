@@ -1,5 +1,5 @@
 {
-  "schema_version": "harness.project.v6",
+  "schema_version": "harness.project.v7",
   "project": {
     "id": "{{PROJECT_SLUG}}",
     "name": {{PROJECT_NAME_JSON}},
@@ -105,7 +105,8 @@
   "packages": {
     "trigger_assessments": {
       "operations_observability": "not_assessed",
-      "security_supply_chain": "not_assessed"
+      "security_supply_chain": "not_assessed",
+      "long_running_work": "not_assessed"
     },
     "registry": ".agent/packages.json",
     "absence_means_not_applicable": false

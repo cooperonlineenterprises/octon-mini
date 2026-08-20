@@ -726,9 +726,9 @@ class Migration310To400Tests(unittest.TestCase):
         final_project = load(self.root / ".agent/project.json")
         self.assertEqual(final_origin["schema_version"], "octon-mini.project.origin.v1")
         self.assertEqual(final_origin["product"], "octon-mini")
-        self.assertEqual(final_origin["octon_mini_version"], "4.0.0")
-        self.assertEqual(final_project["schema_version"], "harness.project.v6")
-        self.assertEqual(final_project["project"]["octon_mini_version"], "4.0.0")
+        self.assertEqual(final_origin["octon_mini_version"], "4.1.0")
+        self.assertEqual(final_project["schema_version"], "harness.project.v7")
+        self.assertEqual(final_project["project"]["octon_mini_version"], "4.1.0")
         self.assertEqual(
             final_project["collaboration_profile"]["assessment_status"],
             "not_assessed",

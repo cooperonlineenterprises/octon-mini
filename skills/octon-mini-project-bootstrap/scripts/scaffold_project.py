@@ -18,8 +18,8 @@ from datetime import date
 from pathlib import Path, PurePath, PurePosixPath
 
 
-GENERATOR_VERSION = "4.0.0"
-KERNEL_VERSION = "4.0.0"
+GENERATOR_VERSION = "4.1.0"
+KERNEL_VERSION = "4.1.0"
 KNOWN_VARIABLES = {
     "PROJECT_NAME",
     "PROJECT_NAME_JSON",

@@ -731,7 +731,8 @@ def plan_command(args: argparse.Namespace) -> int:
             or cross_brand_seed.get("source_product") != LEGACY_PRODUCT
             or cross_brand_seed.get("source_version") != "3.1.0"
             or cross_brand_seed.get("target_product") != CURRENT_PRODUCT
-            or cross_brand_seed.get("target_version") != SCAFFOLDER.octon_mini_version()
+            or cross_brand_seed.get("target_version")
+            not in {"4.0.0", SCAFFOLDER.octon_mini_version()}
             or cross_brand_seed.get("target") != str(target)
             or supplied_seed_digest != expected_seed_digest
             or cross_brand_seed.get("source_origin_state")

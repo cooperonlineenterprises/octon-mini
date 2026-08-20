@@ -618,16 +618,16 @@ def main() -> int:
             )
             require(
                 origin["product"] == "octon-mini"
-                and origin["octon_mini_version"] == "4.0.0"
-                and origin["generator_version"] == "4.0.0"
-                and origin["harness_kernel_version"] == "4.0.0"
+                and origin["octon_mini_version"] == "4.1.0"
+                and origin["generator_version"] == "4.1.0"
+                and origin["harness_kernel_version"] == "4.1.0"
                 and origin["initial_generation"]["product"] == "octon-mini"
-                and origin["initial_generation"]["version"] == "4.0.0"
-                and origin["initial_generation"]["generator_version"] == "4.0.0"
+                and origin["initial_generation"]["version"] == "4.1.0"
+                and origin["initial_generation"]["generator_version"] == "4.1.0"
                 and origin["layout"] == "compact"
                 and origin["installed_inventory"]["schema_version"]
                 == "octon-mini.project.installed-inventory.v1",
-                f"{profile} generated incoherent 4.0.0 provenance or layout inventory",
+                f"{profile} generated incoherent 4.1.0 provenance or layout inventory",
                 failures,
             )
             generated_inventory = set(origin["generated_paths"])

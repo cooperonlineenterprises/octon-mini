@@ -1,0 +1,62 @@
+{
+  "schema_version": "harness.schema-document.v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://octon-mini.local/schemas/long-running-work-context.v1.json",
+  "title": "Octon Mini Deterministic Task Context Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "artifact_kind", "permission_grant", "task_ref",
+    "status", "budget", "included", "omitted", "unresolved_inputs",
+    "limitations", "canonical_manifest_digest"
+  ],
+  "properties": {
+    "schema_version": {"const": "harness.long-running-context-manifest.v1"},
+    "artifact_kind": {"const": "derived_read_only_context_projection"},
+    "permission_grant": {"const": false},
+    "task_ref": {"type": "string", "pattern": "^TASK-[0-9]{4}$"},
+    "status": {"enum": ["ready", "blocked_budget", "blocked_input"]},
+    "budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["maximum_bytes", "maximum_items", "measured_bytes", "measured_items"],
+      "properties": {
+        "maximum_bytes": {"type": "integer", "minimum": 1},
+        "maximum_items": {"type": "integer", "minimum": 1},
+        "measured_bytes": {"type": "integer", "minimum": 0},
+        "measured_items": {"type": "integer", "minimum": 0}
+      }
+    },
+    "included": {"type": "array", "items": {"$ref": "#/$defs/source"}},
+    "omitted": {"type": "array", "items": {"$ref": "#/$defs/source"}},
+    "unresolved_inputs": {"$ref": "#/$defs/strings"},
+    "limitations": {"$ref": "#/$defs/strings"},
+    "canonical_manifest_digest": {"$ref": "#/$defs/digest"}
+  },
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "strings": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reference", "sha256", "information_state", "reason", "precedence",
+        "selected_section", "freshness", "measured_bytes", "sensitive",
+        "content_persisted", "limitations"
+      ],
+      "properties": {
+        "reference": {"type": "string", "minLength": 1},
+        "sha256": {"$ref": "#/$defs/digest"},
+        "information_state": {"enum": ["authoritative", "accepted", "observed", "derived", "proposed", "unknown", "stale", "superseded"]},
+        "reason": {"type": "string", "minLength": 1},
+        "precedence": {"type": "integer", "minimum": 0},
+        "selected_section": {"type": "string", "minLength": 1},
+        "freshness": {"type": "string", "minLength": 1},
+        "measured_bytes": {"type": "integer", "minimum": 0},
+        "sensitive": {"type": "boolean"},
+        "content_persisted": {"const": false},
+        "limitations": {"$ref": "#/$defs/strings"}
+      }
+    }
+  }
+}

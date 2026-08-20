@@ -13,7 +13,7 @@ import stat
 import subprocess
 import sys
 from datetime import date, datetime, timezone
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 sys.dont_write_bytecode = True
@@ -84,10 +84,27 @@ class ContinuationParser(argparse.ArgumentParser):
         )
 
 
+def strict_pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    value: dict[str, Any] = {}
+    for key, item in pairs:
+        if key in value:
+            raise ValueError(f"duplicate JSON key: {key}")
+        value[key] = item
+    return value
+
+
+def reject_json_constant(value: str) -> None:
+    raise ValueError(f"invalid JSON constant: {value}")
+
+
 def load_json(path: Path) -> Any:
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as error:
+        return json.loads(
+            path.read_text(encoding="utf-8"),
+            object_pairs_hook=strict_pairs,
+            parse_constant=reject_json_constant,
+        )
+    except (OSError, json.JSONDecodeError, ValueError) as error:
         raise WorkflowError(f"cannot load {path.relative_to(ROOT)}: {error}") from error
 
 
@@ -137,6 +154,95 @@ def transaction_validation() -> dict[str, Any]:
             [sys.executable, "-B", ".agent/scripts/validate.py", "--check"]
         ],
     }
+
+
+def dispatch_long_running_work(arguments: list[str]) -> int:
+    """Launch the pinned optional capability in one fresh shell-free process."""
+    registry = load_json(ROOT / ".agent/packages.json")
+    matches = [
+        item
+        for item in registry.get("packages", [])
+        if isinstance(item, dict) and item.get("id") == "long-running-work"
+    ] if isinstance(registry, dict) else []
+    if len(matches) != 1 or matches[0].get("kind") != "workflow_capability":
+        raise WorkflowError(
+            continuation.finding(
+                failure_code="OCTON-LRW-1000",
+                blocked_operation="work.long-running.dispatch",
+                phase="inspect",
+                root_cause="the optional long-running-work package is not installed",
+                authority_source=".agent/packages.json",
+                repair_class="project_decision_required",
+                next_action=continuation.action(
+                    "Inspect current package applicability and structural findings.",
+                    ["./octon", "check", "--json"],
+                    read_only=True,
+                ),
+                safe_read_only_actions=[
+                    continuation.action(
+                        "Inspect installed package state.",
+                        ["./octon", "check", "--json"],
+                        read_only=True,
+                    )
+                ],
+            )
+        )
+    package = matches[0]
+    installed_paths = package.get("installed_paths", [])
+    if not isinstance(installed_paths, list) or any(not isinstance(item, str) for item in installed_paths):
+        raise WorkflowError("long-running-work installed inventory is malformed")
+    digest = hashlib.sha256()
+    for relative in sorted(installed_paths):
+        pure = PurePosixPath(relative)
+        if (
+            pure.is_absolute()
+            or any(part in {"", ".", ".."} for part in pure.parts)
+            or pure.as_posix() != relative
+        ):
+            raise WorkflowError(f"long-running-work installed path is unsafe: {relative}")
+        candidate = ROOT.joinpath(*pure.parts)
+        current = ROOT
+        for part in pure.parts[:-1]:
+            current = current / part
+            if current.is_symlink():
+                raise WorkflowError(
+                    f"long-running-work installed path has a symlink ancestor: {relative}"
+                )
+        try:
+            candidate.parent.resolve(strict=True).relative_to(ROOT.resolve())
+        except (OSError, ValueError) as error:
+            raise WorkflowError(
+                f"long-running-work installed path escapes the project: {relative}"
+            ) from error
+        if candidate.is_symlink() or not candidate.is_file():
+            raise WorkflowError(f"long-running-work installed path is absent or unsafe: {relative}")
+        digest.update(relative.encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(candidate.read_bytes())
+        digest.update(b"\0")
+    if digest.hexdigest() != package.get("installed_paths_sha256"):
+        raise WorkflowError("long-running-work installed payload digest is stale")
+    entry_relative = ".agent/capabilities/long-running-work/long_work.py"
+    if entry_relative not in installed_paths:
+        raise WorkflowError("long-running-work entrypoint is outside its installed inventory")
+    environment = {
+        key: os.environ[key]
+        for key in ("PATH", "SYSTEMROOT", "WINDIR", "TEMP", "TMP", "TMPDIR")
+        if key in os.environ
+    }
+    environment.update({
+        "PYTHONIOENCODING": "utf-8",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+    })
+    return subprocess.run(
+        [sys.executable, "-I", "-B", entry_relative, *arguments],
+        cwd=ROOT,
+        env=environment,
+        check=False,
+        shell=False,
+    ).returncode
 
 
 def load_validator():
@@ -952,6 +1058,12 @@ def parser() -> argparse.ArgumentParser:
     finish_resume = finish_commands.add_parser("resume")
     finish_resume.add_argument("--receipt-id")
     finish_resume.add_argument("--authorization-file")
+    run = work_commands.add_parser(
+        "run",
+        help="dispatch the optional bounded long-running-work capability",
+        add_help=False,
+    )
+    run.add_argument("run_args", nargs=argparse.REMAINDER)
 
     maintain = commands.add_parser(
         "maintain",
@@ -1042,6 +1154,8 @@ def main() -> int:
             print("\n\n".join(continuation.render_finding(item) for item in report["findings"]))
         return 0
     if args.command == "work":
+        if args.work_action == "run":
+            return dispatch_long_running_work(args.run_args)
         if args.work_action == "finish":
             if args.finish_action == "plan":
                 plan = octon_work_completion.build_plan(ROOT, args.task_id)

@@ -182,7 +182,8 @@
             "scm_portfolio",
             "domain_extension",
             "reference_extension",
-            "optional_schema"
+            "optional_schema",
+            "workflow_capability"
           ]
         },
         "version": {

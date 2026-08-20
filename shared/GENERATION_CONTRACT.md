@@ -270,6 +270,13 @@ project-check evidence, bundle a prior operation, or treat an old plan as
 accepted. Setup-session v1 and transaction v2 artifacts remain immutable
 predecessors and become current only through explicit successor workflows.
 
+Adding the 4.1 dormant long-running-work dispatcher is an explicit reviewed
+snapshot upgrade. It never installs or adopts the package. Package installation
+is a later content-addressed transaction recording applicability, owner, trust
+decision, exact version/digest, installed paths, and validation receipt. The
+package is installed inactive; project adoption is a separate digest-bound
+transaction referencing a current accepted project decision.
+
 Project Blueprint 3.x→Octon Mini 4.0.0 is the current cross-brand migration.
 It may read legacy `pb`, `.project-blueprint-origin.json`, and
 `project-blueprint.*` identities only as legacy inputs to transform; it must
@@ -402,6 +409,16 @@ profile inventory. The optional Context Pack schema is a trigger-installed
 package. Its absence never means CTX-0001 is inapplicable; generation does not
 create a manifest, select a consumer or source, or infer purpose, validity,
 sensitivity, retention, revocation, or permission.
+
+Every new 4.1 snapshot contains only the dormant `octon work run` route and a
+`long_running_work: not_assessed` trigger. The payload, adoption record, active
+run, history, and checkpoints are absent until separately installed and
+adopted. Package-owned `.agent/work-runs/` state is excluded from general source
+fingerprints so progress bookkeeping cannot stale the project evidence it
+references; the package validator owns its structural and checkpoint checks.
+Ordinary dispatch supplies the runtime clock, rejects symlink-ancestor state
+paths, and revalidates adopted decision bytes, governed receipts, current
+validation evidence, and marker-backed recovery before advancing.
 
 ## Collaboration and Git workflow rules
 

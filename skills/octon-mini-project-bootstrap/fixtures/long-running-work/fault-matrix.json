@@ -1,0 +1,36 @@
+{
+  "schema_version": "octon-mini.long-running-work-fault-matrix.v1",
+  "permission_grant": false,
+  "cases": [
+    {"phase": "before_work_run_creation", "owner": "test_long_running_work", "expected": "no active pointer or run state"},
+    {"phase": "after_run_content_before_marker", "owner": "test_long_running_work_faults", "expected": "orphan content reported and prior checkpoint retained"},
+    {"phase": "before_context_compilation", "owner": "test_long_running_work", "expected": "read-only repeatable context"},
+    {"phase": "after_context_compilation", "owner": "test_long_running_work", "expected": "no state change until exact digest acceptance"},
+    {"phase": "before_planning", "owner": "test_velocity_workflows", "expected": "no target mutation"},
+    {"phase": "after_planning", "owner": "test_velocity_workflows", "expected": "stale inputs reject"},
+    {"phase": "during_transaction_staging", "owner": "test_velocity_workflows", "expected": "target unchanged"},
+    {"phase": "after_staged_validation", "owner": "test_velocity_workflows", "expected": "pending journal or no live mutation"},
+    {"phase": "before_live_mutation", "owner": "test_velocity_workflows", "expected": "exact preimages retained"},
+    {"phase": "after_each_live_path_mutation", "owner": "test_velocity_workflows", "expected": "pending journal exact recovery"},
+    {"phase": "before_transaction_receipt", "owner": "test_velocity_workflows", "expected": "recover or finalize only exact states"},
+    {"phase": "after_transaction_receipt", "owner": "test_velocity_workflows", "expected": "idempotent finalization"},
+    {"phase": "before_project_validation", "owner": "test_long_running_work", "expected": "progress not admitted"},
+    {"phase": "during_validation", "owner": "test_validate", "expected": "fail or unavailable remains explicit"},
+    {"phase": "after_validation_before_progress", "owner": "test_long_running_work_faults", "expected": "last marker remains authoritative"},
+    {"phase": "during_progress_recording", "owner": "test_long_running_work_faults", "expected": "uncommitted projection never selected"},
+    {"phase": "before_checkpoint_content_write", "owner": "test_long_running_work_faults", "expected": "prior marker retained"},
+    {"phase": "after_checkpoint_content_write", "owner": "test_long_running_work_faults", "expected": "orphan content reported"},
+    {"phase": "before_checkpoint_marker", "owner": "test_long_running_work_faults", "expected": "orphan content reported"},
+    {"phase": "after_checkpoint_marker", "owner": "test_long_running_work_faults", "expected": "new marker selected and stale projection recovered"},
+    {"phase": "before_external_action", "owner": "test_work_completion", "expected": "no external effect"},
+    {"phase": "after_external_action_before_acknowledgement", "owner": "test_work_completion", "expected": "read-back before action and no duplicate"},
+    {"phase": "during_external_read_back", "owner": "test_work_completion", "expected": "blocked or unknown; no retry"},
+    {"phase": "during_cancellation", "owner": "test_long_running_work", "expected": "no rollback claim"},
+    {"phase": "during_resume", "owner": "test_long_running_work_faults", "expected": "marker-backed coordinate or conservative refusal"},
+    {"phase": "during_cleanup", "owner": "test_work_completion", "expected": "integration and safe-state proof required"}
+  ],
+  "limitations": [
+    "Cases reuse existing specialized transaction and work-completion suites instead of duplicating their owners.",
+    "This matrix performs no real provider or credentialed effect."
+  ]
+}

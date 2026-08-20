@@ -669,6 +669,41 @@ inserted back into that receipt. These are performance observations, not
 human-usability evidence or permission to use
 hardlinks, shared writable inodes, incomplete final gates, or weaker staging.
 
+### 7.5 Optional long-running work
+
+`long-running-work` is a trigger-installed `workflow_capability`, absent and
+inactive by default. A dormant `octon work run` route verifies the installed
+payload before launching one fresh shell-free Python process. The package
+governs an external worker; it does not host, choose, authenticate, or call a
+model.
+
+The task remains the sole owner of goal, scope, authority basis, and
+acceptance. The package owns only one active run coordinate, locally measurable
+limits, deterministic derived context, reference-only transition history, and
+marker-backed checkpoints under `.agent/work-runs/`. Transactions retain local
+mutation ownership, project-check evidence retains validation ownership,
+`work.finish` retains Git/provider completion ownership, and Continuation
+retains safe-refusal ownership.
+
+Only marker-backed checkpoints are committed. Resume revalidates task contract,
+instructions, project fingerprint, context, authority source, receipts,
+evidence, and limits. It reports a next action without running hooks or
+replaying work. Unavailable token, cost, provider, and worker measurements
+remain `unknown`; supplied token and cost totals are nonnegative and monotonic.
+Elapsed enforcement uses the local runtime clock rather than a worker-supplied
+timestamp. A limit stop is terminal for that run and reviewed new limits require
+a successor. No-progress detection uses exact task, project, receipt, evidence,
+and committed-coordinate facts; a caller claim or model judgment cannot
+establish progress alone.
+
+The active projection is preferably under 100 lines, current history is bounded
+to 100 meaningful entries before explicit disposition, and context uses exact
+byte/item budgets with visible omissions. Mutable work-run state is excluded
+from general source fingerprints and validated by the package validator.
+
+See `docs/LONG_RUNNING_WORK.md`. Implementation and validation do not establish
+package adoption, release, project readiness, or production readiness.
+
 ## 8. Record and state model
 
 The semantic crosswalk is orthogonal to every record lifecycle:
@@ -1335,6 +1370,20 @@ A harness is complete only when these demonstrations pass:
     compatible bundles apply and roll back atomically; and overlapping,
     differently authorized, incompatible-freshness, or externally effective
     bundles fail without a global force path.
+19. Long-running work is absent and inactive by default; installed payloads are
+    digest-bound; one active run binds an existing task, authority source, path
+    narrowing, instructions, context, project state, limits, validation, and
+    marker-backed checkpoints; deterministic context shows omissions; exact
+    limits and no-progress findings stop admission; every tested interruption
+    selects an exact committed coordinate or conservatively refuses; read-only
+    status/resume/explain write nothing; and an outcome-unknown effect is never
+    replayed.
+20. Authorized representative exercises cover software, structured-content or
+    research work, interruption, changed instructions, repeated validation
+    failure, budget exhaustion, no progress, context pressure, restart, and a
+    safe local ambiguous-effect fixture. Unavailable unfamiliar-operator,
+    pair/tiny, historical-project, cross-platform, or provider evidence remains
+    explicitly `not_run`.
 
 Passing these criteria proves the harness is usable and testable. It does not
 prove production safety, security, accessibility, legal compliance,
@@ -1344,8 +1393,8 @@ Acceptance has two explicit gates:
 
 | Gate | Criteria | Required evidence |
 |---|---|---|
-| Octon Mini release automation | 2, 4–10, 12, and 15–18, plus structural portions of 1, 3, and 14 | cross-profile valid/invalid fixtures, collaboration/workflow/setup/continuation matrices, proof hit/miss and full-gate coverage, bundle compatibility/rollback mutations, operation-reference coverage, unchanged-tree checks, stale/partial refresh and completion/setup recovery, extension confinement, secret redaction |
-| Target-project adoption | human portions of 1 and 3, plus 11, 13, and 14 | timed unfamiliar-maintainer exercise, actual platform enforcement, one real task/closure, exact project revision checks, truthful handoff report |
+| Octon Mini release automation | 2, 4–10, 12, 15–19, plus structural portions of 1, 3, and 14 | cross-profile valid/invalid fixtures, collaboration/workflow/setup/continuation/long-work matrices, proof hit/miss and full-gate coverage, checkpoint and bundle recovery mutations, operation-reference coverage, unchanged-tree checks, stale/partial recovery, extension confinement, secret redaction |
+| Target-project adoption | human portions of 1 and 3, plus 11, 13, 14, and 20 | timed unfamiliar-maintainer exercise, actual platform enforcement, one real task/closure, representative long-work exercise, exact project revision checks, truthful handoff report |
 
 The release suite reports every criterion as `automated_pass`,
 `project_demonstration_required`, or `not_exercised`; it may not summarize a

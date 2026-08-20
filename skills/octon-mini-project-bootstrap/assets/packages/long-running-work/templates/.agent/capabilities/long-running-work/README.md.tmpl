@@ -1,0 +1,36 @@
+# Octon Mini Long-Running Work
+
+This optional package governs one external worker performing bounded,
+long-running work under an existing `TASK-####`. It does not host a model,
+grant permission, create task scope, or replace transactions, project-check
+evidence, work completion, events, decisions, or the Continuation Contract.
+
+The package is installed disabled. After a separate accepted project decision,
+create its project-owned adoption record through the package command. Package
+installation, adoption, run creation, validation, and completion remain
+separate facts.
+
+Use the generated dispatcher:
+
+```text
+./octon work run --help
+./octon work run context --task-id TASK-0001 --max-bytes 65536 --json
+./octon work run start --task-id TASK-0001 --limits limits.json --allow-path src
+./octon work run status --json
+./octon work run resume --json
+```
+
+On Windows, invoke the same launcher as `python -B octon` or `py -3 -B octon`.
+
+Run records live under `.agent/work-runs/`, outside the immutable
+installed-payload digest. Only marker-backed checkpoints are
+committed. Read-only commands execute no project hooks and write no files.
+Elapsed limits use the local clock; externally reported token and cost totals
+are optional, nonnegative, monotonic values and remain unknown when unavailable.
+
+External work still uses the existing transaction or `work.finish` boundary.
+An ambiguous external outcome stops for reconciliation and is never replayed.
+
+See the source specification at `docs/LONG_RUNNING_WORK.md` in the Octon Mini
+source bundle. That source document and this package create no project
+authority or readiness claim.

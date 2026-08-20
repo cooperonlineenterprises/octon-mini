@@ -90,6 +90,14 @@ evidence is bounded; overflow is archived immutably with successor links. Hook
 execution and evidence writing remain separate from read-only `check` and from
 generated-integrity refresh.
 
+For one bounded unattended worker, first install the optional
+`long-running-work` package through the source `maintain package` plan/apply
+flow, then separately adopt it through generated `octon work run configure`.
+The package remains subordinate to the existing task, transaction,
+project-check, work-completion, and Continuation owners. Context, status,
+resume, and explain are target-read-only. Checkpoints are marker-backed logical
+records, never filesystem snapshots or authority to replay an effect.
+
 If the installed Git portfolio and accepted workflow are applicable, a project
 may separately adopt the disabled `work_completion` block. Record exact
 repository/provider/check/eligible-reviewer/hook/cleanup assessments without

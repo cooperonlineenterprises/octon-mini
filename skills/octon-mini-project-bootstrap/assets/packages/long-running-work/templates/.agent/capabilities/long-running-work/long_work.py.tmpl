@@ -1,0 +1,1852 @@
+#!/usr/bin/env python3
+"""Govern one bounded long-running work run without hosting a model."""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import importlib.util
+import json
+import os
+import re
+import subprocess
+import sys
+import tempfile
+import uuid
+from datetime import date, datetime, timezone
+from pathlib import Path, PurePosixPath
+from typing import Any, Callable
+
+sys.dont_write_bytecode = True
+
+PAYLOAD_ROOT = Path(__file__).resolve().parent
+ROOT = PAYLOAD_ROOT.parents[2]
+STATE_ROOT = ROOT / ".agent/work-runs"
+RUNS_ROOT = STATE_ROOT / "runs"
+ACTIVE_PATH = STATE_ROOT / "active.json"
+ADOPTION_PATH = STATE_ROOT / "adoption.json"
+TASK_ID = re.compile(r"^TASK-[0-9]{4}$")
+RUN_ID = re.compile(r"^LWR-[a-f0-9]{24}$")
+HISTORY_ID = re.compile(r"^LWE-[a-f0-9]{24}$")
+DIGEST = re.compile(r"^[a-f0-9]{64}$")
+TERMINAL = {
+    "cancelled",
+    "completed_with_current_evidence",
+    "failed_known_outcome",
+    "limit_stopped",
+    "stopped_partial_or_unknown",
+}
+RESUMABLE = {"planned", "safely_paused", "blocked"}
+HISTORY_KINDS = {
+    "checkpoint_recovered",
+    "context_accepted",
+    "history_archived",
+    "iteration_recorded",
+    "run_activated",
+    "run_blocked",
+    "run_cancelled",
+    "run_completed",
+    "run_failed",
+    "run_paused",
+    "run_started",
+}
+INTERRUPTION_HOOK: Callable[[str], None] = lambda _phase: None
+
+
+class LongWorkError(ValueError):
+    """A long-running operation could not proceed safely."""
+
+    def __init__(self, message: str, *, code: str = "OCTON-LRW-1001", phase: str = "inspect"):
+        self.code = code
+        self.phase = phase
+        super().__init__(message)
+
+
+def load_module(name: str, path: Path):
+    spec = importlib.util.spec_from_file_location(name, path)
+    if spec is None or spec.loader is None:
+        raise LongWorkError(f"cannot load required Octon Mini module: {path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def strict_pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    value: dict[str, Any] = {}
+    for key, item in pairs:
+        if key in value:
+            raise ValueError(f"duplicate JSON key: {key}")
+        value[key] = item
+    return value
+
+
+def reject_json_constant(value: str) -> None:
+    raise ValueError(f"invalid JSON constant: {value}")
+
+
+def loads_json(text: str) -> Any:
+    return json.loads(
+        text,
+        object_pairs_hook=strict_pairs,
+        parse_constant=reject_json_constant,
+    )
+
+
+def load_json(path: Path) -> Any:
+    try:
+        return loads_json(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, ValueError) as error:
+        raise LongWorkError(f"cannot load strict JSON {safe_relative(path)}: {error}") from error
+
+
+def canonical_bytes(value: object) -> bytes:
+    return json.dumps(
+        value, ensure_ascii=False, allow_nan=False, sort_keys=True, separators=(",", ":")
+    ).encode("utf-8")
+
+
+def pretty_bytes(value: object) -> bytes:
+    return (json.dumps(value, indent=2, sort_keys=True, allow_nan=False) + "\n").encode("utf-8")
+
+
+def digest_bytes(value: bytes) -> str:
+    return hashlib.sha256(value).hexdigest()
+
+
+def record_digest(value: dict[str, Any], field: str) -> str:
+    unsigned = dict(value)
+    unsigned.pop(field, None)
+    return digest_bytes(canonical_bytes(unsigned))
+
+
+def safe_relative(path: Path) -> str:
+    try:
+        return path.relative_to(ROOT).as_posix()
+    except ValueError:
+        return str(path)
+
+
+def confined(relative: str) -> Path:
+    pure = PurePosixPath(relative)
+    if (
+        not relative
+        or not pure.parts
+        or pure.is_absolute()
+        or pure.as_posix() != relative
+        or any(part in {"", ".", ".."} for part in pure.parts)
+    ):
+        raise LongWorkError(f"unsafe project path: {relative!r}")
+    candidate = ROOT.joinpath(*pure.parts)
+    try:
+        candidate.resolve(strict=False).relative_to(ROOT.resolve())
+    except (OSError, ValueError) as error:
+        raise LongWorkError(f"project path escapes the repository: {relative!r}") from error
+    return candidate
+
+
+def parse_utc(value: str) -> datetime:
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as error:
+        raise LongWorkError("timestamp must be ISO-8601") from error
+    if parsed.tzinfo is None:
+        raise LongWorkError("timestamp must include a timezone")
+    return parsed.astimezone(timezone.utc)
+
+
+def observed_utc(value: str | None = None) -> datetime:
+    if value is None:
+        return datetime.now(timezone.utc)
+    if os.environ.get("OCTON_MINI_LONG_WORK_TEST_CLOCK") != "1":
+        raise LongWorkError(
+            "--observed-at is reserved for direct disposable-fixture execution; "
+            "ordinary package dispatch uses the local clock"
+        )
+    return parse_utc(value)
+
+
+def iso(value: datetime) -> str:
+    return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def fsync_directory(path: Path) -> None:
+    try:
+        descriptor = os.open(path, os.O_RDONLY)
+    except OSError:
+        return
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+
+
+def ensure_local_path(path: Path, *, existing_file: bool = False) -> Path:
+    """Reject lexical escapes and every existing symlink ancestor before I/O."""
+    root = ROOT.resolve()
+    candidate = path if path.is_absolute() else ROOT / path
+    try:
+        relative = candidate.relative_to(ROOT)
+    except ValueError as error:
+        raise LongWorkError(f"path is outside the project: {path}") from error
+    current = ROOT
+    for part in relative.parts[:-1]:
+        current = current / part
+        if current.is_symlink():
+            raise LongWorkError(
+                f"project-local state has a symlink ancestor: {safe_relative(current)}"
+            )
+    try:
+        candidate.parent.resolve(strict=False).relative_to(root)
+    except (OSError, ValueError) as error:
+        raise LongWorkError(f"path escapes the project: {path}") from error
+    if candidate.is_symlink():
+        raise LongWorkError(f"project-local state path is a symlink: {safe_relative(candidate)}")
+    if existing_file and not candidate.is_file():
+        raise LongWorkError(f"project-local state file is unavailable: {safe_relative(candidate)}")
+    return candidate
+
+
+def atomic_write(path: Path, content: bytes, *, create: bool) -> None:
+    path = ensure_local_path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if create and path.exists():
+        raise LongWorkError(f"refusing to overwrite existing record: {safe_relative(path)}")
+    descriptor, temporary_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    temporary = Path(temporary_name)
+    try:
+        with os.fdopen(descriptor, "wb") as stream:
+            stream.write(content)
+            stream.flush()
+            os.fsync(stream.fileno())
+        if create and path.exists():
+            raise LongWorkError(f"record appeared during atomic write: {safe_relative(path)}")
+        os.replace(temporary, path)
+        fsync_directory(path.parent)
+    finally:
+        if temporary.exists():
+            temporary.unlink()
+
+
+def append_history(path: Path, value: dict[str, Any]) -> None:
+    path = ensure_local_path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    line = canonical_bytes(value) + b"\n"
+    descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
+    try:
+        os.write(descriptor, line)
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+
+
+def parse_front_matter(path: Path) -> tuple[dict[str, Any], bytes]:
+    ensure_local_path(path, existing_file=True)
+    try:
+        content = path.read_bytes()
+        text = content.decode("utf-8")
+    except (OSError, UnicodeDecodeError) as error:
+        raise LongWorkError(f"cannot read record {safe_relative(path)}: {error}") from error
+    lines = text.splitlines(keepends=True)
+    if not lines or lines[0].strip() != "---":
+        raise LongWorkError(f"record lacks JSON front matter: {safe_relative(path)}")
+    try:
+        end = next(index for index, line in enumerate(lines[1:], 1) if line.strip() == "---")
+        record = loads_json("".join(lines[1:end]))
+    except (StopIteration, json.JSONDecodeError, ValueError) as error:
+        raise LongWorkError(f"record has invalid strict JSON front matter: {safe_relative(path)}") from error
+    if not isinstance(record, dict):
+        raise LongWorkError(f"record front matter is not an object: {safe_relative(path)}")
+    return record, content
+
+
+def task_record(task_id: str) -> tuple[dict[str, Any], Path, bytes]:
+    if TASK_ID.fullmatch(task_id) is None:
+        raise LongWorkError(f"invalid task ID: {task_id!r}")
+    path = ROOT / ".agent/tasks" / f"{task_id}.md"
+    ensure_local_path(path, existing_file=True)
+    record, content = parse_front_matter(path)
+    if record.get("id") != task_id:
+        raise LongWorkError("task path and task identity do not match")
+    return record, path, content
+
+
+def task_contract_digest(record: dict[str, Any]) -> str:
+    """Bind semantics the worker may narrow but never rewrite autonomously."""
+    fields = (
+        "id", "title", "authority_basis", "owner", "scope", "acceptance_criteria",
+        "validation_plan", "dependencies", "plan_item_refs", "gate_refs",
+        "blocking_refs", "work_completion",
+    )
+    return digest_bytes(canonical_bytes({field: record.get(field) for field in fields}))
+
+
+def accepted_decision(decision_ref: str) -> Path:
+    if re.fullmatch(r"DEC-[0-9]{4}", decision_ref) is None:
+        raise LongWorkError("adoption requires an exact DEC-0000 reference")
+    candidates = sorted((ROOT / ".agent/decisions").glob(f"{decision_ref}*.md"))
+    if len(candidates) != 1 or candidates[0].is_symlink():
+        raise LongWorkError(f"decision must resolve exactly once: {decision_ref}")
+    record, _ = parse_front_matter(candidates[0])
+    if record.get("status") != "accepted" or not str(record.get("authority_source", "")).startswith(("authority:", "external:")):
+        raise LongWorkError("package adoption requires a current accepted project-owned decision")
+    return candidates[0]
+
+
+def instruction_fingerprint() -> str:
+    transaction = load_module("octon_lrw_transaction", ROOT / ".agent/scripts/octon_transaction.py")
+    return transaction.instruction_fingerprint(ROOT)["digest"]
+
+
+def project_fingerprint() -> str:
+    validator = load_module("octon_lrw_validator", ROOT / ".agent/scripts/validate.py")
+    digest = hashlib.sha256()
+    for path in validator.repository_files(ROOT, source_only=True):
+        relative = path.relative_to(ROOT).as_posix()
+        if relative.startswith(".agent/work-runs/") or path.name == ".DS_Store":
+            continue
+        digest.update(relative.encode("utf-8", errors="surrogateescape"))
+        digest.update(b"\0")
+        try:
+            identity = validator.hash_path_identity(path)
+        except OSError:
+            identity = digest_bytes(b"unreadable")
+        digest.update(identity.encode("ascii"))
+        digest.update(b"\0")
+    return digest.hexdigest()
+
+
+def require_core_check() -> None:
+    """Require the current read-only structural boundary without running hooks."""
+    environment = {
+        key: os.environ[key]
+        for key in ("PATH", "SYSTEMROOT", "WINDIR", "TEMP", "TMP", "TMPDIR")
+        if key in os.environ
+    }
+    environment.update({
+        "PYTHONIOENCODING": "utf-8",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+    })
+    result = subprocess.run(
+        [sys.executable, "-I", "-B", ".agent/scripts/validate.py", "--check"],
+        cwd=ROOT,
+        env=environment,
+        capture_output=True,
+        check=False,
+        shell=False,
+    )
+    if result.returncode != 0:
+        raise LongWorkError(
+            "current read-only project validation failed; inspect `./octon check --json`"
+        )
+
+
+def installed_package() -> dict[str, Any]:
+    registry_path = ensure_local_path(ROOT / ".agent/packages.json", existing_file=True)
+    registry = load_json(registry_path)
+    matches = [
+        item for item in registry.get("packages", [])
+        if isinstance(item, dict) and item.get("id") == "long-running-work"
+    ] if isinstance(registry, dict) else []
+    if len(matches) != 1 or matches[0].get("kind") != "workflow_capability":
+        raise LongWorkError("long-running-work package is not installed exactly once")
+    return matches[0]
+
+
+def adoption(*, require_enabled: bool = True) -> dict[str, Any]:
+    installed_package()
+    if not ADOPTION_PATH.is_file() or ADOPTION_PATH.is_symlink():
+        raise LongWorkError("long-running-work is installed but has no project-owned adoption record")
+    ensure_local_path(ADOPTION_PATH, existing_file=True)
+    value = load_json(ADOPTION_PATH)
+    required = {
+        "schema_version", "status", "permission_grant", "owner", "decision_ref",
+        "decision_sha256", "runtime_authorization", "limitations",
+    }
+    if not isinstance(value, dict) or set(value) != required or value.get("schema_version") != "harness.long-running-work-adoption.v1":
+        raise LongWorkError("long-running-work adoption record is malformed")
+    if (
+        value.get("permission_grant") is not False
+        or value.get("runtime_authorization") is not False
+        or not isinstance(value.get("owner"), str)
+        or not value["owner"].strip()
+    ):
+        raise LongWorkError("long-running-work adoption cannot grant permission")
+    decision_path = accepted_decision(str(value.get("decision_ref", "")))
+    if value.get("decision_sha256") != digest_bytes(decision_path.read_bytes()):
+        raise LongWorkError("long-running-work adoption decision bytes changed; reconfiguration is required")
+    if require_enabled and value.get("status") != "enabled":
+        raise LongWorkError("long-running-work is not enabled for this project")
+    return value
+
+
+def active_pointer() -> dict[str, Any] | None:
+    if not ACTIVE_PATH.exists():
+        return None
+    ensure_local_path(ACTIVE_PATH, existing_file=True)
+    value = load_json(ACTIVE_PATH)
+    if (
+        not isinstance(value, dict)
+        or set(value) != {"schema_version", "run_id", "document_role", "permission_grant"}
+        or value.get("schema_version") != "harness.long-running-work-active.v1"
+        or value.get("document_role") != "package_owned_single_active_run_pointer"
+        or value.get("permission_grant") is not False
+        or RUN_ID.fullmatch(str(value.get("run_id", ""))) is None
+    ):
+        raise LongWorkError("active run pointer is malformed")
+    return value
+
+
+def run_dir(run_id: str) -> Path:
+    if RUN_ID.fullmatch(run_id) is None:
+        raise LongWorkError(f"invalid run ID: {run_id!r}")
+    path = RUNS_ROOT / run_id
+    ensure_local_path(path / "placeholder")
+    if path.exists() and (path.is_symlink() or not path.is_dir()):
+        raise LongWorkError(f"run state path is unsafe: {run_id}")
+    return path
+
+
+def load_run(run_id: str | None = None) -> tuple[dict[str, Any], Path]:
+    if run_id is None:
+        pointer = active_pointer()
+        if pointer is None:
+            raise LongWorkError("no active long-running work run exists")
+        run_id = pointer["run_id"]
+    path = run_dir(run_id) / "run.json"
+    ensure_local_path(path, existing_file=True)
+    value = load_json(path)
+    if not isinstance(value, dict) or value.get("run_id") != run_id:
+        raise LongWorkError("run record identity is malformed")
+    supplied = value.get("canonical_run_digest")
+    if supplied != record_digest(value, "canonical_run_digest"):
+        raise LongWorkError("run record digest is stale or tampered")
+    return value, path
+
+
+def validate_limits(value: Any) -> dict[str, int | None]:
+    required = {
+        "maximum_iterations", "maximum_elapsed_seconds",
+        "maximum_consecutive_failures", "maximum_repeated_failure_signature",
+        "maximum_no_progress_iterations", "maximum_context_bytes",
+        "maximum_context_items", "maximum_validation_retries",
+        "maximum_reported_tokens", "maximum_reported_cost_microunits",
+    }
+    if not isinstance(value, dict) or set(value) != required:
+        raise LongWorkError("limits must contain exactly the supported measurable dimensions")
+    for key, item in value.items():
+        if item is None and key in {"maximum_reported_tokens", "maximum_reported_cost_microunits"}:
+            continue
+        if isinstance(item, bool) or not isinstance(item, int) or item < 1:
+            raise LongWorkError(f"limit {key} must be a positive integer or an allowed unknown")
+    return value
+
+
+def normalize_project_paths(values: list[str]) -> list[str]:
+    result: list[str] = []
+    for raw in values:
+        pure = PurePosixPath(raw)
+        if (
+            not raw
+            or not pure.parts
+            or pure.is_absolute()
+            or pure.as_posix() != raw
+            or any(part in {"", ".", ".."} for part in pure.parts)
+        ):
+            raise LongWorkError(f"unsafe narrowed task path: {raw!r}")
+        result.append(pure.as_posix())
+    return sorted(set(result))
+
+
+def source_entry(path: Path, *, state: str, reason: str, precedence: int, sensitive: bool = False) -> dict[str, Any]:
+    ensure_local_path(path, existing_file=True)
+    digest = hashlib.sha256()
+    measured_bytes = 0
+    try:
+        with path.open("rb") as stream:
+            while True:
+                chunk = stream.read(1024 * 1024)
+                if not chunk:
+                    break
+                measured_bytes += len(chunk)
+                digest.update(chunk)
+    except OSError as error:
+        raise LongWorkError(f"cannot inspect context source {safe_relative(path)}: {error}") from error
+    return {
+        "reference": path.relative_to(ROOT).as_posix(),
+        "sha256": digest.hexdigest(),
+        "information_state": state,
+        "reason": reason,
+        "precedence": precedence,
+        "selected_section": "whole_file_reference_only",
+        "freshness": "exact_current_bytes_at_compile",
+        "measured_bytes": measured_bytes,
+        "sensitive": sensitive,
+        "content_persisted": False,
+        "limitations": ["Manifest references bytes; it does not copy source content."],
+    }
+
+
+def instruction_paths(scope_paths: list[str]) -> list[Path]:
+    result = {ROOT / "AGENTS.md"} if (ROOT / "AGENTS.md").is_file() else set()
+    for raw in scope_paths:
+        target = confined(raw)
+        current = target if target.is_dir() else target.parent
+        while current == ROOT or ROOT in current.parents:
+            candidate = current / "AGENTS.md"
+            if candidate.is_file() and not candidate.is_symlink():
+                result.add(candidate)
+            if current == ROOT:
+                break
+            current = current.parent
+    return sorted(result, key=lambda item: item.relative_to(ROOT).as_posix())
+
+
+def collect_record_ids(value: Any) -> set[str]:
+    found: set[str] = set()
+    if isinstance(value, str):
+        found.update(re.findall(r"\b(?:DEC|EVD|PLAN|PCE)-[A-Za-z0-9]+\b", value))
+    elif isinstance(value, list):
+        for item in value:
+            found.update(collect_record_ids(item))
+    elif isinstance(value, dict):
+        for item in value.values():
+            found.update(collect_record_ids(item))
+    return found
+
+
+def resolve_linked_sources(task: dict[str, Any]) -> tuple[list[tuple[Path, str, str, int]], list[str]]:
+    result: list[tuple[Path, str, str, int]] = []
+    unresolved: list[str] = []
+    for identifier in sorted(collect_record_ids(task)):
+        if identifier.startswith("DEC-"):
+            matches = sorted((ROOT / ".agent/decisions").glob(f"{identifier}*.md"))
+            if len(matches) != 1 or matches[0].is_symlink():
+                unresolved.append(f"task-linked decision does not resolve exactly once: {identifier}")
+                continue
+            record, _content = parse_front_matter(matches[0])
+            status = record.get("status")
+            if status == "accepted":
+                result.append((matches[0], "accepted", "task-linked accepted decision", 40))
+            else:
+                state = "superseded" if status == "superseded" else "proposed" if status == "proposed" else "unknown"
+                result.append((matches[0], state, f"task-linked decision is {status or 'unknown'}", 40))
+                unresolved.append(f"task-linked decision is not accepted: {identifier}")
+        elif identifier.startswith("EVD-"):
+            matches = sorted((ROOT / ".agent/evidence").glob(f"{identifier}*"))
+            if len(matches) == 1 and matches[0].is_file() and not matches[0].is_symlink():
+                record, _content = parse_front_matter(matches[0])
+                fresh_until = record.get("fresh_until")
+                stale = False
+                if isinstance(fresh_until, str):
+                    try:
+                        stale = date.fromisoformat(fresh_until) < date.today()
+                    except ValueError:
+                        stale = True
+                result.append((matches[0], "stale" if stale else "observed", "task-linked evidence" if not stale else "task-linked evidence is stale", 50))
+                if stale:
+                    unresolved.append(f"task-linked evidence is stale: {identifier}")
+            else:
+                unresolved.append(f"task-linked evidence does not resolve exactly once: {identifier}")
+        elif identifier.startswith("PCE-"):
+            evidence = ROOT / ".agent/project-checks/evidence.json"
+            if evidence.is_file():
+                result.append((evidence, "observed", "task-linked project-check evidence store", 50))
+            else:
+                unresolved.append("task-linked project-check evidence store is absent")
+        elif identifier.startswith("PLAN-"):
+            plan = ROOT / "project-dossier/machine-readable/plan.json"
+            if plan.is_file() and not plan.is_symlink():
+                result.append((plan, "authoritative", "task-linked plan source", 45))
+            else:
+                unresolved.append(f"task-linked plan source is absent: {identifier}")
+    return result, unresolved
+
+
+def compile_context(task_id: str, maximum_bytes: int, maximum_items: int, scope_paths: list[str], include_refs: list[str]) -> dict[str, Any]:
+    if maximum_bytes < 1 or maximum_items < 1:
+        raise LongWorkError("context budgets must be positive")
+    INTERRUPTION_HOOK("before_context_compilation")
+    require_core_check()
+    task, task_path, _ = task_record(task_id)
+    candidates: list[tuple[Path, str, str, int, bool]] = []
+    for path in instruction_paths(scope_paths):
+        candidates.append((path, "authoritative", "applicable instruction", 10, False))
+    for relative, state, reason, precedence in (
+        (".agent/policy.json", "authoritative", "current policy boundary", 20),
+        (".agent/context.json", "authoritative", "context precedence contract", 20),
+        (".agent/project.json", "authoritative", "current project configuration", 20),
+        (".agent/state/focus.json", "authoritative", "current operator intent", 30),
+        (".agent/state/current.json", "derived", "derived current state", 35),
+    ):
+        path = ROOT / relative
+        if path.is_file() and not path.is_symlink():
+            candidates.append((path, state, reason, precedence, False))
+    candidates.append((task_path, "authoritative", "owning active task", 30, False))
+    linked_sources, unresolved_inputs = resolve_linked_sources(task)
+    for path, state, reason, precedence in linked_sources:
+        candidates.append((path, state, reason, precedence, False))
+    for raw in include_refs:
+        path = confined(raw)
+        if not path.is_file() or path.is_symlink():
+            raise LongWorkError(f"explicit context reference is absent or unsafe: {raw}")
+        sensitive = path.name.startswith(".env") or any(part.lower() in {"secrets", "credentials"} for part in path.parts)
+        candidates.append((path, "observed", "explicit task context reference", 60, sensitive))
+    unique: dict[str, tuple[Path, str, str, int, bool]] = {}
+    for item in candidates:
+        relative = item[0].relative_to(ROOT).as_posix()
+        if relative not in unique or item[3] < unique[relative][3]:
+            unique[relative] = item
+    ordered = sorted(unique.values(), key=lambda item: (item[3], item[0].relative_to(ROOT).as_posix()))
+    included: list[dict[str, Any]] = []
+    omitted: list[dict[str, Any]] = []
+    measured = 0
+    for path, state, reason, precedence, sensitive in ordered:
+        entry = source_entry(path, state=state, reason=reason, precedence=precedence, sensitive=sensitive)
+        required = precedence <= 35
+        if len(included) >= maximum_items or measured + entry["measured_bytes"] > maximum_bytes:
+            entry["reason"] = "required source exceeds context budget" if required else "omitted by explicit context budget"
+            omitted.append(entry)
+            continue
+        included.append(entry)
+        measured += entry["measured_bytes"]
+    required_omitted = any(item["precedence"] <= 35 for item in omitted)
+    manifest: dict[str, Any] = {
+        "schema_version": "harness.long-running-context-manifest.v1",
+        "artifact_kind": "derived_read_only_context_projection",
+        "permission_grant": False,
+        "task_ref": task_id,
+        "status": "blocked_budget" if required_omitted else "blocked_input" if unresolved_inputs else "ready",
+        "budget": {
+            "maximum_bytes": maximum_bytes,
+            "maximum_items": maximum_items,
+            "measured_bytes": measured,
+            "measured_items": len(included),
+        },
+        "included": included,
+        "omitted": omitted,
+        "unresolved_inputs": sorted(set(
+            (["Increase the explicit budget or narrow context."] if required_omitted else [])
+            + unresolved_inputs
+        )),
+        "limitations": [
+            "Selection is rule-based and path/reference driven; it is not semantic completeness.",
+            "Context availability and schema conformance create no authority.",
+        ],
+        "canonical_manifest_digest": "",
+    }
+    manifest["canonical_manifest_digest"] = record_digest(manifest, "canonical_manifest_digest")
+    INTERRUPTION_HOOK("after_context_compilation")
+    return manifest
+
+
+def limits_exhausted(run: dict[str, Any], observed: datetime, *, admit_iteration: bool) -> str | None:
+    limits = run["limits"]
+    accounting = run["accounting"]
+    created = parse_utc(run["created_at"])
+    elapsed = max(0, int((observed - created).total_seconds()))
+    checks = [
+        (admit_iteration and accounting["iterations"] >= limits["maximum_iterations"], "maximum_iterations"),
+        (elapsed >= limits["maximum_elapsed_seconds"], "maximum_elapsed_seconds"),
+        (accounting["consecutive_failures"] >= limits["maximum_consecutive_failures"], "maximum_consecutive_failures"),
+        (accounting["repeated_failure_signature_count"] >= limits["maximum_repeated_failure_signature"], "maximum_repeated_failure_signature"),
+        (accounting["no_progress_iterations"] >= limits["maximum_no_progress_iterations"], "maximum_no_progress_iterations"),
+        (accounting["validation_retries"] >= limits["maximum_validation_retries"], "maximum_validation_retries"),
+    ]
+    for exhausted, name in checks:
+        if exhausted:
+            return name
+    for value_key, limit_key in (
+        ("reported_tokens", "maximum_reported_tokens"),
+        ("reported_cost_microunits", "maximum_reported_cost_microunits"),
+    ):
+        value = accounting[value_key]
+        limit = limits[limit_key]
+        if value is not None and limit is not None and value >= limit:
+            return limit_key
+    return None
+
+
+def marker_path(run_id: str, checkpoint_id: str) -> Path:
+    return run_dir(run_id) / "checkpoints" / f"{checkpoint_id}.marker.json"
+
+
+def checkpoint_path(run_id: str, checkpoint_id: str) -> Path:
+    return run_dir(run_id) / "checkpoints" / f"{checkpoint_id}.json"
+
+
+def latest_committed_checkpoint_id(run_id: str) -> str:
+    markers = sorted((run_dir(run_id) / "checkpoints").glob("LWC-*.marker.json"))
+    valid: list[str] = []
+    for marker in markers:
+        checkpoint_id = marker.name.removesuffix(".marker.json")
+        try:
+            committed_checkpoint(run_id, checkpoint_id)
+        except LongWorkError:
+            continue
+        valid.append(checkpoint_id)
+    if not valid:
+        raise LongWorkError("run has no valid marker-backed checkpoint")
+    return valid[-1]
+
+
+def committed_checkpoint(run_id: str, checkpoint_id: str) -> tuple[dict[str, Any], dict[str, Any]]:
+    content_path = checkpoint_path(run_id, checkpoint_id)
+    final_marker = marker_path(run_id, checkpoint_id)
+    if (
+        content_path.is_symlink()
+        or final_marker.is_symlink()
+        or not content_path.is_file()
+        or not final_marker.is_file()
+    ):
+        raise LongWorkError("checkpoint is not marker-backed and cannot be resumed")
+    content = load_json(content_path)
+    marker = load_json(final_marker)
+    marker_required = {
+        "schema_version", "checkpoint_id", "run_id", "permission_grant",
+        "content_sha256", "checkpoint_digest", "canonical_marker_digest",
+    }
+    if (
+        not isinstance(marker, dict)
+        or set(marker) != marker_required
+        or marker.get("schema_version") != "harness.long-running-work-checkpoint-marker.v1"
+        or marker.get("permission_grant") is not False
+        or marker.get("canonical_marker_digest") != record_digest(marker, "canonical_marker_digest")
+    ):
+        raise LongWorkError("checkpoint marker contract is invalid")
+    if marker.get("content_sha256") != digest_bytes(content_path.read_bytes()):
+        raise LongWorkError("checkpoint marker does not match checkpoint content")
+    if content.get("canonical_checkpoint_digest") != record_digest(content, "canonical_checkpoint_digest"):
+        raise LongWorkError("checkpoint content digest is invalid")
+    if (
+        marker.get("checkpoint_id") != checkpoint_id
+        or marker.get("run_id") != run_id
+        or marker.get("checkpoint_digest") != content.get("canonical_checkpoint_digest")
+        or content.get("checkpoint_id") != checkpoint_id
+        or content.get("run_id") != run_id
+        or content.get("sequence") != int(checkpoint_id.removeprefix("LWC-"))
+        or not isinstance(content.get("run_snapshot"), dict)
+        or content["run_snapshot"].get("run_id") != run_id
+        or content["run_snapshot"].get("last_committed_checkpoint") != checkpoint_id
+        or content["run_snapshot"].get("canonical_run_digest")
+        != record_digest(content["run_snapshot"], "canonical_run_digest")
+    ):
+        raise LongWorkError("checkpoint marker identity is invalid")
+    return content, marker
+
+
+def commit_checkpoint(
+    run: dict[str, Any], *, observed: datetime, project_digest: str,
+    transaction_refs: list[str] | None = None, work_completion_refs: list[str] | None = None,
+    validation_refs: list[str] | None = None, partial_effects: list[str] | None = None,
+) -> dict[str, Any]:
+    if observed < parse_utc(run["updated_at"]):
+        raise LongWorkError("checkpoint time cannot move backwards")
+    previous = run.get("last_committed_checkpoint")
+    sequence = int(previous.split("-")[-1]) + 1 if isinstance(previous, str) else 0
+    checkpoint_id = f"LWC-{sequence:06d}"
+    run = json.loads(json.dumps(run))
+    run["last_committed_checkpoint"] = checkpoint_id
+    run["project_fingerprint"] = project_digest
+    run["updated_at"] = iso(observed)
+    run["accounting"]["elapsed_seconds_at_commit"] = max(
+        0, int((observed - parse_utc(run["created_at"])).total_seconds())
+    )
+    run["canonical_run_digest"] = record_digest(run, "canonical_run_digest")
+    checkpoint: dict[str, Any] = {
+        "schema_version": "harness.long-running-work-checkpoint.v1",
+        "checkpoint_id": checkpoint_id,
+        "run_id": run["run_id"],
+        "permission_grant": False,
+        "sequence": sequence,
+        "task_ref": run["task_ref"],
+        "task_sha256": run["task_sha256"],
+        "authority_source": run["authority_source"],
+        "instruction_fingerprint": run["instruction_fingerprint"],
+        "context_manifest_digest": run["context"]["last_manifest_digest"],
+        "project_fingerprint": project_digest,
+        "run_snapshot": run,
+        "transaction_receipt_refs": sorted(set(transaction_refs or [])),
+        "work_completion_receipt_refs": sorted(set(work_completion_refs or [])),
+        "validation_evidence_refs": sorted(set(validation_refs or [])),
+        "partial_or_external_effects": sorted(set(partial_effects or [])),
+        "next_safe_phase": run["phase"],
+        "uncaptured_state": ["model and process memory", "unrecorded external state"],
+        "limitations": [
+            "Checkpoint captures bounded logical state and references, not a filesystem snapshot.",
+            "Local recovery cannot reverse an external effect.",
+        ],
+        "canonical_checkpoint_digest": "",
+    }
+    checkpoint["canonical_checkpoint_digest"] = record_digest(checkpoint, "canonical_checkpoint_digest")
+    content = pretty_bytes(checkpoint)
+    marker = {
+        "schema_version": "harness.long-running-work-checkpoint-marker.v1",
+        "checkpoint_id": checkpoint_id,
+        "run_id": run["run_id"],
+        "permission_grant": False,
+        "content_sha256": digest_bytes(content),
+        "checkpoint_digest": checkpoint["canonical_checkpoint_digest"],
+    }
+    marker["canonical_marker_digest"] = record_digest(marker, "canonical_marker_digest")
+    INTERRUPT = INTERRUPTION_HOOK
+    INTERRUPT("before_checkpoint_content_write")
+    atomic_write(checkpoint_path(run["run_id"], checkpoint_id), content, create=True)
+    INTERRUPT("after_checkpoint_content_write")
+    if previous is None:
+        INTERRUPT("after_run_content_before_marker")
+    INTERRUPT("before_checkpoint_marker")
+    atomic_write(marker_path(run["run_id"], checkpoint_id), pretty_bytes(marker), create=True)
+    INTERRUPT("after_checkpoint_marker")
+    atomic_write(run_dir(run["run_id"]) / "run.json", pretty_bytes(run), create=False)
+    return run
+
+
+def history_entry(run: dict[str, Any], kind: str, observed: datetime, details: dict[str, Any]) -> dict[str, Any]:
+    history = read_history(run["run_id"], allow_missing=True)
+    parent = history[-1]["entry_id"] if history else None
+    value: dict[str, Any] = {
+        "schema_version": "harness.long-running-work-history-entry.v1",
+        "entry_id": f"LWE-{uuid.uuid4().hex[:24]}",
+        "run_id": run["run_id"],
+        "parent_entry_id": parent,
+        "sequence": len(history) + 1,
+        "kind": kind,
+        "observed_at": iso(observed),
+        "task_ref": run["task_ref"],
+        "checkpoint_ref": run.get("last_committed_checkpoint"),
+        "details": details,
+        "permission_grant": False,
+    }
+    value["canonical_entry_digest"] = record_digest(value, "canonical_entry_digest")
+    return value
+
+
+def read_history(run_id: str, *, allow_missing: bool = False) -> list[dict[str, Any]]:
+    path = run_dir(run_id) / "history.jsonl"
+    if not path.exists() and not path.is_symlink() and allow_missing:
+        return []
+    ensure_local_path(path, existing_file=True)
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError as error:
+        raise LongWorkError(f"cannot read run history: {error}") from error
+    values: list[dict[str, Any]] = []
+    required = {
+        "schema_version", "entry_id", "run_id", "parent_entry_id", "sequence",
+        "kind", "observed_at", "task_ref", "checkpoint_ref", "details",
+        "permission_grant", "canonical_entry_digest",
+    }
+    for number, line in enumerate(lines, 1):
+        if not line.strip():
+            continue
+        try:
+            value = loads_json(line)
+        except (json.JSONDecodeError, ValueError) as error:
+            raise LongWorkError(f"run history has a malformed preserved line {number}: {error}") from error
+        previous_id = values[-1]["entry_id"] if values else None
+        if (
+            not isinstance(value, dict)
+            or set(value) != required
+            or value.get("schema_version") != "harness.long-running-work-history-entry.v1"
+            or HISTORY_ID.fullmatch(str(value.get("entry_id", ""))) is None
+            or value.get("run_id") != run_id
+            or value.get("parent_entry_id") != previous_id
+            or value.get("sequence") != len(values) + 1
+            or value.get("kind") not in HISTORY_KINDS
+            or value.get("permission_grant") is not False
+        ):
+            raise LongWorkError(f"run history sequence is invalid at line {number}")
+        if value.get("canonical_entry_digest") != record_digest(value, "canonical_entry_digest"):
+            raise LongWorkError(f"run history digest is invalid at line {number}")
+        try:
+            parse_utc(str(value.get("observed_at", "")))
+        except LongWorkError as error:
+            raise LongWorkError(f"run history timestamp is invalid at line {number}") from error
+        values.append(value)
+    return values
+
+
+def ensure_history_capacity(run_id: str) -> None:
+    if len(read_history(run_id, allow_missing=True)) >= 100:
+        raise LongWorkError(
+            "current run history reached its 100-entry bound; pause and archive it explicitly",
+            code="OCTON-LRW-3003",
+        )
+
+
+def write_history(run: dict[str, Any], kind: str, observed: datetime, details: dict[str, Any]) -> None:
+    ensure_history_capacity(run["run_id"])
+    append_history(run_dir(run["run_id"]) / "history.jsonl", history_entry(run, kind, observed, details))
+
+
+def archive_history(args: argparse.Namespace) -> dict[str, Any]:
+    run, _ = load_run(args.run_id)
+    if run["status"] == "active":
+        raise LongWorkError("history archival requires a paused, blocked, limited, or terminal run")
+    history_path = run_dir(run["run_id"]) / "history.jsonl"
+    ensure_local_path(history_path, existing_file=True)
+    content = history_path.read_bytes()
+    supplied = digest_bytes(content)
+    if supplied != args.accept_history_digest:
+        raise LongWorkError("accepted history digest does not match current immutable history")
+    entries = read_history(run["run_id"])
+    archive_root = run_dir(run["run_id"]) / "history" / "archive"
+    sequence = len(list(archive_root.glob("HIS-*.jsonl"))) + 1 if archive_root.exists() else 1
+    archive_path = archive_root / f"HIS-{sequence:06d}.jsonl"
+    atomic_write(archive_path, content, create=True)
+    summary = {
+        "schema_version": "harness.long-running-work-history-entry.v1",
+        "entry_id": f"LWE-{uuid.uuid4().hex[:24]}",
+        "run_id": run["run_id"],
+        "parent_entry_id": entries[-1]["entry_id"] if entries else None,
+        "sequence": 1,
+        "kind": "history_archived",
+        "observed_at": iso(observed_utc(args.observed_at)),
+        "task_ref": run["task_ref"],
+        "checkpoint_ref": run.get("last_committed_checkpoint"),
+        "details": {
+            "archive_ref": archive_path.relative_to(ROOT).as_posix(),
+            "archive_sha256": supplied,
+            "covered_entries": len(entries),
+            "source_erased": False,
+        },
+        "permission_grant": False,
+    }
+    summary["canonical_entry_digest"] = record_digest(summary, "canonical_entry_digest")
+    atomic_write(history_path, canonical_bytes(summary) + b"\n", create=False)
+    return {
+        "schema_version": "harness.long-running-work-history-archive.v1",
+        "permission_grant": False,
+        "run_id": run["run_id"],
+        "archive_ref": archive_path.relative_to(ROOT).as_posix(),
+        "archive_sha256": supplied,
+        "covered_entries": len(entries),
+    }
+
+
+def write_active(run_id: str) -> None:
+    value = {
+        "schema_version": "harness.long-running-work-active.v1",
+        "run_id": run_id,
+        "document_role": "package_owned_single_active_run_pointer",
+        "permission_grant": False,
+    }
+    atomic_write(ACTIVE_PATH, pretty_bytes(value), create=not ACTIVE_PATH.exists())
+
+
+def retained_nonterminal_runs() -> list[str]:
+    if not RUNS_ROOT.exists():
+        return []
+    ensure_local_path(RUNS_ROOT / "placeholder")
+    result: list[str] = []
+    for path in sorted(RUNS_ROOT.iterdir()):
+        if not RUN_ID.fullmatch(path.name):
+            continue
+        if path.is_symlink() or not path.is_dir():
+            raise LongWorkError(f"retained run state is unsafe: {path.name}")
+        try:
+            run, _ = load_run(path.name)
+        except LongWorkError as error:
+            raise LongWorkError(
+                f"retained run state requires recovery before another run: {path.name}: {error}"
+            ) from error
+        if run.get("status") not in TERMINAL:
+            result.append(path.name)
+    return result
+
+
+def check_current_bindings(
+    run: dict[str, Any], *, require_project: bool = True, allow_task_progress: bool = False,
+) -> tuple[dict[str, Any], str, str]:
+    task, _path, content = task_record(run["task_ref"])
+    current_task_sha = digest_bytes(content)
+    if current_task_sha != run["task_sha256"]:
+        if not allow_task_progress or task_contract_digest(task) != run["task_contract_digest"]:
+            raise LongWorkError("owning task contract changed; create a successor run", code="OCTON-LRW-2001")
+    if task.get("authority_basis") != run["authority_source"]:
+        raise LongWorkError("task authority basis changed; continuation requires review", code="OCTON-LRW-2002")
+    if instruction_fingerprint() != run["instruction_fingerprint"]:
+        raise LongWorkError("governing instructions changed; continuation is stale", code="OCTON-LRW-2003")
+    current_project = project_fingerprint()
+    if require_project and current_project != run["project_fingerprint"]:
+        raise LongWorkError("project state changed after the last committed coordinate", code="OCTON-LRW-2004")
+    return task, current_project, current_task_sha
+
+
+def validation_reference(identifier: str, task_id: str) -> tuple[str, str]:
+    if re.fullmatch(r"PCE-[a-f0-9]{32}", identifier):
+        store_path = ROOT / ".agent/project-checks/evidence.json"
+        ensure_local_path(store_path, existing_file=True)
+        store = load_json(store_path)
+        matches = [item for item in store.get("records", []) if isinstance(item, dict) and item.get("id") == identifier]
+        if (
+            len(matches) != 1
+            or matches[0].get("overall_outcome") != "pass"
+            or matches[0].get("permission_grant") is not False
+            or matches[0].get("readiness_claim") is not False
+        ):
+            raise LongWorkError("project-check evidence is absent or not passing")
+        project = load_json(ROOT / ".agent/project.json")
+        writer = load_module(
+            "octon_lrw_project_check_writer",
+            ROOT / ".agent/scripts/run_project_checks.py",
+        )
+        current_fingerprint, _exclusions = writer.project_check_source_fingerprint(project)
+        source_after = matches[0].get("source_after")
+        if (
+            not isinstance(source_after, dict)
+            or source_after.get("fingerprint") != current_fingerprint
+        ):
+            raise LongWorkError("project-check evidence is stale for the current project source")
+        return identifier, digest_bytes(canonical_bytes(matches[0]))
+    if re.fullmatch(r"EVD-[0-9]{4}", identifier):
+        matches = sorted((ROOT / ".agent/evidence").glob(f"{identifier}*.md"))
+        if len(matches) != 1 or matches[0].is_symlink():
+            raise LongWorkError("evidence reference must resolve exactly once")
+        record, content = parse_front_matter(matches[0])
+        if record.get("task") != task_id or record.get("result") != "pass":
+            raise LongWorkError("evidence must be a current passing record for the owning task")
+        fresh_until = record.get("fresh_until")
+        if isinstance(fresh_until, str) and date.fromisoformat(fresh_until) < date.today():
+            raise LongWorkError("evidence is expired")
+        return identifier, digest_bytes(content)
+    raise LongWorkError("validation reference must be a PCE or EVD identity")
+
+
+def transaction_receipt_reference(raw: str) -> tuple[str, str, dict[str, Any]]:
+    transaction = load_module(
+        "octon_lrw_receipt_transaction", ROOT / ".agent/scripts/octon_transaction.py"
+    )
+    try:
+        path = transaction.existing_transaction_artifact(
+            ROOT, Path(raw), "receipts"
+        )
+    except Exception as error:
+        raise LongWorkError(f"transaction receipt path is not authoritative: {raw}") from error
+    value = load_json(path)
+    expected_id = path.stem
+    if (
+        not isinstance(value, dict)
+        or value.get("artifact_kind") not in {"transaction_receipt", "transaction_bundle_receipt"}
+        or value.get("receipt_id") != expected_id
+        or value.get("permission_grant") is not False
+        or value.get("status") != "applied"
+        or not isinstance(value.get("paths"), list)
+        or any(
+            not isinstance(item, dict)
+            or not isinstance(item.get("path"), str)
+            or transaction.path_state(ROOT, item["path"]) != item.get("after")
+            for item in value.get("paths", [])
+        )
+        or any(
+            item.get("exit_code") != 0
+            for item in value.get("validation", [])
+            if isinstance(item, dict)
+        )
+    ):
+        raise LongWorkError("transaction receipt is malformed, stale, or lacks current successful validation")
+    return path.relative_to(ROOT).as_posix(), digest_bytes(path.read_bytes()), value
+
+
+def work_completion_receipt_reference(raw: str) -> tuple[str, str, dict[str, Any]]:
+    transaction = load_module(
+        "octon_lrw_work_receipt_transaction", ROOT / ".agent/scripts/octon_transaction.py"
+    )
+    completion = load_module(
+        "octon_lrw_work_completion", ROOT / ".agent/scripts/octon_work_completion.py"
+    )
+    receipt_id = raw if re.fullmatch(r"WCR-[a-f0-9]{24}", raw) else Path(raw).stem
+    if re.fullmatch(r"WCR-[a-f0-9]{24}", receipt_id) is None:
+        raise LongWorkError("work-completion receipt must be an exact WCR identity or receipt path")
+    expected_path = transaction.work_completion_receipt_path(ROOT, receipt_id)
+    if raw != receipt_id:
+        candidate = Path(raw)
+        if not candidate.is_absolute():
+            candidate = ROOT / candidate
+        try:
+            if candidate.resolve(strict=True) != expected_path.resolve(strict=True):
+                raise LongWorkError("work-completion receipt path is outside its authoritative store")
+        except OSError as error:
+            raise LongWorkError("work-completion receipt path is unavailable") from error
+    try:
+        value = transaction.load_work_completion_receipt(ROOT, receipt_id)
+        completion.validate_receipt(value)
+    except Exception as error:
+        raise LongWorkError("work-completion receipt is malformed or stale") from error
+    return f"work-completion:{receipt_id}", digest_bytes(canonical_bytes(value)), value
+
+
+def path_within(candidate: str, boundary: str) -> bool:
+    return candidate == boundary or candidate.startswith(boundary.rstrip("/") + "/")
+
+
+def validate_effect_paths(run: dict[str, Any], paths: list[str]) -> None:
+    allowed = run["path_narrowing"]["allowed_paths"]
+    prohibited = run["path_narrowing"]["prohibited_paths"]
+    validators = load_json(ROOT / ".agent/validators.json")
+    derived = set(
+        validators.get("commands", {}).get("refresh", {}).get("writes", [])
+    ) if isinstance(validators, dict) else set()
+    for raw in paths:
+        normalized = normalize_project_paths([raw])[0]
+        if normalized in derived:
+            continue
+        if not any(path_within(normalized, boundary) for boundary in allowed):
+            raise LongWorkError(f"effect path is outside the run's exact narrowing: {normalized}")
+        if any(path_within(normalized, boundary) for boundary in prohibited):
+            raise LongWorkError(f"effect path is explicitly prohibited by the run: {normalized}")
+
+
+def configure_plan(status: str, decision_ref: str, owner: str) -> dict[str, Any]:
+    installed_package()
+    if not owner.strip():
+        raise LongWorkError("package adoption owner must be nonempty")
+    decision_path = accepted_decision(decision_ref)
+    if status == "disabled":
+        pointer = active_pointer()
+        if pointer is not None:
+            run, _ = load_run(pointer["run_id"])
+            if run["status"] not in TERMINAL | {"safely_paused", "limit_stopped", "blocked"}:
+                raise LongWorkError("disable refuses while a run is actively advancing")
+    value = {
+        "schema_version": "harness.long-running-work-adoption.v1",
+        "status": status,
+        "permission_grant": False,
+        "owner": owner,
+        "decision_ref": decision_ref,
+        "decision_sha256": digest_bytes(decision_path.read_bytes()),
+        "runtime_authorization": False,
+        "limitations": [
+            "Adoption enables package commands but grants no task or external-effect authority."
+        ],
+    }
+    transaction = load_module("octon_lrw_config_transaction", ROOT / ".agent/scripts/octon_transaction.py")
+    action = "replace" if ADOPTION_PATH.exists() else "create"
+    return transaction.build_plan(
+        ROOT,
+        operation_name="work.long-running.configure",
+        scope=f"Set long-running-work adoption status to {status}",
+        operations=[transaction.operation(action, ".agent/work-runs/adoption.json", pretty_bytes(value), "Record project-owned package adoption without creating authority.")],
+        evidence=[transaction.source_evidence("accepted_package_adoption_decision", f"repo:{decision_path.relative_to(ROOT).as_posix()}")],
+        assumptions=[],
+        confidence="deterministic",
+        limitations=["Configuration does not start a run or perform task work."],
+        staged_validation_plan=[[sys.executable, "-B", ".agent/scripts/validate.py", "--check"]],
+        post_apply_validation_plan=[[sys.executable, "-B", ".agent/scripts/validate.py", "--check"]],
+        derived_write_paths=[],
+    )
+
+
+def start_run(args: argparse.Namespace) -> dict[str, Any]:
+    adoption(require_enabled=True)
+    require_core_check()
+    nonterminal = retained_nonterminal_runs()
+    if nonterminal:
+        raise LongWorkError(
+            "only one nonterminal long-running work run is permitted; "
+            f"retained run requires disposition: {nonterminal[0]}"
+        )
+    task, _path, task_bytes = task_record(args.task_id)
+    if task.get("status") not in {"ready", "in_progress", "validating", "review", "reopened"}:
+        raise LongWorkError("task is not in an executable lifecycle state")
+    authority = str(task.get("authority_basis", ""))
+    if not authority:
+        raise LongWorkError("task lacks its existing authority basis")
+    limits = validate_limits(load_json(Path(args.limits)))
+    observed = observed_utc(args.observed_at)
+    predecessor = None
+    if args.predecessor_run:
+        if RUN_ID.fullmatch(args.predecessor_run) is None:
+            raise LongWorkError("predecessor run identity is malformed")
+        predecessor, _ = load_run(args.predecessor_run)
+        if predecessor.get("status") not in TERMINAL or predecessor.get("task_ref") != args.task_id:
+            raise LongWorkError("predecessor run must be terminal and own the same task")
+    run_id = f"LWR-{uuid.uuid4().hex[:24]}"
+    paths = normalize_project_paths(args.allow_path)
+    prohibited = normalize_project_paths(args.prohibit_path)
+    run: dict[str, Any] = {
+        "schema_version": "harness.long-running-work-run.v1",
+        "run_id": run_id,
+        "permission_grant": False,
+        "task_ref": args.task_id,
+        "task_sha256": digest_bytes(task_bytes),
+        "task_contract_digest": task_contract_digest(task),
+        "authority_source": authority,
+        "path_narrowing": {"allowed_paths": paths, "prohibited_paths": prohibited, "creates_authority": False},
+        "instruction_fingerprint": instruction_fingerprint(),
+        "project_fingerprint": project_fingerprint(),
+        "status": "planned" if args.planned else "active",
+        "phase": "planned" if args.planned else "context_required",
+        "limits": limits,
+        "accounting": {
+            "iterations": 0,
+            "elapsed_seconds_at_commit": 0,
+            "consecutive_failures": 0,
+            "repeated_failure_signature_count": 0,
+            "last_failure_signature": None,
+            "no_progress_iterations": 0,
+            "validation_retries": 0,
+            "reported_tokens": None,
+            "reported_cost_microunits": None,
+        },
+        "context": {"last_manifest_digest": None, "scope_paths": paths},
+        "last_result": None,
+        "last_committed_checkpoint": None,
+        "predecessor_run": predecessor["run_id"] if predecessor is not None else None,
+        "created_at": iso(observed),
+        "updated_at": iso(observed),
+        "limitations": [
+            "Path narrowing may restrict but cannot expand the owning task's authority.",
+            "The external worker remains responsible for proposing semantic next steps."
+        ],
+        "canonical_run_digest": "",
+    }
+    run["canonical_run_digest"] = record_digest(run, "canonical_run_digest")
+    INTERRUPTION_HOOK("before_work_run_creation")
+    run_dir(run_id).mkdir(parents=True, exist_ok=False)
+    run = commit_checkpoint(run, observed=observed, project_digest=run["project_fingerprint"])
+    write_active(run_id)
+    write_history(run, "run_started", observed, {"task_ref": args.task_id, "limits": limits})
+    return run
+
+
+def accept_context(args: argparse.Namespace) -> dict[str, Any]:
+    run, _ = load_run(args.run_id)
+    adoption(require_enabled=True)
+    if run["status"] != "active" or run["phase"] != "context_required":
+        raise LongWorkError("context can be accepted only at the active context-required phase")
+    _task, current_project, current_task_sha = check_current_bindings(run)
+    run["task_sha256"] = current_task_sha
+    observed = observed_utc(args.observed_at)
+    exhausted = limits_exhausted(run, observed, admit_iteration=True)
+    if exhausted:
+        raise LongWorkError(f"run limit is exhausted before context acceptance: {exhausted}", code="OCTON-LRW-3001")
+    manifest = compile_context(
+        run["task_ref"], run["limits"]["maximum_context_bytes"],
+        run["limits"]["maximum_context_items"], run["context"]["scope_paths"], args.include_ref,
+    )
+    if manifest["status"] != "ready":
+        raise LongWorkError("required context does not fit the adopted run budget", code="OCTON-LRW-3002")
+    if manifest["canonical_manifest_digest"] != args.manifest_digest:
+        raise LongWorkError("accepted context digest does not match current deterministic context")
+    run["context"]["last_manifest_digest"] = args.manifest_digest
+    run["phase"] = "step_required"
+    ensure_history_capacity(run["run_id"])
+    run = commit_checkpoint(run, observed=observed, project_digest=current_project)
+    write_history(run, "context_accepted", observed, {"manifest_digest": args.manifest_digest})
+    return run
+
+
+def record_iteration(args: argparse.Namespace) -> dict[str, Any]:
+    run, _ = load_run(args.run_id)
+    adoption(require_enabled=True)
+    if run["status"] != "active" or run["phase"] != "step_required":
+        raise LongWorkError("an iteration may be recorded only at the active step-required phase")
+    INTERRUPTION_HOOK("before_project_validation")
+    require_core_check()
+    INTERRUPTION_HOOK("during_validation")
+    prior_task_sha = run["task_sha256"]
+    prior_project = run["project_fingerprint"]
+    _task, _observed_project, current_task_sha = check_current_bindings(
+        run, require_project=False, allow_task_progress=True
+    )
+    run["task_sha256"] = current_task_sha
+    observed = observed_utc(args.observed_at)
+    exhausted = limits_exhausted(run, observed, admit_iteration=True)
+    if exhausted:
+        raise LongWorkError(f"no iteration admitted after limit exhaustion: {exhausted}", code="OCTON-LRW-3001")
+    transaction_refs: list[str] = []
+    work_refs: list[str] = []
+    artifact_digests: list[str] = []
+    if args.transaction_receipt:
+        relative, artifact_digest, value = transaction_receipt_reference(args.transaction_receipt)
+        validate_effect_paths(
+            run,
+            [item.get("path") for item in value.get("paths", []) if isinstance(item, dict) and isinstance(item.get("path"), str)],
+        )
+        transaction_refs.append(relative)
+        artifact_digests.append(artifact_digest)
+    if args.work_completion_receipt:
+        relative, artifact_digest, value = work_completion_receipt_reference(args.work_completion_receipt)
+        work_refs.append(relative)
+        artifact_digests.append(artifact_digest)
+        plan_value = value.get("plan", {}) if isinstance(value.get("plan"), dict) else {}
+        validate_effect_paths(
+            run,
+            [item for item in plan_value.get("eligible_staging_paths", []) if isinstance(item, str)],
+        )
+        if value.get("state") == "blocked" and args.outcome == "progress":
+            raise LongWorkError("blocked work-completion receipt cannot support progress")
+    if not args.no_mutation and not transaction_refs and not work_refs and args.outcome == "progress":
+        raise LongWorkError("progress requires a receipt or explicit --no-mutation declaration")
+    validation_refs: list[str] = []
+    validation_digest = None
+    if args.validation_ref:
+        validation_id, validation_digest = validation_reference(args.validation_ref, run["task_ref"])
+        validation_refs.append(validation_id)
+    if args.outcome == "progress" and not validation_refs:
+        raise LongWorkError("progress requires current passing validation evidence")
+    INTERRUPTION_HOOK("after_validation_before_progress")
+    if DIGEST.fullmatch(str(args.result_fingerprint)) is None:
+        raise LongWorkError("result fingerprint must be an exact SHA-256 digest")
+    if args.outcome == "failure" and (
+        not isinstance(args.failure_code, str)
+        or not args.failure_code.strip()
+        or not isinstance(args.failure_detail, str)
+        or not args.failure_detail.strip()
+    ):
+        raise LongWorkError("a known failure requires a nonempty failure code and detail")
+    current_project = project_fingerprint()
+    accounting = run["accounting"]
+    accounting["iterations"] += 1
+    if args.reported_tokens is not None:
+        if args.reported_tokens < 0 or (
+            accounting["reported_tokens"] is not None
+            and args.reported_tokens < accounting["reported_tokens"]
+        ):
+            raise LongWorkError("reported token accounting must be nonnegative and monotonic")
+        accounting["reported_tokens"] = args.reported_tokens
+    if args.reported_cost_microunits is not None:
+        if args.reported_cost_microunits < 0 or (
+            accounting["reported_cost_microunits"] is not None
+            and args.reported_cost_microunits < accounting["reported_cost_microunits"]
+        ):
+            raise LongWorkError("reported cost accounting must be nonnegative and monotonic")
+        accounting["reported_cost_microunits"] = args.reported_cost_microunits
+    previous = run.get("last_result") or {}
+    failure_signature = None
+    partial_effects: list[str] = []
+    if args.outcome == "failure":
+        failure_signature = digest_bytes(canonical_bytes({"code": args.failure_code, "detail": args.failure_detail}))
+        accounting["consecutive_failures"] += 1
+        accounting["validation_retries"] += 1
+        if accounting["last_failure_signature"] == failure_signature:
+            accounting["repeated_failure_signature_count"] += 1
+        else:
+            accounting["repeated_failure_signature_count"] = 1
+        accounting["last_failure_signature"] = failure_signature
+    elif args.outcome == "partial_unknown":
+        partial_effects = args.partial_effect or ["outcome_unknown_requires_reconciliation"]
+        run["status"] = "stopped_partial_or_unknown"
+        run["phase"] = "terminal"
+    else:
+        accounting["consecutive_failures"] = 0
+        accounting["repeated_failure_signature_count"] = 0
+        accounting["last_failure_signature"] = None
+        accounting["validation_retries"] = 0
+    progress_basis = {
+        "task_sha256": run["task_sha256"],
+        "project_fingerprint": current_project,
+        "validation_digest": validation_digest,
+        "artifact_digests": sorted(artifact_digests),
+    }
+    progress_signature = digest_bytes(canonical_bytes(progress_basis))
+    prior_basis = previous.get("progress_basis") if isinstance(previous, dict) else None
+    if prior_basis is None:
+        changed_basis = (
+            current_task_sha != prior_task_sha
+            or current_project != prior_project
+            or bool(artifact_digests)
+            or validation_digest is not None
+        )
+    else:
+        changed_basis = progress_basis != prior_basis
+    progressed = args.outcome == "progress" and changed_basis
+    accounting["no_progress_iterations"] = 0 if progressed else accounting["no_progress_iterations"] + 1
+    run["last_result"] = {
+        "outcome": args.outcome,
+        "progressed": progressed,
+        "progress_signature": progress_signature,
+        "progress_basis": progress_basis,
+        "failure_signature": failure_signature,
+        "result_fingerprint": args.result_fingerprint,
+        "validation_refs": validation_refs,
+        "transaction_receipt_refs": transaction_refs,
+        "work_completion_receipt_refs": work_refs,
+        "limitations": args.limitation,
+    }
+    limit = limits_exhausted(run, observed, admit_iteration=False)
+    if run["status"] == "active" and limit:
+        run["status"] = "limit_stopped"
+        run["phase"] = "terminal"
+        run["last_result"]["limit"] = limit
+    elif run["status"] == "active":
+        run["phase"] = "context_required"
+    ensure_history_capacity(run["run_id"])
+    INTERRUPTION_HOOK("during_progress_recording")
+    run = commit_checkpoint(
+        run, observed=observed, project_digest=current_project,
+        transaction_refs=transaction_refs, work_completion_refs=work_refs,
+        validation_refs=validation_refs, partial_effects=partial_effects,
+    )
+    write_history(run, "iteration_recorded", observed, run["last_result"])
+    return run
+
+
+def pause_run(args: argparse.Namespace) -> dict[str, Any]:
+    run, _ = load_run(args.run_id)
+    adoption(require_enabled=True)
+    if run["status"] != "active":
+        raise LongWorkError("only an active run can be paused")
+    if not args.reason.strip():
+        raise LongWorkError("pause reason must be nonempty")
+    _task, current_project, current_task_sha = check_current_bindings(run)
+    run["task_sha256"] = current_task_sha
+    observed = observed_utc(args.observed_at)
+    run["status"] = "safely_paused"
+    run["phase"] = "paused"
+    ensure_history_capacity(run["run_id"])
+    run = commit_checkpoint(run, observed=observed, project_digest=current_project)
+    write_history(run, "run_paused", observed, {"reason": args.reason})
+    return run
+
+
+def cancel_run(args: argparse.Namespace) -> dict[str, Any]:
+    run, _ = load_run(args.run_id)
+    if run["status"] in TERMINAL:
+        raise LongWorkError("run is already terminal")
+    if not args.reason.strip():
+        raise LongWorkError("cancellation reason must be nonempty")
+    observed = observed_utc(args.observed_at)
+    run["status"] = "cancelled"
+    run["phase"] = "terminal"
+    run["last_result"] = {"outcome": "cancelled", "reason": args.reason, "rollback_claim": False}
+    ensure_history_capacity(run["run_id"])
+    INTERRUPTION_HOOK("during_cancellation")
+    run = commit_checkpoint(run, observed=observed, project_digest=project_fingerprint())
+    write_history(run, "run_cancelled", observed, run["last_result"])
+    return run
+
+
+def complete_run(args: argparse.Namespace) -> dict[str, Any]:
+    run, _ = load_run(args.run_id)
+    adoption(require_enabled=True)
+    if run["status"] != "active":
+        raise LongWorkError("only an active run may complete")
+    require_core_check()
+    task, current_project, current_task_sha = check_current_bindings(
+        run, require_project=False, allow_task_progress=True
+    )
+    run["task_sha256"] = current_task_sha
+    if task.get("status") != "completed" or task.get("acceptance_criteria_met") is not True:
+        raise LongWorkError("run completion remains subordinate to completed task acceptance")
+    if not task.get("closure_evidence"):
+        raise LongWorkError("completed task lacks closure evidence")
+    observed = observed_utc(args.observed_at)
+    run["status"] = "completed_with_current_evidence"
+    run["phase"] = "terminal"
+    run["last_result"] = {
+        "outcome": "completed_with_current_evidence",
+        "task_closure_evidence": task["closure_evidence"],
+        "readiness_claim": False,
+    }
+    ensure_history_capacity(run["run_id"])
+    run = commit_checkpoint(run, observed=observed, project_digest=current_project)
+    write_history(run, "run_completed", observed, run["last_result"])
+    return run
+
+
+def block_run(args: argparse.Namespace) -> dict[str, Any]:
+    run, _ = load_run(args.run_id)
+    adoption(require_enabled=True)
+    if run["status"] != "active":
+        raise LongWorkError("only an active run may be blocked")
+    if not args.reason.strip():
+        raise LongWorkError("blocked run reason must be nonempty")
+    _task, current_project, current_task_sha = check_current_bindings(
+        run, require_project=False, allow_task_progress=True
+    )
+    observed = observed_utc(args.observed_at)
+    run["task_sha256"] = current_task_sha
+    run["status"] = "blocked"
+    run["phase"] = "blocked"
+    run["last_result"] = {
+        "outcome": "blocked",
+        "reason": args.reason,
+        "continuation_ref": args.continuation_ref,
+        "authority_created": False,
+    }
+    ensure_history_capacity(run["run_id"])
+    run = commit_checkpoint(run, observed=observed, project_digest=current_project)
+    write_history(run, "run_blocked", observed, run["last_result"])
+    return run
+
+
+def fail_run(args: argparse.Namespace) -> dict[str, Any]:
+    run, _ = load_run(args.run_id)
+    adoption(require_enabled=True)
+    if run["status"] != "active":
+        raise LongWorkError("only an active run may stop with a known failed outcome")
+    if not args.failure_code.strip() or not args.failure_detail.strip():
+        raise LongWorkError("known failed outcome requires a nonempty code and detail")
+    _task, current_project, current_task_sha = check_current_bindings(
+        run, require_project=False, allow_task_progress=True
+    )
+    observed = observed_utc(args.observed_at)
+    run["task_sha256"] = current_task_sha
+    run["status"] = "failed_known_outcome"
+    run["phase"] = "terminal"
+    run["last_result"] = {
+        "outcome": "failed_known_outcome",
+        "failure_code": args.failure_code,
+        "failure_detail": args.failure_detail,
+        "external_outcome_unknown": False,
+    }
+    ensure_history_capacity(run["run_id"])
+    run = commit_checkpoint(run, observed=observed, project_digest=current_project)
+    write_history(run, "run_failed", observed, run["last_result"])
+    return run
+
+
+def resume_report(run_id: str | None) -> dict[str, Any]:
+    INTERRUPTION_HOOK("during_resume")
+    if run_id is None:
+        pointer = active_pointer()
+        if pointer is None:
+            raise LongWorkError("no active long-running work run exists")
+        run_id = pointer["run_id"]
+    checkpoint_id = latest_committed_checkpoint_id(run_id)
+    checkpoint, marker = committed_checkpoint(run_id, checkpoint_id)
+    committed = checkpoint["run_snapshot"]
+    findings: list[str] = []
+    binding_findings: list[str] = []
+    try:
+        check_current_bindings(committed)
+    except LongWorkError as error:
+        binding_findings.append(str(error))
+    projection_matches = False
+    try:
+        projection, _ = load_run(run_id)
+        projection_matches = (
+            projection.get("canonical_run_digest")
+            == committed.get("canonical_run_digest")
+        )
+    except LongWorkError as error:
+        findings.append(f"active run projection is unavailable: {error}")
+    if not projection_matches and not findings:
+        findings.append("active run projection differs from the last marker-backed checkpoint")
+    findings.extend(binding_findings)
+    retry_safe = not findings and not checkpoint["partial_or_external_effects"]
+    if not projection_matches and not binding_findings:
+        next_argv = ["./octon", "work", "run", "recover", "--run-id", run_id, "--accept-marker-digest", marker["canonical_marker_digest"]]
+    elif binding_findings:
+        next_argv = ["./octon", "work", "run", "status", "--run-id", run_id, "--json"]
+    elif committed["status"] in RESUMABLE:
+        next_argv = ["./octon", "work", "run", "activate", "--run-id", run_id, "--accept-marker-digest", marker["canonical_marker_digest"]]
+    elif committed["status"] == "active":
+        next_argv = next_action(committed)["argv"]
+    else:
+        next_argv = ["./octon", "work", "run", "status", "--run-id", run_id, "--json"]
+    return {
+        "schema_version": "harness.long-running-work-resume.v1",
+        "read_only": True,
+        "permission_grant": False,
+        "run_id": run_id,
+        "status": committed["status"],
+        "last_committed_checkpoint": checkpoint_id,
+        "last_committed_sequence": checkpoint["sequence"],
+        "retry_safe": retry_safe,
+        "partial_or_external_effects": checkpoint["partial_or_external_effects"],
+        "findings": findings,
+        "budget": {"limits": committed["limits"], "accounting": committed["accounting"]},
+        "next_action": {"argv": next_argv, "requires_confirmation": next_argv[3] in {"recover", "activate"} if len(next_argv) > 3 else False},
+        "limitations": ["Resume reports a committed coordinate and never replays an operation."],
+    }
+
+
+def recover_or_activate(args: argparse.Namespace, *, activate: bool) -> dict[str, Any]:
+    if RUN_ID.fullmatch(args.run_id) is None:
+        raise LongWorkError("run identity is malformed")
+    checkpoint_id = latest_committed_checkpoint_id(args.run_id)
+    checkpoint, marker = committed_checkpoint(args.run_id, checkpoint_id)
+    if marker["canonical_marker_digest"] != args.accept_marker_digest:
+        raise LongWorkError("accepted marker digest does not match the committed checkpoint")
+    snapshot = json.loads(json.dumps(checkpoint["run_snapshot"]))
+    check_current_bindings(snapshot)
+    if activate and checkpoint["partial_or_external_effects"]:
+        raise LongWorkError("checkpoint has partial or external effects requiring reconciliation")
+    pointer = active_pointer()
+    if pointer is not None and pointer["run_id"] != args.run_id:
+        raise LongWorkError("another run owns the active pointer; recovery refuses reassignment")
+    observed = observed_utc(args.observed_at)
+    ensure_history_capacity(args.run_id)
+    if activate:
+        adoption(require_enabled=True)
+        if snapshot["status"] not in RESUMABLE:
+            raise LongWorkError("only a planned, safely paused, or blocked checkpoint can be activated")
+        snapshot["status"] = "active"
+        snapshot["phase"] = "context_required"
+        snapshot = commit_checkpoint(
+            snapshot,
+            observed=observed,
+            project_digest=snapshot["project_fingerprint"],
+        )
+    else:
+        atomic_write(
+            run_dir(args.run_id) / "run.json",
+            pretty_bytes(snapshot),
+            create=False,
+        )
+    if pointer is None:
+        write_active(args.run_id)
+    write_history(
+        snapshot,
+        "run_activated" if activate else "checkpoint_recovered",
+        observed,
+        {"checkpoint_ref": checkpoint_id},
+    )
+    return snapshot
+
+
+def next_action(run: dict[str, Any]) -> dict[str, Any]:
+    if run["status"] != "active":
+        return {"description": "Inspect the committed run status.", "argv": ["./octon", "work", "run", "resume", "--run-id", run["run_id"], "--json"], "read_only": True}
+    if run["phase"] == "context_required":
+        return {
+            "description": "Compile the exact current context manifest.",
+            "argv": ["./octon", "work", "run", "context", "--run-id", run["run_id"], "--json"],
+            "read_only": True,
+        }
+    return {
+        "description": "Propose and execute one task-bounded step through an existing governed boundary, validate it, then record the iteration.",
+        "argv": ["./octon", "work", "run", "record", "--help"],
+        "read_only": True,
+    }
+
+
+def status_report(run_id: str | None) -> dict[str, Any]:
+    if run_id is None:
+        pointer = active_pointer()
+        if pointer is None:
+            raise LongWorkError("no active long-running work run exists")
+        run_id = pointer["run_id"]
+    latest = latest_committed_checkpoint_id(run_id)
+    checkpoint, _marker = committed_checkpoint(run_id, latest)
+    committed = checkpoint["run_snapshot"]
+    projection_finding = None
+    try:
+        run, _ = load_run(run_id)
+        if run.get("canonical_run_digest") != committed.get("canonical_run_digest"):
+            projection_finding = "active run projection differs from the last marker-backed checkpoint"
+    except LongWorkError as error:
+        run = committed
+        projection_finding = f"active run projection is unavailable: {error}"
+    history = read_history(run_id, allow_missing=True)
+    checkpoints = sorted((run_dir(run_id) / "checkpoints").glob("*.marker.json"))
+    orphans = [
+        path.name for path in sorted((run_dir(run_id) / "checkpoints").glob("LWC-*.json"))
+        if not path.name.endswith(".marker.json")
+        and not path.with_name(path.stem + ".marker.json").exists()
+    ]
+    return {
+        "schema_version": "harness.long-running-work-status.v1",
+        "read_only": True,
+        "permission_grant": False,
+        "run_id": run_id,
+        "task_ref": committed["task_ref"],
+        "status": committed["status"],
+        "phase": committed["phase"],
+        "last_committed_checkpoint": latest,
+        "active_projection_checkpoint": run.get("last_committed_checkpoint"),
+        "projection_matches_committed_checkpoint": projection_finding is None,
+        "projection_finding": projection_finding,
+        "committed_checkpoint_count": len(checkpoints),
+        "history_entry_count": len(history),
+        "orphan_checkpoint_content": orphans,
+        "budget": {"limits": committed["limits"], "accounting": committed["accounting"]},
+        "next_action": next_action(committed),
+        "limitations": committed["limitations"],
+    }
+
+
+def output(value: object, *, human: bool = False) -> None:
+    if human and isinstance(value, dict):
+        print(f"run: {value.get('run_id', 'none')}")
+        print(f"status: {value.get('status', 'unknown')}")
+        print(f"phase: {value.get('phase', 'unknown')}")
+        next_value = value.get("next_action")
+        if isinstance(next_value, dict):
+            print("next: " + " ".join(next_value.get("argv", [])))
+        return
+    print(json.dumps(value, indent=2, sort_keys=True, allow_nan=False))
+
+
+def parser() -> argparse.ArgumentParser:
+    root = argparse.ArgumentParser(prog="octon work run", description="Govern one bounded long-running work run")
+    commands = root.add_subparsers(dest="command", required=True)
+    context = commands.add_parser("context", help="compile deterministic read-only task context")
+    context.add_argument("--task-id")
+    context.add_argument("--run-id")
+    context.add_argument("--max-bytes", type=int)
+    context.add_argument("--max-items", type=int)
+    context.add_argument("--scope-path", action="append", default=[])
+    context.add_argument("--include-ref", action="append", default=[])
+    context.add_argument("--json", action="store_true")
+    configure = commands.add_parser("configure", help="plan/apply project-owned package adoption")
+    configure_commands = configure.add_subparsers(dest="configure_action", required=True)
+    configure_plan_parser = configure_commands.add_parser("plan")
+    configure_plan_parser.add_argument("--status", choices=["enabled", "disabled"], required=True)
+    configure_plan_parser.add_argument("--decision-ref", required=True)
+    configure_plan_parser.add_argument("--owner", required=True)
+    configure_plan_parser.add_argument("--output", required=True)
+    configure_apply = configure_commands.add_parser("apply")
+    configure_apply.add_argument("--plan", required=True)
+    configure_apply.add_argument("--accept-digest", required=True)
+    start = commands.add_parser("start")
+    start.add_argument("--task-id", required=True)
+    start.add_argument("--limits", required=True)
+    start.add_argument("--allow-path", action="append", required=True)
+    start.add_argument("--prohibit-path", action="append", default=[])
+    start.add_argument("--predecessor-run")
+    start.add_argument("--planned", action="store_true")
+    start.add_argument("--observed-at", help=argparse.SUPPRESS)
+    status = commands.add_parser("status")
+    status.add_argument("--run-id")
+    status.add_argument("--json", action="store_true")
+    resume = commands.add_parser("resume")
+    resume.add_argument("--run-id")
+    resume.add_argument("--json", action="store_true")
+    explain = commands.add_parser("explain")
+    explain.add_argument("--run-id")
+    explain.add_argument("--json", action="store_true")
+    accept = commands.add_parser("accept-context")
+    accept.add_argument("--run-id")
+    accept.add_argument("--manifest-digest", required=True)
+    accept.add_argument("--include-ref", action="append", default=[])
+    accept.add_argument("--observed-at", help=argparse.SUPPRESS)
+    record = commands.add_parser("record")
+    record.add_argument("--run-id")
+    record.add_argument("--outcome", choices=["progress", "failure", "partial_unknown"], required=True)
+    record.add_argument("--transaction-receipt")
+    record.add_argument("--work-completion-receipt")
+    record.add_argument("--no-mutation", action="store_true")
+    record.add_argument("--validation-ref")
+    record.add_argument("--result-fingerprint", required=True)
+    record.add_argument("--failure-code")
+    record.add_argument("--failure-detail")
+    record.add_argument("--partial-effect", action="append", default=[])
+    record.add_argument("--reported-tokens", type=int)
+    record.add_argument("--reported-cost-microunits", type=int)
+    record.add_argument("--limitation", action="append", default=[])
+    record.add_argument("--observed-at", help=argparse.SUPPRESS)
+    pause = commands.add_parser("pause")
+    pause.add_argument("--run-id")
+    pause.add_argument("--reason", required=True)
+    pause.add_argument("--observed-at", help=argparse.SUPPRESS)
+    block = commands.add_parser("block")
+    block.add_argument("--run-id")
+    block.add_argument("--reason", required=True)
+    block.add_argument("--continuation-ref")
+    block.add_argument("--observed-at", help=argparse.SUPPRESS)
+    fail = commands.add_parser("fail")
+    fail.add_argument("--run-id")
+    fail.add_argument("--failure-code", required=True)
+    fail.add_argument("--failure-detail", required=True)
+    fail.add_argument("--observed-at", help=argparse.SUPPRESS)
+    cancel = commands.add_parser("cancel")
+    cancel.add_argument("--run-id")
+    cancel.add_argument("--reason", required=True)
+    cancel.add_argument("--observed-at", help=argparse.SUPPRESS)
+    complete = commands.add_parser("complete")
+    complete.add_argument("--run-id")
+    complete.add_argument("--observed-at", help=argparse.SUPPRESS)
+    recover = commands.add_parser("recover")
+    recover.add_argument("--run-id", required=True)
+    recover.add_argument("--accept-marker-digest", required=True)
+    recover.add_argument("--observed-at", help=argparse.SUPPRESS)
+    activate = commands.add_parser("activate")
+    activate.add_argument("--run-id", required=True)
+    activate.add_argument("--accept-marker-digest", required=True)
+    activate.add_argument("--observed-at", help=argparse.SUPPRESS)
+    archive = commands.add_parser("archive-history")
+    archive.add_argument("--run-id")
+    archive.add_argument("--accept-history-digest", required=True)
+    archive.add_argument("--observed-at", help=argparse.SUPPRESS)
+    return root
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = parser().parse_args(argv)
+    try:
+        if args.command == "context":
+            adoption(require_enabled=True)
+            if args.run_id:
+                run, _ = load_run(args.run_id)
+                task_id = run["task_ref"]
+                max_bytes = run["limits"]["maximum_context_bytes"]
+                max_items = run["limits"]["maximum_context_items"]
+                scope_paths = run["context"]["scope_paths"]
+            else:
+                if not args.task_id or not args.max_bytes or not args.max_items:
+                    raise LongWorkError("standalone context requires task, byte, and item limits")
+                task_id, max_bytes, max_items, scope_paths = args.task_id, args.max_bytes, args.max_items, args.scope_path
+            output(compile_context(task_id, max_bytes, max_items, scope_paths, args.include_ref))
+            return 0
+        if args.command == "configure":
+            transaction = load_module("octon_lrw_apply_transaction", ROOT / ".agent/scripts/octon_transaction.py")
+            if args.configure_action == "plan":
+                plan = configure_plan(args.status, args.decision_ref, args.owner)
+                transaction.write_new_json(confined(args.output), plan)
+                print(plan["canonical_plan_digest"])
+                return 0
+            plan = transaction.load_plan(confined(args.plan))
+            if plan.get("operation") != "work.long-running.configure":
+                raise LongWorkError("plan is not a long-running-work configuration transaction")
+            receipt, path = transaction.apply_plan(ROOT, plan, args.accept_digest)
+            output({"receipt_id": receipt["receipt_id"], "receipt": path.relative_to(ROOT).as_posix()})
+            return 0
+        if args.command == "start":
+            output(start_run(args))
+        elif args.command in {"status", "explain"}:
+            output(status_report(args.run_id), human=not args.json)
+        elif args.command == "resume":
+            output(resume_report(args.run_id), human=not args.json)
+        elif args.command == "accept-context":
+            output(accept_context(args))
+        elif args.command == "record":
+            output(record_iteration(args))
+        elif args.command == "pause":
+            output(pause_run(args))
+        elif args.command == "block":
+            output(block_run(args))
+        elif args.command == "fail":
+            output(fail_run(args))
+        elif args.command == "cancel":
+            output(cancel_run(args))
+        elif args.command == "complete":
+            output(complete_run(args))
+        elif args.command == "recover":
+            output(recover_or_activate(args, activate=False))
+        elif args.command == "activate":
+            output(recover_or_activate(args, activate=True))
+        elif args.command == "archive-history":
+            output(archive_history(args))
+        else:
+            raise LongWorkError("unsupported long-running-work command")
+        return 0
+    except LongWorkError as error:
+        try:
+            continuation = load_module("octon_lrw_continuation", ROOT / ".agent/scripts/octon_continuation.py")
+            report = continuation.finding(
+                failure_code=error.code,
+                blocked_operation=f"work.long-running.{getattr(args, 'command', 'unknown')}",
+                phase=error.phase,
+                root_cause=str(error),
+                authority_source="existing_task_package_adoption_and_current_project_state",
+                repair_class="manual_reconciliation_required",
+                next_action=continuation.action(
+                    "Inspect the last committed long-running work coordinate.",
+                    ["./octon", "work", "run", "resume", "--json"],
+                    read_only=True,
+                ),
+            )
+            print(continuation.render_finding(report, json_output="--json" in (argv or sys.argv)), file=sys.stderr)
+        except Exception:
+            print(f"[FAIL] {error.code}: {error}", file=sys.stderr)
+        return 2
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

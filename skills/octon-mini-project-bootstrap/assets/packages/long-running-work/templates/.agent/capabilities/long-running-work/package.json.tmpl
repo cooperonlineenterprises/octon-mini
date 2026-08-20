@@ -1,0 +1,16 @@
+{
+  "schema_version": "harness.long-running-work-package.v1",
+  "package_id": "long-running-work",
+  "package_version": "1.0.0",
+  "permission_grant": false,
+  "model_runtime": false,
+  "network_required": false,
+  "database_required": false,
+  "entrypoint": ".agent/capabilities/long-running-work/long_work.py",
+  "state_root": ".agent/work-runs",
+  "default_status": "installed_disabled",
+  "limitations": [
+    "The package governs an external worker and never selects or hosts a model.",
+    "Package presence does not establish applicability, adoption, authority, or readiness."
+  ]
+}

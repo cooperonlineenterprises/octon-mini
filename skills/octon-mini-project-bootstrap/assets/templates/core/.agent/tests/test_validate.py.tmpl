@@ -2141,6 +2141,7 @@ class HarnessValidatorTests(unittest.TestCase):
         finally:
             temporary.cleanup()
 
+    @FULL_TREE_ONLY
     def test_validation_proof_reuse_hits_only_exact_current_dependencies(self) -> None:
         temporary, test_root = clone()
         try:
@@ -2280,6 +2281,7 @@ class HarnessValidatorTests(unittest.TestCase):
         finally:
             temporary.cleanup()
 
+    @FULL_TREE_ONLY
     def test_validation_proof_version_probe_mutation_cannot_escape_boundary(self) -> None:
         temporary, test_root = clone()
         try:

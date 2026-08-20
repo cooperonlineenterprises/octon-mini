@@ -1,0 +1,28 @@
+{
+  "schema_version": "octon-mini.adapter-safety-fixtures.v1",
+  "permission_grant": false,
+  "cases": [
+    {"id": "AS-001", "class": "shell_operator", "input": ["tool", "&&", "write"], "expected": "unsupported"},
+    {"id": "AS-002", "class": "redirect", "input": ["tool", ">", "output"], "expected": "unsupported"},
+    {"id": "AS-003", "class": "command_substitution", "input": ["tool", "$(write)"], "expected": "unsupported"},
+    {"id": "AS-004", "class": "unknown_flag", "input": ["tool", "--write-output=result"], "expected": "deny"},
+    {"id": "AS-005", "class": "response_file", "input": ["tool", "@arguments.txt"], "expected": "unsupported"},
+    {"id": "AS-006", "class": "configuration_injection", "input": ["tool", "--config=untrusted.conf"], "expected": "deny"},
+    {"id": "AS-007", "class": "editor_hook", "input": ["tool", "--editor=command"], "expected": "deny"},
+    {"id": "AS-008", "class": "pager_hook", "input": ["tool", "--paginate"], "expected": "deny"},
+    {"id": "AS-009", "class": "plugin_hook", "input": ["tool", "--plugin=untrusted"], "expected": "deny"},
+    {"id": "AS-010", "class": "environment_expansion", "input": ["tool", "$UNTRUSTED"], "expected": "unsupported"},
+    {"id": "AS-011", "class": "symlink_escape", "input": ["write", "linked/outside"], "expected": "deny"},
+    {"id": "AS-012", "class": "path_canonicalization", "input": ["write", "allowed/../outside"], "expected": "deny"},
+    {"id": "AS-013", "class": "changed_target_after_approval", "input": ["apply", "stale-digest"], "expected": "deny"},
+    {"id": "AS-014", "class": "network_redirect", "input": ["request", "redirected-target"], "expected": "unsupported"},
+    {"id": "AS-015", "class": "credential_forwarding", "input": ["request", "credential-handle"], "expected": "deny"},
+    {"id": "AS-016", "class": "nested_bypass", "input": ["nested", "direct-write"], "expected": "deny"},
+    {"id": "AS-017", "class": "ambiguous_acknowledgement", "input": ["external", "outcome-unknown"], "expected": "block"},
+    {"id": "AS-018", "class": "unsupported_permission_semantics", "input": ["adapter", "lossy-policy"], "expected": "unsupported"}
+  ],
+  "limitations": [
+    "Inputs are inert strings and local fixture identities; no shell, network, credential, provider, or external action is executed.",
+    "A passing fixture contract does not prove an adapter is a sandbox."
+  ]
+}
