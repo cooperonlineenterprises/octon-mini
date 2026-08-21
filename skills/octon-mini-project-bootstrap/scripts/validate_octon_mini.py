@@ -1305,7 +1305,7 @@ def validate_ci_contract(issues: list[str]) -> None:
             "cancel-in-progress: ${{ github.event_name == 'pull_request' }}"
         ),
         "pull-request timeout": "timeout-minutes: 45",
-        "main timeout": "timeout-minutes: 15",
+        "main timeout": "timeout-minutes: 45",
         "release timeout": "timeout-minutes: 90",
         "pinned checkout action": (
             "actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803"
