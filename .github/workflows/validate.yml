@@ -63,8 +63,8 @@ jobs:
       - name: Validate Octon Mini source and profile builds
         run: python -B skills/octon-mini-project-bootstrap/scripts/validate_octon_mini.py
 
-  full-matrix:
-    name: full / ${{ matrix.os }} / Python ${{ matrix.python }}
+  full-source-matrix:
+    name: full source / ${{ matrix.os }} / Python ${{ matrix.python }}
     if: github.event_name == 'workflow_dispatch'
     strategy:
       fail-fast: false
@@ -90,5 +90,23 @@ jobs:
           python -B skills/octon-mini-project-bootstrap/scripts/test_octon_launchers.py
       - name: Validate Octon Mini source and profile builds
         run: python -B skills/octon-mini-project-bootstrap/scripts/validate_octon_mini.py
+
+  full-acceptance-matrix:
+    name: full acceptance / ${{ matrix.os }} / Python ${{ matrix.python }}
+    if: github.event_name == 'workflow_dispatch'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python: ["3.11", "3.12", "3.13", "3.14"]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          fetch-tags: true
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: ${{ matrix.python }}
       - name: Run end-to-end and adversarial acceptance
         run: python -B skills/octon-mini-project-bootstrap/scripts/test_acceptance.py

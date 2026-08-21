@@ -513,10 +513,25 @@ def main() -> int:
             "github.ref == 'refs/heads/main'"
         ) in ci_workflow
         and (
-            "full-matrix:\n    name: full / ${{ matrix.os }} / Python "
+            "full-source-matrix:\n    name: full source / ${{ matrix.os }} / Python "
             "${{ matrix.python }}\n"
             "    if: github.event_name == 'workflow_dispatch'"
         ) in ci_workflow
+        and (
+            "full-acceptance-matrix:\n    name: full acceptance / ${{ matrix.os }} / Python "
+            "${{ matrix.python }}\n"
+            "    if: github.event_name == 'workflow_dispatch'"
+        ) in ci_workflow
+        and ci_workflow.count(
+            "os: [ubuntu-latest, macos-latest, windows-latest]"
+        ) == 2
+        and ci_workflow.count(
+            'python: ["3.11", "3.12", "3.13", "3.14"]'
+        ) == 2
+        and ci_workflow.count("timeout-minutes: 90") == 2
+        and ci_workflow.count(
+            "python -B skills/octon-mini-project-bootstrap/scripts/validate_octon_mini.py"
+        ) == 3
         and ci_workflow.count(
             "python -B skills/octon-mini-project-bootstrap/scripts/test_acceptance.py"
         ) == 2,
