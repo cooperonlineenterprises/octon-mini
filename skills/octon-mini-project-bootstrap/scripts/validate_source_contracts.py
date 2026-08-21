@@ -1105,7 +1105,12 @@ def validate_command_capability_catalog(root: Path = ROOT) -> list[str]:
                     / "assets/templates/core"
                     / f"{implementation}.tmpl"
                 )
-                if not template.is_file():
+                package_templates = sorted(
+                    (SKILL_ROOT / "assets/packages").glob(
+                        f"*/templates/{implementation}.tmpl"
+                    )
+                )
+                if not template.is_file() and len(package_templates) != 1:
                     errors.append(
                         f"capability {capability_id} generated implementation template is absent: {implementation}"
                     )
@@ -1124,6 +1129,7 @@ def validate_repository(root: Path = ROOT) -> list[str]:
         root / "patterns/architecture-proof/schema.json",
         root / "shared/source-contracts/information-state-semantics.schema.json",
         root / "shared/source-contracts/profile-manifest.schema.json",
+        root / "shared/source-contracts/long-running-work-benchmark-report.schema.json",
         root / "shared/source-contracts/commands.schema.json",
         root / "shared/source-contracts/diagnostic-catalog.schema.json",
         root / "shared/source-contracts/hook-detector-protocol.schema.json",

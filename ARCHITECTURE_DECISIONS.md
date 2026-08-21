@@ -319,3 +319,30 @@ Their exact future triggers remain recorded in
 
 Bounded invalidation was deferred by `SRC-DEC-0003` through `SRC-DEC-0016` and
 is accepted only within the narrow continuation scope of `SRC-DEC-0017`.
+
+## SRC-DEC-0018 — Optional mature long-running work capability
+
+| Field | Accepted decision |
+|---|---|
+| Status | `accepted` |
+| Authority | Explicit current operator acceptance on 2026-08-20 after review of the exact decision, scope, maintenance commitment, evidence, limitations, and non-authorizing boundaries; this supersedes the pending direction recorded on 2026-08-19 |
+| Scope | One provider-neutral, trigger-installed, domain-neutral `workflow_capability` package for a single bounded worker |
+| Decision | Retain the implemented optional `long-running-work` package and dormant `octon work run` routing boundary in the Octon Mini 4.1 source architecture |
+| Ownership | Existing task owns goal, scope, authority basis, and acceptance; existing transactions own reversible repository mutation; project-check evidence owns validation; work completion owns Git/provider completion; Continuation owns safe refusal; the package owns only one active run coordinate, measurable limits, derived context manifests, bounded transition history, and committed checkpoint markers |
+| Lifecycle boundary | The package lifecycle is aggregate-specific and does not create a universal action, trust, readiness, task, project, or provider state machine |
+| Execution boundary | Octon Mini governs an external worker through deterministic local contracts and commands; it does not host, choose, authenticate, or call a model |
+| Package boundary | The package is absent and inactive by default, installed transactionally from pinned bytes, adopted separately, restrictions-only, independently snapshotted, and removable only when doing so cannot orphan active or retained run state |
+| Context boundary | Context compilation is deterministic, read-only, source-referencing, budgeted, omission-visible, and non-authorizing; no model, embedding, vector store, service, hook, or network call participates |
+| Recovery boundary | Only marker-backed checkpoints are resumable; resume revalidates task, instructions, authority references, context, project state, receipts, validation, and limits; ambiguous effects are never replayed |
+| Quantitative boundary | Only locally measurable run limits are enforced. Missing token, cost, worker, provider, or external-resource measurements remain `unknown`, never zero |
+| Compatibility | Additive optional package plus a dormant generated dispatcher route. Existing snapshots require explicit reviewed upgrade or package-compatible command use and never acquire or activate the capability automatically |
+| Evidence gate | Retention requires positive, negative, mutation, fault-injection, migration, clean-runtime, benchmark-v2, package-performance, and authorized disposable-project evidence; dirty-source exercises cannot establish final-candidate maturity |
+| External-effect boundary | None; this direction authorizes no commit, push, PR, merge, tag, release, publication, deployment, message, provider mutation, credential use, or other external action |
+| `permission_grant` | `false` |
+
+This acceptance retains the implemented source architecture and closes its
+pending source-decision gate. It does not authorize a commit, push, PR, merge,
+tag, release, publication, deployment, package installation, target-project
+adoption, runtime effect, credential use, or readiness claim. The resulting
+source changes remain unreleased and unadopted until those separate processes
+are explicitly authorized and completed.

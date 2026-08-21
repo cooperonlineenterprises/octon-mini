@@ -133,6 +133,7 @@ def main() -> int:
                 sys.executable,
                 "-B",
                 str(stage / "scripts" / "validate_octon_mini.py"),
+                "--installed-smoke",
             ],
         )
         for command in staged_checks:

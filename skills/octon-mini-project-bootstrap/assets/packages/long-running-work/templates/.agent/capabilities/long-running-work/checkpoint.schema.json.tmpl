@@ -1,0 +1,43 @@
+{
+  "schema_version": "harness.schema-document.v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://octon-mini.local/schemas/long-running-work-checkpoint.v1.json",
+  "title": "Octon Mini Long-Running Work Committed Checkpoint",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "checkpoint_id", "run_id", "permission_grant",
+    "sequence", "task_ref", "task_sha256", "authority_source",
+    "instruction_fingerprint", "context_manifest_digest",
+    "project_fingerprint", "run_snapshot", "transaction_receipt_refs",
+    "work_completion_receipt_refs", "validation_evidence_refs",
+    "partial_or_external_effects", "next_safe_phase", "uncaptured_state",
+    "limitations", "canonical_checkpoint_digest"
+  ],
+  "properties": {
+    "schema_version": {"const": "harness.long-running-work-checkpoint.v1"},
+    "checkpoint_id": {"type": "string", "pattern": "^LWC-[0-9]{6}$"},
+    "run_id": {"type": "string", "pattern": "^LWR-[a-f0-9]{24}$"},
+    "permission_grant": {"const": false},
+    "sequence": {"type": "integer", "minimum": 0},
+    "task_ref": {"type": "string", "pattern": "^TASK-[0-9]{4}$"},
+    "task_sha256": {"$ref": "#/$defs/digest"},
+    "authority_source": {"type": "string", "minLength": 1},
+    "instruction_fingerprint": {"$ref": "#/$defs/digest"},
+    "context_manifest_digest": {"type": ["string", "null"], "pattern": "^[a-f0-9]{64}$"},
+    "project_fingerprint": {"type": ["string", "null"], "pattern": "^[a-f0-9]{64}$"},
+    "run_snapshot": {"type": "object"},
+    "transaction_receipt_refs": {"$ref": "#/$defs/strings"},
+    "work_completion_receipt_refs": {"$ref": "#/$defs/strings"},
+    "validation_evidence_refs": {"$ref": "#/$defs/strings"},
+    "partial_or_external_effects": {"$ref": "#/$defs/strings"},
+    "next_safe_phase": {"enum": ["planned", "context_required", "step_required", "paused", "blocked", "terminal"]},
+    "uncaptured_state": {"$ref": "#/$defs/strings"},
+    "limitations": {"$ref": "#/$defs/strings"},
+    "canonical_checkpoint_digest": {"$ref": "#/$defs/digest"}
+  },
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "strings": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+  }
+}

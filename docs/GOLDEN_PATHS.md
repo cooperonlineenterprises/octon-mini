@@ -248,6 +248,37 @@ effects in the Git-common-directory receipt. Completion proves only the exact
 Git/provider sequence recorded there; it does not prove release or production
 readiness.
 
+## Optional long-running work
+
+Use this path only after a project has an already authorized task and has
+separately assessed, installed, and adopted the optional package.
+
+1. From the source bundle, plan and apply content-addressed installation of
+   `long-running-work` with an accepted trust/applicability decision.
+2. In the generated project, plan and apply `octon work run configure` with a
+   separate accepted project adoption decision. Installation remains inactive
+   until this step.
+3. Create a strict limits file. Unknown token or cost information is `null`,
+   not zero.
+4. Start one run bound to the existing `TASK-####`, its current authority basis,
+   and exact path narrowing.
+5. Compile context and inspect every inclusion, omission, budget, and unresolved
+   input. Accept only the exact current context digest.
+6. Let the external worker perform one bounded step through the existing
+   transaction or `work.finish` boundary.
+7. Run or reference current task-bound validation, then record progress. The
+   package commits a marker-backed checkpoint or stops on a limit, conflict,
+   missing authority, failure, or outcome-unknown result.
+8. Use `status`, `resume`, or `explain` read-only. If an interrupted projection
+   differs from the newest marker, recover only the exact marker digest.
+9. Complete the run only after the existing task is completed with current
+   acceptance and closure evidence.
+
+Never replay an external operation during resume. Disable the package before
+removal. Removal refuses active or undispositioned retained run history.
+Structural success, a run completion, or a checkpoint establishes no project
+adoption, external authority, release, or readiness.
+
 ## Hooks and evidence
 
 Run the detector read-only, review candidate argv and side effects, then

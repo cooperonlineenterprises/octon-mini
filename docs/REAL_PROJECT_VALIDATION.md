@@ -24,7 +24,7 @@ evidence. The minimum matrix is:
 | Greenfield software initialization | Explicit profile and layout; setup, reviewed plan, apply, first meaningful task, check, and resume in a disposable target |
 | Established dirty Git repository adoption | Bounded inspection, existing-byte preservation, collision/authority review, unchanged pre-apply tree, staged apply in a disposable copy, and adoption left `in_progress` |
 | Non-software project | Research, brand, operations, product, business, or hybrid subject; use domain-neutral outcome and workstream language |
-| Reviewed 3.1 predecessor snapshot to Octon Mini 4.0 migration | Reviewed legacy inventory seed, three-way classification, explicit dispositions, apply, idempotence, rollback evidence, and no retired compatibility surface |
+| Reviewed 3.1 predecessor snapshot through the current Octon Mini migration | Reviewed legacy inventory seed, three-way classification, explicit dispositions, apply, idempotence, rollback evidence, and no retired compatibility surface |
 | Unfamiliar operator | Include when an authorized participant without prior Octon Mini operating knowledge is available; otherwise record `not_run` and the limitation |
 | Pair or tiny workflow | Exercise only when actual current write-capable maintainer and eligible independent-review capacity exists; never simulate a reviewer or count self/agent review |
 
@@ -32,6 +32,17 @@ Follow the applicable paths in `docs/GOLDEN_PATHS.md` and the reviewed migration
 procedure in `migrations/3.1.0-to-4.0.0.md`. A report may cover more than one
 scenario only when each scenario retains its own subject, method, observations,
 and limitations.
+
+When optional long-running work is the subject, extend the matrix with a
+multi-step software task and one documentation, structured-content, research,
+or analysis task. Exercise deterministic context, several validated iterations,
+pause/restart, changed instructions, repeated validation failure, exact budget
+exhaustion, deliberate no progress, context pressure, marker-backed recovery,
+and a safe local outcome-unknown fixture. Record interventions, iterations,
+elapsed machine time, resume time, context bytes, critical omissions, stuck
+findings, validation failures, false-success incidents, residual dirty state,
+and recovery result. Do not use a real provider effect merely to populate the
+report.
 
 ## Authorization, privacy, and isolation prerequisites
 

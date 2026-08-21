@@ -19,7 +19,7 @@ from typing import Any
 
 sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parents[2]
-KERNEL_VERSION = "4.0.0"
+KERNEL_VERSION = "4.1.0"
 EXPECTED_GIT_PORTFOLIO_VERSION = "{{GIT_PORTFOLIO_VERSION}}"
 EXPECTED_GIT_PORTFOLIO_SHA256 = "{{GIT_PORTFOLIO_SHA256}}"
 
@@ -1768,6 +1768,8 @@ def repository_files(
             or rel.startswith(".agent/generated/")
             or rel == ".agent/transactions"
             or rel.startswith(".agent/transactions/")
+            or rel == ".agent/work-runs"
+            or rel.startswith(".agent/work-runs/")
             or rel in DERIVED_EXCLUSIONS
             or any(rel == item or rel.startswith(item + "/") for item in exclusions)
         ):
@@ -2446,7 +2448,7 @@ def check_project_command_contract(
         "evidence_schema": ".agent/schemas/harness-project-check-evidence.schema.json",
     }
     project_checks = project.get("project_checks")
-    if project.get("schema_version") == "harness.project.v6":
+    if project.get("schema_version") in {"harness.project.v6", "harness.project.v7"}:
         if (
             not isinstance(project_checks, dict)
             or set(project_checks) != set(expected_project_checks) | {"proof_reuse"}
@@ -3009,6 +3011,7 @@ def check_kernel(root: Path) -> list[str]:
         "START_HERE.md",
         "approvals",
         "artifacts",
+        "capabilities",
         "checklists",
         "checkpoints",
         "commands.json",
@@ -3040,6 +3043,7 @@ def check_kernel(root: Path) -> list[str]:
         "transactions",
         "validators.json",
         "workflows",
+        "work-runs",
     }
     agent_root = root / ".agent"
     if agent_root.is_dir():
@@ -7316,6 +7320,27 @@ def check_packages(root: Path) -> list[str]:
     }
     if len(installed) != len(registry.get("packages", [])):
         errors.append(".agent/packages.json: package IDs must be unique")
+    capabilities_root = root / ".agent/capabilities"
+    expected_capability_paths = {
+        relative
+        for item in installed.values()
+        if item.get("kind") == "workflow_capability"
+        for relative in item.get("installed_paths", [])
+        if isinstance(relative, str)
+    }
+    if capabilities_root.exists() or capabilities_root.is_symlink():
+        if capabilities_root.is_symlink() or not capabilities_root.is_dir():
+            errors.append(".agent/capabilities: capability root is unsafe")
+        else:
+            observed_capability_paths = {
+                path.relative_to(root).as_posix()
+                for path in capabilities_root.rglob("*")
+                if path.is_file() or path.is_symlink()
+            }
+            for relative in sorted(observed_capability_paths - expected_capability_paths):
+                errors.append(
+                    f".agent/capabilities: unregistered capability payload path: {relative}"
+                )
     for package_id, item in installed.items():
         digest = hashlib.sha256()
         for relative_path in item.get("installed_paths", []):
@@ -7345,7 +7370,7 @@ def check_packages(root: Path) -> list[str]:
                 receipt_valid = (
                     isinstance(receipt, dict)
                     and receipt.get("receipt_id") == receipt_ref
-                    and receipt.get("operation") == "maintain.package.install"
+                    and receipt.get("operation") in {"maintain.package.install", "maintain.package.update"}
                     and receipt.get("status") == "applied"
                     and all(
                         result.get("exit_code") == 0
@@ -7362,6 +7387,7 @@ def check_packages(root: Path) -> list[str]:
     for package_id, fact_id in (
         ("operations-observability", "operations_observability"),
         ("security-supply-chain", "security_supply_chain"),
+        ("long-running-work", "long_running_work"),
     ):
         status = assessments.get(fact_id) if isinstance(assessments, dict) else None
         if status == "applicable" and package_id not in installed:
@@ -7372,6 +7398,48 @@ def check_packages(root: Path) -> list[str]:
     git_installed = "small-team-git-portfolio" in installed
     if isinstance(scm, dict) and ((scm.get("selection") == "git") != git_installed):
         errors.append(".agent/packages.json: Git package installation differs from SCM selection")
+    long_running = installed.get("long-running-work")
+    if isinstance(long_running, dict):
+        validator_path = root / ".agent/capabilities/long-running-work/validate.py"
+        if not validator_path.is_file() or validator_path.is_symlink():
+            errors.append(".agent/packages.json: long-running-work validator is absent or unsafe")
+        else:
+            environment = {
+                key: os.environ[key]
+                for key in ("PATH", "SYSTEMROOT", "WINDIR", "TEMP", "TMP", "TMPDIR")
+                if key in os.environ
+            }
+            environment.update({
+                "PYTHONIOENCODING": "utf-8",
+                "PYTHONDONTWRITEBYTECODE": "1",
+                "LANG": "C.UTF-8",
+                "LC_ALL": "C.UTF-8",
+            })
+            result = subprocess.run(
+                [sys.executable, "-I", "-B", str(validator_path), "--check", "--json"],
+                cwd=root,
+                env=environment,
+                capture_output=True,
+                text=True,
+                check=False,
+                shell=False,
+            )
+            try:
+                report = json.loads(result.stdout) if result.stdout else {}
+            except json.JSONDecodeError:
+                report = {}
+            if result.returncode != 0 or report.get("result") != "pass":
+                errors.append(".agent/packages.json: long-running-work package state validation failed")
+                for finding in report.get("findings", []) if isinstance(report, dict) else []:
+                    if isinstance(finding, str) and finding:
+                        errors.append(f".agent/packages.json: long-running-work: {finding}")
+    else:
+        state_root = root / ".agent/work-runs"
+        if state_root.exists() or state_root.is_symlink():
+            if state_root.is_symlink() or not state_root.is_dir():
+                errors.append(".agent/work-runs: uninstalled package state root is unsafe")
+            elif any(path.is_file() or path.is_symlink() for path in state_root.rglob("*")):
+                errors.append(".agent/work-runs: retained state exists without the installed owning package")
     return errors
 
 

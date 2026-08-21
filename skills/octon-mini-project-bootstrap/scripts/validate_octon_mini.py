@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import importlib.util
+import argparse
 import hashlib
 import json
 import os
@@ -67,6 +68,8 @@ REQUIRED_PATHS = (
     "docs/DECISION_GOVERNANCE.md",
     "docs/GUIDED_SETUP.md",
     "docs/GOLDEN_PATHS.md",
+    "docs/LONG_RUNNING_WORK.md",
+    "docs/LONG_RUNNING_WORK_VALIDATION.md",
     "docs/REAL_PROJECT_VALIDATION.md",
     "docs/examples/DECISION_GOVERNANCE_WORKED_EXAMPLE.md",
     "docs/examples/GUIDED_SETUP_WORKED_EXAMPLE.md",
@@ -81,6 +84,8 @@ REQUIRED_PATHS = (
     "migrations/2.0.0-to-3.0.0.md",
     "migrations/3.0.0-to-3.1.0.md",
     "migrations/3.1.0-to-4.0.0.md",
+    "migrations/3.1.0-to-4.1.0.md",
+    "migrations/4.0.0-to-4.1.0.md",
     "patterns/README.md",
     "patterns/catalog.json",
     "patterns/schemas/pattern-catalog.schema.json",
@@ -101,6 +106,7 @@ REQUIRED_PATHS = (
     "pyproject.toml",
     "shared/GENERATION_CONTRACT.md",
     "shared/source-contracts/large-project-phase-profile.schema.json",
+    "shared/source-contracts/long-running-work-benchmark-report.schema.json",
     "shared/optional-schemas/context-pack-manifest.schema.json",
     "shared/reference-evidence.json",
     "shared/source-contracts/information-state-semantics.json",
@@ -167,6 +173,7 @@ REQUIRED_PATHS = (
     "skills/octon-mini-project-bootstrap/scripts/migrate_3_1_0_to_4_0_0.py",
     "skills/octon-mini-project-bootstrap/scripts/adopt_project.py",
     "skills/octon-mini-project-bootstrap/scripts/benchmark_validation.py",
+    "skills/octon-mini-project-bootstrap/scripts/benchmark_long_running_work.py",
     "skills/octon-mini-project-bootstrap/scripts/collaboration_project.py",
     "skills/octon-mini-project-bootstrap/scripts/detect_project.py",
     "skills/octon-mini-project-bootstrap/scripts/guided_workflow.py",
@@ -180,9 +187,15 @@ REQUIRED_PATHS = (
     "skills/octon-mini-project-bootstrap/scripts/test_acceptance.py",
     "skills/octon-mini-project-bootstrap/scripts/test_architectural_patterns.py",
     "skills/octon-mini-project-bootstrap/scripts/test_benchmark_validation.py",
+    "skills/octon-mini-project-bootstrap/scripts/test_long_running_work_benchmark.py",
+    "skills/octon-mini-project-bootstrap/scripts/test_long_running_work.py",
+    "skills/octon-mini-project-bootstrap/scripts/test_long_running_work_faults.py",
+    "skills/octon-mini-project-bootstrap/scripts/test_long_running_work_package.py",
+    "skills/octon-mini-project-bootstrap/scripts/test_adapter_safety.py",
     "skills/octon-mini-project-bootstrap/scripts/test_migration_1_0_1_to_2_0_0.py",
     "skills/octon-mini-project-bootstrap/scripts/test_migration_2_0_0_to_3_0_0.py",
     "skills/octon-mini-project-bootstrap/scripts/test_migration_3_1_0_to_4_0_0.py",
+    "skills/octon-mini-project-bootstrap/scripts/test_migration_4_0_0_to_4_1_0.py",
     "skills/octon-mini-project-bootstrap/scripts/test_velocity_workflows.py",
     "skills/octon-mini-project-bootstrap/scripts/test_work_completion.py",
     "skills/octon-mini-project-bootstrap/scripts/test_guided_setup.py",
@@ -232,6 +245,9 @@ REQUIRED_PATHS = (
     "skills/octon-mini-project-bootstrap/fixtures/migrations/2.0.0-to-3.0.0/invalid/mixed-live-project-version.json",
     "skills/octon-mini-project-bootstrap/fixtures/migrations/2.0.0-to-3.0.0/invalid/mixed-live-validator-version.json",
     "skills/octon-mini-project-bootstrap/fixtures/migrations/3.1.0-to-4.0.0/README.md",
+    "skills/octon-mini-project-bootstrap/fixtures/migrations/4.0.0-to-4.1.0/README.md",
+    "skills/octon-mini-project-bootstrap/fixtures/long-running-work/fault-matrix.json",
+    "skills/octon-mini-project-bootstrap/fixtures/adapter-safety/cases.json",
     "skills/octon-mini-project-bootstrap/fixtures/migrations/2.0.0-to-3.0.0/invalid/nonexternal-migration-authority.json",
 )
 DOSSIER_HEADINGS = (
@@ -1084,8 +1100,8 @@ def validate_skill_and_release(issues: list[str]) -> None:
     if "$octon-mini-project-bootstrap" not in openai:
         issues.append("agents/openai.yaml does not invoke $octon-mini-project-bootstrap")
     version = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
-    if version != "4.0.0":
-        issues.append(f"current VERSION must be 4.0.0, found {version!r}")
+    if version != "4.1.0":
+        issues.append(f"current VERSION must be 4.1.0, found {version!r}")
     changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
     release = (ROOT / "RELEASE.md").read_text(encoding="utf-8")
     release_compact = re.sub(r"\s+", " ", release)
@@ -1183,8 +1199,8 @@ def validate_skill_and_release(issues: list[str]) -> None:
     kernel_version = config.get("modules", {}).get("harness", {}).get(
         "kernel_version"
     )
-    if kernel_version != "4.0.0":
-        issues.append("octon-mini.json harness kernel must be 4.0.0")
+    if kernel_version != "4.1.0":
+        issues.append("octon-mini.json harness kernel must be 4.1.0")
     scaffolder = load_scaffolder()
     if scaffolder.GENERATOR_VERSION != version:
         issues.append("scaffolder generator version differs from VERSION")
@@ -1323,6 +1339,16 @@ def validate_ci_contract(issues: list[str]) -> None:
     for label, snippet in required_snippets.items():
         if snippet not in workflow:
             issues.append(f"CI workflow lacks {label}")
+    tag_aware_checkout = (
+        "      - uses: actions/checkout@"
+        "d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0\n"
+        "        with:\n"
+        "          fetch-tags: true"
+    )
+    if workflow.count(tag_aware_checkout) != 3:
+        issues.append(
+            "every CI checkout must fetch release tags for exact released-snapshot migration fixtures"
+        )
     acceptance_command = (
         "python -B skills/octon-mini-project-bootstrap/scripts/test_acceptance.py"
     )
@@ -1363,6 +1389,11 @@ def validate_executable_contracts(issues: list[str]) -> None:
             "validation benchmark methodology and enforcement fixtures",
         ),
         (
+            [sys.executable, "-B", str(SKILL_ROOT / "scripts/test_long_running_work_benchmark.py")],
+            ROOT,
+            "long-running-work benchmark methodology fixtures",
+        ),
+        (
             [
                 sys.executable,
                 "-B",
@@ -1397,6 +1428,31 @@ def validate_executable_contracts(issues: list[str]) -> None:
             ],
             ROOT,
             "3.1.0 to 4.0.0 migration and live-upgrade fixtures",
+        ),
+        (
+            [sys.executable, "-B", str(SKILL_ROOT / "scripts/test_migration_4_0_0_to_4_1_0.py")],
+            ROOT,
+            "4.0.0 to 4.1.0 same-product migration fixtures",
+        ),
+        (
+            [sys.executable, "-B", str(SKILL_ROOT / "scripts/test_long_running_work.py")],
+            ROOT,
+            "long-running-work functional and integration fixtures",
+        ),
+        (
+            [sys.executable, "-B", str(SKILL_ROOT / "scripts/test_long_running_work_faults.py")],
+            ROOT,
+            "long-running-work checkpoint fault-injection fixtures",
+        ),
+        (
+            [sys.executable, "-B", str(SKILL_ROOT / "scripts/test_long_running_work_package.py")],
+            ROOT,
+            "long-running-work package lifecycle fixtures",
+        ),
+        (
+            [sys.executable, "-B", str(SKILL_ROOT / "scripts/test_adapter_safety.py")],
+            ROOT,
+            "adapter safety fixture contract",
         ),
         (
             [
@@ -1897,6 +1953,13 @@ def validate_profile_builds(issues: list[str], scaffolder: Any) -> None:
 
 
 def main() -> int:
+    parser = argparse.ArgumentParser(add_help=True)
+    parser.add_argument(
+        "--installed-smoke",
+        action="store_true",
+        help="validate copied contracts and profile builds without rerunning the source checkout's exhaustive executable matrix",
+    )
+    args = parser.parse_args()
     issues: list[str] = []
     if sys.version_info < (3, 11):
         issues.append(f"Python 3.11+ required; found {sys.version.split()[0]}")
@@ -1921,7 +1984,8 @@ def main() -> int:
     validate_skill_and_release(issues)
     validate_legacy_reference_allowlist(issues)
     validate_ci_contract(issues)
-    validate_executable_contracts(issues)
+    if not args.installed_smoke:
+        validate_executable_contracts(issues)
     validate_profile_builds(issues, scaffolder)
     if issues:
         print(f"FAIL: {len(issues)} issue(s)")
@@ -1936,6 +2000,8 @@ def main() -> int:
     print(f"- profiles: {', '.join(scaffolder.profile_layers(manifest))}")
     print("- generated coverage: compact and separated layouts for every profile")
     print("- structured kernel: strict JSON")
+    if args.installed_smoke:
+        print("- installed scope: contracts and all profile/layout builds; exhaustive executable suites run in the source checkout")
     return 0
 
 

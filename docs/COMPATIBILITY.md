@@ -99,6 +99,20 @@ references, and 3.0.0→3.1.0 remains the recorded additive source migration.
 Historical tags, releases, decisions, fixtures, and changelog entries retain
 their Project Blueprint identity.
 
+## Octon Mini 4.0.0 to 4.1.0
+
+4.1.0 adds a dormant generated `octon work run` route, one unassessed package
+trigger, and the optional `workflow_capability` package kind. Released 4.0.0
+snapshots remain standalone and unchanged. They receive the route only through
+an explicit reviewed upgrade. Upgrade does not install or adopt long-running
+work; those remain separate package and project decisions.
+
+The immutable package payload lives under
+`.agent/capabilities/long-running-work/`; mutable adoption and run records live
+under `.agent/work-runs/`. Existing task, evidence, transaction,
+work-completion, decision, event, focus/current, and continuation owners are
+preserved. See `migrations/4.0.0-to-4.1.0.md`.
+
 ## Other 4.0 behavior changes
 
 - scripted generation without `--profile` fails;

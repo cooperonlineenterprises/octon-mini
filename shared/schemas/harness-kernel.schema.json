@@ -682,7 +682,7 @@
           "const": "harness.schema.v1"
         },
         "kernel_version": {
-          "const": "4.0.0"
+          "const": "4.1.0"
         },
         "compatibility": {
           "type": "object"
@@ -996,7 +996,7 @@
       ],
       "properties": {
         "schema_version": {
-          "enum": ["harness.project.v5", "harness.project.v6"]
+          "enum": ["harness.project.v5", "harness.project.v6", "harness.project.v7"]
         },
         "project": {
           "type": "object",
@@ -1210,10 +1210,11 @@
             "trigger_assessments": {
               "type": "object",
               "additionalProperties": false,
-              "required": ["operations_observability", "security_supply_chain"],
+              "required": ["operations_observability", "security_supply_chain", "long_running_work"],
               "properties": {
                 "operations_observability": {"enum": ["not_assessed", "not_applicable", "applicable"]},
-                "security_supply_chain": {"enum": ["not_assessed", "not_applicable", "applicable"]}
+                "security_supply_chain": {"enum": ["not_assessed", "not_applicable", "applicable"]},
+                "long_running_work": {"enum": ["not_assessed", "not_applicable", "applicable"]}
               }
             },
             "absence_means_not_applicable": {

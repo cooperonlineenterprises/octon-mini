@@ -263,6 +263,30 @@
       "permission_grant": false
     },
     {
+      "id": "long-running-work",
+      "kind": "workflow_capability",
+      "version": "1.0.0",
+      "sha256": "cbb1fb16c7c766c048c351f41048d877e82e0f974969976fcc155c2af2a059c3",
+      "source": "skill:assets/packages/long-running-work/templates",
+      "inventory_paths": [
+        ".agent/capabilities/long-running-work/README.md.tmpl",
+        ".agent/capabilities/long-running-work/checkpoint.schema.json.tmpl",
+        ".agent/capabilities/long-running-work/context.schema.json.tmpl",
+        ".agent/capabilities/long-running-work/long_work.py.tmpl",
+        ".agent/capabilities/long-running-work/package.json.tmpl",
+        ".agent/capabilities/long-running-work/run.schema.json.tmpl",
+        ".agent/capabilities/long-running-work/validate.py.tmpl"
+      ],
+      "profiles": [
+        "minimal",
+        "standard",
+        "high-assurance"
+      ],
+      "installation": "trigger_installed_transactionally",
+      "trigger": "long_running_work_assessed_applicable",
+      "permission_grant": false
+    },
+    {
       "id": "context-pack-schema",
       "kind": "optional_schema",
       "version": "2.0.0",
@@ -295,7 +319,9 @@
     {"id": 15, "title": "small_team_collaboration_and_workflows", "release_coverage": "automated_pass"},
     {"id": 16, "title": "governed_resumable_work_completion", "release_coverage": "automated_pass"},
     {"id": 17, "title": "guided_resumable_setup_interview", "release_coverage": "automated_pass"},
-    {"id": 18, "title": "fail_closed_continuation_successors_proof_reuse_and_safe_bundles", "release_coverage": "automated_pass"}
+    {"id": 18, "title": "fail_closed_continuation_successors_proof_reuse_and_safe_bundles", "release_coverage": "automated_pass"},
+    {"id": 19, "title": "optional_long_running_work_limits_context_checkpoints_and_recovery", "release_coverage": "automated_pass"},
+    {"id": 20, "title": "representative_long_running_work_operator_evidence", "release_coverage": "project_demonstration_required"}
   ],
   "documentation_projections": [
     {

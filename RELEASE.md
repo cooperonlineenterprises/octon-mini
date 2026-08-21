@@ -1,5 +1,10 @@
 # Release and Distribution
 
+> Current source development targets `4.1.0` and is unreleased. The completed
+> `4.0.0` release evidence below remains historical; this document creates no
+> authority for a `4.1.0` tag, Release, package publication, or other external
+> action.
+
 ## Current release
 
 - Product and generator: Octon Mini `4.0.0` (released 2026-08-18)
@@ -139,14 +144,20 @@ Before tagging a release:
 2. run `validate_octon_mini.py`;
 3. run `test_migration_1_0_1_to_2_0_0.py`,
    `test_migration_2_0_0_to_3_0_0.py`, and
-   `test_migration_3_1_0_to_4_0_0.py`, and confirm valid transformation,
-   exact idempotence, reviewed legacy seeding, rollback evidence, and every
-   fail-closed fixture;
+   `test_migration_3_1_0_to_4_0_0.py`; for a 4.1 candidate also run
+   `test_migration_4_0_0_to_4_1_0.py`, and confirm valid transformation, exact
+   idempotence, reviewed legacy seeding, dormant optional-package behavior,
+   rollback evidence, and every fail-closed fixture;
 4. run `test_benchmark_validation.py`, `test_octon_launchers.py`,
    `test_velocity_workflows.py`, `test_work_completion.py`,
-   `test_guided_setup.py`, `test_acceptance.py`, and
-   `benchmark_validation.py --enforce`; retain the host-specific benchmark
-   report, every cold-start and warm sample, and every threshold failure;
+   `test_guided_setup.py`, `test_acceptance.py`, and, for a 4.1 candidate,
+   `test_long_running_work.py`, `test_long_running_work_faults.py`,
+   `test_long_running_work_package.py`, `test_adapter_safety.py`, and
+   `test_long_running_work_benchmark.py`; run both
+   `benchmark_validation.py --enforce` and the 10,000-file
+   `benchmark_long_running_work.py --enforce`, retaining each host-specific
+   report, every cold-start and warm sample, stderr, and every threshold
+   failure;
 5. install the skill into a fresh temporary destination, run the installed
    package, Octon Mini source, reference, and acceptance validators from that
    destination, and generate and check all three profiles in compact and

@@ -213,7 +213,11 @@ def safe_relative_path(value: Any) -> str | None:
 
 
 def fingerprint_exclusions(project: dict[str, Any]) -> set[str]:
-    exclusions = {EVIDENCE_RELATIVE_PATH, ".agent/project-checks/archive"}
+    exclusions = {
+        EVIDENCE_RELATIVE_PATH,
+        ".agent/project-checks/archive",
+        ".agent/work-runs",
+    }
     raw = project.get("paths", {}).get("fingerprint_exclusions", [])
     if not isinstance(raw, list):
         raise ValueError(".agent/project.json fingerprint_exclusions must be an array")
@@ -252,6 +256,7 @@ def project_check_source_fingerprint(
         if (
             value.startswith(".agent/generated/")
             or value.startswith(".agent/transactions/")
+            or value.startswith(".agent/work-runs/")
             or value.startswith(".agent/project-checks/archive/")
             or value == EVIDENCE_RELATIVE_PATH
             or value in DERIVED_SOURCE_EXCLUSIONS
@@ -268,6 +273,7 @@ def project_check_source_fingerprint(
     reported_exclusions = exclusions | DERIVED_SOURCE_EXCLUSIONS | {
         ".agent/generated",
         ".agent/transactions",
+        ".agent/work-runs",
         EVIDENCE_RELATIVE_PATH,
         ".agent/project-checks/archive",
     }
@@ -419,6 +425,7 @@ def proof_input_set(project: dict[str, Any], hook: str) -> list[dict[str, Any]]:
                 or value == EVIDENCE_RELATIVE_PATH
                 or value.startswith(".agent/project-checks/archive/")
                 or value.startswith(".agent/transactions/")
+                or value.startswith(".agent/work-runs/")
                 or value.startswith(".agent/generated/")
                 or value in DERIVED_SOURCE_EXCLUSIONS
             ):
@@ -1295,7 +1302,7 @@ def main() -> int:
             project,
             required=(
                 args.reuse_proofs
-                or project.get("schema_version") == "harness.project.v6"
+                or project.get("schema_version") in {"harness.project.v6", "harness.project.v7"}
             ),
         )
     )

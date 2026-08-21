@@ -1,0 +1,117 @@
+{
+  "schema_version": "harness.schema-document.v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://octon-mini.local/schemas/long-running-work-run.v1.json",
+  "title": "Octon Mini Long-Running Work Run",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "run_id", "permission_grant", "task_ref",
+    "task_sha256", "task_contract_digest", "authority_source", "path_narrowing",
+    "instruction_fingerprint", "project_fingerprint", "status", "phase", "limits",
+    "accounting", "context", "last_result", "last_committed_checkpoint",
+    "predecessor_run", "created_at", "updated_at", "limitations",
+    "canonical_run_digest"
+  ],
+  "properties": {
+    "schema_version": {"const": "harness.long-running-work-run.v1"},
+    "run_id": {"type": "string", "pattern": "^LWR-[a-f0-9]{24}$"},
+    "permission_grant": {"const": false},
+    "task_ref": {"type": "string", "pattern": "^TASK-[0-9]{4}$"},
+    "task_sha256": {"$ref": "#/$defs/digest"},
+    "task_contract_digest": {"$ref": "#/$defs/digest"},
+    "authority_source": {"type": "string", "minLength": 1},
+    "path_narrowing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["allowed_paths", "prohibited_paths", "creates_authority"],
+      "properties": {
+        "allowed_paths": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "prohibited_paths": {"$ref": "#/$defs/strings"},
+        "creates_authority": {"const": false}
+      }
+    },
+    "instruction_fingerprint": {"$ref": "#/$defs/digest"},
+    "project_fingerprint": {"$ref": "#/$defs/digest"},
+    "status": {
+      "enum": [
+        "planned", "active", "safely_paused", "blocked", "limit_stopped",
+        "cancelled", "completed_with_current_evidence",
+        "failed_known_outcome", "stopped_partial_or_unknown"
+      ]
+    },
+    "phase": {
+      "enum": [
+        "planned", "context_required", "step_required", "checkpoint_committed",
+        "paused", "blocked", "terminal"
+      ]
+    },
+    "limits": {"$ref": "#/$defs/limits"},
+    "accounting": {"$ref": "#/$defs/accounting"},
+    "context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["last_manifest_digest", "scope_paths"],
+      "properties": {
+        "last_manifest_digest": {"type": ["string", "null"], "pattern": "^[a-f0-9]{64}$"},
+        "scope_paths": {"$ref": "#/$defs/strings"}
+      }
+    },
+    "last_result": {"type": ["object", "null"]},
+    "last_committed_checkpoint": {"type": ["string", "null"], "pattern": "^LWC-[0-9]{6}$"},
+    "predecessor_run": {"type": ["string", "null"], "pattern": "^LWR-[a-f0-9]{24}$"},
+    "created_at": {"type": "string", "format": "date-time"},
+    "updated_at": {"type": "string", "format": "date-time"},
+    "limitations": {"$ref": "#/$defs/strings"},
+    "canonical_run_digest": {"$ref": "#/$defs/digest"}
+  },
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "strings": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "nullable_limit": {"type": ["integer", "null"], "minimum": 1},
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "maximum_iterations", "maximum_elapsed_seconds",
+        "maximum_consecutive_failures", "maximum_repeated_failure_signature",
+        "maximum_no_progress_iterations", "maximum_context_bytes",
+        "maximum_context_items", "maximum_validation_retries",
+        "maximum_reported_tokens", "maximum_reported_cost_microunits"
+      ],
+      "properties": {
+        "maximum_iterations": {"type": "integer", "minimum": 1},
+        "maximum_elapsed_seconds": {"type": "integer", "minimum": 1},
+        "maximum_consecutive_failures": {"type": "integer", "minimum": 1},
+        "maximum_repeated_failure_signature": {"type": "integer", "minimum": 1},
+        "maximum_no_progress_iterations": {"type": "integer", "minimum": 1},
+        "maximum_context_bytes": {"type": "integer", "minimum": 1},
+        "maximum_context_items": {"type": "integer", "minimum": 1},
+        "maximum_validation_retries": {"type": "integer", "minimum": 1},
+        "maximum_reported_tokens": {"$ref": "#/$defs/nullable_limit"},
+        "maximum_reported_cost_microunits": {"$ref": "#/$defs/nullable_limit"}
+      }
+    },
+    "accounting": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "iterations", "elapsed_seconds_at_commit", "consecutive_failures",
+        "repeated_failure_signature_count", "last_failure_signature",
+        "no_progress_iterations", "validation_retries", "reported_tokens",
+        "reported_cost_microunits"
+      ],
+      "properties": {
+        "iterations": {"type": "integer", "minimum": 0},
+        "elapsed_seconds_at_commit": {"type": "integer", "minimum": 0},
+        "consecutive_failures": {"type": "integer", "minimum": 0},
+        "repeated_failure_signature_count": {"type": "integer", "minimum": 0},
+        "last_failure_signature": {"type": ["string", "null"], "pattern": "^[a-f0-9]{64}$"},
+        "no_progress_iterations": {"type": "integer", "minimum": 0},
+        "validation_retries": {"type": "integer", "minimum": 0},
+        "reported_tokens": {"type": ["integer", "null"], "minimum": 0},
+        "reported_cost_microunits": {"type": ["integer", "null"], "minimum": 0}
+      }
+    }
+  }
+}

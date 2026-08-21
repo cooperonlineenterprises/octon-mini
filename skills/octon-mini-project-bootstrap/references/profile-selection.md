@@ -23,9 +23,12 @@ separate from any accepted authority needed to adopt project policy.
   history controls, and checksums. Conditional controls remain unassessed
   until project owners assess them.
 
-Operations/observability, security/supply-chain, the sample restriction, and
-the optional Context Pack schema are trigger-installed packages, not universal
-profile payloads. Their absence never establishes non-applicability.
+Operations/observability, security/supply-chain, the sample restriction, the
+optional Context Pack schema, and long-running work are trigger-installed
+packages, not universal profile payloads. Their absence never establishes
+non-applicability. Long-running work is available to every assurance profile
+only after explicit applicability, installation, and project adoption; High
+Assurance does not activate it automatically.
 
 ## Physical layout
 

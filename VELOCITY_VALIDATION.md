@@ -35,6 +35,7 @@ effects.
 | covered refusal | stable Continuation Contract with concrete shell-free next argv | mutation outcome and preserved/invalidated proofs explicit |
 | routine validation proof | hit only on exact current input/tool/config/instruction/environment/effect/freshness bindings | adoption/release gates prohibit reuse |
 | local bundle | one atomic stage/receipt/rollback for compatible reversible members | overlap, authority/freshness mismatch, or external effect rejected |
+| long-work context/status/resume/explain at 10k synthetic files, warm p90 | `<2 s` each | separate package benchmark; read-only, deterministic, no hooks |
 
 Consequential guided init, adoption, upgrade, and release workflows stage the
 release tier even though primitive scaffolding uses the bounded fast tier.
@@ -193,7 +194,8 @@ readiness.
 | local bundles | compatible apply/rollback; overlap, authority, freshness, external-effect refusals | `test_velocity_workflows.py`; generated transaction validation |
 | registry maintenance | discovery, add, rename, combine, supersede, omission, stable-ID refusal | generated mutations; acceptance |
 | packages | Git, operations/observability, security/supply-chain, sample restriction, Context Pack schema; digest/decision/receipt binding | acceptance package matrix |
-| live upgrade | reviewed 3.1 seed, three-way plan/review/apply, idempotence, rollback, changed-path refusal | `test_migration_3_1_0_to_4_0_0.py` |
+| long-running work | absent-by-default routing, context, limits, progress, stuck detection, checkpoint faults, package lifecycle, adapter safety | dedicated long-running-work suites |
+| live upgrade | reviewed 3.1 seed plus 4.0→4.1 three-way plan/review/apply, stale reapply refusal, rollback | migration suites |
 | historical migrations | 1.0.1→2.0.0 and 2.0.0→3.0.0 valid/invalid/idempotence/rollback | migration fixture suites |
 | recovery | invalid configuration, stale evidence, interrupted refresh, pending transaction, changed postimage | generated mutations; velocity and migration tests |
 | scale | 0, 2k, 10k, 20k synthetic payload files | `benchmark_validation.py` |
@@ -291,6 +293,10 @@ Every release candidate records JSON or table evidence for:
 11. **Maintenance burden:** authoritative manifest edits per release, duplicate
     representations detected, source/derived drift, fixture update count, and
     runtime regression.
+12. **Long-running work:** context/status/resume/explain cold and warm samples,
+    exact limit admission, no-progress findings, checkpoint phase timings,
+    resume time, storage growth, critical omissions, validation references, and
+    duplicate-effect count. Benchmark-v2 remains separate and unchanged.
 
 Content-free phase profiling may separately isolate tree traversal, hashing,
 schema/semantic checks, transaction staging, staged validation, live apply,
@@ -339,6 +345,8 @@ python3 -B skills/octon-mini-project-bootstrap/scripts/profile_large_project.py 
   --sizes 0 2000 10000 20000
 python3 -B skills/octon-mini-project-bootstrap/scripts/benchmark_validation.py \
   --sizes 0 2000 10000 20000 --samples 10 --enforce
+python3 -B skills/octon-mini-project-bootstrap/scripts/benchmark_long_running_work.py \
+  --payload-files 10000 --warm-samples 10 --enforce
 ```
 
 Run the final benchmark command at least three independent times. Each
