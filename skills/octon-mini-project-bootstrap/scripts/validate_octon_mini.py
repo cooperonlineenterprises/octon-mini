@@ -1339,6 +1339,16 @@ def validate_ci_contract(issues: list[str]) -> None:
     for label, snippet in required_snippets.items():
         if snippet not in workflow:
             issues.append(f"CI workflow lacks {label}")
+    tag_aware_checkout = (
+        "      - uses: actions/checkout@"
+        "d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0\n"
+        "        with:\n"
+        "          fetch-tags: true"
+    )
+    if workflow.count(tag_aware_checkout) != 3:
+        issues.append(
+            "every CI checkout must fetch release tags for exact released-snapshot migration fixtures"
+        )
     acceptance_command = (
         "python -B skills/octon-mini-project-bootstrap/scripts/test_acceptance.py"
     )
