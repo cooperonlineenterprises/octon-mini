@@ -1112,10 +1112,17 @@ def validate_skill_and_release(issues: list[str]) -> None:
         "The GitHub repository rename to `cooperonlineenterprises/octon-mini`",
         "local project-directory rename to `octon-mini` are complete",
         "The repository is public.",
-        "Octon Mini 4.0.0 is released through its annotated tag and GitHub Release",
+        "Octon Mini 4.1.0 is released through its annotated tag and GitHub Release",
         "No separate package registry or package channel was used",
-        "candidate is `68701faa1898879779e5a7c4c8cedbf8009c6ce0`",
-        "full-matrix run `32185219444` passed all twelve",
+        "Final corrective candidate `242ef4c496cc8fc95a7b550371beeb01bb4a6513`",
+        "Integrated `main` revision `6d1cfb0f13d300b9d4b78bf7078cf07daa7febd6`",
+        "`main-smoke` run `32540532990`",
+        "integrated-main split-matrix run `32540555019`",
+        "all 24 matrix jobs successful",
+        "Annotated tag object `1df893ec42ac2c49e5944268cafec30757d06430`",
+        "https://github.com/cooperonlineenterprises/octon-mini/releases/tag/v4.1.0",
+        "release-evidence policy `accept_disclosed_absence`",
+        "Independent real-project maturity, target-project adoption, and project or production readiness are not established",
         "Repository ruleset `21013176` applies Stage A `solo_hybrid` protection",
         "did not itself authorize the later repository rename, visibility change,",
         "approved `KEEP_PUBLIC_WITH_LICENSE — MIT-0`",
@@ -1126,15 +1133,57 @@ def validate_skill_and_release(issues: list[str]) -> None:
     for statement in release_statements:
         if statement not in release_compact:
             issues.append(f"RELEASE.md lacks current repository-state assertion: {statement}")
+    if "## 4.1.0 — 2026-08-22" not in changelog:
+        issues.append("CHANGELOG.md must contain the exact 4.1.0 release heading")
     if "## 4.0.0 — 2026-08-18" not in changelog:
         issues.append("CHANGELOG.md must retain the exact 4.0.0 release heading")
     for stale in (
+        "## 4.1.0 — Unreleased",
+        "Current source development targets `4.1.0` and is unreleased",
+        "This source work is not released",
         "## 4.0.0 — Unreleased",
         "Octon Mini 4.0.0 remains unreleased",
         "no `v4.0.0` tag, GitHub Release, or package publication has occurred",
     ):
         if stale in changelog or stale in release:
             issues.append(f"current release material retains stale pre-release text: {stale}")
+    release_record_requirements = {
+        "README.md": (
+            "Octon Mini 4.1.0 is",
+            "annotated tag `v4.1.0` targets",
+            "`6d1cfb0f13d300b9d4b78bf7078cf07daa7febd6`",
+            "do not acquire the release",
+        ),
+        "RELEASE_READINESS.md": (
+            "# Octon Mini 4.1.0 Release-Readiness Record",
+            "`242ef4c496cc8fc95a7b550371beeb01bb4a6513`",
+            "`1df893ec42ac2c49e5944268cafec30757d06430`",
+            "`32540555019`",
+            "`accept_disclosed_absence`",
+            "Independent real-project maturity | `not_established`",
+        ),
+        "GIT_WORKFLOW.md": (
+            "Octon Mini 4.1.0 was integrated through",
+            "`6d1cfb0f13d300b9d4b78bf7078cf07daa7febd6`",
+            "`32540532990`",
+            "`32540555019`",
+            "annotated tag `v4.1.0`",
+        ),
+        "docs/LONG_RUNNING_WORK_VALIDATION.md": (
+            "Final candidate: `242ef4c496cc8fc95a7b550371beeb01bb4a6513`",
+            "Integrated and released revision: `6d1cfb0f13d300b9d4b78bf7078cf07daa7febd6`",
+            "`32540555019`",
+            "`accept_disclosed_absence`",
+            "independent field maturity is not established",
+        ),
+    }
+    for relative_path, statements in release_record_requirements.items():
+        record_text = (ROOT / relative_path).read_text(encoding="utf-8")
+        for statement in statements:
+            if statement not in record_text:
+                issues.append(
+                    f"{relative_path} lacks current 4.1 release assertion: {statement}"
+                )
     source_decisions = (ROOT / "ARCHITECTURE_DECISIONS.md").read_text(
         encoding="utf-8"
     )

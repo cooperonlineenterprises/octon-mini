@@ -2,18 +2,22 @@
 
 ## Evidence status
 
-- Observation date: 2026-08-20 America/Chicago.
-- Source revision: `63c6bd48ce3744fc25846bacc4860215d177428b` plus the disclosed uncommitted 4.1.0 program and final-review corrections.
+- Observation close: 2026-08-22 America/Chicago.
+- Final candidate: `242ef4c496cc8fc95a7b550371beeb01bb4a6513`.
+- Integrated and released revision: `6d1cfb0f13d300b9d4b78bf7078cf07daa7febd6`.
 - Operator class: familiar implementing agent; no human participant was simulated.
-- External effects: none. The ambiguous-effect exercise used the existing local bare-Git fixture.
-- Overall finding: strong source, synthetic, and disposable-project evidence;
-  final-candidate real-project maturity remains unestablished.
+- Exercise external effects: none. The ambiguous-effect exercise used the
+  existing local bare-Git fixture. Separately authorized GitHub publication is
+  recorded in `RELEASE.md` and `RELEASE_READINESS.md`.
+- Overall finding: strong exact-candidate source, synthetic,
+  disposable-project, migration, performance, and hosted cross-platform
+  evidence; independent real-project maturity remains unestablished.
 
-These observations preceded the clean local candidate. Under
-`docs/REAL_PROJECT_VALIDATION.md`, they can reveal and resolve defects but
-cannot become final-candidate field evidence. A clean immutable revision must
-rerun the matrix; its evidence belongs outside that already committed source
-tree.
+The clean immutable final candidate reran the complete local and performance
+program. Its exact logs and reports, the required PR check, candidate hosted
+matrices, automatic integrated-main smoke, and integrated-main matrices are
+retained outside this already committed source tree. Those results establish
+technical validation within scope, not independent field evidence.
 
 ## Completed disposable exercises
 
@@ -34,9 +38,8 @@ tree.
 
 ## Validation and performance evidence
 
-- The pre-review full source validator passed the program tree, covering 201
-  required paths, 103 default templates, all profiles and both layouts. Exact
-  clean-candidate revalidation remained pending at this source-record boundary.
+- The final full source validator passed the exact candidate, covering 201
+  required paths, 103 default templates, all profiles and both layouts.
 - Acceptance: passed with criteria 1–20 reconciled; criterion 19 is automated
   and criterion 20 remains project-demonstration-required.
 - Long-running functional suite after final review: 18 cases.
@@ -45,13 +48,16 @@ tree.
 - Work completion: 11 cases; velocity: 5; guided setup: 28; launchers: 7.
 - Same-product 4.0→4.1 migration: passed with dormant package route, no
   automatic install/adoption, stale reapply refusal, and exact rollback.
-- The pre-review long-running 10,000-file benchmark passed. Warm p90 was approximately
-  0.120 s context, 0.120 s status, 0.483 s resume, and 0.114 s explain; output
+- Three final 10,000-file long-work benchmark runs passed. Worst warm p90 was
+  1.787 s context, 0.129 s status, 0.647 s resume, and 0.136 s explain; output
   was byte-deterministic and every command exited zero.
-- Pre-review benchmark-v2 post-optimization runs 4–6: 129/129 samples each and all
-  thresholds passed. High Assurance scaffold p90 was 8.531–8.772 s; 10k check
-  p90 1.392–1.429 s; 10k mutation p90 5.918–6.052 s; 20k mutation p90
-  6.605–6.645 s.
+- Three final benchmark-v2 runs passed 129/129 samples each under unchanged
+  thresholds. Worst p90 was 9.028 s High Assurance scaffold, 1.616 s 10k
+  check, and 7.788 s bounded fast mutation.
+- Required PR run `32536899162`, candidate split-matrix run `32536929040`,
+  automatic integrated-main smoke `32540532990`, and integrated-main
+  split-matrix run `32540555019` passed on their exact subjects. Each split
+  matrix passed twelve source/profile and twelve acceptance jobs.
 
 ## Retained failed evidence
 
@@ -72,6 +78,17 @@ tree.
    checker collapsed the package's precise finding into a generic failure. The
    diagnostic projection was corrected and the complete package suite rerun;
    the original failure remains part of the task evidence.
+4. Hosted required run `32493638662` failed because shallow checkout lacked
+   released tag `v4.0.0`; every CI checkout now fetches tags and source
+   validation enforces that contract.
+5. Automatic main run `32514424886` was cancelled by the former 15-minute
+   smoke ceiling; the bounded ceiling is now 45 minutes and exact final smoke
+   run `32540532990` passed in about 15 minutes.
+6. Candidate matrix `32523125576` passed eleven jobs and cancelled
+   Windows/Python 3.13 when sequential source plus acceptance exceeded the
+   unchanged 90-minute whole-job bound. Final CI keeps all checks and
+   combinations as independently bounded source and acceptance matrices; no
+   timeout was raised, and both final 24-job runs passed.
 
 ## Required `not_run` findings
 
@@ -83,14 +100,16 @@ tree.
 | Actual historical 3.1 project | `not_run`; the predecessor was a deterministic synthetic preimage |
 | Real provider or credentialed effect | `not_run`; credentials and provider mutations were unauthorized |
 | Human comprehension/confusion timing | unavailable; machine times are not human usability evidence |
-| Other operating systems | `not_run` locally; the source matrix was not externally dispatched by this program |
-| Final-candidate real-project evidence | `not_run`; no clean immutable implementation revision exists |
+| Other operating systems | `not_run` on additional local physical hosts; exact hosted Ubuntu/macOS/Windows matrices passed |
+| Independent final-candidate real-project evidence | `not_run`; disposable final-candidate exercises passed, but no authorized external project or unfamiliar human was supplied |
 
 ## Maturity finding
 
 The optional single-worker stack is implemented and strongly validated at the
-source and disposable-project levels. Its source architecture was accepted
-under `SRC-DEC-0018` on 2026-08-20. It remains unreleased, unadopted by any real
-target project, and not final-candidate mature under the existing protocol.
-Implementation and passing tests create no authority, adoption, release,
-project readiness, production readiness, or efficacy claim.
+source, disposable-project, migration, performance, and hosted cross-platform
+levels. Its source architecture was accepted under `SRC-DEC-0018` on
+2026-08-20, and Octon Mini 4.1.0 was released on 2026-08-22 under policy
+`accept_disclosed_absence`. The package remains unadopted by any real target
+project, and independent field maturity is not established. Implementation,
+passing tests, and release create no worker authority, adoption, project
+readiness, production readiness, or efficacy claim.

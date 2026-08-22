@@ -1,31 +1,29 @@
 # Release and Distribution
 
-> Current source development targets `4.1.0` and is unreleased. The completed
-> `4.0.0` release evidence below remains historical; this document creates no
-> authority for a `4.1.0` tag, Release, package publication, or other external
-> action.
+> Octon Mini `4.1.0` is the current completed source release. Its observed tag,
+> GitHub Release, validation, evidence policy, and limitations are recorded
+> below. This record creates no continuing authority for a later tag, Release,
+> package publication, deployment, adoption, or other external action.
 
 ## Current release
 
-- Product and generator: Octon Mini `4.0.0` (released 2026-08-18)
+- Product and generator: Octon Mini `4.1.0` (released 2026-08-22)
 - Bootstrap capability: Octon Mini Project Bootstrap
 - Bootstrap skill ID: `octon-mini-project-bootstrap`
-- Harness kernel: `4.0.0`
+- Harness kernel: `4.1.0`
 - Source license: MIT No Attribution (`MIT-0`)
-- Compatibility: clean product, command, protocol, provenance, skill, and
-  generated-path break with independent snapshots and reviewed cross-brand
-  migration
+- Compatibility: backward-compatible optional source/generator capability;
+  independent snapshots require explicit reviewed 4.0→4.1 upgrade
 
-Version `4.0.0` implements the source-only velocity program recorded in
-`VELOCITY_ROADMAP.md`. It is a completed source release, represented by the
-annotated `v4.0.0` tag and published GitHub Release. It is not a target-project
-adoption or readiness decision. Existing snapshots remain independent and are
-not updated automatically. Upgrade automation is limited to exact-pristine
-non-authoritative implementation assets, safe additions, and explicit derived
-regeneration; all authority-bearing or ambiguous paths require reviewed
-dispositions and exact digest acceptance.
+Version `4.1.0` adds the optional provider-neutral long-running-work capability
+accepted by `SRC-DEC-0018`. It is a completed source release represented by
+annotated tag `v4.1.0` and a published GitHub Release. It is not a target-project
+installation, adoption, worker authorization, or readiness decision. Existing
+snapshots remain independent and are not updated automatically; explicit
+upgrade adds only the dormant route and unassessed trigger, not the package or
+its adoption.
 
-`RELEASE_READINESS.md` is the subordinate evidence record for 4.0.0. It did not
+`RELEASE_READINESS.md` is the subordinate evidence record for 4.1.0. It did not
 create release authority or replace this file's release gate; its final fields
 were populated only from observed integrated-`main` and hosted release state.
 
@@ -35,7 +33,7 @@ an explicit reviewed Project Blueprint 3.x→Octon Mini 4.0.0 migration.
 
 The GitHub repository rename to `cooperonlineenterprises/octon-mini` and the
 local project-directory rename to `octon-mini` are complete. The repository is
-public. Octon Mini 4.0.0 is released through its annotated tag and GitHub
+public. Octon Mini 4.1.0 is released through its annotated tag and GitHub
 Release. No separate package registry or package channel was used.
 
 Accepted source decision `SRC-DEC-0014` records this owner-directed identity
@@ -56,6 +54,44 @@ boundary. It creates no delivery authority for this repository or any target
 project. The capability and automatic event hook are generated disabled;
 external apply requires separate exact current task-scoped authorization and
 uses resumable progress evidence rather than an atomic rollback claim.
+
+Accepted source decision `SRC-DEC-0018` records the optional long-running-work
+source architecture. Its acceptance did not authorize later publication,
+package installation or adoption, task execution, external effects, release,
+or readiness. Those remain separate observed or project-owned facts.
+
+## 4.1.0 release record
+
+Implementation pull request #18 and corrective pull request #19 were integrated
+with `merge_commit`. Final corrective candidate
+`242ef4c496cc8fc95a7b550371beeb01bb4a6513` passed required run
+`32536899162` and candidate split-matrix run `32536929040`, whose twelve
+source/profile and twelve acceptance jobs all succeeded. Integrated `main`
+revision `6d1cfb0f13d300b9d4b78bf7078cf07daa7febd6` passed automatic
+`main-smoke` run `32540532990` and integrated-main split-matrix run
+`32540555019`, again with all 24 matrix jobs successful.
+
+Failed predecessor runs remain retained. Run `32493638662` exposed missing tag
+fetching for the released 4.0 migration fixture. Run `32514424886` exposed the
+former 15-minute automatic-smoke ceiling. Run `32523125576` passed eleven jobs
+and cancelled Windows/Python 3.13 when source plus acceptance exceeded the
+unchanged 90-minute whole-job bound. The final workflow fetches tags, retains a
+bounded 45-minute smoke job, and separates source and acceptance into two
+complete twelve-combination matrices without raising the 90-minute limit.
+
+Annotated tag object `1df893ec42ac2c49e5944268cafec30757d06430`
+targets exact integrated revision
+`6d1cfb0f13d300b9d4b78bf7078cf07daa7febd6`. The GitHub Release was
+published on 2026-08-22 at
+`https://github.com/cooperonlineenterprises/octon-mini/releases/tag/v4.1.0`.
+There are no uploaded assets or separate package publication; distribution is
+the GitHub-generated source archives under MIT-0.
+
+The owner selected release-evidence policy `accept_disclosed_absence`.
+Unfamiliar-operator, independent-reviewer, independent external-project,
+real-provider, and human usability evidence remains unavailable. Independent
+real-project maturity, target-project adoption, and project or production
+readiness are not established.
 
 ## 4.0.0 release record
 
@@ -194,9 +230,9 @@ Before tagging a release:
     current authority;
 15. after a separately authorized `merge_commit` integration, manually
     dispatch the `validate` workflow on the exact integrated `main` revision
-    and confirm the full Python 3.11-3.14 and Ubuntu/macOS/Windows matrix
-    passes; the automatic `main-smoke` check is not a substitute for this
-    release gate; and
+    and confirm both the source/profile and acceptance matrices pass all twelve
+    Python 3.11-3.14 × Ubuntu/macOS/Windows combinations (24 jobs total); the
+    automatic `main-smoke` check is not a substitute for this release gate; and
 16. only with separate current release authority, create an annotated
     `v<version>` tag on that exact validated integrated revision.
 
@@ -221,7 +257,7 @@ Octon Mini source repository and its installed source bundle are distributed
 under the canonical MIT No Attribution license, SPDX identifier `MIT-0`.
 
 Public visibility, licensed source reuse, and an Octon Mini release are separate
-facts. Octon Mini 4.0.0 is released through annotated tag `v4.0.0` and its
+facts. Octon Mini 4.1.0 is released through annotated tag `v4.1.0` and its
 GitHub Release; no separate package registry publication occurred. The
 generator does not copy the source `LICENSE` into a target snapshot or choose
 a target project's overall license; that remains a separate project-owned

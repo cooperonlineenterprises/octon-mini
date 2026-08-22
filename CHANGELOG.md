@@ -3,7 +3,7 @@
 All notable Octon Mini contract changes are recorded here. Project-specific
 snapshots do not upgrade automatically.
 
-## 4.1.0 — Unreleased
+## 4.1.0 — 2026-08-22
 
 ### Added
 
@@ -32,13 +32,24 @@ snapshots do not upgrade automatically.
   commits a successor checkpoint, package state rejects symlink ancestors, and
   receipt/evidence references are revalidated before progress is accepted.
 
-This source work is not released. It creates no package adoption, task
-authority, external-effect permission, project readiness, or production
-readiness.
+Pull requests #18 and #19 were integrated with `merge_commit`. Annotated tag
+`v4.1.0` targets exactly
+`6d1cfb0f13d300b9d4b78bf7078cf07daa7febd6`, and the GitHub Release is
+published. Required run `32536899162`, automatic integrated-main smoke run
+`32540532990`, and the 24-job candidate and integrated-main split matrices
+`32536929040` and `32540555019` passed on their exact revisions. Failed
+predecessor runs remain retained and led to tag-aware checkout, bounded smoke,
+and coverage-preserving matrix-split corrections without relaxing the
+90-minute matrix limit.
+
+The owner selected release-evidence policy `accept_disclosed_absence`.
+Independent real-project maturity and unfamiliar-operator evidence remain not
+established. The release creates no package adoption, task authority,
+external-effect permission, project readiness, or production readiness.
 
 `SRC-DEC-0018` accepted the optional source architecture on 2026-08-20. That
-acceptance does not authorize a commit, release, target-project installation or
-adoption, runtime effect, or readiness claim.
+acceptance did not itself authorize the later commit, release, target-project
+installation or adoption, runtime effect, or readiness claim.
 
 ## 4.0.0 — 2026-08-18
 

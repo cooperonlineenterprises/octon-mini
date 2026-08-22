@@ -132,7 +132,7 @@ boundary, and limitations.
 | `docs/GUIDED_SETUP.md` | canonical setup interview, session, authority, staleness, and migration practice |
 | `docs/REAL_PROJECT_VALIDATION.md` | source-only real-project usability protocol and content-free report template |
 | `VELOCITY_VALIDATION.md` | benchmarks, touchpoints, validation matrix |
-| `RELEASE_READINESS.md` | non-authorizing 4.0.0 preparation checklist; `RELEASE.md` retains the release gate |
+| `RELEASE_READINESS.md` | non-authorizing 4.1.0 release evidence and known-limitations record; `RELEASE.md` retains the release gate |
 
 Strict JSON and Python 3.11+ keep the generated kernel portable and
 duplicate-key rejecting. Extensions may add formats only with a pinned parser
@@ -452,10 +452,12 @@ limitations.
 The public `cooperonlineenterprises/octon-mini` source repository is licensed
 under the [MIT No Attribution license](LICENSE), SPDX identifier `MIT-0`, with
 `Copyright 2026 Cooper Online Enterprises`. This permits use, modification, and
-redistribution without an attribution-carrying condition. Octon Mini 4.0.0 is
-a completed source release: annotated tag `v4.0.0` targets
-`68701faa1898879779e5a7c4c8cedbf8009c6ce0`, and its GitHub Release is
-published. No separate package registry or package channel was used.
+redistribution without an attribution-carrying condition. Octon Mini 4.1.0 is
+the current completed source release: annotated tag `v4.1.0` targets
+`6d1cfb0f13d300b9d4b78bf7078cf07daa7febd6`, and its GitHub Release is
+published. No separate package registry or package channel was used. Existing
+generated projects remain independent snapshots and do not acquire the release
+or optional long-running-work package automatically.
 
 An installed Octon Mini Project Bootstrap source bundle includes the repository
 license. Generated target projects do not receive this `LICENSE` file and do not
