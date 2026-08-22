@@ -1290,22 +1290,21 @@ def validate_ci_contract(issues: list[str]) -> None:
             "github.ref == 'refs/heads/main'"
         ),
         "current-runtime main smoke": 'python-version: "3.14"',
-        "manual-only full matrix": (
-            "full-matrix:\n    name: full / ${{ matrix.os }} / Python "
+        "manual-only full source matrix": (
+            "full-source-matrix:\n    name: full source / ${{ matrix.os }} / Python "
             "${{ matrix.python }}\n"
             "    if: github.event_name == 'workflow_dispatch'"
         ),
-        "three-OS release matrix": (
-            "os: [ubuntu-latest, macos-latest, windows-latest]"
-        ),
-        "Python 3.11-3.14 release matrix": (
-            'python: ["3.11", "3.12", "3.13", "3.14"]'
+        "manual-only full acceptance matrix": (
+            "full-acceptance-matrix:\n    name: full acceptance / ${{ matrix.os }} / Python "
+            "${{ matrix.python }}\n"
+            "    if: github.event_name == 'workflow_dispatch'"
         ),
         "evidence-preserving cancellation": (
             "cancel-in-progress: ${{ github.event_name == 'pull_request' }}"
         ),
         "pull-request timeout": "timeout-minutes: 45",
-        "main timeout": "timeout-minutes: 15",
+        "main timeout": "timeout-minutes: 45",
         "release timeout": "timeout-minutes: 90",
         "pinned checkout action": (
             "actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803"
@@ -1345,9 +1344,31 @@ def validate_ci_contract(issues: list[str]) -> None:
         "        with:\n"
         "          fetch-tags: true"
     )
-    if workflow.count(tag_aware_checkout) != 3:
+    if workflow.count(tag_aware_checkout) != 4:
         issues.append(
             "every CI checkout must fetch release tags for exact released-snapshot migration fixtures"
+        )
+    matrix_os = "os: [ubuntu-latest, macos-latest, windows-latest]"
+    if workflow.count(matrix_os) != 2:
+        issues.append(
+            "manual source and acceptance matrices must each cover Ubuntu, macOS, and Windows"
+        )
+    matrix_python = 'python: ["3.11", "3.12", "3.13", "3.14"]'
+    if workflow.count(matrix_python) != 2:
+        issues.append(
+            "manual source and acceptance matrices must each cover Python 3.11-3.14"
+        )
+    if workflow.count("timeout-minutes: 90") != 2:
+        issues.append(
+            "manual source and acceptance matrices must retain separate 90-minute bounds"
+        )
+    source_validation_command = (
+        "python -B skills/octon-mini-project-bootstrap/scripts/validate_octon_mini.py"
+    )
+    if workflow.count(source_validation_command) != 3:
+        issues.append(
+            "CI workflow must run source/profile validation in the pull-request, main-smoke, "
+            "and manually dispatched source matrix jobs"
         )
     acceptance_command = (
         "python -B skills/octon-mini-project-bootstrap/scripts/test_acceptance.py"
@@ -1355,7 +1376,7 @@ def validate_ci_contract(issues: list[str]) -> None:
     if workflow.count(acceptance_command) != 2:
         issues.append(
             "CI workflow must run acceptance exactly in the pull-request gate "
-            "and manually dispatched full matrix"
+            "and manually dispatched acceptance matrix"
         )
 
 
