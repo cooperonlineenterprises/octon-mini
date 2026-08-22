@@ -221,9 +221,14 @@ matrix in run `31539907441`, and received an annotated `v3.0.0` tag on
 2026-08-11. Octon Mini 4.0.0 was integrated at
 `68701faa1898879779e5a7c4c8cedbf8009c6ce0`, passed all twelve jobs in
 manually dispatched run `32185219444`, and received annotated tag `v4.0.0` and
-its GitHub Release on 2026-08-18. Failed predecessor run `32175919937` remains
-retained. Separate package publication was `none`. This workflow record does
-not authorize moving a published tag or performing a later release operation.
+its GitHub Release on 2026-08-18. Octon Mini 4.1.0 was integrated through
+pull requests #18 and #19 at
+`6d1cfb0f13d300b9d4b78bf7078cf07daa7febd6`; automatic smoke run
+`32540532990` and manually dispatched source/acceptance run `32540555019`
+passed on that exact revision before annotated tag `v4.1.0` and its GitHub
+Release were published on 2026-08-22. Failed predecessor runs remain retained.
+Separate package publication was `none`. This workflow record does not
+authorize moving a published tag or performing a later release operation.
 
 ## Unsupported workflow families
 
